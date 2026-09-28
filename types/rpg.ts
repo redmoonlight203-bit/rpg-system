@@ -1,3 +1,5 @@
+export type Rol = "REENCARNADO" | "KUROI";
+
 export interface Atributos {
   fisico: number;
   magico: number;
