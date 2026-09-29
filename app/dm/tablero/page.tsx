@@ -8,7 +8,8 @@ import {
   User, Edit3, LogOut, Link2, ZoomIn, ZoomOut, RotateCcw,
   Home, Pickaxe, Castle, Trees, Gem, Shield, Swords, Crown, Compass,
   ChevronRight, ArrowLeft, ExternalLink, CornerDownRight, Save, X,
-  Globe, Building, MapPin, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Compass as CompassIcon
+  Globe, Building, MapPin, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Compass as CompassIcon,
+  Sliders // <--- Agrega este icono
 } from "lucide-react";
 
 interface Tablero {
@@ -374,14 +375,7 @@ export default function TableroKuroi() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => router.push("/dm/personajes")} className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-xs font-mono text-neutral-300 rounded flex items-center gap-1.5 uppercase">
-              <User className="w-3.5 h-3.5 text-red-500" /> Almas
-            </button>
-            <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="p-2 bg-neutral-900 hover:bg-red-950 text-neutral-400 hover:text-red-400 rounded border border-neutral-800" title="Cerrar Sesión">
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
+          
         </header>
 
         {/* MIGA DE PAN (BREADCRUMBS) Y TIPO DE MAPA */}
