@@ -8,15 +8,7 @@ import {
 
 export default function PanelPrincipalKuroi() {
   const modulos = [
-    {
-      titulo: "El Tablero Táctico",
-      desc: "Gestor de mapas, ciudades, mazmorras anidadas y tokens en tiempo real.",
-      icono: Map,
-      ruta: "/dm/tablero",
-      color: "text-red-500",
-      bg: "bg-red-950/40 border-red-800",
-      glow: "hover:shadow-[0_0_20px_rgba(220,38,38,0.3)] hover:border-red-500"
-    },
+   
     {
       titulo: "Gestión de Almas",
       desc: "Aprueba cuentas nuevas, edita stats y maneja estados de vida (Vivo, Muerto, Sellado).",
@@ -61,15 +53,6 @@ export default function PanelPrincipalKuroi() {
       color: "text-purple-500",
       bg: "bg-purple-950/40 border-purple-800",
       glow: "hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:border-purple-500"
-    },
-    {
-      titulo: "Reloj & Eras",
-      desc: "Avanza el tiempo del mundo, crea Eras y eventos históricos globales.",
-      icono: Hourglass,
-      ruta: "/dm/tiempo",
-      color: "text-blue-500",
-      bg: "bg-blue-950/40 border-blue-800",
-      glow: "hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:border-blue-500"
     }
   ];
 
