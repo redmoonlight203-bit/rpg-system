@@ -65,26 +65,13 @@ export default function NexoReencarnado() {
       ruta: "/ficha/alma",
       color: "text-cyan-600"
     },
-    {
-      titulo: "Cartografía",
-      descripcion: "Mapas, zonas seguras y territorios explorados.",
-      icono: Map,
-      ruta: "/ficha/mapas",
-      color: "text-emerald-700"
-    },
+    
     {
       titulo: "Forja de Creación",
       descripcion: "Propón nuevos objetos o habilidades. Kuroi decidirá su destino.",
       icono: Hammer,
       ruta: "/ficha/creacion",
       color: "text-orange-600"
-    },
-    {
-      titulo: "Línea de Tiempo",
-      descripcion: "Crónica de tus vidas pasadas y la historia del mundo.",
-      icono: Hourglass,
-      ruta: "/ficha/lore",
-      color: "text-purple-600"
     }
   ];
 
