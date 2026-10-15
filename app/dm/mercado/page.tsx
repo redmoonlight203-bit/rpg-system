@@ -99,7 +99,7 @@ export default function MercadoNegroKuroi() {
 
     if (negs) {
       const negociacionesMapeadas = await Promise.all(
-        negs.map(async (n: any) => {
+        negs.map(async (n) => {
           const { data: itemData } = await supabase.from("forja_maestra").select("nombre").eq("id", n.item_id).single();
           const { data: pjData } = await supabase.from("personajes").select("nombre").eq("user_id", n.user_id).single();
 
@@ -121,7 +121,7 @@ export default function MercadoNegroKuroi() {
     // 4. Cargar Auditoría de Inventarios de Jugadores
     const { data: invData } = await supabase.from("inventario_jugador").select("*").order("created_at", { ascending: false });
     if (invData && pjs) {
-      const invMapeados = invData.map((inv: any) => {
+      const invMapeados = invData.map((inv) => {
         const matchPj = pjs.find(p => p.user_id === inv.user_id);
         return {
           ...inv,
@@ -135,7 +135,17 @@ export default function MercadoNegroKuroi() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarDatos();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
   }, []);
 
   const generarStatsFinales = (item: EntidadForja) => {
@@ -319,7 +329,11 @@ export default function MercadoNegroKuroi() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setPestana(tab.id as any)}
+                onClick={() =>
+                  setPestana(
+                    tab.id as "escaparate" | "negociaciones" | "inventarios"
+                  )
+                }
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
                   activa
                     ? "bg-purple-950/80 border border-purple-800 text-purple-200 font-bold shadow-[0_0_10px_rgba(168,85,247,0.2)]"
@@ -338,7 +352,7 @@ export default function MercadoNegroKuroi() {
           <section className="space-y-4">
             {articulosForja.length === 0 ? (
               <div className="bg-neutral-950 border border-neutral-900 p-12 text-center rounded-xl text-neutral-500 font-mono text-sm">
-                No hay artículos expuestos en la tienda. Activa "Vender en Mercado" desde La Forja.
+                No hay artículos expuestos en la tienda. Activa &ldquo;Vender en Mercado&rdquo; desde La Forja.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -355,7 +369,7 @@ export default function MercadoNegroKuroi() {
                       </div>
                       
                       <h3 className="text-lg font-bold text-neutral-100 font-mono">{art.nombre}</h3>
-                      <p className="text-xs text-neutral-400 italic font-serif leading-relaxed line-clamp-3">"{art.descripcion}"</p>
+                      <p className="text-xs text-neutral-400 italic font-serif leading-relaxed line-clamp-3">&ldquo;{art.descripcion}&rdquo;</p>
 
                       <div className="bg-neutral-900/60 p-2.5 rounded border border-neutral-800 flex justify-between items-center">
                         <span className="text-[10px] font-mono text-neutral-500 uppercase">Precio:</span>
@@ -404,7 +418,7 @@ export default function MercadoNegroKuroi() {
                           Jugador: <strong className="text-red-400">{neg.personaje_nombre}</strong>
                         </p>
                         <p className="text-xs text-amber-300 font-serif italic border-l-2 border-amber-700 pl-2 mt-1">
-                          "{neg.mensaje}"
+                          &ldquo;{neg.mensaje}&rdquo;
                         </p>
                       </div>
                     </div>
