@@ -3,9 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Shield, ArrowLeft, Heart, Zap, Sparkles, Crown, Activity, 
-  X, Plus, RefreshCw, CheckCircle, RotateCcw, Lock
+import {
+  Shield,
+  ArrowLeft,
+  Crown,
+  Activity,
+  X,
+  RefreshCw,
 } from "lucide-react";
 
 interface Personaje {
@@ -78,7 +82,19 @@ export default function EquipamientoJugador() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarDatos();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // LÓGICA DE EQUIPAR UN OBJETO EN UN SLOT
@@ -380,7 +396,7 @@ export default function EquipamientoJugador() {
                           </span>
                         </div>
                         <p className="text-xs font-serif text-neutral-400 italic line-clamp-1">
-                          "{item.descripcion}"
+                          &ldquo;{item.descripcion}&rdquo;
                         </p>
                       </div>
 
