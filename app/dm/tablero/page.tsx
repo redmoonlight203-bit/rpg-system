@@ -1,15 +1,13 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+
 import { supabase } from "../../../lib/supabase";
 import { 
-  Skull, Map, Plus, Eye, EyeOff, Trash2, 
-  User, Edit3, LogOut, Link2, ZoomIn, ZoomOut, RotateCcw,
-  Home, Pickaxe, Castle, Trees, Gem, Shield, Swords, Crown, Compass,
+  Skull, Plus, Trash2, Edit3, ZoomIn, ZoomOut, RotateCcw,
+  Home, Pickaxe, Castle, Trees, Gem, Shield, Swords, Crown,
   ChevronRight, ArrowLeft, ExternalLink, CornerDownRight, Save, X,
-  Globe, Building, MapPin, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Compass as CompassIcon,
-  Sliders // <--- Agrega este icono
+  Globe, Building, MapPin, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight, Compass as CompassIcon // <--- Agrega este icono
 } from "lucide-react";
 
 interface Tablero {
@@ -43,7 +41,7 @@ interface Token {
 }
 
 export default function TableroKuroi() {
-  const router = useRouter();
+
   const mapaRef = useRef<HTMLDivElement>(null);
 
   const [tableros, setTableros] = useState<Tablero[]>([]);
@@ -79,7 +77,9 @@ export default function TableroKuroi() {
   // Ficha seleccionada
   const [casillaSeleccionada, setCasillaSeleccionada] = useState<{ x: number; y: number; pct_x: number; pct_y: number } | null>(null);
   const [nombreToken, setNombreToken] = useState("");
-  const [tipoToken, setTipoToken] = useState<"jugador" | "enemigo" | "pnj" | "ciudad" | "tesoro">("ciudad");
+  const [tipoToken] = useState<
+    "jugador" | "enemigo" | "pnj" | "ciudad" | "tesoro"
+  >("ciudad");
   const [iconoToken, setIconoToken] = useState("castillo");
   const [submapaVinculado, setSubmapaVinculado] = useState<string>("");
   const [visibleJugadores, setVisibleJugadores] = useState(true);
@@ -89,7 +89,7 @@ export default function TableroKuroi() {
 
   const formatearUrlImagen = (url: string) => {
     if (!url) return "";
-    let limpia = url.trim();
+    const limpia = url.trim();
     if (limpia.includes("imgur.com/") && !limpia.includes("i.imgur.com")) {
       const id = limpia.split("imgur.com/")[1]?.split("/")[0]?.split(".")[0];
       if (id) return `https://i.imgur.com/${id}.jpeg`;
@@ -116,7 +116,19 @@ export default function TableroKuroi() {
   };
 
   useEffect(() => {
-    cargarTableros();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarTableros();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClicMapa = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -225,7 +237,15 @@ export default function TableroKuroi() {
     e.preventDefault();
     if (!tableroActivo) return;
 
-    const payload: any = {
+    const payload: {
+      tipo_mapa: Tablero["tipo_mapa"];
+      es_interior: boolean;
+      mapa_norte_id: string | null;
+      mapa_sur_id: string | null;
+      mapa_este_id: string | null;
+      mapa_oeste_id: string | null;
+      imagen_url?: string;
+    } = {
       tipo_mapa: tipoMapa,
       es_interior: tipoMapa === "interior",
       mapa_norte_id: mapaNorte || null,
@@ -513,7 +533,8 @@ export default function TableroKuroi() {
         {mostrarEditarMapa && tableroActivo && (
           <form onSubmit={guardarConfiguracionMapaActual} className="bg-neutral-950 border border-amber-900/60 p-6 rounded-xl space-y-4 max-w-2xl">
             <h3 className="text-sm font-mono text-amber-500 uppercase font-bold flex items-center gap-2">
-              <Edit3 className="w-4 h-4" /> Configuración de "{tableroActivo.nombre}"
+              <Edit3 className="w-4 h-4" />
+              Configuración de &ldquo;{tableroActivo.nombre}&rdquo;
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -521,7 +542,18 @@ export default function TableroKuroi() {
                 <label className="text-[10px] font-mono text-neutral-400 uppercase">Nivel Jerárquico del Mapa</label>
                 <select
                   value={tipoMapa}
-                  onChange={(e) => setTipoMapa(e.target.value as any)}
+                  onChange={(e) => {
+                    const valor = e.target.value;
+
+                    if (
+                      valor === "pais" ||
+                      valor === "ciudad" ||
+                      valor === "punto_interes" ||
+                      valor === "interior"
+                    ) {
+                      setTipoMapa(valor);
+                    }
+                  }}
                   className="w-full bg-black border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono"
                 >
                   <option value="pais">1. País / Continente (Libre)</option>
@@ -601,7 +633,18 @@ export default function TableroKuroi() {
               <label className="text-[10px] font-mono text-neutral-400 uppercase">Tipo de Mapa</label>
               <select
                 value={tipoMapa}
-                onChange={(e) => setTipoMapa(e.target.value as any)}
+                onChange={(e) => {
+                  const valor = e.target.value;
+
+                  if (
+                    valor === "pais" ||
+                    valor === "ciudad" ||
+                    valor === "punto_interes" ||
+                    valor === "interior"
+                  ) {
+                    setTipoMapa(valor);
+                  }
+                }}
                 className="w-full bg-black border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono"
               >
                 <option value="pais">1. País / Continente</option>
@@ -636,6 +679,8 @@ export default function TableroKuroi() {
                 className="relative rounded-lg overflow-hidden select-none transition-transform duration-300 ease-out origin-center cursor-crosshair"
                 style={{ width: `${100 * zoom}%`, aspectRatio: `${aspectRatio}` }}
               >
+                {/* El tablero requiere dimensiones naturales y carga directa del mapa. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={formatearUrlImagen(tableroActivo.imagen_url)}
                   alt={tableroActivo.nombre}
@@ -643,7 +688,10 @@ export default function TableroKuroi() {
                   crossOrigin="anonymous"
                   onLoad={(e) => {
                     const img = e.currentTarget;
-                    if (img.naturalWidth && img.naturalHeight) setAspectRatio(img.naturalWidth / img.naturalHeight);
+
+                    if (img.naturalWidth && img.naturalHeight) {
+                      setAspectRatio(img.naturalWidth / img.naturalHeight);
+                    }
                   }}
                   className="w-full h-full object-contain pointer-events-none block"
                 />
