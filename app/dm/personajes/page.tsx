@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+
 import { supabase } from "../../../lib/supabase";
 import { 
-  Skull, User, ShieldAlert, Edit3, Activity, X, Heart, Lock, ArrowLeft,
+  Skull, User, ShieldAlert, Edit3, Activity, X, Heart, Lock,
   Shield, Sparkles, Crown, PackageCheck, Eye, Search, Flame, Key
 } from "lucide-react";
 
@@ -54,7 +54,7 @@ interface ItemInventario {
 }
 
 export default function GestionPersonajesKuroi() {
-  const router = useRouter();
+
 
   // PESTAÑAS DE NAVEGACIÓN
   const [pestana, setPestana] = useState<"avatares" | "cuentas" | "juicios">("avatares");
@@ -86,7 +86,10 @@ export default function GestionPersonajesKuroi() {
     if (perfiles) {
       // Excluir la cuenta de Kuroi / DM de los listados de jugadores
       const cuentasJugadores = perfiles.filter(
-        (p: Perfil) => p.rol !== "admin" && p.rol !== "dm" && p.rol !== "kuroi"
+        (p: Perfil) =>
+          !["admin", "dm", "kuroi"].includes(
+            (p.rol ?? "").toLowerCase()
+          )
       );
       
       setTodasLasCuentas(cuentasJugadores as Perfil[]);
@@ -113,7 +116,17 @@ export default function GestionPersonajesKuroi() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarDatos();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
   }, []);
 
   // OBTENER EMAIL DE CUENTA ASOCIADA AL USER_ID
@@ -295,7 +308,9 @@ export default function GestionPersonajesKuroi() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setPestana(tab.id as any)}
+                onClick={() =>
+                  setPestana(tab.id as "avatares" | "cuentas" | "juicios")
+                }
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all relative ${
                   activa
                     ? "bg-red-950/80 border border-red-800 text-red-200 font-bold shadow-[0_0_15px_rgba(220,38,38,0.25)]"
@@ -783,7 +798,9 @@ export default function GestionPersonajesKuroi() {
                         </span>
                       </div>
                       <h4 className="text-sm font-bold font-mono text-neutral-200">{item.nombre}</h4>
-                      <p className="text-[10px] font-serif text-neutral-400 italic leading-relaxed">"{item.descripcion}"</p>
+                      <p className="text-[10px] font-serif text-neutral-400 italic leading-relaxed">
+                        &ldquo;{item.descripcion}&rdquo;
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -805,7 +822,22 @@ export default function GestionPersonajesKuroi() {
 
                 <select
                   value={personajeEditando.estado_vida || "vivo"}
-                  onChange={(e) => setPersonajeEditando({ ...personajeEditando, estado_vida: e.target.value as any })}
+                  onChange={(e) => {
+                    const estado = e.target.value;
+
+                    if (
+                      estado !== "vivo" &&
+                      estado !== "muerto" &&
+                      estado !== "sellado"
+                    ) {
+                      return;
+                    }
+
+                    setPersonajeEditando({
+                      ...personajeEditando,
+                      estado_vida: estado,
+                    });
+                  }}
                   className="bg-black border border-neutral-800 text-xs font-mono text-neutral-200 px-3 py-1.5 rounded outline-none"
                 >
                   <option value="vivo">Estado: VIVO</option>
