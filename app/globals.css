@@ -1,20 +1,292 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 @import "tailwindcss";
 
+/* ==========================================================================
+   YUGEN REALM · SISTEMA DE DISEÑO  (negro · rojo · dorado)
+   --------------------------------------------------------------------------
+   Base de la paleta:
+     rojo   #ad0013   dorado #a67d43   negro #121312
+
+   TRUCO: Tailwind v4 permite redefinir su paleta. Aquí "re-pintamos" los
+   colores que ya usan tus páginas (red, amber, purple, cyan, orange...)
+   para que TODA la app cambie de look sin tocar cada archivo.
+   Para código NUEVO usa los nombres semánticos: text-gold, bg-ink,
+   border-crimson, etc.
+   ========================================================================== */
+
+@theme {
+  /* ---- Nombres semánticos (úsalos de aquí en adelante) ---- */
+  --color-crimson: #ad0013;
+  --color-gold: #a67d43;
+  --color-ink: #121312;
+
+  /* ---- NEGRO cálido (reemplaza neutral) ---- */
+  --color-neutral-50: #f8f6f0;
+  --color-neutral-100: #efede6;
+  --color-neutral-200: #e2e1dc;
+  --color-neutral-300: #c9c9c4;
+  --color-neutral-400: #a9aaa5;
+  --color-neutral-500: #82837e;
+  --color-neutral-600: #5a5b57;
+  --color-neutral-700: #3a3b38;
+  --color-neutral-800: #262725;
+  --color-neutral-900: #1a1b19;
+  --color-neutral-950: #121312;
+
+  /* ---- ROJO carmesí (reemplaza red) ---- */
+  --color-red-50: #fff1f2;
+  --color-red-100: #fde4e6;
+  --color-red-200: #fac6ca;
+  --color-red-300: #f69aa2;
+  --color-red-400: #f0606c;
+  --color-red-500: #e5283a;
+  --color-red-600: #cc0f22;
+  --color-red-700: #ad0013;
+  --color-red-800: #7d000d;
+  --color-red-900: #4a0008;
+  --color-red-950: #1c0003;
+
+  /* ---- DORADO (reemplaza amber y yellow) ---- */
+  --color-amber-50: #fbf6ea;
+  --color-amber-100: #f4e9d0;
+  --color-amber-200: #e8d3a8;
+  --color-amber-300: #d8b97f;
+  --color-amber-400: #c49a5c;
+  --color-amber-500: #a67d43;
+  --color-amber-600: #8a6535;
+  --color-amber-700: #6e5029;
+  --color-amber-800: #523c1f;
+  --color-amber-900: #382916;
+  --color-amber-950: #1f160b;
+  --color-yellow-50: #fbf6ea;
+  --color-yellow-100: #f4e9d0;
+  --color-yellow-200: #e8d3a8;
+  --color-yellow-300: #d8b97f;
+  --color-yellow-400: #c49a5c;
+  --color-yellow-500: #a67d43;
+  --color-yellow-600: #8a6535;
+  --color-yellow-700: #6e5029;
+  --color-yellow-800: #523c1f;
+  --color-yellow-900: #382916;
+  --color-yellow-950: #1f160b;
+
+  /* ---- COBRE (reemplaza orange): puente entre rojo y dorado ---- */
+  --color-orange-50: #fdf5ef;
+  --color-orange-100: #fae9dd;
+  --color-orange-200: #f5d3bd;
+  --color-orange-300: #ebb08c;
+  --color-orange-400: #dc8a5c;
+  --color-orange-500: #c9693a;
+  --color-orange-600: #ac5230;
+  --color-orange-700: #9e4a1e;
+  --color-orange-800: #7a3515;
+  --color-orange-900: #4a1f0d;
+  --color-orange-950: #200d05;
+
+  /* ---- VINO / BORGOÑA (reemplaza purple, indigo, rose) ---- */
+  --color-purple-50: #fdf2f4;
+  --color-purple-100: #f9e3e6;
+  --color-purple-200: #f2c4cc;
+  --color-purple-300: #e697a6;
+  --color-purple-400: #d6687f;
+  --color-purple-500: #bf3d5c;
+  --color-purple-600: #a52a49;
+  --color-purple-700: #8a1f3a;
+  --color-purple-800: #67162a;
+  --color-purple-900: #3f0f1a;
+  --color-purple-950: #1c060b;
+  --color-indigo-50: #fdf2f4;
+  --color-indigo-100: #f9e3e6;
+  --color-indigo-200: #f2c4cc;
+  --color-indigo-300: #e697a6;
+  --color-indigo-400: #d6687f;
+  --color-indigo-500: #bf3d5c;
+  --color-indigo-600: #a52a49;
+  --color-indigo-700: #8a1f3a;
+  --color-indigo-800: #67162a;
+  --color-indigo-900: #3f0f1a;
+  --color-indigo-950: #1c060b;
+  --color-rose-50: #fdf2f4;
+  --color-rose-100: #f9e3e6;
+  --color-rose-200: #f2c4cc;
+  --color-rose-300: #e697a6;
+  --color-rose-400: #d6687f;
+  --color-rose-500: #bf3d5c;
+  --color-rose-600: #a52a49;
+  --color-rose-700: #8a1f3a;
+  --color-rose-800: #67162a;
+  --color-rose-900: #3f0f1a;
+  --color-rose-950: #1c060b;
+
+  /* ---- CHAMPÁN / HUESO (reemplaza cyan): para "info" y detalles claros ---- */
+  --color-cyan-50: #fbf9f3;
+  --color-cyan-100: #f6f2e6;
+  --color-cyan-200: #eee8d5;
+  --color-cyan-300: #e3dabd;
+  --color-cyan-400: #d3c79f;
+  --color-cyan-500: #bdae80;
+  --color-cyan-600: #9a8c60;
+  --color-cyan-700: #766a46;
+  --color-cyan-800: #544a30;
+  --color-cyan-900: #332d1d;
+  --color-cyan-950: #1a1710;
+
+  /* ---- JADE apagado (reemplaza emerald): solo para "éxito / aprobado" ---- */
+  --color-emerald-50: #f1f9f5;
+  --color-emerald-100: #e0f2ea;
+  --color-emerald-200: #c0e3d4;
+  --color-emerald-300: #94cdb5;
+  --color-emerald-400: #62b393;
+  --color-emerald-500: #3a9473;
+  --color-emerald-600: #27795a;
+  --color-emerald-700: #1c5f44;
+  --color-emerald-800: #134531;
+  --color-emerald-900: #0c2e20;
+  --color-emerald-950: #04140d;
+}
+
+/* Tipografías (las carga layout.tsx con next/font).
+   serif -> Noto Serif KR   |   sans y mono -> Noto Sans KR
+   Así todo lo que ya usa font-mono / font-serif cambia solo. */
+@theme inline {
+  --font-sans: var(--font-sans-kr), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-sans-kr), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-serif-kr), ui-serif, Georgia, serif;
+}
+
+/* ---------- Base ---------- */
+html {
+  color-scheme: dark;
+}
+
 body {
-  background-color: #030712;
-  color: #f8fafc;
-  font-family: system-ui, -apple-system, sans-serif;
+  background-color: #050505;
+  color: var(--color-neutral-200);
+  font-family: var(--font-sans);
 }
 
-/* Efectos de brillo futurista */
-.glow-cyan {
-  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.25);
+::selection {
+  background: var(--color-crimson);
+  color: #fff;
 }
 
-.glow-emerald {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25);
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/* Scrollbar fina, oscura con detalle dorado */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3b38 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #3a3b38;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold);
+}
+
+/* ---------- Componentes ---------- */
+@layer components {
+  /* Brillos (los dos "blood" no existían y tus páginas ya los usaban) */
+  .glow-blood {
+    box-shadow: 0 0 32px -8px rgb(173 0 19 / 0.55);
+  }
+  .glow-blood-sm {
+    box-shadow: 0 0 14px -4px rgb(173 0 19 / 0.55);
+  }
+  .glow-gold {
+    box-shadow: 0 0 28px -8px rgb(166 125 67 / 0.45);
+  }
+  .glow-cyan {
+    box-shadow: 0 0 25px -5px rgb(189 174 128 / 0.25);
+  }
+  .glow-emerald {
+    box-shadow: 0 0 25px -5px rgb(58 148 115 / 0.25);
+  }
+
+  /* Panel / tarjeta: borde fino dorado + esquinas ornamentales */
+  .kr-panel {
+    position: relative;
+    background: linear-gradient(160deg, #151615 0%, #0c0d0c 100%);
+    border: 1px solid rgb(166 125 67 / 0.22);
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+  }
+  .kr-panel::before,
+  .kr-panel::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    transition: border-color 0.3s;
+  }
+  .kr-panel::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--color-gold);
+    border-left: 2px solid var(--color-gold);
+  }
+  .kr-panel::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid var(--color-gold);
+    border-right: 2px solid var(--color-gold);
+  }
+  .kr-panel:hover {
+    border-color: rgb(173 0 19 / 0.7);
+    box-shadow: 0 0 30px -10px rgb(173 0 19 / 0.6);
+  }
+  .kr-panel:hover::before,
+  .kr-panel:hover::after {
+    border-color: var(--color-red-500);
+  }
+
+  /* Divisor con rombo central */
+  .kr-divider {
+    position: relative;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(166 125 67 / 0.7),
+      transparent
+    );
+  }
+  .kr-divider::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    background: var(--color-crimson);
+    border: 1px solid var(--color-gold);
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  /* Fondo ambiental: resplandor carmesí arriba + retícula tenue */
+  .kr-ambient {
+    background:
+      radial-gradient(
+        ellipse 60% 40% at 50% 0%,
+        rgb(173 0 19 / 0.22),
+        transparent 70%
+      ),
+      repeating-linear-gradient(
+        45deg,
+        rgb(166 125 67 / 0.035) 0 1px,
+        transparent 1px 28px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgb(166 125 67 / 0.035) 0 1px,
+        transparent 1px 28px
+      );
+  }
 }

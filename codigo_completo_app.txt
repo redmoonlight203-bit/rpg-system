@@ -280,25 +280,297 @@ RUTA: tsconfig.json
 RUTA: app/globals.css
 ================================================================================
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 @import "tailwindcss";
 
+/* ==========================================================================
+   YUGEN REALM · SISTEMA DE DISEÑO  (negro · rojo · dorado)
+   --------------------------------------------------------------------------
+   Base de la paleta:
+     rojo   #ad0013   dorado #a67d43   negro #121312
+
+   TRUCO: Tailwind v4 permite redefinir su paleta. Aquí "re-pintamos" los
+   colores que ya usan tus páginas (red, amber, purple, cyan, orange...)
+   para que TODA la app cambie de look sin tocar cada archivo.
+   Para código NUEVO usa los nombres semánticos: text-gold, bg-ink,
+   border-crimson, etc.
+   ========================================================================== */
+
+@theme {
+  /* ---- Nombres semánticos (úsalos de aquí en adelante) ---- */
+  --color-crimson: #ad0013;
+  --color-gold: #a67d43;
+  --color-ink: #121312;
+
+  /* ---- NEGRO cálido (reemplaza neutral) ---- */
+  --color-neutral-50: #f8f6f0;
+  --color-neutral-100: #efede6;
+  --color-neutral-200: #e2e1dc;
+  --color-neutral-300: #c9c9c4;
+  --color-neutral-400: #a9aaa5;
+  --color-neutral-500: #82837e;
+  --color-neutral-600: #5a5b57;
+  --color-neutral-700: #3a3b38;
+  --color-neutral-800: #262725;
+  --color-neutral-900: #1a1b19;
+  --color-neutral-950: #121312;
+
+  /* ---- ROJO carmesí (reemplaza red) ---- */
+  --color-red-50: #fff1f2;
+  --color-red-100: #fde4e6;
+  --color-red-200: #fac6ca;
+  --color-red-300: #f69aa2;
+  --color-red-400: #f0606c;
+  --color-red-500: #e5283a;
+  --color-red-600: #cc0f22;
+  --color-red-700: #ad0013;
+  --color-red-800: #7d000d;
+  --color-red-900: #4a0008;
+  --color-red-950: #1c0003;
+
+  /* ---- DORADO (reemplaza amber y yellow) ---- */
+  --color-amber-50: #fbf6ea;
+  --color-amber-100: #f4e9d0;
+  --color-amber-200: #e8d3a8;
+  --color-amber-300: #d8b97f;
+  --color-amber-400: #c49a5c;
+  --color-amber-500: #a67d43;
+  --color-amber-600: #8a6535;
+  --color-amber-700: #6e5029;
+  --color-amber-800: #523c1f;
+  --color-amber-900: #382916;
+  --color-amber-950: #1f160b;
+  --color-yellow-50: #fbf6ea;
+  --color-yellow-100: #f4e9d0;
+  --color-yellow-200: #e8d3a8;
+  --color-yellow-300: #d8b97f;
+  --color-yellow-400: #c49a5c;
+  --color-yellow-500: #a67d43;
+  --color-yellow-600: #8a6535;
+  --color-yellow-700: #6e5029;
+  --color-yellow-800: #523c1f;
+  --color-yellow-900: #382916;
+  --color-yellow-950: #1f160b;
+
+  /* ---- COBRE (reemplaza orange): puente entre rojo y dorado ---- */
+  --color-orange-50: #fdf5ef;
+  --color-orange-100: #fae9dd;
+  --color-orange-200: #f5d3bd;
+  --color-orange-300: #ebb08c;
+  --color-orange-400: #dc8a5c;
+  --color-orange-500: #c9693a;
+  --color-orange-600: #ac5230;
+  --color-orange-700: #9e4a1e;
+  --color-orange-800: #7a3515;
+  --color-orange-900: #4a1f0d;
+  --color-orange-950: #200d05;
+
+  /* ---- VINO / BORGOÑA (reemplaza purple, indigo, rose) ---- */
+  --color-purple-50: #fdf2f4;
+  --color-purple-100: #f9e3e6;
+  --color-purple-200: #f2c4cc;
+  --color-purple-300: #e697a6;
+  --color-purple-400: #d6687f;
+  --color-purple-500: #bf3d5c;
+  --color-purple-600: #a52a49;
+  --color-purple-700: #8a1f3a;
+  --color-purple-800: #67162a;
+  --color-purple-900: #3f0f1a;
+  --color-purple-950: #1c060b;
+  --color-indigo-50: #fdf2f4;
+  --color-indigo-100: #f9e3e6;
+  --color-indigo-200: #f2c4cc;
+  --color-indigo-300: #e697a6;
+  --color-indigo-400: #d6687f;
+  --color-indigo-500: #bf3d5c;
+  --color-indigo-600: #a52a49;
+  --color-indigo-700: #8a1f3a;
+  --color-indigo-800: #67162a;
+  --color-indigo-900: #3f0f1a;
+  --color-indigo-950: #1c060b;
+  --color-rose-50: #fdf2f4;
+  --color-rose-100: #f9e3e6;
+  --color-rose-200: #f2c4cc;
+  --color-rose-300: #e697a6;
+  --color-rose-400: #d6687f;
+  --color-rose-500: #bf3d5c;
+  --color-rose-600: #a52a49;
+  --color-rose-700: #8a1f3a;
+  --color-rose-800: #67162a;
+  --color-rose-900: #3f0f1a;
+  --color-rose-950: #1c060b;
+
+  /* ---- CHAMPÁN / HUESO (reemplaza cyan): para "info" y detalles claros ---- */
+  --color-cyan-50: #fbf9f3;
+  --color-cyan-100: #f6f2e6;
+  --color-cyan-200: #eee8d5;
+  --color-cyan-300: #e3dabd;
+  --color-cyan-400: #d3c79f;
+  --color-cyan-500: #bdae80;
+  --color-cyan-600: #9a8c60;
+  --color-cyan-700: #766a46;
+  --color-cyan-800: #544a30;
+  --color-cyan-900: #332d1d;
+  --color-cyan-950: #1a1710;
+
+  /* ---- JADE apagado (reemplaza emerald): solo para "éxito / aprobado" ---- */
+  --color-emerald-50: #f1f9f5;
+  --color-emerald-100: #e0f2ea;
+  --color-emerald-200: #c0e3d4;
+  --color-emerald-300: #94cdb5;
+  --color-emerald-400: #62b393;
+  --color-emerald-500: #3a9473;
+  --color-emerald-600: #27795a;
+  --color-emerald-700: #1c5f44;
+  --color-emerald-800: #134531;
+  --color-emerald-900: #0c2e20;
+  --color-emerald-950: #04140d;
+}
+
+/* Tipografías (las carga layout.tsx con next/font).
+   serif -> Noto Serif KR   |   sans y mono -> Noto Sans KR
+   Así todo lo que ya usa font-mono / font-serif cambia solo. */
+@theme inline {
+  --font-sans: var(--font-sans-kr), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-sans-kr), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-serif-kr), ui-serif, Georgia, serif;
+}
+
+/* ---------- Base ---------- */
+html {
+  color-scheme: dark;
+}
+
 body {
-  background-color: #030712;
-  color: #f8fafc;
-  font-family: system-ui, -apple-system, sans-serif;
+  background-color: #050505;
+  color: var(--color-neutral-200);
+  font-family: var(--font-sans);
 }
 
-/* Efectos de brillo futurista */
-.glow-cyan {
-  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.25);
+::selection {
+  background: var(--color-crimson);
+  color: #fff;
 }
 
-.glow-emerald {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25);
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/* Scrollbar fina, oscura con detalle dorado */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3b38 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #3a3b38;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold);
+}
+
+/* ---------- Componentes ---------- */
+@layer components {
+  /* Brillos (los dos "blood" no existían y tus páginas ya los usaban) */
+  .glow-blood {
+    box-shadow: 0 0 32px -8px rgb(173 0 19 / 0.55);
+  }
+  .glow-blood-sm {
+    box-shadow: 0 0 14px -4px rgb(173 0 19 / 0.55);
+  }
+  .glow-gold {
+    box-shadow: 0 0 28px -8px rgb(166 125 67 / 0.45);
+  }
+  .glow-cyan {
+    box-shadow: 0 0 25px -5px rgb(189 174 128 / 0.25);
+  }
+  .glow-emerald {
+    box-shadow: 0 0 25px -5px rgb(58 148 115 / 0.25);
+  }
+
+  /* Panel / tarjeta: borde fino dorado + esquinas ornamentales */
+  .kr-panel {
+    position: relative;
+    background: linear-gradient(160deg, #151615 0%, #0c0d0c 100%);
+    border: 1px solid rgb(166 125 67 / 0.22);
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+  }
+  .kr-panel::before,
+  .kr-panel::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    transition: border-color 0.3s;
+  }
+  .kr-panel::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--color-gold);
+    border-left: 2px solid var(--color-gold);
+  }
+  .kr-panel::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid var(--color-gold);
+    border-right: 2px solid var(--color-gold);
+  }
+  .kr-panel:hover {
+    border-color: rgb(173 0 19 / 0.7);
+    box-shadow: 0 0 30px -10px rgb(173 0 19 / 0.6);
+  }
+  .kr-panel:hover::before,
+  .kr-panel:hover::after {
+    border-color: var(--color-red-500);
+  }
+
+  /* Divisor con rombo central */
+  .kr-divider {
+    position: relative;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(166 125 67 / 0.7),
+      transparent
+    );
+  }
+  .kr-divider::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    background: var(--color-crimson);
+    border: 1px solid var(--color-gold);
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  /* Fondo ambiental: resplandor carmesí arriba + retícula tenue */
+  .kr-ambient {
+    background:
+      radial-gradient(
+        ellipse 60% 40% at 50% 0%,
+        rgb(173 0 19 / 0.22),
+        transparent 70%
+      ),
+      repeating-linear-gradient(
+        45deg,
+        rgb(166 125 67 / 0.035) 0 1px,
+        transparent 1px 28px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgb(166 125 67 / 0.035) 0 1px,
+        transparent 1px 28px
+      );
+  }
 }
 
 ================================================================================
@@ -306,7 +578,22 @@ RUTA: app/layout.tsx
 ================================================================================
 
 import type { Metadata } from "next";
+import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import "./globals.css";
+
+const sansKr = Noto_Sans_KR({
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "900"],
+  variable: "--font-sans-kr",
+  display: "swap",
+});
+
+const serifKr = Noto_Serif_KR({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-serif-kr",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Yugen Realm | Nexus System",
@@ -319,8 +606,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="dark">
-      <body className="bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-cyan-500 selection:text-black">
+    <html lang="es" className={`dark ${sansKr.variable} ${serifKr.variable}`}>
+      <body className="bg-black text-neutral-200 antialiased min-h-screen">
         {children}
       </body>
     </html>
@@ -495,14 +782,12 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-neutral-200 flex items-center justify-center p-4 relative overflow-hidden font-serif">
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-red-950/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-rose-950/20 rounded-full blur-3xl pointer-events-none" />
+    <main className="min-h-screen bg-black text-neutral-200 flex items-center justify-center p-4 relative overflow-hidden font-serif kr-ambient">
 
-      <div className="bg-neutral-950/90 border border-red-900/40 rounded-xl p-8 max-w-md w-full glow-blood relative z-10 space-y-6">
-        
-        <div className="text-center space-y-3">
-          <div className="inline-flex p-3 bg-neutral-900 border border-red-900/60 rounded-lg text-red-500 glow-blood-sm mb-1">
+      <div className="kr-panel bg-neutral-950/90 p-8 md:p-10 max-w-md w-full glow-blood relative z-10 space-y-7">
+
+        <div className="text-center space-y-4">
+          <div className="inline-flex p-3.5 bg-red-950/50 border border-amber-500/50 text-red-500 glow-blood-sm">
             {usarImagenLogo ? (
               <Image
                 src="/icons/logo.png"
@@ -513,37 +798,38 @@ export default function LoginPage() {
                 className="object-contain"
               />
             ) : (
-              <Shield className="w-8 h-8 text-red-600" />
+              <Shield className="w-8 h-8 text-red-500" />
             )}
           </div>
-          
-          <div>
-            <h1 className="text-2xl font-black text-neutral-100 tracking-widest uppercase font-mono">
+
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-neutral-100 tracking-[0.25em] uppercase font-mono">
               Yugen Realm
             </h1>
-            <p className="text-red-700/80 text-xs font-mono tracking-widest mt-1">
+            <p className="text-amber-500 text-[11px] font-mono tracking-[0.3em]">
               {esRegistro ? "[ REGISTRO DE REENCARNADO ]" : "[ RITUAL DE ENTRADA ]"}
             </p>
           </div>
+          <div className="kr-divider" />
         </div>
 
         {errorMsg && (
-          <div className="bg-red-950/90 border border-red-700 text-red-200 text-xs p-3 rounded-md text-center font-mono leading-relaxed">
+          <div className="bg-red-950/80 border border-red-700 text-red-200 text-xs p-3 text-center font-mono leading-relaxed">
             {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          
+        <form onSubmit={handleAuth} className="space-y-5">
+
           {esRegistro && (
-            <div className="bg-neutral-900/80 border border-neutral-800 p-3 rounded-lg text-xs text-neutral-400 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-red-500 shrink-0" />
-              <span>Toda alma nueva entra en estado <strong>Pendiente</strong> hasta ser juzgada por Kuroi.</span>
+            <div className="bg-neutral-900/80 border border-amber-500/20 p-3 text-xs text-neutral-400 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>Toda alma nueva entra en estado <strong className="text-amber-300">Pendiente</strong> hasta ser juzgada por Kuroi.</span>
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono text-neutral-400 uppercase">Correo / Alma</label>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono text-amber-600 uppercase tracking-[0.2em]">Correo / Alma</label>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3 top-3.5 text-neutral-600" />
               <input
@@ -552,13 +838,13 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="reencarnado@yugen.com"
-                className="w-full bg-black/80 border border-neutral-800 rounded-lg pl-9 pr-4 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-red-800 transition-all font-mono"
+                className="w-full bg-black/80 border border-neutral-800 pl-9 pr-4 py-2.5 text-sm text-neutral-100 placeholder:text-neutral-700 focus:outline-none focus:border-amber-500/70 transition-colors font-mono"
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono text-neutral-400 uppercase">Clave de Encriptación</label>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono text-amber-600 uppercase tracking-[0.2em]">Clave de Encriptación</label>
             <div className="relative">
               <KeyRound className="w-4 h-4 absolute left-3 top-3.5 text-neutral-600" />
               <input
@@ -567,7 +853,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-black/80 border border-neutral-800 rounded-lg pl-9 pr-4 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-red-800 transition-all font-mono"
+                className="w-full bg-black/80 border border-neutral-800 pl-9 pr-4 py-2.5 text-sm text-neutral-100 placeholder:text-neutral-700 focus:outline-none focus:border-amber-500/70 transition-colors font-mono"
               />
             </div>
           </div>
@@ -575,10 +861,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={cargando}
-            className="w-full bg-red-900 hover:bg-red-800 text-neutral-100 font-bold py-3 rounded-lg text-xs uppercase tracking-widest shadow-lg transition-all border border-red-700/50 flex items-center justify-center gap-2"
+            className="w-full bg-red-700 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed text-neutral-50 font-bold py-3 text-xs uppercase tracking-[0.25em] transition-colors border border-amber-500/50 hover:border-amber-400 flex items-center justify-center gap-2"
           >
             {cargando ? (
-              <span className="font-mono text-xs text-neutral-300">Procesando...</span>
+              <span className="font-mono text-xs text-neutral-200">Procesando...</span>
             ) : esRegistro ? (
               <>
                 <UserPlus className="w-4 h-4" /> Solicitar Reencarnación
@@ -591,11 +877,11 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center pt-3 border-t border-neutral-900">
+        <div className="text-center pt-4 border-t border-neutral-900">
           <button
             type="button"
             onClick={() => setEsRegistro(!esRegistro)}
-            className="text-xs text-neutral-500 hover:text-red-400 font-mono transition-colors"
+            className="text-xs text-neutral-500 hover:text-amber-400 font-mono transition-colors"
           >
             {esRegistro
               ? "[ ¿Ya solicitaste entrada? Iniciar enlace ]"
@@ -618,24 +904,29 @@ import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { 
-  Skull, Map, User, Handshake, Hammer, 
+import {
+  Skull, Map, User, Handshake, Hammer,
   ShoppingBag, Sliders, LogOut, Home, Crown
 } from "lucide-react";
+
+// `ko` es un subtítulo decorativo en hangul. Si alguno no te convence,
+// bórralo o cámbialo: no afecta a la lógica.
+const menu = [
+  { id: "panel", path: "/dm/panel", label: "Centro de Mando", ko: "지휘소", icon: Home },
+  { id: "tablero", path: "/dm/tablero", label: "El Tablero", ko: "지도", icon: Map },
+  { id: "personajes", path: "/dm/personajes", label: "Gestión de Almas", ko: "영혼", icon: User },
+  { id: "deudas", path: "/dm/deudas", label: "Bóveda de Deudas", ko: "부채", icon: Handshake },
+  { id: "forja", path: "/dm/forja", label: "El Yunque (Forja)", ko: "대장간", icon: Hammer },
+  { id: "reglas", path: "/dm/reglas", label: "Reglas & Stats", ko: "규칙", icon: Sliders },
+  { id: "mercado", path: "/dm/mercado", label: "Mercado Negro", ko: "시장", icon: ShoppingBag },
+];
 
 export default function DMLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const menu = [
-    { id: "panel", path: "/dm/panel", label: "Centro de Mando", icon: Home },
-    { id: "tablero", path: "/dm/tablero", label: "El Tablero", icon: Map },
-    { id: "personajes", path: "/dm/personajes", label: "Gestión de Almas", icon: User },
-    { id: "deudas", path: "/dm/deudas", label: "Bóveda de Deudas", icon: Handshake },
-    { id: "forja", path: "/dm/forja", label: "El Yunque (Forja)", icon: Hammer },
-    { id: "reglas", path: "/dm/reglas", label: "Reglas & Stats", icon: Sliders },
-    { id: "mercado", path: "/dm/mercado", label: "Mercado Negro", icon: ShoppingBag },
-  ];
+  const esActivo = (path: string) =>
+    pathname === path || pathname.startsWith(path + "/");
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
@@ -643,62 +934,115 @@ export default function DMLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-black text-neutral-200 font-serif flex">
-      
-      {/* SIDEBAR LATERAL FIJA */}
-      <aside className="w-64 bg-neutral-950 border-r border-red-900/40 hidden md:flex flex-col h-screen sticky top-0 shrink-0">
-        
-        {/* Logo / Cabecera Sidebar */}
-        <div className="p-6 border-b border-red-900/40 flex items-center gap-3">
-          <div className="p-2 bg-red-950/40 border border-red-800 rounded-lg text-red-500 glow-blood-sm">
-            <Skull className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-sm font-black text-neutral-100 uppercase tracking-widest font-mono">Dominio Kuroi</h2>
-            <p className="text-[9px] font-mono text-red-500 tracking-widest uppercase flex items-center gap-1 mt-0.5">
-              <Crown className="w-3 h-3" /> Dungeon Master
-            </p>
-          </div>
-        </div>
+    <div className="h-screen bg-black text-neutral-200 font-serif flex flex-col md:flex-row overflow-hidden">
 
-        {/* Navegación Sidebar */}
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-          <span className="text-[10px] font-mono uppercase text-neutral-600 font-bold ml-2 mb-2 block">Módulos del Sistema</span>
-          
+      {/* ===== BARRA SUPERIOR (solo móvil) ===== */}
+      <header className="md:hidden shrink-0 bg-neutral-950 border-b border-amber-500/20">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Skull className="w-5 h-5 text-red-500" />
+            <span className="text-xs font-black uppercase tracking-[0.25em] font-mono text-neutral-100">
+              Dominio Kuroi
+            </span>
+          </div>
+          <button
+            onClick={cerrarSesion}
+            aria-label="Cerrar sesión"
+            className="p-2 text-neutral-500 hover:text-red-400 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
           {menu.map((item) => {
-            const activo = pathname === item.path;
+            const activo = esActivo(item.path);
             const Icono = item.icon;
-            
             return (
-              <Link 
-                key={item.id} 
+              <Link
+                key={item.id}
                 href={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
-                  activo 
-                    ? "bg-red-950/60 border border-red-800/80 text-red-200 font-bold shadow-[0_0_10px_rgba(220,38,38,0.2)]" 
-                    : "border border-transparent text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200"
+                className={`shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border-b-2 transition-colors ${
+                  activo
+                    ? "border-red-600 text-amber-300"
+                    : "border-transparent text-neutral-500 hover:text-neutral-200"
                 }`}
               >
-                <Icono className={`w-4 h-4 ${activo ? "text-red-400" : "text-neutral-500"}`} />
+                <Icono className="w-3.5 h-3.5" />
                 {item.label}
               </Link>
             );
           })}
         </nav>
+      </header>
 
-        {/* Footer Sidebar */}
-        <div className="p-4 border-t border-neutral-900">
-          <button 
+      {/* ===== SIDEBAR (escritorio) ===== */}
+      <aside className="w-64 bg-neutral-950 border-r border-amber-500/20 hidden md:flex flex-col h-full shrink-0">
+
+        {/* Cabecera */}
+        <div className="p-6 flex items-center gap-3">
+          <div className="p-2.5 bg-red-950/60 border border-amber-500/50 text-red-500 glow-blood-sm">
+            <Skull className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-sm font-black text-neutral-100 uppercase tracking-[0.2em] font-mono">
+              Dominio Kuroi
+            </h2>
+            <p className="text-[9px] font-mono text-amber-500 tracking-[0.25em] uppercase flex items-center gap-1 mt-1">
+              <Crown className="w-3 h-3" /> Dungeon Master
+            </p>
+          </div>
+        </div>
+        <div className="kr-divider mx-6" />
+
+        {/* Navegación */}
+        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+          <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-600 font-bold ml-3 mb-3 block">
+            Módulos del Sistema
+          </span>
+
+          {menu.map((item) => {
+            const activo = esActivo(item.path);
+            const Icono = item.icon;
+
+            return (
+              <Link
+                key={item.id}
+                href={item.path}
+                className={`group relative flex items-center gap-3 pl-4 pr-3 py-2.5 text-xs font-mono uppercase tracking-wider transition-all ${
+                  activo
+                    ? "bg-gradient-to-r from-red-950/80 to-transparent text-amber-300 font-bold"
+                    : "text-neutral-400 hover:bg-neutral-900/70 hover:text-neutral-100"
+                }`}
+              >
+                {/* Barra indicadora */}
+                <span
+                  className={`absolute left-0 top-1 bottom-1 w-[3px] transition-colors ${
+                    activo ? "bg-red-600" : "bg-transparent group-hover:bg-amber-500/40"
+                  }`}
+                />
+                <Icono className={`w-4 h-4 shrink-0 ${activo ? "text-red-500" : "text-neutral-500 group-hover:text-amber-500"}`} />
+                <span className="flex-1">{item.label}</span>
+                <span className={`text-[10px] tracking-normal ${activo ? "text-amber-500" : "text-neutral-700 group-hover:text-amber-700"}`}>
+                  {item.ko}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Pie */}
+        <div className="p-4 border-t border-amber-500/15">
+          <button
             onClick={cerrarSesion}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-red-950 border border-neutral-800 hover:border-red-800 rounded-lg text-xs text-neutral-400 hover:text-red-400 font-mono uppercase transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-neutral-800 hover:border-red-700 hover:bg-red-950/50 text-xs text-neutral-400 hover:text-red-300 font-mono uppercase tracking-wider transition-colors"
           >
             <LogOut className="w-4 h-4" /> Cerrar Sesión
           </button>
         </div>
       </aside>
 
-      {/* CONTENIDO PRINCIPAL DE LA PÁGINA */}
-      <div className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto">
+      {/* ===== CONTENIDO ===== */}
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto">
         {children}
       </div>
 
@@ -3627,119 +3971,109 @@ RUTA: app/dm/panel/page.tsx
 
 import React from "react";
 import Link from "next/link";
-import { 
-  Map, User, Handshake, Hammer, ShoppingBag, Hourglass, Sliders, Skull
+import {
+  Map, User, Handshake, Hammer, ShoppingBag, Sliders, Skull, ArrowUpRight
 } from "lucide-react";
 
+// Un solo estilo para todas las tarjetas: la identidad la da la paleta,
+// no un color distinto por módulo. `ko` es decorativo (puedes quitarlo).
+const modulos = [
+  {
+    titulo: "El Tablero",
+    ko: "지도",
+    desc: "Controla los mapas del mundo, los tokens y el paso del tiempo del juego.",
+    icono: Map,
+    ruta: "/dm/tablero",
+  },
+  {
+    titulo: "Gestión de Almas",
+    ko: "영혼",
+    desc: "Aprueba cuentas nuevas, edita stats y maneja estados de vida (Vivo, Muerto, Sellado).",
+    icono: User,
+    ruta: "/dm/personajes",
+  },
+  {
+    titulo: "Bóveda de Deudas",
+    ko: "부채",
+    desc: "Revisa, aprueba y cobra los pactos y promesas realizadas por los jugadores.",
+    icono: Handshake,
+    ruta: "/dm/deudas",
+  },
+  {
+    titulo: "El Yunque (Forja)",
+    ko: "대장간",
+    desc: "Juzga y ponle precio/rango a las armas y habilidades que inventan los jugadores.",
+    icono: Hammer,
+    ruta: "/dm/forja",
+  },
+  {
+    titulo: "Reglas & Stats",
+    ko: "규칙",
+    desc: "Crea o elimina atributos globales (Fuerza, Cordura, Durabilidad) para todo el juego.",
+    icono: Sliders,
+    ruta: "/dm/reglas",
+  },
+  {
+    titulo: "Mercado Negro",
+    ko: "시장",
+    desc: "Publica ofertas de objetos, personajes y habilidades para que las compren.",
+    icono: ShoppingBag,
+    ruta: "/dm/mercado",
+  },
+];
+
 export default function PanelPrincipalKuroi() {
-  const modulos = [
-    {
-      titulo: "El Tablero Táctico",
-      desc: "Gestor de mapas, ciudades, mazmorras anidadas y tokens en tiempo real.",
-      icono: Map,
-      ruta: "/dm/tablero",
-      color: "text-red-500",
-      bg: "bg-red-950/40 border-red-800",
-      glow: "hover:shadow-[0_0_20px_rgba(220,38,38,0.3)] hover:border-red-500"
-    },
-    {
-      titulo: "Gestión de Almas",
-      desc: "Aprueba cuentas nuevas, edita stats y maneja estados de vida (Vivo, Muerto, Sellado).",
-      icono: User,
-      ruta: "/dm/personajes",
-      color: "text-amber-500",
-      bg: "bg-amber-950/40 border-amber-800",
-      glow: "hover:shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:border-amber-500"
-    },
-    {
-      titulo: "Reglas & Stats",
-      desc: "Crea o elimina atributos globales (Fuerza, Cordura, Durabilidad) para todo el juego.",
-      icono: Sliders,
-      ruta: "/dm/reglas",
-      color: "text-emerald-500",
-      bg: "bg-emerald-950/40 border-emerald-800",
-      glow: "hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:border-emerald-500"
-    },
-    {
-      titulo: "Bóveda de Deudas",
-      desc: "Revisa, aprueba y cobra los pactos y promesas realizadas por los jugadores.",
-      icono: Handshake,
-      ruta: "/dm/deudas",
-      color: "text-cyan-500",
-      bg: "bg-cyan-950/40 border-cyan-800",
-      glow: "hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:border-cyan-500"
-    },
-    {
-      titulo: "El Yunque (Forja)",
-      desc: "Juzga y ponle precio/rango a las armas y habilidades que inventan los jugadores.",
-      icono: Hammer,
-      ruta: "/dm/forja",
-      color: "text-orange-500",
-      bg: "bg-orange-950/40 border-orange-800",
-      glow: "hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:border-orange-500"
-    },
-    {
-      titulo: "Mercado Negro",
-      desc: "Publica ofertas de objetos, personajes y habilidades para que las compren.",
-      icono: ShoppingBag,
-      ruta: "/dm/mercado",
-      color: "text-purple-500",
-      bg: "bg-purple-950/40 border-purple-800",
-      glow: "hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:border-purple-500"
-    },
-    {
-      titulo: "Reloj & Eras",
-      desc: "Avanza el tiempo del mundo, crea Eras y eventos históricos globales.",
-      icono: Hourglass,
-      ruta: "/dm/tiempo",
-      color: "text-blue-500",
-      bg: "bg-blue-950/40 border-blue-800",
-      glow: "hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:border-blue-500"
-    }
-  ];
-
   return (
-    <main className="p-8 relative min-h-full">
-      {/* Luz ambiental abisal en el fondo */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-[300px] bg-red-950/20 blur-[120px] pointer-events-none" />
+    <main className="p-6 md:p-10 relative min-h-full kr-ambient">
+      <div className="max-w-5xl mx-auto space-y-12 relative z-10">
 
-      <div className="max-w-5xl mx-auto space-y-10 relative z-10">
-        
-        <header className="text-center space-y-4">
-          <Skull className="w-16 h-16 text-red-600 mx-auto glow-blood" />
-          <div>
-            <h1 className="text-4xl font-black text-neutral-100 uppercase tracking-widest font-mono">
-              Centro de Mando Kuroi
+        <header className="text-center space-y-6 pt-4">
+          <div className="inline-flex p-4 bg-red-950/50 border border-amber-500/50 glow-blood">
+            <Skull className="w-12 h-12 text-red-500" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="text-3xl md:text-4xl font-black text-neutral-100 uppercase tracking-[0.2em] font-mono">
+              Centro de Mando <span className="text-red-600">Kuroi</span>
             </h1>
-            <p className="text-neutral-400 font-mono text-sm mt-2 uppercase tracking-widest">
+            <p className="text-amber-500 font-mono text-xs uppercase tracking-[0.3em]">
               Selecciona el módulo del mundo que deseas controlar
             </p>
           </div>
+          <div className="kr-divider max-w-md mx-auto" />
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {modulos.map((mod, idx) => {
             const Icono = mod.icono;
             return (
-              <Link 
-                key={idx} 
+              <Link
+                key={mod.ruta}
                 href={mod.ruta}
-                className={`group p-6 rounded-xl border transition-all duration-300 bg-black flex flex-col gap-4 relative overflow-hidden ${mod.glow} border-neutral-900`}
+                className="kr-panel group p-6 flex flex-col gap-5"
               >
-                {/* Efecto de luz interna al hacer hover */}
-                <div className={`absolute top-0 right-0 w-32 h-32 opacity-0 group-hover:opacity-10 blur-[50px] transition-opacity ${mod.bg.split(' ')[0]}`} />
-
-                <div className={`p-3 rounded-lg w-fit ${mod.bg} border`}>
-                  <Icono className={`w-6 h-6 ${mod.color}`} />
+                <div className="flex items-start justify-between">
+                  <div className="p-3 bg-neutral-900 border border-amber-500/30 group-hover:border-red-700 group-hover:bg-red-950/40 transition-colors">
+                    <Icono className="w-6 h-6 text-amber-500 group-hover:text-red-400 transition-colors" />
+                  </div>
+                  <span className="text-[10px] font-mono text-neutral-700 tracking-widest">
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
                 </div>
-                
-                <div>
-                  <h2 className="text-lg font-bold text-neutral-100 font-mono uppercase tracking-wide">
-                    {mod.titulo}
-                  </h2>
-                  <p className="text-xs text-neutral-400 font-serif mt-1.5 leading-relaxed">
+
+                <div className="flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="text-base font-bold text-neutral-100 font-mono uppercase tracking-wider">
+                      {mod.titulo}
+                    </h2>
+                    <span className="text-xs text-amber-600">{mod.ko}</span>
+                  </div>
+                  <p className="text-xs text-neutral-400 font-serif mt-2 leading-relaxed">
                     {mod.desc}
                   </p>
+                </div>
+
+                <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-[0.25em] text-neutral-600 group-hover:text-amber-400 transition-colors">
+                  Entrar <ArrowUpRight className="w-3 h-3" />
                 </div>
               </Link>
             );
@@ -4531,26 +4865,13 @@ export default function NexoReencarnado() {
       ruta: "/ficha/alma",
       color: "text-cyan-600"
     },
-    {
-      titulo: "Cartografía",
-      descripcion: "Mapas, zonas seguras y territorios explorados.",
-      icono: Map,
-      ruta: "/ficha/mapas",
-      color: "text-emerald-700"
-    },
+    
     {
       titulo: "Forja de Creación",
       descripcion: "Propón nuevos objetos o habilidades. Kuroi decidirá su destino.",
       icono: Hammer,
       ruta: "/ficha/creacion",
       color: "text-orange-600"
-    },
-    {
-      titulo: "Línea de Tiempo",
-      descripcion: "Crónica de tus vidas pasadas y la historia del mundo.",
-      icono: Hourglass,
-      ruta: "/ficha/lore",
-      color: "text-purple-600"
     }
   ];
 

@@ -88,14 +88,12 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-neutral-200 flex items-center justify-center p-4 relative overflow-hidden font-serif">
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-red-950/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-rose-950/20 rounded-full blur-3xl pointer-events-none" />
+    <main className="min-h-screen bg-black text-neutral-200 flex items-center justify-center p-4 relative overflow-hidden font-serif kr-ambient">
 
-      <div className="bg-neutral-950/90 border border-red-900/40 rounded-xl p-8 max-w-md w-full glow-blood relative z-10 space-y-6">
-        
-        <div className="text-center space-y-3">
-          <div className="inline-flex p-3 bg-neutral-900 border border-red-900/60 rounded-lg text-red-500 glow-blood-sm mb-1">
+      <div className="kr-panel bg-neutral-950/90 p-8 md:p-10 max-w-md w-full glow-blood relative z-10 space-y-7">
+
+        <div className="text-center space-y-4">
+          <div className="inline-flex p-3.5 bg-red-950/50 border border-amber-500/50 text-red-500 glow-blood-sm">
             {usarImagenLogo ? (
               <Image
                 src="/icons/logo.png"
@@ -106,37 +104,38 @@ export default function LoginPage() {
                 className="object-contain"
               />
             ) : (
-              <Shield className="w-8 h-8 text-red-600" />
+              <Shield className="w-8 h-8 text-red-500" />
             )}
           </div>
-          
-          <div>
-            <h1 className="text-2xl font-black text-neutral-100 tracking-widest uppercase font-mono">
+
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-neutral-100 tracking-[0.25em] uppercase font-mono">
               Yugen Realm
             </h1>
-            <p className="text-red-700/80 text-xs font-mono tracking-widest mt-1">
+            <p className="text-amber-500 text-[11px] font-mono tracking-[0.3em]">
               {esRegistro ? "[ REGISTRO DE REENCARNADO ]" : "[ RITUAL DE ENTRADA ]"}
             </p>
           </div>
+          <div className="kr-divider" />
         </div>
 
         {errorMsg && (
-          <div className="bg-red-950/90 border border-red-700 text-red-200 text-xs p-3 rounded-md text-center font-mono leading-relaxed">
+          <div className="bg-red-950/80 border border-red-700 text-red-200 text-xs p-3 text-center font-mono leading-relaxed">
             {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          
+        <form onSubmit={handleAuth} className="space-y-5">
+
           {esRegistro && (
-            <div className="bg-neutral-900/80 border border-neutral-800 p-3 rounded-lg text-xs text-neutral-400 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-red-500 shrink-0" />
-              <span>Toda alma nueva entra en estado <strong>Pendiente</strong> hasta ser juzgada por Kuroi.</span>
+            <div className="bg-neutral-900/80 border border-amber-500/20 p-3 text-xs text-neutral-400 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>Toda alma nueva entra en estado <strong className="text-amber-300">Pendiente</strong> hasta ser juzgada por Kuroi.</span>
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono text-neutral-400 uppercase">Correo / Alma</label>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono text-amber-600 uppercase tracking-[0.2em]">Correo / Alma</label>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3 top-3.5 text-neutral-600" />
               <input
@@ -145,13 +144,13 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="reencarnado@yugen.com"
-                className="w-full bg-black/80 border border-neutral-800 rounded-lg pl-9 pr-4 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-red-800 transition-all font-mono"
+                className="w-full bg-black/80 border border-neutral-800 pl-9 pr-4 py-2.5 text-sm text-neutral-100 placeholder:text-neutral-700 focus:outline-none focus:border-amber-500/70 transition-colors font-mono"
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono text-neutral-400 uppercase">Clave de Encriptación</label>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono text-amber-600 uppercase tracking-[0.2em]">Clave de Encriptación</label>
             <div className="relative">
               <KeyRound className="w-4 h-4 absolute left-3 top-3.5 text-neutral-600" />
               <input
@@ -160,7 +159,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-black/80 border border-neutral-800 rounded-lg pl-9 pr-4 py-2.5 text-sm text-neutral-100 focus:outline-none focus:border-red-800 transition-all font-mono"
+                className="w-full bg-black/80 border border-neutral-800 pl-9 pr-4 py-2.5 text-sm text-neutral-100 placeholder:text-neutral-700 focus:outline-none focus:border-amber-500/70 transition-colors font-mono"
               />
             </div>
           </div>
@@ -168,10 +167,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={cargando}
-            className="w-full bg-red-900 hover:bg-red-800 text-neutral-100 font-bold py-3 rounded-lg text-xs uppercase tracking-widest shadow-lg transition-all border border-red-700/50 flex items-center justify-center gap-2"
+            className="w-full bg-red-700 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed text-neutral-50 font-bold py-3 text-xs uppercase tracking-[0.25em] transition-colors border border-amber-500/50 hover:border-amber-400 flex items-center justify-center gap-2"
           >
             {cargando ? (
-              <span className="font-mono text-xs text-neutral-300">Procesando...</span>
+              <span className="font-mono text-xs text-neutral-200">Procesando...</span>
             ) : esRegistro ? (
               <>
                 <UserPlus className="w-4 h-4" /> Solicitar Reencarnación
@@ -184,11 +183,11 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center pt-3 border-t border-neutral-900">
+        <div className="text-center pt-4 border-t border-neutral-900">
           <button
             type="button"
             onClick={() => setEsRegistro(!esRegistro)}
-            className="text-xs text-neutral-500 hover:text-red-400 font-mono transition-colors"
+            className="text-xs text-neutral-500 hover:text-amber-400 font-mono transition-colors"
           >
             {esRegistro
               ? "[ ¿Ya solicitaste entrada? Iniciar enlace ]"
