@@ -1,11 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Skull, LogOut, Handshake, Check, Clock, Map, User, Sliders, RefreshCw 
-} from "lucide-react";
+import { Skull, Handshake, Check, Clock } from "lucide-react";
 
 interface Deuda {
   id: string;
@@ -18,7 +15,6 @@ interface Deuda {
 }
 
 export default function DeudasKuroi() {
-  const router = useRouter();
   const [deudas, setDeudas] = useState<Deuda[]>([]);
   const [cargando, setCargando] = useState(true);
 
@@ -35,12 +31,40 @@ export default function DeudasKuroi() {
     setCargando(false);
   };
 
-  useEffect(() => {
-    cargarDeudas();
-  }, []);
+  
+useEffect(() => {
+  let cancelado = false;
+
+  const consulta = supabase
+    .from("deudas_kuroi")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  consulta.then(({ data, error }) => {
+    if (cancelado) return;
+
+    if (!error && data) {
+      setDeudas(data as Deuda[]);
+    } else if (error) {
+      console.error("Error al cargar deudas:", error.message);
+    }
+
+    setCargando(false);
+  });
+
+  return () => {
+    cancelado = true;
+  };
+}, []);
+
 
   const resolverDeuda = async (deudaId: string, nuevoEstado: "aprobada" | "rechazada" | "pendiente_pago_confirmacion") => {
-    const updateData: any = { estado: nuevoEstado };
+    const updateData: {
+      estado: "aprobada" | "rechazada" | "pendiente_pago_confirmacion";
+      fecha_pago_solicitado?: string;
+    } = {
+      estado: nuevoEstado,
+    };
     
     // Si Kuroi decide cobrar la deuda hoy, guardamos la fecha para el temporizador de 2 días
     if (nuevoEstado === "pendiente_pago_confirmacion") {
@@ -92,7 +116,7 @@ export default function DeudasKuroi() {
               <Skull className="w-5 h-5 text-amber-600" /> Pactos Anotados por los Reencarnados ({deudas.length})
             </h2>
             <p className="text-neutral-500 text-xs font-mono mt-1">
-              Aprueba o rechaza los favores. Cuando un jugador deba pagar, marca la deuda como <strong>"PAGADA"</strong> para iniciar su temporizador fatal de 2 días.
+              Aprueba o rechaza los favores. Cuando un jugador deba pagar, marca la deuda como <strong>&quot;PAGADA&quot;</strong> para iniciar su temporizador fatal de 2 días.
             </p>
           </div>
 
@@ -122,7 +146,7 @@ export default function DeudasKuroi() {
                     <h3 className="text-base font-bold text-neutral-100 font-mono">{item.titulo}</h3>
                     
                     <p className="text-xs text-neutral-300 italic bg-neutral-900/60 p-3 rounded border border-neutral-800 font-serif leading-relaxed">
-                      "{item.mensaje}"
+                      &ldquo;{item.mensaje}&rdquo;
                     </p>
                   </div>
 
