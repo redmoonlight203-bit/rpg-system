@@ -17,7 +17,13 @@ interface EntradaCodex {
   mecanica: string;
   revelado_en: string;
 }
-
+interface DescubrimientoCodex {
+  created_at: string;
+  codex_entradas:
+    | Omit<EntradaCodex, "revelado_en">
+    | Omit<EntradaCodex, "revelado_en">[]
+    | null;
+}
 export default function ElCodice() {
   const router = useRouter();
   const [entradas, setEntradas] = useState<EntradaCodex[]>([]);
@@ -55,21 +61,45 @@ export default function ElCodice() {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      const listaFormateada = data
-        .filter((d: any) => d.codex_entradas)
-        .map((d: any) => ({
-          ...d.codex_entradas,
-          revelado_en: d.created_at,
-        })) as EntradaCodex[];
+     const descubrimientos = data as unknown as DescubrimientoCodex[];
+     const listaFormateada: EntradaCodex[] =
+      descubrimientos.flatMap((descubrimiento) => {
+        const relacion = descubrimiento.codex_entradas;
 
-      setEntradas(listaFormateada);
+        if (!relacion) {
+          return [];
+        }
+
+        const registros = Array.isArray(relacion)
+          ? relacion
+          : [relacion];
+
+        return registros.map((entrada) => ({
+          ...entrada,
+          revelado_en: descubrimiento.created_at,
+        }));
+      });
+
+    setEntradas(listaFormateada);
     }
 
     setCargando(false);
   };
 
   useEffect(() => {
-    cargarCodex();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarCodex();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getIconoTipo = (tipo: string) => {
@@ -189,7 +219,7 @@ export default function ElCodice() {
                   </div>
 
                   <p className="text-xs text-neutral-400 line-clamp-2 italic bg-black/40 p-2.5 rounded border border-neutral-900">
-                    "{item.descripcion || 'Sin información de historia registrada...'}"
+                    &ldquo;{item.descripcion || "Sin información de historia registrada..."}&rdquo;
                   </p>
                 </div>
 
@@ -251,7 +281,7 @@ export default function ElCodice() {
                   <BookOpen className="w-3.5 h-3.5" /> Historia y Leyenda
                 </span>
                 <div className="bg-neutral-900/40 border border-neutral-900 p-4 rounded-lg text-xs text-neutral-300 italic font-serif leading-relaxed whitespace-pre-wrap">
-                  "{entradaDetalle.descripcion || "Historia no documentada en el registro."}"
+                  &ldquo;{entradaDetalle.descripcion || "Historia no documentada en el registro."}&rdquo;
                 </div>
               </div>
 
