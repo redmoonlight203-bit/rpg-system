@@ -74,19 +74,38 @@ export default function LineaDeTiempo() {
   };
 
   useEffect(() => {
-    cargarDatosTiempo();
+    let activo = true;
 
-    // Actualización en tiempo real del reloj de juego
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarDatosTiempo();
+      }
+    });
+
+    // Mantener la actualización en tiempo real del reloj
     const canalTiempo = supabase
       .channel("tiempo_real")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tiempo_juego" }, (payload) => {
-        setTiempo(payload.new as TiempoJuego);
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "tiempo_juego",
+        },
+        (payload) => {
+          if (activo) {
+            setTiempo(payload.new as TiempoJuego);
+          }
+        }
+      )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(canalTiempo);
+      activo = false;
+      void supabase.removeChannel(canalTiempo);
     };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const formatDosDigitos = (num: number) => num.toString().padStart(2, "0");
@@ -250,7 +269,7 @@ export default function LineaDeTiempo() {
                   <Scroll className="w-4 h-4" /> Crónica Histórica de los 100 Años
                 </span>
                 <div className="bg-black/80 border border-neutral-800 p-5 rounded-lg text-sm text-neutral-200 font-serif leading-relaxed whitespace-pre-wrap">
-                  "{eraSeleccionada.lore_detallado}"
+                  &ldquo;{eraSeleccionada.lore_detallado}&rdquo;
                 </div>
               </div>
 
