@@ -1,10 +1,17 @@
 "use client";
 
+import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Shield, ArrowLeft, Sparkles, Package, Flame, UserCheck, RefreshCw, Layers, Lock, ShieldAlert, ArrowRightLeft
+import {
+  ArrowLeft,
+  Flame,
+  UserCheck,
+  RefreshCw,
+  Lock,
+  ShieldAlert,
+  ArrowRightLeft,
 } from "lucide-react";
 
 interface ItemInventario {
@@ -77,7 +84,19 @@ export default function NexoDelAlma() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarDatos();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // EQUIPAR / VINCULAR A UN AVATAR
@@ -204,8 +223,15 @@ export default function NexoDelAlma() {
                   <div key={item.id} className="bg-black border border-purple-900/30 rounded-xl overflow-hidden flex flex-col justify-between hover:border-purple-800 transition-colors p-5 space-y-4 shadow-lg shadow-black/60">
                     
                     {item.imagen_url && (
-                      <div className="w-full h-36 bg-neutral-900 rounded overflow-hidden">
-                        <img src={item.imagen_url} alt={item.nombre} className="w-full h-full object-cover" />
+                      <div className="relative w-full h-36 bg-neutral-900 rounded overflow-hidden">
+                        <Image
+                          src={item.imagen_url}
+                          alt={item.nombre}
+                          fill
+                          unoptimized
+                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover"
+                        />
                       </div>
                     )}
 
@@ -222,7 +248,7 @@ export default function NexoDelAlma() {
                       </div>
 
                       <h3 className="text-lg font-bold text-neutral-100 font-mono">{item.nombre}</h3>
-                      <p className="text-xs text-neutral-400 italic font-serif leading-relaxed line-clamp-3">"{item.descripcion}"</p>
+                      <p className="text-xs text-neutral-400 italic font-serif leading-relaxed line-clamp-3">&ldquo;{item.descripcion}&rdquo;</p>
 
                       {/* STATS */}
                       {item.stats && Object.keys(item.stats).length > 0 && (
@@ -297,7 +323,9 @@ export default function NexoDelAlma() {
                         </div>
 
                         <h3 className="text-lg font-bold text-neutral-100 font-mono">{item.nombre}</h3>
-                        <p className="text-xs text-neutral-400 italic font-serif leading-relaxed line-clamp-2">"{item.descripcion}"</p>
+                        <p className="text-xs text-neutral-400 italic font-serif leading-relaxed line-clamp-2">
+                          &ldquo;{item.descripcion}&rdquo;
+                        </p>
                       </div>
 
                       <button
