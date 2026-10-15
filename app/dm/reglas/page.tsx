@@ -2,8 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Sliders, Plus, Trash2, Activity, Tag, Shield, FolderPlus, Layers
+import {
+  Sliders,
+  Plus,
+  Trash2,
+  Activity,
+  Tag,
+  FolderPlus,
+  Layers,
 } from "lucide-react";
 
 interface CategoriaForja {
@@ -57,7 +63,19 @@ export default function ReglasYStatsKuroi() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarDatos();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // CREAR NUEVA CATEGORÍA DE ARTÍCULO
@@ -224,7 +242,9 @@ export default function ReglasYStatsKuroi() {
                     <span className="text-[9px] font-mono text-emerald-500 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-900/50 inline-block">
                       clave: {cat.clave}
                     </span>
-                    <p className="text-[10px] text-neutral-500 italic font-serif leading-relaxed line-clamp-2 mt-1">"{cat.descripcion || 'Sin descripción'}"</p>
+                    <p className="text-[10px] text-neutral-500 italic font-serif leading-relaxed line-clamp-2 mt-1">
+                      &ldquo;{cat.descripcion || "Sin descripción"}&rdquo;
+                    </p>
                   </div>
                 </div>
               ))}
