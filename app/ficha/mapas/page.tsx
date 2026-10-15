@@ -3,9 +3,15 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { 
-  ArrowLeft, Map, Compass, Lock, Eye, 
-  X, ShieldAlert, Maximize2, Image as ImageIcon 
+import {
+  ArrowLeft,
+  Map,
+  Compass,
+  Lock,
+  Eye,
+  X,
+  Maximize2,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface MapaDescubierto {
@@ -17,7 +23,10 @@ interface MapaDescubierto {
   nivel_peligro: string;
   descubierto_en: string;
 }
-
+interface RegistroMapaDescubierto {
+  created_at: string;
+  mapas: Omit<MapaDescubierto, "descubierto_en"> | null;
+}
 export default function Cartografia() {
   const router = useRouter();
   const [mapas, setMapas] = useState<MapaDescubierto[]>([]);
@@ -51,12 +60,22 @@ export default function Cartografia() {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      const listaFormateada = data
-        .filter((item: any) => item.mapas)
-        .map((item: any) => ({
-          ...item.mapas,
-          descubierto_en: item.created_at,
-        })) as MapaDescubierto[];
+      const registros = data as unknown as RegistroMapaDescubierto[];
+
+      const listaFormateada: MapaDescubierto[] = registros.flatMap(
+        (item) => {
+          if (!item.mapas) {
+            return [];
+          }
+
+          return [
+            {
+              ...item.mapas,
+              descubierto_en: item.created_at,
+            },
+          ];
+        }
+      );
 
       setMapas(listaFormateada);
     }
@@ -65,7 +84,19 @@ export default function Cartografia() {
   };
 
   useEffect(() => {
-    cargarMapas();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarMapas();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getPeligroBadge = (nivel: string) => {
@@ -136,15 +167,20 @@ export default function Cartografia() {
                 {/* Vista previa de la imagen */}
                 <div className="relative h-48 w-full bg-neutral-900 overflow-hidden border-b border-neutral-900">
                   {mapa.imagen_url ? (
-                    <img
-                      src={mapa.imagen_url}
-                      alt={mapa.titulo}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100"
-                    />
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={mapa.imagen_url}
+                        alt={mapa.titulo}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80 group-hover:opacity-100"
+                      />
+                    </>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-neutral-700 gap-2 bg-neutral-950">
                       <ImageIcon className="w-8 h-8" />
-                      <span className="text-[10px] font-mono uppercase">Sin Ilustración</span>
+                      <span className="text-[10px] font-mono uppercase">
+                        Sin Ilustración
+                      </span>
                     </div>
                   )}
 
@@ -165,7 +201,7 @@ export default function Cartografia() {
                       {mapa.titulo}
                     </h3>
                     <p className="text-xs text-neutral-400 line-clamp-2 italic font-serif leading-relaxed">
-                      "{mapa.descripcion}"
+                      &ldquo;{mapa.descripcion}&rdquo;
                     </p>
                   </div>
 
@@ -196,6 +232,7 @@ export default function Cartografia() {
               {/* Imagen Grande */}
               {mapaSeleccionado.imagen_url && (
                 <div className="relative rounded-lg overflow-hidden border border-neutral-800 max-h-72 bg-black group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={mapaSeleccionado.imagen_url}
                     alt={mapaSeleccionado.titulo}
@@ -254,6 +291,7 @@ export default function Cartografia() {
             onClick={() => setVerImagenCompleta(false)}
             className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4 cursor-zoom-out"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mapaSeleccionado.imagen_url}
               alt={mapaSeleccionado.titulo}
