@@ -93,14 +93,31 @@ export default function ForjaCreacion() {
   };
 
   useEffect(() => {
-    cargarCreaciones();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarCreaciones();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const enviarCreacion = async (e: React.FormEvent) => {
     e.preventDefault();
     setEnviando(true);
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+
+    if (!session) {
+      setEnviando(false);
+      router.push("/login");
+      return;
+    }
 
     const { error } = await supabase.from("creaciones_forja").insert([{
       user_id: session.user.id,
@@ -340,7 +357,7 @@ export default function ForjaCreacion() {
                     </div>
 
                     <p className="text-xs text-neutral-400 bg-black/60 p-3 rounded border border-neutral-900 italic font-serif leading-relaxed">
-                      "{item.descripcion}"
+                      &ldquo;{item.descripcion}&rdquo;
                     </p>
 
                     {/* Matriz de Atributos */}
