@@ -36,6 +36,7 @@ export default function DeudasKuroi() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
+      setCargando(false);
       router.push("/login");
       return;
     }
@@ -82,7 +83,19 @@ export default function DeudasKuroi() {
   };
 
   useEffect(() => {
-    cargarYProcesarDeudas();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarYProcesarDeudas();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Registrar nueva deuda
@@ -90,7 +103,11 @@ export default function DeudasKuroi() {
     e.preventDefault();
     setEnviando(true);
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) {
+      setEnviando(false);
+      router.push("/login");
+      return;
+    }
 
     const { error } = await supabase.from("deudas_kuroi").insert([{
       user_id: session.user.id,
@@ -210,7 +227,7 @@ export default function DeudasKuroi() {
                         {item.titulo}
                       </h3>
                       <p className="text-xs text-neutral-400 line-clamp-3 mt-2 bg-black/50 p-3 rounded border border-neutral-900 italic font-serif">
-                        "{item.mensaje}"
+                        &ldquo;{item.mensaje}&rdquo;
                       </p>
                     </div>
                   </div>
