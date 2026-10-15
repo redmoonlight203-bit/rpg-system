@@ -1,10 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Hammer, ImageIcon, BookOpen, Shield, Sparkles, User, Skull, 
-  Tag, Activity, Star, Eye, Filter, Package, Flame, XCircle, Users, Sparkle, Edit3, Save, Layers, RotateCcw, MapPin, Crosshair
+import {
+  Hammer, ImageIcon, BookOpen, Activity,
+  Star, Eye, Filter, Flame, XCircle,
+  Users, Sparkle, Edit3, Save, Layers,
+  RotateCcw, MapPin, Crosshair
 } from "lucide-react";
 
 interface CategoriaForja {
@@ -104,7 +107,15 @@ export default function ForjaMaestraKuroi() {
     const { data: petData } = await supabase.from("creaciones_forja").select("*").eq("estado", "pendiente").order("created_at", { ascending: false });
     if (petData) {
       const peticionesMapeadas = await Promise.all(
-        petData.map(async (p: any) => {
+        petData.map(async (p: {
+          id: string;
+          user_id: string;
+          nombre: string;
+          descripcion: string;
+          clase_calculada: string | null;
+          estado: string;
+          created_at: string;
+        }) => {
           const { data: pjData } = await supabase.from("personajes").select("nombre").eq("user_id", p.user_id).single();
           return {
             id: p.id,
@@ -125,12 +136,15 @@ export default function ForjaMaestraKuroi() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    void Promise.resolve().then(() => {
+      cargarDatos();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const formatearUrlImagen = (url: string) => {
     if (!url) return "";
-    let limpia = url.trim();
+    const limpia = url.trim();
     if (limpia.includes("imgur.com/") && !limpia.includes("i.imgur.com")) {
       const id = limpia.split("imgur.com/")[1]?.split("/")[0]?.split(".")[0];
       if (id) return `https://i.imgur.com/${id}.jpeg`;
@@ -175,9 +189,15 @@ export default function ForjaMaestraKuroi() {
     e.preventDefault();
     if (!nuevoNombre || !nuevoTipo) return;
 
-    const statsA_Guardar = Object.fromEntries(Object.entries(nuevosStats).filter(([_, v]) => v !== 0 && v !== null && !isNaN(v)));
+    const statsA_Guardar = Object.fromEntries(
+      Object.entries(nuevosStats).filter(
+        ([, v]) => v !== 0 && v !== null && !isNaN(v)
+      )
+    );
     const rangosA_Guardar = Object.fromEntries(
-      Object.entries(nuevosStatsRango).filter(([_, range]) => range && (range.min !== 0 || range.max !== 0))
+      Object.entries(nuevosStatsRango).filter(
+        ([, range]) => range && (range.min !== 0 || range.max !== 0)
+      )
     );
 
     const payload = {
@@ -319,7 +339,11 @@ export default function ForjaMaestraKuroi() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setPestana(tab.id as any)}
+                onClick={() =>
+                  setPestana(
+                    tab.id as "galeria" | "yunque" | "peticiones"
+                  )
+                }
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
                   activa
                     ? "bg-orange-950/80 border border-orange-800 text-orange-200 font-bold shadow-[0_0_15px_rgba(249,115,22,0.2)]"
@@ -369,7 +393,14 @@ export default function ForjaMaestraKuroi() {
                   <div key={ent.id} className="bg-black border border-neutral-900 hover:border-orange-900/60 transition-colors rounded-xl overflow-hidden flex flex-col group shadow-lg">
                     {ent.imagen_url ? (
                       <div className="w-full h-48 bg-neutral-900 relative">
-                        <img src={ent.imagen_url} alt={ent.nombre} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                        <Image
+                          src={ent.imagen_url}
+                          alt={ent.nombre}
+                          fill
+                          unoptimized
+                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
                       </div>
                     ) : (
@@ -409,7 +440,7 @@ export default function ForjaMaestraKuroi() {
 
                       <div>
                         <h3 className="text-xl font-bold text-neutral-100 font-mono">{ent.nombre}</h3>
-                        <p className="text-xs text-neutral-400 font-serif leading-relaxed line-clamp-2 mt-1">"{ent.descripcion}"</p>
+                        <p className="text-xs text-neutral-400 font-serif leading-relaxed line-clamp-2 mt-1">&ldquo;{ent.descripcion}&rdquo;</p>
                       </div>
 
                       {/* STATS FIJAS */}
@@ -786,7 +817,7 @@ export default function ForjaMaestraKuroi() {
                       </div>
                       
                       <h3 className="text-lg font-bold text-neutral-100 font-mono">{pet.nombre}</h3>
-                      <p className="text-xs text-neutral-400 font-serif leading-relaxed line-clamp-4">"{pet.descripcion}"</p>
+                      <p className="text-xs text-neutral-400 font-serif leading-relaxed line-clamp-4">&ldquo;{pet.descripcion}&rdquo;</p>
                     </div>
 
                     <div className="flex gap-2 pt-4 border-t border-neutral-900">
