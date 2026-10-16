@@ -80,8 +80,12 @@ export default function LoginPage() {
           router.push("/ficha");
         }
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Error de conexión con el Abismo");
+    } catch (err: unknown) {
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Error de conexión con el Abismo"
+      );
     } finally {
       setCargando(false);
     }
