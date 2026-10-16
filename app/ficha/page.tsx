@@ -3,9 +3,14 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { 
-  LogOut, User, BookOpen, ShoppingBag, 
-  Sparkles, Map, Hammer, Hourglass, Handshake 
+import {
+  LogOut,
+  User,
+  BookOpen,
+  ShoppingBag,
+  Sparkles,
+  Hammer,
+  Handshake,
 } from "lucide-react";
 
 export default function NexoReencarnado() {
