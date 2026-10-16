@@ -6,8 +6,15 @@ import { supabase } from "../../../lib/supabase";
 import { User, Plus, Lock, ArrowLeft, ShieldAlert, CheckCircle, MapPin, Activity, Play } from "lucide-react";
 
 export default function MisPersonajes() {
+  interface Personaje {
+    id: number;
+    nombre: string;
+    raza: string;
+    historia: string | null;
+    estado_aprobacion: string;
+  }
   const router = useRouter();
-  const [personajes, setPersonajes] = useState<any[]>([]);
+  const [personajes, setPersonajes] = useState<Personaje[]>([]);
   const [tiendaCuerpos, setTiendaCuerpos] = useState(false);
   const [lugaresConocidos, setLugaresConocidos] = useState<string[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -61,7 +68,19 @@ export default function MisPersonajes() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarDatos();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cambiarAtributo = (attr: keyof typeof atributos, delta: number) => {
@@ -99,8 +118,8 @@ export default function MisPersonajes() {
   };
 
   // Función para entrar a la partida con el personaje seleccionado
-  const entrarAPartida = (personajeId: string) => {
-    localStorage.setItem("personaje_activo_id", personajeId);
+  const entrarAPartida = (personajeId: number) => {
+    localStorage.setItem("personaje_activo_id", String(personajeId));
     router.push("/ficha/personaje");
   };
 
@@ -171,7 +190,7 @@ export default function MisPersonajes() {
 
                 <div className="mt-4 flex-1">
                   <p className="text-xs text-neutral-500 italic line-clamp-3">
-                    "{char.historia || 'Un alma sin pasado...'}"
+                    &ldquo;{char.historia || "Un alma sin pasado..."}&rdquo;
                   </p>
                 </div>
 
