@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
 
 export default function HomePage() {
   const router = useRouter();
-  const [verificando, setVerificando] = useState(true);
+  const [verificando] = useState(true);
 
   useEffect(() => {
     const verificarSesion = async () => {
