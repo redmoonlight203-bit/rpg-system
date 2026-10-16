@@ -3,9 +3,18 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Map, Package, Sparkles, Shield, Dices, GitFork, Activity, 
-  ArrowLeft, Heart, Lock, Skull, Crown, User, Flame
+import {
+  Map,
+  Package,
+  Sparkles,
+  Shield,
+  Dices,
+  GitFork,
+  Activity,
+  ArrowLeft,
+  Heart,
+  Lock,
+  Skull,
 } from "lucide-react";
 
 interface Personaje {
@@ -47,7 +56,19 @@ export default function HubPersonajeJugador() {
   };
 
   useEffect(() => {
-    cargarPersonajeActivo();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarPersonajeActivo();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (cargando) {
