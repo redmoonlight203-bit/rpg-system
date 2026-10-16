@@ -3,9 +3,16 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
-import { 
-  ArrowLeft, ShoppingBag, User, Sparkles, Package, 
-  Heart, MessageSquare, Check, X, ShieldAlert, Tag 
+import {
+  ArrowLeft,
+  ShoppingBag,
+  User,
+  Sparkles,
+  Package,
+  Heart,
+  MessageSquare,
+  X,
+  Tag,
 } from "lucide-react";
 
 interface TiendaItem {
@@ -33,6 +40,7 @@ export default function TiendaKuroi() {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
+      setCargando(false);
       router.push("/login");
       return;
     }
@@ -61,14 +69,33 @@ export default function TiendaKuroi() {
   };
 
   useEffect(() => {
-    cargarTienda();
+    let activo = true;
+
+    Promise.resolve().then(() => {
+      if (activo) {
+        void cargarTienda();
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Alternar wishlist (Agregar/Quitar)
   const toggleDeseo = async (itemId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      setEnviando(false);
+      router.push("/login");
+      return;
+    }
 
     const existe = deseos.includes(itemId);
 
