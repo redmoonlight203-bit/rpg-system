@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { atributosEfectivos, linaje, padreValido } from "../../../lib/estadisticas";
 import { supabase } from "../../../lib/supabase";
-import { Activity, ArrowRight, Layers, Pencil, Plus, Search, X } from "lucide-react";
+import { Activity, ArrowRight, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 type Categoria = { id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null };
 type Stat = { id: string; categoria: string; clave: string; etiqueta: string; descripcion: string | null; valor_defecto: number };
@@ -29,6 +29,8 @@ export default function Estadisticas() {
   const [padre, setPadre] = useState("");
   const [herenciaDisponible, setHerenciaDisponible] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [quitando, setQuitando] = useState<string | null>(null);
+  const bloqueoQuitar = useRef(false);
   const [errorEditor, setErrorEditor] = useState("");
   const dialogo = useRef<HTMLDialogElement>(null);
   useEffect(() => { if (editor) dialogo.current?.showModal(); }, [editor]);
@@ -92,6 +94,26 @@ export default function Estadisticas() {
     finally { setGuardando(false); }
   }
 
+  async function quitarAtributo(stat: Stat) {
+    // Solo se quita una definición propia de una subcategoría, nunca la heredada.
+    if (bloqueoQuitar.current || !actual?.parent_id || stat.categoria !== actual.clave || !stats.some(s => s.id === stat.id && s.categoria === actual.clave)) return;
+    const heredado = atributosEfectivos(categorias, stats.filter(s => s.id !== stat.id), actual.clave).find(s => s.clave === stat.clave);
+    const detalle = heredado
+      ? "Al quitar esta definición propia volverá a mostrarse el atributo heredado de su categoría superior."
+      : "Dejará de estar disponible en esta subcategoría y en las que lo hereden de ella.";
+    if (!window.confirm(`¿Quitar «${stat.etiqueta}» de «${actual.nombre}»?\n\n${detalle}\nLos valores ya guardados en personajes y objetos no se borrarán.`)) return;
+    bloqueoQuitar.current = true; setQuitando(stat.id); setError(""); setAviso("");
+    try {
+      const resultado = await supabase.from("config_estadisticas").delete()
+        .eq("id", stat.id).eq("categoria", actual.clave).select("id").single();
+      if (resultado.error) throw new Error(resultado.error.message);
+      if (!resultado.data) throw new Error("No se confirmó la eliminación. Revisa los permisos de tu cuenta.");
+      setStats(prev => prev.filter(s => s.id !== stat.id));
+      setAviso(`Atributo «${stat.etiqueta}» quitado de «${actual.nombre}».${heredado ? " Se conserva su versión heredada." : ""}`);
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar el atributo."); }
+    finally { bloqueoQuitar.current = false; setQuitando(null); }
+  }
+
   function mostrarCategoria(c: Categoria, profundidad = 0, vistos = new Set<string>()): React.ReactNode {
     if (vistos.has(c.id)) return null;
     const camino = new Set(vistos).add(c.id);
@@ -134,7 +156,10 @@ export default function Estadisticas() {
               <h3 className="mt-6 font-semibold">{actual.parent_id ? "Atributos de esta subcategoría" : "Atributos generales"}</h3>
               <p className="mt-4 text-xs text-neutral-400">{deCategoria.filter(s => s.categoria !== seleccion).length} heredados · {deCategoria.filter(s => s.categoria === seleccion).length} propios. Un atributo propio con la misma clave sustituye el valor heredado.</p>
               <div className="my-6 flex flex-wrap gap-3 border-t border-neutral-800 pt-6"><label className="relative min-w-0 flex-1"><span className="sr-only">Buscar atributos</span><Search size={16} className="absolute left-3 top-3 text-neutral-500"/><input className={`${campo} pl-9`} value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar atributo por nombre o descripción"/></label><button className={boton} onClick={() => abrir({ tipo: "atributo" })}><Plus size={16}/> Añadir atributo</button></div>
-              <div className="space-y-3">{visibles.map(s => <article key={s.id} className="flex items-start justify-between gap-4 rounded-lg border border-neutral-800 p-4"><div className="min-w-0"><h3 className="flex items-center gap-2 font-semibold"><Activity size={15} className="shrink-0 text-emerald-500"/>{s.etiqueta}</h3><p className="mt-1 break-all font-mono text-xs text-neutral-500">{s.clave}</p><p className="mt-1 text-xs text-emerald-500">{s.categoria === seleccion ? "Propio de esta categoría" : `Heredado de ${categorias.find(c => c.clave === s.categoria)?.nombre || s.categoria}`}</p>{s.descripcion && <p className="mt-2 text-sm text-neutral-400">{s.descripcion}</p>}<p className="mt-3 text-xs text-neutral-400">Valor predeterminado: <b className="text-emerald-400">{s.valor_defecto ?? 0}</b></p></div><button className={boton} aria-label={s.categoria === seleccion ? `Editar ${s.etiqueta}` : `Ver origen de ${s.etiqueta}`} onClick={() => { if (s.categoria === seleccion) abrir({ tipo: "atributo", original: s }); else { setSeleccion(s.categoria); setBusqueda(""); } }}>{s.categoria === seleccion ? <Pencil size={14}/> : "Ver origen"}</button></article>)}</div>
+              <div className="space-y-3">{visibles.map(s => <article key={s.id} className="flex items-start justify-between gap-4 rounded-lg border border-neutral-800 p-4"><div className="min-w-0"><h3 className="flex items-center gap-2 font-semibold"><Activity size={15} className="shrink-0 text-emerald-500"/>{s.etiqueta}</h3><p className="mt-1 break-all font-mono text-xs text-neutral-500">{s.clave}</p><p className="mt-1 text-xs text-emerald-500">{s.categoria === seleccion ? "Propio de esta categoría" : `Heredado de ${categorias.find(c => c.clave === s.categoria)?.nombre || s.categoria}`}</p>{s.descripcion && <p className="mt-2 text-sm text-neutral-400">{s.descripcion}</p>}<p className="mt-3 text-xs text-neutral-400">Valor predeterminado: <b className="text-emerald-400">{s.valor_defecto ?? 0}</b></p></div><div className="flex shrink-0 flex-col gap-2"><button disabled={quitando !== null} className={boton} aria-label={s.categoria === seleccion ? `Editar ${s.etiqueta}` : `Ver origen de ${s.etiqueta}`} onClick={() => { if (s.categoria === seleccion) abrir({ tipo: "atributo", original: s }); else { setSeleccion(s.categoria); setBusqueda(""); } }}>{s.categoria === seleccion ? <Pencil size={14}/> : "Ver origen"}</button>
+                {actual.parent_id && s.categoria === seleccion && <button disabled={quitando !== null} className={`${boton} border-red-900 text-red-300 hover:border-red-600`} aria-label={`Quitar ${s.etiqueta} de ${actual.nombre}`} onClick={() => void quitarAtributo(s)}><Trash2 size={14}/>{quitando === s.id ? "Quitando…" : "Quitar"}</button>}
+                {s.categoria !== seleccion && <span className="text-xs text-neutral-500">Heredado · protegido</span>}
+              </div></article>)}</div>
               {!visibles.length && <p className="py-10 text-center text-sm text-neutral-500">{busqueda ? "No hay atributos que coincidan con la búsqueda." : "Esta categoría aún no tiene atributos. Añade los que necesitarás al crear en la Forja."}</p>}
               <p className="mt-6 border-t border-neutral-800 pt-4 text-xs leading-5 text-neutral-500">Los cambios de nombre y descripción conservan las referencias existentes. Cambiar el valor predeterminado no modifica las cifras de entidades ya creadas.</p>
             </> : <div className="py-16 text-center"><Layers className="mx-auto mb-4 text-emerald-500"/><h2 className="text-xl">Todo empieza con una categoría</h2><p className="mt-3 text-sm text-neutral-400">Por ejemplo: personajes, habilidades, títulos, pasivas u objetos.</p><button className={`${boton} mt-6`} onClick={() => abrir({tipo:"categoria"})}>Crear categoría</button></div>}
