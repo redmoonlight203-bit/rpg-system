@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { ForjaOperacion } from "../../../components/ForjaOperacion";
 import { supabase } from "../../../lib/supabase";
 import { 
   ShoppingBag, MessageSquare, Trash2, CheckCircle, XCircle, Package, UserCheck, Eye, RotateCcw
@@ -62,7 +63,7 @@ export default function MercadoNegroKuroi() {
 
   // Modal Venta / Entrega
   const [itemAEntregar, setItemAEntregar] = useState<EntidadForja | null>(null);
-  const [compradorUserId, setCompradorUserId] = useState("");
+  const [negociacionEntrega, setNegociacionEntrega] = useState<Negociacion | null>(null);
 
   const cargarDatos = async () => {
     setCargando(true);
@@ -138,128 +139,15 @@ export default function MercadoNegroKuroi() {
     cargarDatos();
   }, []);
 
-  const generarStatsFinales = (item: EntidadForja) => {
-    if (!item.es_grupo || !item.stats_rango) return item.stats || {};
-    
-    const statsCalculados: Record<string, number> = {};
-    Object.entries(item.stats_rango).forEach(([clave, rango]) => {
-      const min = Math.min(rango.min, rango.max);
-      const max = Math.max(rango.min, rango.max);
-      statsCalculados[clave] = Math.floor(Math.random() * (max - min + 1)) + min;
-    });
-    return statsCalculados;
-  };
-
-  // ENTREGAR AL ALMA DEL JUGADOR CON VERIFICACIÓN ESTRICTA DE UNICIDAD
-  const entregarAlNexo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!itemAEntregar || !compradorUserId) return;
-
-    // VERIFICACIÓN 1: Si es objeto único, consultar si YA existe en la tabla inventario_jugador
-    if (!itemAEntregar.es_grupo) {
-      const { data: yaExiste } = await supabase
-        .from("inventario_jugador")
-        .select("id")
-        .eq("forja_id", itemAEntregar.id);
-
-      if (yaExiste && yaExiste.length > 0) {
-        alert(`¡ACCIONAL DENEGADA! "${itemAEntregar.nombre}" es un objeto ÚNICO y ya se encuentra en el inventario de un jugador.`);
-        setItemAEntregar(null);
-        setCompradorUserId("");
-        cargarDatos();
-        return;
-      }
-    }
-
-    const statsFinales = generarStatsFinales(itemAEntregar);
-
-    // Inserción en inventario_jugador
-    const { error: errInsert } = await supabase.from("inventario_jugador").insert([{
-      user_id: compradorUserId,
-      forja_id: itemAEntregar.id,
-      nombre: itemAEntregar.nombre,
-      tipo: itemAEntregar.tipo,
-      descripcion: itemAEntregar.descripcion,
-      imagen_url: itemAEntregar.imagen_url,
-      clase: itemAEntregar.clase,
-      stats: statsFinales,
-      ligado_al_alma: itemAEntregar.ligado_al_alma,
-      personaje_id: null
-    }]);
-
-    if (!errInsert) {
-      // Actualizar trazabilidad en La Forja Maestra
-      await supabase.from("forja_maestra").update({ 
-        es_vendible: false,
-        ubicacion: itemAEntregar.es_grupo ? "forja" : "jugador",
-        poseedor_id: compradorUserId 
-      }).eq("id", itemAEntregar.id);
-
-      alert(`"${itemAEntregar.nombre}" entregado correctamente al Alma del jugador.`);
-      setItemAEntregar(null);
-      setCompradorUserId("");
-      cargarDatos();
-    } else {
-      alert("Error al transferir el objeto: " + errInsert.message);
-    }
-  };
-
-  // ACEPTAR NEGOCIACIÓN CON VERIFICACIÓN DE UNICIDAD
   const resolverNegociacion = async (neg: Negociacion, estado: "aprobada" | "rechazada") => {
     if (estado === "rechazada") {
-      await supabase.from("negociaciones_tienda").update({ estado: "rechazada" }).eq("id", neg.id);
-      cargarDatos();
+      const r = await supabase.from("negociaciones_tienda").update({estado:"rechazada"}).eq("id",neg.id).eq("estado","pendiente");
+      if (r.error) alert(r.error.message); else void cargarDatos();
       return;
     }
-
-    const { data: itemForja } = await supabase.from("forja_maestra").select("*").eq("id", neg.item_id).single();
-    if (!itemForja) {
-      alert("El objeto ya no existe en la Forja.");
-      return;
-    }
-
-    // VERIFICACIÓN DE UNICIDAD
-    if (!itemForja.es_grupo) {
-      const { data: yaExiste } = await supabase
-        .from("inventario_jugador")
-        .select("id")
-        .eq("forja_id", itemForja.id);
-
-      if (yaExiste && yaExiste.length > 0) {
-        alert(`¡ACCIONAL DENEGADA! "${itemForja.nombre}" es un objeto ÚNICO y ya fue entregado previamente.`);
-        await supabase.from("negociaciones_tienda").update({ estado: "rechazada" }).eq("id", neg.id);
-        cargarDatos();
-        return;
-      }
-    }
-
-    const statsFinales = generarStatsFinales(itemForja as EntidadForja);
-
-    const { error: invError } = await supabase.from("inventario_jugador").insert([{
-      user_id: neg.user_id,
-      forja_id: itemForja.id,
-      nombre: itemForja.nombre,
-      tipo: itemForja.tipo,
-      descripcion: itemForja.descripcion,
-      imagen_url: itemForja.imagen_url,
-      clase: itemForja.clase,
-      stats: statsFinales,
-      ligado_al_alma: itemForja.ligado_al_alma,
-      personaje_id: null
-    }]);
-
-    if (!invError) {
-      await supabase.from("negociaciones_tienda").update({ estado: "aprobada" }).eq("id", neg.id);
-      
-      await supabase.from("forja_maestra").update({ 
-        es_vendible: false,
-        ubicacion: itemForja.es_grupo ? "forja" : "jugador",
-        poseedor_id: neg.user_id 
-      }).eq("id", itemForja.id);
-
-      alert(`Trato cerrado. "${itemForja.nombre}" enviado al Alma del jugador.`);
-      cargarDatos();
-    }
+    const r = await supabase.from("forja_maestra").select("*").eq("id",neg.item_id).single();
+    if (r.error || !r.data) { alert(r.error?.message || "La creación no está disponible."); return; }
+    setNegociacionEntrega(neg); setItemAEntregar(r.data as EntidadForja);
   };
 
   // REVOCAR OBJETO DE UN JUGADOR
@@ -268,13 +156,6 @@ export default function MercadoNegroKuroi() {
 
     await supabase.from("inventario_jugador").delete().eq("id", invId);
 
-    if (forjaId) {
-      await supabase.from("forja_maestra").update({ 
-        ubicacion: "forja", 
-        poseedor_id: null,
-        es_vendible: false 
-      }).eq("id", forjaId);
-    }
 
     cargarDatos();
   };
@@ -364,7 +245,7 @@ export default function MercadoNegroKuroi() {
                     </div>
 
                     <button
-                      onClick={() => setItemAEntregar(art)}
+                      onClick={() => {setNegociacionEntrega(null);setItemAEntregar(art);}}
                       className="w-full bg-purple-950 hover:bg-purple-900 border border-purple-800 text-purple-200 text-xs font-mono py-2.5 rounded font-bold uppercase flex items-center justify-center gap-2 transition-colors"
                     >
                       <UserCheck className="w-4 h-4" /> Transferir a Jugador
@@ -462,7 +343,7 @@ export default function MercadoNegroKuroi() {
                       onClick={() => revocarDeJugador(inv.id, inv.forja_id)}
                       className="w-full bg-red-950 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-mono py-2 rounded font-bold uppercase flex items-center justify-center gap-2 transition-colors"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" /> Revocar a la Forja
+                      <RotateCcw className="w-3.5 h-3.5" /> Retirar esta copia
                     </button>
                   </div>
                 ))}
@@ -471,45 +352,9 @@ export default function MercadoNegroKuroi() {
           </section>
         )}
 
-        {/* MODAL: ENTREGAR */}
-        {itemAEntregar && (
-          <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-neutral-950 border border-purple-900/60 p-6 rounded-xl max-w-md w-full space-y-5">
-              <div className="border-b border-neutral-900 pb-3">
-                <span className="text-[10px] font-mono uppercase text-purple-500 font-bold">Transferir al Alma del Jugador</span>
-                <h3 className="text-lg font-bold text-neutral-100 font-mono mt-1">{itemAEntregar.nombre}</h3>
-              </div>
-
-              <form onSubmit={entregarAlNexo} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-mono text-neutral-400 uppercase">Selecciona la Cuenta de Usuario</label>
-                  <select 
-                    required
-                    value={compradorUserId}
-                    onChange={(e) => setCompradorUserId(e.target.value)}
-                    className="w-full bg-black border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-mono outline-none focus:border-purple-800"
-                  >
-                    <option value="">-- Seleccionar Cuenta de Jugador --</option>
-                    {cuentasJugadores.map((cuenta) => (
-                      <option key={cuenta.user_id} value={cuenta.user_id}>
-                        {cuenta.identificador_cuenta}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex gap-2 pt-2 border-t border-neutral-900">
-                  <button type="submit" className="flex-1 bg-purple-950 hover:bg-purple-900 border border-purple-800 text-purple-200 py-2.5 rounded text-xs font-mono font-bold uppercase transition-colors">
-                    Transferir al Alma
-                  </button>
-                  <button type="button" onClick={() => {setItemAEntregar(null); setCompradorUserId("");}} className="px-4 py-2 bg-neutral-900 text-neutral-400 hover:text-red-400 border border-neutral-800 rounded text-xs font-mono uppercase transition-colors">
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        {itemAEntregar && <ForjaOperacion item={itemAEntregar} modo="inventario" usuarioId={negociacionEntrega?.user_id} negociacionId={negociacionEntrega?.id}
+          onClose={() => {setItemAEntregar(null);setNegociacionEntrega(null);}}
+          onDone={() => {setItemAEntregar(null);setNegociacionEntrega(null);void cargarDatos();alert("Copia entregada al inventario del personaje.");}}/>}
 
       </div>
     </main>

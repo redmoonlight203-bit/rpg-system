@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
+import { ForjaOperacion, ForjaInstancias } from "../../../components/ForjaOperacion";
+import { rutaForja, coincideClasificacion, validarValoresForja } from "../../../lib/forja";
 import { atributosEfectivos } from "../../../lib/estadisticas";
 import { 
   Hammer, ImageIcon, BookOpen, Shield, Sparkles, User, Skull, 
@@ -65,6 +67,12 @@ export default function ForjaMaestraKuroi() {
   const [peticiones, setPeticiones] = useState<PeticionJugador[]>([]);
   
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const bloqueoGuardar = useRef(false);
+  const [operacion, setOperacion] = useState<{item: EntidadForja; modo: "inventario" | "batalla"} | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [mostrarInstancias, setMostrarInstancias] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
 
   const [entidadEditandoId, setEntidadEditandoId] = useState<string | null>(null);
@@ -92,16 +100,17 @@ export default function ForjaMaestraKuroi() {
   const cargarDatos = async () => {
     setCargando(true);
     
-    const { data: catData } = await supabase.from("categorias_forja").select("*").order("created_at", { ascending: true });
-    if (catData && catData.length > 0) {
+    setErrorCarga("");
+    const { data: catData, error: catError } = await supabase.from("categorias_forja").select("*").order("created_at", { ascending: true });
+    if (catData) {
       setCategorias(catData as CategoriaForja[]);
-      if (!nuevoTipo) setNuevoTipo(catData[0].clave);
+      if (!nuevoTipo && catData.length) setNuevoTipo(catData[0].clave);
     }
 
-    const { data: statsData } = await supabase.from("config_estadisticas").select("*");
+    const { data: statsData, error: statsError } = await supabase.from("config_estadisticas").select("*");
     if (statsData) setStatsGlobales(statsData as StatConfig[]);
 
-    const { data: forjaData } = await supabase.from("forja_maestra").select("*").order("created_at", { ascending: false });
+    const { data: forjaData, error: forjaError } = await supabase.from("forja_maestra").select("*").order("created_at", { ascending: false });
     if (forjaData) setEntidades(forjaData as EntidadForja[]);
 
     const { data: petData } = await supabase.from("creaciones_forja").select("*").eq("estado", "pendiente").order("created_at", { ascending: false });
@@ -124,12 +133,20 @@ export default function ForjaMaestraKuroi() {
       setPeticiones(peticionesMapeadas as PeticionJugador[]);
     }
 
+    if (catError || statsError || forjaError) setErrorCarga(catError?.message || statsError?.message || forjaError?.message || "No se pudo cargar la Forja.");
     setCargando(false);
   };
 
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  function cambiarClasificacion(clave: string) {
+    const efectivos = atributosEfectivos(categorias, statsGlobales, clave);
+    setNuevoTipo(clave);
+    setNuevosStats(prev => Object.fromEntries(efectivos.map(s => [s.clave, prev[s.clave] ?? s.valor_defecto ?? 0])));
+    setNuevosStatsRango(prev => Object.fromEntries(efectivos.map(s => [s.clave, prev[s.clave] ?? { min: s.valor_defecto ?? 0, max: s.valor_defecto ?? 0 }])));
+  }
 
   const formatearUrlImagen = (url: string) => {
     if (!url) return "";
@@ -176,13 +193,14 @@ export default function ForjaMaestraKuroi() {
 
   const forjarEntidad = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevoNombre || !nuevoTipo) return;
+    if (bloqueoGuardar.current) return;
+    if (!nuevoNombre.trim() || !categorias.some(c => c.clave === nuevoTipo)) { alert("Elige una categoría válida de Estadísticas y escribe un nombre."); return; }
 
     const efectivos = atributosEfectivos(categorias, statsGlobales, nuevoTipo);
     const valores = entidadEditandoId ? nuevosStats : {
       ...Object.fromEntries(efectivos.map(s => [s.clave, s.valor_defecto ?? 0])), ...nuevosStats,
     };
-    const statsA_Guardar = Object.fromEntries(Object.entries(valores).filter(([, v]) => Number.isFinite(v)));
+    const statsA_Guardar = valores;
     const rangos = entidadEditandoId ? nuevosStatsRango : {
       ...Object.fromEntries(efectivos.map(s => [s.clave, { min: s.valor_defecto ?? 0, max: s.valor_defecto ?? 0 }])), ...nuevosStatsRango,
     };
@@ -193,10 +211,13 @@ export default function ForjaMaestraKuroi() {
       Object.entries(rangos).filter(([, range]) => range && Number.isFinite(range.min) && Number.isFinite(range.max))
     );
 
+    const fallo = validarValoresForja(statsA_Guardar, esGrupo ? rangosA_Guardar : undefined);
+    if (fallo) { alert(fallo); return; }
+    bloqueoGuardar.current = true; setGuardando(true);
     const payload = {
       tipo: nuevoTipo,
       slot_tipo: nuevoSlotTipo,
-      nombre: nuevoNombre,
+      nombre: nuevoNombre.trim(),
       descripcion: nuevaDesc,
       historia: nuevaHistoria,
       requisitos: nuevoRequisito,
@@ -212,6 +233,7 @@ export default function ForjaMaestraKuroi() {
       ubicacion: esVendible ? "mercado" : "forja"
     };
 
+    try {
     let error;
 
     if (entidadEditandoId) {
@@ -234,10 +256,12 @@ export default function ForjaMaestraKuroi() {
       alert(entidadEditandoId ? "¡Entidad actualizada con éxito!" : "¡Entidad forjada con éxito en Yugen!");
       cancelarEdicion();
       setPestana("galeria");
-      cargarDatos();
+      void cargarDatos();
     } else {
-      alert("Error al procesar la entidad en la forja.");
+      alert("Error al procesar la entidad: " + error.message);
     }
+    } catch (e) { alert(e instanceof Error ? e.message : "No se pudo guardar la creación."); }
+    finally { bloqueoGuardar.current = false; setGuardando(false); }
   };
 
   const llevarAlYunque = (pet: PeticionJugador) => {
@@ -256,44 +280,20 @@ export default function ForjaMaestraKuroi() {
     cargarDatos();
   };
 
-  const reclamarAForja = async (forjaId: string) => {
-    if (!window.confirm("¿Seguro que deseas reclamar esta entidad única? Se retirará del jugador, del mercado o del tablero y volverá a estar libre en La Forja.")) return;
-
-    await supabase.from("inventario_jugador").delete().eq("forja_id", forjaId);
-    await supabase.from("negociaciones_tienda").delete().eq("item_id", forjaId);
-    await supabase.from("forja_maestra").update({
-      ubicacion: "forja",
-      es_vendible: false,
-      poseedor_id: null
-    }).eq("id", forjaId);
-
-    cargarDatos();
-  };
-
   const alternarVenta = async (ent: EntidadForja) => {
-    if (!ent.es_grupo && ent.ubicacion === "jugador") {
-      alert("No puedes poner en venta este objeto porque actualmente pertenece al inventario de un jugador. Reclámalo primero.");
-      return;
-    }
-
     const nuevoVendible = !ent.es_vendible;
-    await supabase.from("forja_maestra").update({ 
-      es_vendible: nuevoVendible,
-      ubicacion: nuevoVendible ? "mercado" : "forja"
-    }).eq("id", ent.id);
-    cargarDatos();
+    const r = await supabase.from("forja_maestra").update({es_vendible:nuevoVendible, ubicacion:nuevoVendible ? "mercado" : "forja"}).eq("id",ent.id);
+    if (r.error) alert(r.error.message); else void cargarDatos();
   };
-
   const eliminarEntidad = async (id: string) => {
-    if (!window.confirm("¿Seguro que deseas erradicar esto de Yugen?")) return;
-    await supabase.from("inventario_jugador").delete().eq("forja_id", id);
-    await supabase.from("forja_maestra").delete().eq("id", id);
-    cargarDatos();
+    if (!window.confirm("¿Archivar esta creación? Dejará de generar nuevas copias. Los objetos entregados y los enemigos preparados se conservan.")) return;
+    const r = await supabase.from("forja_maestra").update({estado:"archivado", es_vendible:false}).eq("id",id);
+    if (r.error) alert(r.error.message); else void cargarDatos();
   };
 
   if (cargando) return <div className="min-h-screen bg-black flex items-center justify-center text-orange-500 font-mono animate-pulse">Encendiendo el Yunque de la Creación...</div>;
 
-  const galeria = entidades.filter(e => e.estado === "aprobado" && (filtroTipo === "todos" || e.tipo === filtroTipo));
+  const galeria = entidades.filter(e => e.estado === "aprobado" && coincideClasificacion(categorias, e.tipo, filtroTipo));
   const statsRelevantes = atributosEfectivos(categorias, statsGlobales, nuevoTipo);
 
   return (
@@ -346,6 +346,11 @@ export default function ForjaMaestraKuroi() {
           })}
         </nav>
 
+        {errorCarga && <p role="alert" className="text-red-300">{errorCarga}</p>}
+        <div className="flex flex-wrap items-center gap-4 text-sm"><button className="rounded border border-orange-800 px-4 py-2" onClick={() => setMostrarInstancias(!mostrarInstancias)}>{mostrarInstancias ? "Ocultar preparados" : "Preparados para batalla"}</button><a className="text-neutral-400 underline" href="/dm/reglas">Configurar categorías y atributos</a></div>
+        {mostrarInstancias && <ForjaInstancias revision={revision}/>}
+        {operacion && <ForjaOperacion item={operacion.item} modo={operacion.modo} onClose={() => setOperacion(null)} onDone={() => { const batalla=operacion.modo === "batalla"; setOperacion(null); setRevision(v=>v+1); if(batalla) setMostrarInstancias(true); alert(batalla ? "Instancias preparadas con sus estadísticas guardadas." : "Copias entregadas al inventario del personaje."); }}/>}
+
         {/* PESTAÑA 1: LA GALERÍA */}
         {pestana === "galeria" && (
           <section className="space-y-6">
@@ -367,7 +372,7 @@ export default function ForjaMaestraKuroi() {
                     filtroTipo === cat.clave ? "bg-orange-950 border border-orange-800 text-orange-300" : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white"
                   }`}
                 >
-                  {cat.nombre.split(' ')[0]}
+                  {rutaForja(categorias, cat.clave)}
                 </button>
               ))}
             </div>
@@ -406,7 +411,7 @@ export default function ForjaMaestraKuroi() {
                             ent.es_grupo ? "bg-amber-950/80 border-amber-800 text-amber-300" : "bg-cyan-950/80 border-cyan-800 text-cyan-300"
                           }`}>
                             {ent.es_grupo ? <Users className="w-3 h-3"/> : <Sparkle className="w-3 h-3"/>}
-                            {ent.es_grupo ? "Malla" : "Único"}
+                            {ent.es_grupo ? "Malla · rangos" : "Único · fijo"}
                           </span>
 
                           <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded border backdrop-blur-sm flex items-center gap-1 uppercase ${
@@ -415,13 +420,13 @@ export default function ForjaMaestraKuroi() {
                             "bg-emerald-950 border-emerald-800 text-emerald-300"
                           }`}>
                             <MapPin className="w-3 h-3" />
-                            {ent.ubicacion === "jugador" ? "En Alma Jugador" : ent.ubicacion === "mercado" ? "En Mercado" : "En Forja"}
+                            {ent.ubicacion === "jugador" ? "Con copias entregadas" : ent.ubicacion === "mercado" ? "En Mercado" : "En Forja"}
                           </span>
                         </div>
                       </div>
 
                       <div>
-                        <h3 className="text-xl font-bold text-neutral-100 font-mono">{ent.nombre}</h3>
+                        <h3 className="text-xl font-bold text-neutral-100 font-mono">{ent.nombre}</h3><p className="mt-2 text-xs text-orange-400">{rutaForja(categorias, ent.tipo)}</p>
                         <p className="text-xs text-neutral-400 font-serif leading-relaxed line-clamp-2 mt-1">"{ent.descripcion}"</p>
                       </div>
 
@@ -453,12 +458,16 @@ export default function ForjaMaestraKuroi() {
                         </div>
                       )}
 
+                      <div className="flex flex-wrap gap-2">
+                        <button className="rounded border border-emerald-800 px-3 py-2 text-xs text-emerald-300" onClick={() => setOperacion({item:ent,modo:"inventario"})}>Entregar a personaje</button>
+                        <button className="rounded border border-orange-800 px-3 py-2 text-xs text-orange-300" onClick={() => setOperacion({item:ent,modo:"batalla"})}>Preparar para batalla</button>
+                      </div>
                       <div className="pt-4 mt-auto border-t border-neutral-900 flex justify-between items-center gap-2">
                         <label className="flex items-center gap-2 cursor-pointer group/toggle">
                           <input 
                             type="checkbox" 
                             checked={ent.es_vendible}
-                            disabled={!ent.es_grupo && ent.ubicacion === "jugador"}
+
                             onChange={() => alternarVenta(ent)}
                             className="sr-only"
                           />
@@ -471,16 +480,6 @@ export default function ForjaMaestraKuroi() {
                         </label>
 
                         <div className="flex items-center gap-2">
-                          {!ent.es_grupo && ent.ubicacion !== "forja" && (
-                            <button
-                              onClick={() => reclamarAForja(ent.id)}
-                              className="p-1.5 bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 rounded text-[10px] font-mono flex items-center gap-1 uppercase"
-                              title="Reclamar / Restablecer a La Forja"
-                            >
-                              <RotateCcw className="w-3 h-3" /> Reclamar
-                            </button>
-                          )}
-
                           <button 
                             onClick={() => cargarParaEditar(ent)} 
                             className="p-1.5 bg-neutral-900 hover:bg-orange-950 border border-neutral-800 hover:border-orange-800 text-neutral-400 hover:text-orange-400 rounded transition-colors"
@@ -493,7 +492,7 @@ export default function ForjaMaestraKuroi() {
                             onClick={() => eliminarEntidad(ent.id)} 
                             className="text-[10px] font-mono text-neutral-500 hover:text-red-500 uppercase transition-colors"
                           >
-                            Destruir
+                            Archivar
                           </button>
                         </div>
                       </div>
@@ -552,11 +551,12 @@ export default function ForjaMaestraKuroi() {
                     </label>
                     <select 
                       value={nuevoTipo} 
-                      onChange={(e) => { setNuevoTipo(e.target.value); if (!entidadEditandoId) { setNuevosStats({}); setNuevosStatsRango({}); } }}
+                      onChange={(e) => cambiarClasificacion(e.target.value)}
                       className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-mono outline-none focus:border-orange-800 font-bold"
                     >
+                      {!categorias.some(c => c.clave === nuevoTipo) && <option value={nuevoTipo} disabled>Selecciona una categoría válida</option>}
                       {categorias.map((cat) => (
-                        <option key={cat.clave} value={cat.clave}>{cat.parent_id ? `${categorias.find(c => c.id === cat.parent_id)?.nombre || "Grupo"} / ` : ""}{cat.nombre}</option>
+                        <option key={cat.clave} value={cat.clave}>{rutaForja(categorias,cat.clave)}</option>
                       ))}
                     </select>
                   </div>
@@ -620,7 +620,7 @@ export default function ForjaMaestraKuroi() {
                     <span className="text-[10px] font-mono text-orange-500 font-bold uppercase tracking-widest block">
                       2. Atributos para [{categorias.find(c => c.clave === nuevoTipo)?.nombre || nuevoTipo}]
                     </span>
-                    <p className="text-[9px] font-mono text-neutral-500">Variables configuradas en Reglas para esta categoría.</p>
+                    <p className="text-[9px] font-mono text-neutral-500">Atributos generales heredados y propios definidos en Estadísticas.</p>
                   </div>
 
                   <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800">
@@ -645,6 +645,7 @@ export default function ForjaMaestraKuroi() {
                   </div>
                 </div>
                 
+                <p className="text-xs text-neutral-400">{esGrupo ? "Cada aparición se sortea una sola vez dentro de estos rangos y conserva sus valores." : "Estadísticas fijas. Puedes entregar varias copias iguales; único no significa una sola existencia."}</p>
                 {statsRelevantes.length === 0 ? (
                   <p className="text-xs font-mono text-neutral-600 italic py-2">
                     No hay atributos vinculados a esta categoría en la pantalla de Reglas.
@@ -659,7 +660,7 @@ export default function ForjaMaestraKuroi() {
                               <Activity className="w-3 h-3 text-neutral-600"/> {stat.etiqueta}
                             </label>
                             <input 
-                              type="number"
+                              type="number" step="0.01"
                               value={nuevosStats[stat.clave] !== undefined ? nuevosStats[stat.clave] : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
                               onChange={(e) => setNuevosStats({ ...nuevosStats, [stat.clave]: Number(e.target.value) })}
                               placeholder="0"
@@ -679,7 +680,7 @@ export default function ForjaMaestraKuroi() {
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                               <input 
-                                type="number"
+                                type="number" step="0.01"
                                 value={nuevosStatsRango[stat.clave]?.min !== undefined ? nuevosStatsRango[stat.clave]?.min : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
                                 onChange={(e) => setNuevosStatsRango({
                                   ...nuevosStatsRango,
@@ -689,7 +690,7 @@ export default function ForjaMaestraKuroi() {
                                 className="w-full bg-black border border-neutral-800 p-1.5 text-xs text-amber-300 font-bold rounded font-mono outline-none focus:border-amber-800 text-center" 
                               />
                               <input 
-                                type="number"
+                                type="number" step="0.01"
                                 value={nuevosStatsRango[stat.clave]?.max !== undefined ? nuevosStatsRango[stat.clave]?.max : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
                                 onChange={(e) => setNuevosStatsRango({
                                   ...nuevosStatsRango,
@@ -766,7 +767,7 @@ export default function ForjaMaestraKuroi() {
               </div>
 
               <div className="pt-4 border-t border-orange-900/40">
-                <button type="submit" className="w-full bg-gradient-to-r from-orange-950 to-red-950 hover:from-orange-900 hover:to-red-900 border border-orange-800 text-orange-200 py-4 rounded-lg text-sm font-mono font-bold uppercase transition-all shadow-lg hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] flex items-center justify-center gap-2">
+                <button type="submit" disabled={guardando} className="w-full bg-gradient-to-r from-orange-950 to-red-950 hover:from-orange-900 hover:to-red-900 border border-orange-800 text-orange-200 py-4 rounded-lg text-sm font-mono font-bold uppercase transition-all shadow-lg hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] flex items-center justify-center gap-2">
                   {entidadEditandoId ? <Save className="w-5 h-5" /> : <Hammer className="w-5 h-5" />} 
                   {entidadEditandoId ? "Guardar Cambios en la Entidad" : (peticionEnYunque ? "Aprobar Creación Oficialmente" : "Insuflar Vida en Yugen")}
                 </button>

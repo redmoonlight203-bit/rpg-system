@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { linaje } from "../../../lib/estadisticas";
 import { supabase } from "../../../lib/supabase";
 import { 
   ArrowLeft, ShoppingBag, User, Sparkles, Package, 
@@ -11,7 +12,8 @@ import {
 interface TiendaItem {
   id: string;
   titulo: string;
-  tipo: "personaje" | "habilidad" | "objeto";
+  tipo: string;
+  clasificacion?: string;
   descripcion: string;
   precio: string;
   requisito: string;
@@ -40,8 +42,17 @@ export default function TiendaKuroi() {
     const userId = session.user.id;
 
     // 1. Obtener todas las ofertas de la tienda
-    const { data: ofertas } = await supabase.from("tienda_items").select("*");
-    if (ofertas) setItems(ofertas as TiendaItem[]);
+    const [catalogo, cats] = await Promise.all([
+      supabase.from("forja_maestra").select("*").eq("es_vendible",true).eq("estado","aprobado"),
+      supabase.from("categorias_forja").select("*"),
+    ]);
+    if (catalogo.error || cats.error) { alert(catalogo.error?.message || cats.error?.message); setCargando(false); return; }
+    setItems((catalogo.data || []).map(f => {
+      const ruta = linaje(cats.data || [], f.tipo);
+      const raiz = ruta[0]?.clave || f.tipo;
+      const tipo = ["objetos","objeto"].includes(raiz) ? "objeto" : ["razas","personaje","npc","monstruo"].includes(raiz) ? "personaje" : ["habilidades","habilidad"].includes(raiz) ? "habilidad" : raiz;
+      return {id:f.id,titulo:f.nombre,tipo,descripcion:f.descripcion || "",precio:f.precio_sugerido || "A negociar",requisito:f.requisitos || "Ninguno",clasificacion:ruta.map(c=>c.nombre).join(" / ") || f.tipo};
+    }));
 
     // 2. Obtener lista de deseos del jugador
     const { data: listaDeseos } = await supabase
