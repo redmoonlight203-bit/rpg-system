@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import {
   Skull, Map, User, Handshake, Hammer,
-  ShoppingBag, Sliders, LogOut, Home, Crown
+  ShoppingBag, Sliders, LogOut, Home, Crown, Swords
 } from "lucide-react";
 
 // `ko` es un subtítulo decorativo en hangul. Si alguno no te convence,
@@ -15,6 +15,7 @@ const menu = [
   { id: "panel", path: "/dm/panel", label: "Centro de Mando", ko: "지휘소", icon: Home },
   { id: "personajes", path: "/dm/personajes", label: "Gestión de Almas", ko: "영혼", icon: User },
   { id: "deudas", path: "/dm/deudas", label: "Bóveda de Deudas", ko: "부채", icon: Handshake },
+  { id: "combate", path: "/dm/combate", label: "Campo de batalla", ko: "전투", icon: Swords },
   { id: "forja", path: "/dm/forja", label: "El Yunque (Forja)", ko: "대장간", icon: Hammer },
   { id: "reglas", path: "/dm/reglas", label: "Reglas & Stats", ko: "규칙", icon: Sliders },
   { id: "mercado", path: "/dm/mercado", label: "Mercado Negro", ko: "시장", icon: ShoppingBag },

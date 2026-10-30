@@ -1,0 +1,3 @@
+import{readFileSync}from'node:fs';
+const{PGlite}=await import(process.env.FORJA_PGLITE_MODULE||'@electric-sql/pglite');const db=new PGlite();
+try{for(const p of ['./fixtures/forja_copias_schema.sql','./fixtures/creacion_schema.sql','../supabase/migrations/20261030_forja_copias.sql','../supabase/migrations/20261030_forja_tipos_y_dados.sql','../supabase/migrations/20261030_combate_pasivas.sql','./fixtures/combate_regresion.sql'])await db.exec(readFileSync(new URL(p,import.meta.url),'utf8'));console.log('PostgreSQL: snapshots, pasivas, solo personajes, revisiones, eliminación e historial correctos.');}catch(e){console.error(e.message,e.where||'');process.exitCode=1;}finally{await db.close();}
