@@ -1,0 +1,5 @@
+"use client";
+export type TiradaVisual={caras:number;valor:number};
+export default function AnimacionDados({nombre,dados,detalle,onClose}:{nombre:string;dados:TiradaVisual[];detalle?:string;onClose:()=>void}){
+ return <section className="initiative-toast battle-dice-toast" role="status" aria-live="polite" aria-label={`Tirada de ${nombre}`}><header><div><span>TIRADA DE DADOS</span><strong>{nombre}</strong></div><button type="button" aria-label="Cerrar resultado de dados" onClick={onClose}>×</button></header><div className="battle-dice-grid">{dados.map((d,i)=><div key={i} className={`battle-die ${d.valor===1?'die-one':d.valor===20?'die-twenty':''}`}><div className="initiative-d20" style={{animationDelay:`${Math.min(i,10)*40}ms`}}><svg viewBox="0 0 100 110" aria-hidden="true"><path d="M50 3 96 29 96 81 50 107 4 81 4 29Z M50 3 27 42 73 42 50 3 M4 29 27 42 4 81 50 107 27 42 73 42 50 107 96 81 73 42 96 29 M27 42 50 82 73 42 M4 81 50 82 96 81" fill="none" stroke="currentColor" strokeWidth="2"/></svg><b>{d.valor}</b></div><small>d{d.caras} · {d.valor}</small></div>)}</div>{detalle&&<p>{detalle}</p>}</section>;
+}
