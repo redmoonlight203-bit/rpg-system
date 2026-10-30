@@ -2,7 +2,7 @@ import{type Efecto}from'./creacion';import{type ReglaPasiva}from'./pasivas';
 export type Bando='jugador'|'enemigo';
 export type Fuente={id?:string;nombre:string;stats:Record<string,number>;efectos?:Efecto[];slot_tipo?:string;reglas_pasivas?:ReglaPasiva[]};
 export type Config={tipo_creacion?:string;bonos_equipamiento?:Record<string,number>;efectos?:Efecto[];stats_base?:Record<string,number>;equipamiento?:Record<string,Fuente>;habilidades?:Fuente[];pasivas?:{nombre:string;reglas:ReglaPasiva[]}[];reglas_pasivas?:ReglaPasiva[]};
-export type Combatiente={id:string;forja_id:string|null;nombre:string;bando:Bando;stats:Record<string,number>;configuracion:Config;vida:number;ph:number;fatiga:number;iniciativa:number;dado_iniciativa:number;turnos:number;accion_usada:boolean;cooldowns:Record<string,number>;arma?:{efecto:Efecto;nombre:string;slot:string;restantes:number;creada:number};estados:{id:string;nombre:string;restantes:number;creado:number;bonos:Record<string,number>;inicio?:boolean}[]};
+export type Combatiente={id:string;forja_id:string|null;nombre:string;personaje_id?:string;bando:Bando;stats:Record<string,number>;configuracion:Config;vida:number;ph:number;fatiga:number;iniciativa:number;dado_iniciativa:number;turnos:number;accion_usada:boolean;cooldowns:Record<string,number>;arma?:{efecto:Efecto;nombre:string;slot:string;restantes:number;creada:number};estados:{id:string;nombre:string;restantes:number;creado:number;bonos:Record<string,number>;inicio?:boolean}[]};
 export type Combate={fase:'preparacion'|'en_curso'|'finalizado';ronda:number;actual:string|null;regla:'impacto'|'reduccion'|'directo';miembros:Combatiente[];registro:string[]};
 export type Accion={id:string;nombre:string;efecto:Efecto;enfriamiento:number};export type RNG=(caras:number)=>number;
 export function dadoSeguro(caras:number){const a=new Uint32Array(1),limite=Math.floor(4294967296/caras)*caras;do{crypto.getRandomValues(a);}while(a[0]>=limite);return a[0]%caras+1;}
@@ -29,4 +29,14 @@ if(e.efecto==='crear_arma'){a.arma={efecto:{...e},nombre:e.arma_nombre||'Arma te
 if(e.efecto==='dano'){if(n.regla==='reduccion')total=Math.max(0,total-(estadisticas(t).armadura||0));const antes=t.vida;t.vida=Math.max(0,t.vida-total);log(n,`${act.nombre}: ${detalle}. ${t.nombre} pierde ${antes-t.vida} vida (${e.tipo_dano||'daño'}); queda ${t.vida}.`);}else if(e.efecto==='curacion'){const antes=t.vida;t.vida=Math.min(maxVida(t),t.vida+total);log(n,`${act.nombre}: ${detalle}. Cura ${t.vida-antes} vida a ${t.nombre}.`);}else if(e.efecto==='recuperar_ph'){const antes=t.ph;t.ph=Math.min(estadisticas(t).ph||0,t.ph+total);log(n,`${act.nombre}: recupera ${t.ph-antes} PH.`);}else if(e.efecto==='reducir_fatiga'){const antes=t.fatiga;t.fatiga=Math.max(0,t.fatiga-total);log(n,`${act.nombre}: reduce ${antes-t.fatiga} Fatiga.`);}else if(e.efecto==='estado'){t.estados.push({id:crypto.randomUUID(),nombre:e.estado,restantes:Math.max(1,e.duracion),creado:t.turnos,bonos:e.bonos_estado||{}});log(n,`${t.nombre}: ${e.estado}; ${Math.max(1,e.duracion)} turnos propios.`);}}
 normalizar(a);normalizar(t);log(n,`Coste ${coste} PH; ${fatiga} Fatiga. Acción utilizada.`);return n;}
 export function mover(c:Combate,id:string,bando:Bando){if(c.fase!=='preparacion')throw Error('Los bandos se eligen en preparación.');const n=copia(c),m=n.miembros.find(v=>v.id===id);if(!m)throw Error('Personaje no encontrado.');m.bando=bando;return n;}
-export function retirar(c:Combate,id:string){if(c.fase!=='preparacion')throw Error('Retira personajes en preparación.');const n=copia(c);n.miembros=n.miembros.filter(m=>m.id!==id);return n;}
+export function retirar(c:Combate,id:string){
+ const retirado=c.miembros.find(m=>m.id===id);
+ if(!retirado)throw Error('Personaje no encontrado.');
+ // Advance while the current participant is still in initiative order.
+ const n=c.fase==='en_curso'&&c.actual===id?siguiente(c):copia(c);
+ n.miembros=n.miembros.filter(m=>m.id!==id);
+ if(!n.miembros.some(m=>m.vida>0)&&n.fase==='en_curso'){n.fase='finalizado';n.actual=null;}
+ if(n.actual===id)n.actual=null;
+ log(n,`${retirado.nombre} se retira del campo. Su ficha e inventario se conservan.`);
+ return n;
+}
