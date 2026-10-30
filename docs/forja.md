@@ -27,3 +27,17 @@ La migración se aplicó mediante la conexión Supabase. La verificación adicio
 - npm run build
 
 La regresión SQL se ejecuta únicamente en una base vacía en memoria con PGlite. Para reproducirla en un entorno de desarrollo: instala @electric-sql/pglite sin guardarlo como dependencia de la aplicación y ejecuta node tests/forja-database.mjs. También puede indicarse su ruta de módulo con FORJA_PGLITE_MODULE. El script no utiliza credenciales ni permite conectarse a una base real.
+
+## Creación por tipo
+
+La pestaña La creación sustituye a Galería. Los filtros muestran nombres cortos de subcategorías. El Yunque separa Tipo (personaje, habilidad, objeto, título, pasiva u otro) de Clasificación (solo subcategorías de Estadísticas). Las familias conocidas ofrecen clasificaciones compatibles con el tipo; las categorías personalizadas continúan disponibles mediante Otro.
+
+Los personajes seleccionan habilidades aprobadas y piezas compatibles con los espacios existentes. Las habilidades y los objetos pueden configurar acciones mediante nombre, efecto, cantidad de dados, caras, modificador, coste de PH y duración. Los efectos disponibles son daño, curación, recuperación de PH, reducción de Fatiga y estados descritos. Probar una tirada solo muestra un resultado: no aplica daño, cura ni consume PH.
+
+El tipo Objeto muestra el espacio de equipamiento. Un título conserva internamente su espacio de título. El resto no utiliza espacios de equipo. Al generar un personaje se copian habilidades, piezas y acciones; los bonos del equipo se suman a los atributos que ya existen en su base, que también queda conservada en la configuración. El equipo procedente de una malla se sortea por aparición y queda guardado.
+
+La migración 20261030_forja_tipos_y_dados.sql prepara los campos, valida referencias y guarda configuraciones en inventarios e instancias. El catálogo anterior mantiene sus estadísticas. La espada con dados antiguos se presenta como una acción. Las nuevas ediciones usan acciones como fuente de configuración de dados.
+
+El tablero se retira de los menús. Su ruta anterior redirige a la Forja; los mapas almacenados no se eliminan.
+
+Validación adicional: node --test tests/creacion.test.mjs y node tests/creacion-database.mjs (PGlite aislado, igual que la regresión anterior). Se probaron restricciones por tipo, referencias, dos manos, dados, copia de habilidades/equipo, bonos de equipo fijo y de malla, y conservación de snapshots.

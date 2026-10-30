@@ -13,7 +13,6 @@ import {
 // bórralo o cámbialo: no afecta a la lógica.
 const menu = [
   { id: "panel", path: "/dm/panel", label: "Centro de Mando", ko: "지휘소", icon: Home },
-  { id: "tablero", path: "/dm/tablero", label: "El Tablero", ko: "지도", icon: Map },
   { id: "personajes", path: "/dm/personajes", label: "Gestión de Almas", ko: "영혼", icon: User },
   { id: "deudas", path: "/dm/deudas", label: "Bóveda de Deudas", ko: "부채", icon: Handshake },
   { id: "forja", path: "/dm/forja", label: "El Yunque (Forja)", ko: "대장간", icon: Hammer },

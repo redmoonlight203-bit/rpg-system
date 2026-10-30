@@ -1,0 +1,31 @@
+begin;
+do $$
+declare admin_id uuid:=gen_random_uuid(); jugador uuid:=gen_random_uuid(); habilidad uuid; espada uuid; personaje uuid; solicitud uuid:=gen_random_uuid(); resultado jsonb; anterior jsonb; malo boolean; accion jsonb;
+begin
+ insert into perfiles values(admin_id,'KUROI');insert into personajes values(1,jugador,'Prueba','aprobado');perform set_config('request.jwt.claim.sub',admin_id::text,true);
+ accion:=jsonb_build_array(jsonb_build_object('id',gen_random_uuid()::text,'nombre','Curación','efecto','curacion','cantidad',2,'caras',6,'modificador',3,'coste_ph',1,'duracion',0,'estado','','tipo_dano',''));
+ insert into forja_maestra(nombre,tipo,tipo_creacion,stats,configuracion_dados) values('Curar','habilidades_generales','habilidad','{"enfriamiento":0}',accion) returning id into habilidad;
+ insert into forja_maestra(nombre,tipo,tipo_creacion,stats,slot_tipo) values('Espada','armas','objeto','{"armadura":2,"dano":1}','mano') returning id into espada;
+ insert into forja_maestra(nombre,tipo,tipo_creacion,stats,habilidades,equipamiento,slot_tipo) values('Guardia','humanos','personaje','{"vida":10,"armadura":3,"ph":5,"fatiga":2}',jsonb_build_array(habilidad::text),jsonb_build_object('mano_der',espada::text),'mano') returning id into personaje;
+ if (select slot_tipo from forja_maestra where id=personaje)<>'ninguno' then raise exception 'Personaje conservó slot';end if;
+ resultado:=forja_crear_copias(personaje,'batalla',null,1,'test',solicitud);
+ select configuracion into anterior from forja_instancias where operacion_id=solicitud;
+ if anterior->'habilidades'->0->'efectos'->0->>'efecto'<>'curacion' then raise exception 'Habilidad no copiada';end if;
+ if anterior->'equipamiento'->'mano_der'->>'nombre'<>'Espada' then raise exception 'Equipo no copiado';end if;
+ if (select (stats->>'armadura')::int from forja_instancias where operacion_id=solicitud)<>5 then raise exception 'Bonos de equipo incorrectos';end if;
+ if anterior->'stats_base'->>'armadura'<>'3' then raise exception 'Base no conservada';end if;
+ perform forja_crear_copias(personaje,'inventario',1,1,'test',gen_random_uuid());
+ update forja_maestra set configuracion_dados='[]' where id=habilidad;
+ update forja_maestra set stats='{"armadura":99}' where id=espada;
+ if (select configuracion from forja_instancias where operacion_id=solicitud)<>anterior then raise exception 'Snapshot alterado';end if;
+ if (select count(*) from inventario_jugador where configuracion->'equipamiento'->'mano_der'->'stats'->>'armadura'='2')<>1 then raise exception 'Inventario perdió equipo';end if;
+ update forja_maestra set es_grupo=true,stats_rango='{"armadura":{"min":1,"max":3}}' where id=espada;
+ perform forja_crear_copias(personaje,'batalla',null,5,'equipo aleatorio',gen_random_uuid());
+ if exists(select 1 from forja_instancias where operacion_id<>solicitud and ((stats->>'armadura')::int not between 4 and 6 or (configuracion->'equipamiento'->'mano_der'->'stats'->>'armadura')::int not between 1 and 3)) then raise exception 'Equipo de malla fuera de rango';end if;
+ malo:=false;begin insert into forja_maestra(nombre,tipo,tipo_creacion,equipamiento) values('Incorrecto','humanos','personaje',jsonb_build_object('casco',espada::text));exception when others then malo:=true;end;if not malo then raise exception 'Equipo incompatible aceptado';end if;
+ malo:=false;begin insert into forja_maestra(nombre,tipo,tipo_creacion,habilidades) values('Incorrecto','humanos','personaje',jsonb_build_array(espada::text));exception when others then malo:=true;end;if not malo then raise exception 'Objeto aceptado como habilidad';end if;
+ malo:=false;begin insert into forja_maestra(nombre,tipo,tipo_creacion,configuracion_dados) values('Incorrecto','habilidades_generales','habilidad','[{"nombre":"daño","efecto":"dano","cantidad":-1}]');exception when others then malo:=true;end;if not malo then raise exception 'Dados inválidos aceptados';end if;
+ malo:=false;begin insert into forja_maestra(nombre,tipo,tipo_creacion) values('Incorrecto','razas','personaje');exception when others then malo:=true;end;if not malo then raise exception 'Categoría raíz aceptada';end if;
+end;
+$$;
+rollback;

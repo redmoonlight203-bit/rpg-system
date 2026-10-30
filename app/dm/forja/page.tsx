@@ -1,830 +1,94 @@
 "use client";
-
-import React, { useEffect, useState, useRef } from "react";
-import { supabase } from "../../../lib/supabase";
-import { ForjaOperacion, ForjaInstancias } from "../../../components/ForjaOperacion";
-import { rutaForja, coincideClasificacion, validarValoresForja } from "../../../lib/forja";
-import { atributosEfectivos } from "../../../lib/estadisticas";
-import { 
-  Hammer, ImageIcon, BookOpen, Shield, Sparkles, User, Skull, 
-  Tag, Activity, Star, Eye, Filter, Package, Flame, XCircle, Users, Sparkle, Edit3, Save, Layers, RotateCcw, MapPin, Crosshair
-} from "lucide-react";
-
-interface CategoriaForja {
-  parent_id?: string | null;
-  id: string;
-  clave: string;
-  nombre: string;
-}
-
-interface EntidadForja {
-  id: string;
-  tipo: string;
-  slot_tipo: string;
-  nombre: string;
-  descripcion: string;
-  historia: string;
-  requisitos: string;
-  defectos: string;
-  imagen_url: string;
-  clase: string;
-  stats: Record<string, number>;
-  stats_rango?: Record<string, { min: number; max: number }>;
-  es_grupo: boolean;
-  ligado_al_alma: boolean;
-  es_vendible: boolean;
-  precio_sugerido: string;
-  ubicacion: string;
-  estado: string;
-  created_at: string;
-}
-
-interface StatConfig {
-  valor_defecto?: number | null;
-  id: string;
-  categoria: string;
-  clave: string;
-  etiqueta: string;
-}
-
-interface PeticionJugador {
-  id: string;
-  user_id: string;
-  nombre: string;
-  descripcion: string;
-  clase_calculada: string;
-  estado: string;
-  created_at: string;
-  personaje_nombre: string;
-}
-
-export default function ForjaMaestraKuroi() {
-  const [pestana, setPestana] = useState<"galeria" | "yunque" | "peticiones">("galeria");
-  
-  const [categorias, setCategorias] = useState<CategoriaForja[]>([]);
-  const [entidades, setEntidades] = useState<EntidadForja[]>([]);
-  const [statsGlobales, setStatsGlobales] = useState<StatConfig[]>([]);
-  const [peticiones, setPeticiones] = useState<PeticionJugador[]>([]);
-  
-  const [cargando, setCargando] = useState(true);
-  const [errorCarga, setErrorCarga] = useState("");
-  const [guardando, setGuardando] = useState(false);
-  const bloqueoGuardar = useRef(false);
-  const [operacion, setOperacion] = useState<{item: EntidadForja; modo: "inventario" | "batalla"} | null>(null);
-  const [revision, setRevision] = useState(0);
-  const [mostrarInstancias, setMostrarInstancias] = useState(false);
-  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
-
-  const [entidadEditandoId, setEntidadEditandoId] = useState<string | null>(null);
-  const [peticionEnYunque, setPeticionEnYunque] = useState<string | null>(null);
-
-  // FORMULARIO DEL YUNQUE
-  const [nuevoTipo, setNuevoTipo] = useState("");
-  const [nuevoSlotTipo, setNuevoSlotTipo] = useState("ninguno");
-  const [nuevoNombre, setNuevoNombre] = useState("");
-  const [nuevaDesc, setNuevaDesc] = useState("");
-  const [nuevaHistoria, setNuevaHistoria] = useState("");
-  const [nuevoRequisito, setNuevoRequisito] = useState("");
-  const [nuevoDefecto, setNuevoDefecto] = useState("");
-  const [nuevaImagenUrl, setNuevaImagenUrl] = useState("");
-  const [nuevaClase, setNuevaClase] = useState("D");
-  
-  const [esGrupo, setEsGrupo] = useState(false);
-  const [nuevosStats, setNuevosStats] = useState<Record<string, number>>({});
-  const [nuevosStatsRango, setNuevosStatsRango] = useState<Record<string, { min: number; max: number }>>({});
-  
-  const [ligadoAlma, setLigadoAlma] = useState(false);
-  const [esVendible, setEsVendible] = useState(false);
-  const [precioSugerido, setPrecioSugerido] = useState("");
-
-  const cargarDatos = async () => {
-    setCargando(true);
-    
-    setErrorCarga("");
-    const { data: catData, error: catError } = await supabase.from("categorias_forja").select("*").order("created_at", { ascending: true });
-    if (catData) {
-      setCategorias(catData as CategoriaForja[]);
-      if (!nuevoTipo && catData.length) setNuevoTipo(catData[0].clave);
-    }
-
-    const { data: statsData, error: statsError } = await supabase.from("config_estadisticas").select("*");
-    if (statsData) setStatsGlobales(statsData as StatConfig[]);
-
-    const { data: forjaData, error: forjaError } = await supabase.from("forja_maestra").select("*").order("created_at", { ascending: false });
-    if (forjaData) setEntidades(forjaData as EntidadForja[]);
-
-    const { data: petData } = await supabase.from("creaciones_forja").select("*").eq("estado", "pendiente").order("created_at", { ascending: false });
-    if (petData) {
-      const peticionesMapeadas = await Promise.all(
-        petData.map(async (p: any) => {
-          const { data: pjData } = await supabase.from("personajes").select("nombre").eq("user_id", p.user_id).single();
-          return {
-            id: p.id,
-            user_id: p.user_id,
-            nombre: p.nombre,
-            descripcion: p.descripcion,
-            clase_calculada: p.clase_calculada || "D",
-            estado: p.estado,
-            created_at: p.created_at,
-            personaje_nombre: pjData?.nombre || "Reencarnado Desconocido"
-          };
-        })
-      );
-      setPeticiones(peticionesMapeadas as PeticionJugador[]);
-    }
-
-    if (catError || statsError || forjaError) setErrorCarga(catError?.message || statsError?.message || forjaError?.message || "No se pudo cargar la Forja.");
-    setCargando(false);
-  };
-
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  function cambiarClasificacion(clave: string) {
-    const efectivos = atributosEfectivos(categorias, statsGlobales, clave);
-    setNuevoTipo(clave);
-    setNuevosStats(prev => Object.fromEntries(efectivos.map(s => [s.clave, prev[s.clave] ?? s.valor_defecto ?? 0])));
-    setNuevosStatsRango(prev => Object.fromEntries(efectivos.map(s => [s.clave, prev[s.clave] ?? { min: s.valor_defecto ?? 0, max: s.valor_defecto ?? 0 }])));
-  }
-
-  const formatearUrlImagen = (url: string) => {
-    if (!url) return "";
-    let limpia = url.trim();
-    if (limpia.includes("imgur.com/") && !limpia.includes("i.imgur.com")) {
-      const id = limpia.split("imgur.com/")[1]?.split("/")[0]?.split(".")[0];
-      if (id) return `https://i.imgur.com/${id}.jpeg`;
-    }
-    return limpia;
-  };
-
-  const cancelarEdicion = () => {
-    setEntidadEditandoId(null);
-    setPeticionEnYunque(null);
-    setNuevoNombre(""); setNuevaDesc(""); setNuevaHistoria("");
-    setNuevoRequisito(""); setNuevoDefecto(""); setNuevaImagenUrl("");
-    setLigadoAlma(false); setEsVendible(false); setPrecioSugerido("");
-    setNuevosStats({}); setNuevosStatsRango({}); setEsGrupo(false);
-    setNuevoSlotTipo("ninguno");
-    if (categorias.length > 0) setNuevoTipo(categorias[0].clave);
-    setNuevaClase("D");
-  };
-
-  const cargarParaEditar = (ent: EntidadForja) => {
-    setEntidadEditandoId(ent.id);
-    setPeticionEnYunque(null);
-    setNuevoTipo(ent.tipo);
-    setNuevoSlotTipo(ent.slot_tipo || "ninguno");
-    setNuevoNombre(ent.nombre);
-    setNuevaDesc(ent.descripcion || "");
-    setNuevaHistoria(ent.historia || "");
-    setNuevoRequisito(ent.requisitos || "");
-    setNuevoDefecto(ent.defectos || "");
-    setNuevaImagenUrl(ent.imagen_url || "");
-    setNuevaClase(ent.clase || "D");
-    setEsGrupo(ent.es_grupo || false);
-    setNuevosStats(ent.stats || {});
-    setNuevosStatsRango(ent.stats_rango || {});
-    setLigadoAlma(ent.ligado_al_alma || false);
-    setEsVendible(ent.es_vendible || false);
-    setPrecioSugerido(ent.precio_sugerido || "");
-    setPestana("yunque");
-  };
-
-  const forjarEntidad = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (bloqueoGuardar.current) return;
-    if (!nuevoNombre.trim() || !categorias.some(c => c.clave === nuevoTipo)) { alert("Elige una categoría válida de Estadísticas y escribe un nombre."); return; }
-
-    const efectivos = atributosEfectivos(categorias, statsGlobales, nuevoTipo);
-    const valores = entidadEditandoId ? nuevosStats : {
-      ...Object.fromEntries(efectivos.map(s => [s.clave, s.valor_defecto ?? 0])), ...nuevosStats,
-    };
-    const statsA_Guardar = valores;
-    const rangos = entidadEditandoId ? nuevosStatsRango : {
-      ...Object.fromEntries(efectivos.map(s => [s.clave, { min: s.valor_defecto ?? 0, max: s.valor_defecto ?? 0 }])), ...nuevosStatsRango,
-    };
-    if (esGrupo && Object.values(rangos).some(r => !Number.isFinite(r.min) || !Number.isFinite(r.max) || r.min > r.max)) {
-      alert("Los rangos deben tener valores numéricos y un mínimo menor o igual al máximo."); return;
-    }
-    const rangosA_Guardar = Object.fromEntries(
-      Object.entries(rangos).filter(([, range]) => range && Number.isFinite(range.min) && Number.isFinite(range.max))
-    );
-
-    const fallo = validarValoresForja(statsA_Guardar, esGrupo ? rangosA_Guardar : undefined);
-    if (fallo) { alert(fallo); return; }
-    bloqueoGuardar.current = true; setGuardando(true);
-    const payload = {
-      tipo: nuevoTipo,
-      slot_tipo: nuevoSlotTipo,
-      nombre: nuevoNombre.trim(),
-      descripcion: nuevaDesc,
-      historia: nuevaHistoria,
-      requisitos: nuevoRequisito,
-      defectos: nuevoDefecto,
-      imagen_url: formatearUrlImagen(nuevaImagenUrl),
-      clase: nuevaClase,
-      es_grupo: esGrupo,
-      stats: esGrupo ? {} : statsA_Guardar,
-      stats_rango: esGrupo ? rangosA_Guardar : {},
-      ligado_al_alma: ligadoAlma,
-      es_vendible: esVendible,
-      precio_sugerido: esVendible ? precioSugerido : null,
-      ubicacion: esVendible ? "mercado" : "forja"
-    };
-
-    try {
-    let error;
-
-    if (entidadEditandoId) {
-      const { error: updateError } = await supabase.from("forja_maestra").update(payload).eq("id", entidadEditandoId);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase.from("forja_maestra").insert([{
-        ...payload,
-        creador_id: peticionEnYunque ? peticiones.find(p => p.id === peticionEnYunque)?.user_id : null,
-        estado: "aprobado"
-      }]);
-      error = insertError;
-    }
-
-    if (!error) {
-      if (peticionEnYunque) {
-        await supabase.from("creaciones_forja").update({ estado: "aprobada" }).eq("id", peticionEnYunque);
-      }
-
-      alert(entidadEditandoId ? "¡Entidad actualizada con éxito!" : "¡Entidad forjada con éxito en Yugen!");
-      cancelarEdicion();
-      setPestana("galeria");
-      void cargarDatos();
-    } else {
-      alert("Error al procesar la entidad: " + error.message);
-    }
-    } catch (e) { alert(e instanceof Error ? e.message : "No se pudo guardar la creación."); }
-    finally { bloqueoGuardar.current = false; setGuardando(false); }
-  };
-
-  const llevarAlYunque = (pet: PeticionJugador) => {
-    cancelarEdicion();
-    setNuevoNombre(pet.nombre);
-    setNuevaDesc(pet.descripcion);
-    setNuevaClase(pet.clase_calculada || "D");
-    if (categorias.length > 0) setNuevoTipo(categorias[0].clave);
-    setPeticionEnYunque(pet.id);
-    setPestana("yunque");
-  };
-
-  const rechazarPeticion = async (id: string) => {
-    if (!window.confirm("¿Rechazar definitivamente la idea de este jugador?")) return;
-    await supabase.from("creaciones_forja").update({ estado: "rechazada" }).eq("id", id);
-    cargarDatos();
-  };
-
-  const alternarVenta = async (ent: EntidadForja) => {
-    const nuevoVendible = !ent.es_vendible;
-    const r = await supabase.from("forja_maestra").update({es_vendible:nuevoVendible, ubicacion:nuevoVendible ? "mercado" : "forja"}).eq("id",ent.id);
-    if (r.error) alert(r.error.message); else void cargarDatos();
-  };
-  const eliminarEntidad = async (id: string) => {
-    if (!window.confirm("¿Archivar esta creación? Dejará de generar nuevas copias. Los objetos entregados y los enemigos preparados se conservan.")) return;
-    const r = await supabase.from("forja_maestra").update({estado:"archivado", es_vendible:false}).eq("id",id);
-    if (r.error) alert(r.error.message); else void cargarDatos();
-  };
-
-  if (cargando) return <div className="min-h-screen bg-black flex items-center justify-center text-orange-500 font-mono animate-pulse">Encendiendo el Yunque de la Creación...</div>;
-
-  const galeria = entidades.filter(e => e.estado === "aprobado" && coincideClasificacion(categorias, e.tipo, filtroTipo));
-  const statsRelevantes = atributosEfectivos(categorias, statsGlobales, nuevoTipo);
-
-  return (
-    <main className="min-h-screen bg-black text-neutral-200 p-6 font-serif relative overflow-x-hidden">
-      
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-orange-950/20 blur-[150px] pointer-events-none" />
-
-      <div className="max-w-7xl mx-auto space-y-8 relative z-10 pb-20">
-        
-        {/* CABECERA */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-orange-900/50 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-950/40 border border-orange-800 rounded-lg shadow-[0_0_20px_rgba(249,115,22,0.2)] text-orange-500">
-              <Flame className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-neutral-100 uppercase tracking-widest font-mono">
-                La Forja Maestra
-              </h1>
-              <p className="text-orange-700/80 text-xs font-mono tracking-widest uppercase">
-                [ MOTOR DE CREACIÓN Y TRAZABILIDAD MAESTRA DE YUGEN ]
-              </p>
-            </div>
-          </div>
-        </header>
-
-        {/* PESTAÑAS */}
-        <nav className="flex flex-wrap gap-2 border-b border-neutral-900 pb-4">
-          {[
-            { id: "galeria", label: `Galería Yugen (${galeria.length})`, icon: Eye },
-            { id: "yunque", label: entidadEditandoId ? "Editar Entidad" : "El Yunque (Crear)", icon: Hammer },
-            { id: "peticiones", label: `Ideas de Jugadores (${peticiones.length})`, icon: Star },
-          ].map((tab) => {
-            const Icono = tab.icon;
-            const activa = pestana === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setPestana(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
-                  activa
-                    ? "bg-orange-950/80 border border-orange-800 text-orange-200 font-bold shadow-[0_0_15px_rgba(249,115,22,0.2)]"
-                    : "bg-neutral-950 border border-neutral-900 text-neutral-500 hover:text-neutral-300"
-                }`}
-              >
-                <Icono className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        {errorCarga && <p role="alert" className="text-red-300">{errorCarga}</p>}
-        <div className="flex flex-wrap items-center gap-4 text-sm"><button className="rounded border border-orange-800 px-4 py-2" onClick={() => setMostrarInstancias(!mostrarInstancias)}>{mostrarInstancias ? "Ocultar preparados" : "Preparados para batalla"}</button><a className="text-neutral-400 underline" href="/dm/reglas">Configurar categorías y atributos</a></div>
-        {mostrarInstancias && <ForjaInstancias revision={revision}/>}
-        {operacion && <ForjaOperacion item={operacion.item} modo={operacion.modo} onClose={() => setOperacion(null)} onDone={() => { const batalla=operacion.modo === "batalla"; setOperacion(null); setRevision(v=>v+1); if(batalla) setMostrarInstancias(true); alert(batalla ? "Instancias preparadas con sus estadísticas guardadas." : "Copias entregadas al inventario del personaje."); }}/>}
-
-        {/* PESTAÑA 1: LA GALERÍA */}
-        {pestana === "galeria" && (
-          <section className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-              <span className="flex items-center gap-2 text-[10px] font-mono text-neutral-500 uppercase mr-2"><Filter className="w-3 h-3"/> Filtro:</span>
-              <button
-                onClick={() => setFiltroTipo("todos")}
-                className={`px-3 py-1.5 rounded text-[10px] font-mono uppercase transition-colors ${
-                  filtroTipo === "todos" ? "bg-orange-950 border border-orange-800 text-orange-300" : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white"
-                }`}
-              >
-                todos
-              </button>
-              {categorias.map((cat) => (
-                <button
-                  key={cat.clave}
-                  onClick={() => setFiltroTipo(cat.clave)}
-                  className={`px-3 py-1.5 rounded text-[10px] font-mono uppercase transition-colors ${
-                    filtroTipo === cat.clave ? "bg-orange-950 border border-orange-800 text-orange-300" : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  {rutaForja(categorias, cat.clave)}
-                </button>
-              ))}
-            </div>
-
-            {galeria.length === 0 ? (
-              <div className="bg-neutral-950 border border-neutral-900 p-12 text-center rounded-xl text-neutral-500 font-mono text-sm">
-                No hay creaciones en esta categoría. Ve a forjar algo.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {galeria.map((ent) => (
-                  <div key={ent.id} className="bg-black border border-neutral-900 hover:border-orange-900/60 transition-colors rounded-xl overflow-hidden flex flex-col group shadow-lg">
-                    {ent.imagen_url ? (
-                      <div className="w-full h-48 bg-neutral-900 relative">
-                        <img src={ent.imagen_url} alt={ent.nombre} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                      </div>
-                    ) : (
-                      <div className="w-full h-20 bg-neutral-900 relative">
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                      </div>
-                    )}
-
-                    <div className="p-5 flex-1 flex flex-col -mt-10 relative z-10 space-y-4">
-                      <div className="flex justify-between items-end">
-                        <div className="flex gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-black/80 backdrop-blur-sm border border-neutral-800 text-orange-400 uppercase">
-                            RANGO {ent.clase}
-                          </span>
-                          
-                          <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-purple-950/80 backdrop-blur-sm border border-purple-800 text-purple-300 uppercase">
-                            SLOT: {ent.slot_tipo || "NINGUNO"}
-                          </span>
-
-                          <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded border backdrop-blur-sm flex items-center gap-1 uppercase ${
-                            ent.es_grupo ? "bg-amber-950/80 border-amber-800 text-amber-300" : "bg-cyan-950/80 border-cyan-800 text-cyan-300"
-                          }`}>
-                            {ent.es_grupo ? <Users className="w-3 h-3"/> : <Sparkle className="w-3 h-3"/>}
-                            {ent.es_grupo ? "Malla · rangos" : "Único · fijo"}
-                          </span>
-
-                          <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded border backdrop-blur-sm flex items-center gap-1 uppercase ${
-                            ent.ubicacion === "jugador" ? "bg-purple-950 border-purple-800 text-purple-300" :
-                            ent.ubicacion === "mercado" ? "bg-amber-950 border-amber-800 text-amber-300" :
-                            "bg-emerald-950 border-emerald-800 text-emerald-300"
-                          }`}>
-                            <MapPin className="w-3 h-3" />
-                            {ent.ubicacion === "jugador" ? "Con copias entregadas" : ent.ubicacion === "mercado" ? "En Mercado" : "En Forja"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="text-xl font-bold text-neutral-100 font-mono">{ent.nombre}</h3><p className="mt-2 text-xs text-orange-400">{rutaForja(categorias, ent.tipo)}</p>
-                        <p className="text-xs text-neutral-400 font-serif leading-relaxed line-clamp-2 mt-1">"{ent.descripcion}"</p>
-                      </div>
-
-                      {/* STATS FIJAS */}
-                      {!ent.es_grupo && ent.stats && Object.keys(ent.stats).length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-neutral-900">
-                          {Object.entries(ent.stats).map(([clave, valor]) => {
-                            const statRef = atributosEfectivos(categorias, statsGlobales, ent.tipo).find(s => s.clave === clave);
-                            return (
-                              <span key={clave} className="text-[9px] font-mono bg-neutral-900 border border-neutral-800 px-1.5 py-0.5 rounded text-neutral-400 flex items-center gap-1">
-                                {statRef ? statRef.etiqueta : clave}: <strong className="text-emerald-400">{valor > 0 ? `+${valor}` : valor}</strong>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* STATS EN RANGO */}
-                      {ent.es_grupo && ent.stats_rango && Object.keys(ent.stats_rango).length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-neutral-900">
-                          {Object.entries(ent.stats_rango).map(([clave, range]) => {
-                            const statRef = atributosEfectivos(categorias, statsGlobales, ent.tipo).find(s => s.clave === clave);
-                            return (
-                              <span key={clave} className="text-[9px] font-mono bg-amber-950/30 border border-amber-900/50 px-1.5 py-0.5 rounded text-amber-300 flex items-center gap-1">
-                                {statRef ? statRef.etiqueta : clave}: <strong className="text-amber-400">{range.min} ~ {range.max}</strong>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap gap-2">
-                        <button className="rounded border border-emerald-800 px-3 py-2 text-xs text-emerald-300" onClick={() => setOperacion({item:ent,modo:"inventario"})}>Entregar a personaje</button>
-                        <button className="rounded border border-orange-800 px-3 py-2 text-xs text-orange-300" onClick={() => setOperacion({item:ent,modo:"batalla"})}>Preparar para batalla</button>
-                      </div>
-                      <div className="pt-4 mt-auto border-t border-neutral-900 flex justify-between items-center gap-2">
-                        <label className="flex items-center gap-2 cursor-pointer group/toggle">
-                          <input 
-                            type="checkbox" 
-                            checked={ent.es_vendible}
-
-                            onChange={() => alternarVenta(ent)}
-                            className="sr-only"
-                          />
-                          <div className={`w-8 h-4 rounded-full transition-colors relative ${ent.es_vendible ? "bg-emerald-600" : "bg-neutral-800"}`}>
-                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${ent.es_vendible ? "translate-x-4" : ""}`} />
-                          </div>
-                          <span className={`text-[10px] font-mono uppercase font-bold ${ent.es_vendible ? "text-emerald-400" : "text-neutral-500"}`}>
-                            {ent.es_vendible ? "En Venta" : "Oculto"}
-                          </span>
-                        </label>
-
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => cargarParaEditar(ent)} 
-                            className="p-1.5 bg-neutral-900 hover:bg-orange-950 border border-neutral-800 hover:border-orange-800 text-neutral-400 hover:text-orange-400 rounded transition-colors"
-                            title="Editar Entidad"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          
-                          <button 
-                            onClick={() => eliminarEntidad(ent.id)} 
-                            className="text-[10px] font-mono text-neutral-500 hover:text-red-500 uppercase transition-colors"
-                          >
-                            Archivar
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* PESTAÑA 2: EL YUNQUE (FORMULARIO CON SELECCIÓN DE SLOT) */}
-        {pestana === "yunque" && (
-          <section className="bg-neutral-950 border border-orange-900/40 rounded-xl p-6 md:p-8 space-y-8 relative overflow-hidden shadow-2xl shadow-orange-950/10">
-            
-            <div className="absolute top-0 right-0 w-64 h-64 bg-orange-900/10 blur-[100px] pointer-events-none" />
-
-            <div className="border-b border-orange-900/40 pb-4 flex justify-between items-end">
-              <div>
-                <h2 className="text-lg font-bold text-neutral-100 font-mono uppercase flex items-center gap-2">
-                  <Hammer className="w-5 h-5 text-orange-500" /> {entidadEditandoId ? "Modificar Entidad" : "Forjar Entidad"}
-                </h2>
-                <p className="text-xs font-mono text-neutral-500 mt-1">
-                  {entidadEditandoId ? "Estás editando un elemento existente del universo Yugen." : "Crea un elemento nuevo para la base de datos central."}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                {entidadEditandoId && (
-                  <button onClick={cancelarEdicion} className="bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white px-3 py-1.5 rounded text-xs font-mono uppercase">
-                    Cancelar Edición
-                  </button>
-                )}
-
-                {peticionEnYunque && (
-                  <div className="bg-amber-950/60 border border-amber-800 text-amber-300 px-4 py-2 rounded-lg text-[10px] font-mono flex items-center gap-2 animate-pulse">
-                    <Star className="w-4 h-4" /> BASADO EN IDEA DE JUGADOR
-                    <button onClick={cancelarEdicion} className="ml-2 bg-neutral-900 text-neutral-400 hover:text-red-400 px-2 py-1 rounded">
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <form onSubmit={forjarEntidad} className="space-y-6 relative z-10">
-              
-              {/* BLOQUE 1: IDENTIFICACIÓN Y CLASIFICACIÓN TÁCTICA */}
-              <div className="bg-black border border-neutral-900 p-5 rounded-lg space-y-4">
-                <span className="text-[10px] font-mono text-orange-500 font-bold uppercase tracking-widest block mb-2">1. Identificación y Slot Táctico</span>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-1 md:col-span-1">
-                    <label className="text-[10px] font-mono text-neutral-400 uppercase flex items-center gap-1">
-                      <Layers className="w-3 h-3 text-orange-500" /> Clasificación
-                    </label>
-                    <select 
-                      value={nuevoTipo} 
-                      onChange={(e) => cambiarClasificacion(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-mono outline-none focus:border-orange-800 font-bold"
-                    >
-                      {!categorias.some(c => c.clave === nuevoTipo) && <option value={nuevoTipo} disabled>Selecciona una categoría válida</option>}
-                      {categorias.map((cat) => (
-                        <option key={cat.clave} value={cat.clave}>{rutaForja(categorias,cat.clave)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1 md:col-span-1">
-                    <label className="text-[10px] font-mono text-neutral-400 uppercase flex items-center gap-1">
-                      <Crosshair className="w-3 h-3 text-purple-400" /> Slot Corporal
-                    </label>
-                    <select 
-                      value={nuevoSlotTipo} 
-                      onChange={(e) => setNuevoSlotTipo(e.target.value)} 
-                      className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-purple-300 rounded font-mono outline-none focus:border-purple-800 font-bold"
-                    >
-                      <option value="ninguno">Sin Slot (Mochila / Consumible)</option>
-                      <option value="casco">Casco / Cabeza</option>
-                      <option value="pechera">Pechera / Torso</option>
-                      <option value="pantalones">Pantalones / Piernas</option>
-                      <option value="zapatos">Zapatos / Pies</option>
-                      <option value="mano">Arma 1 Mano (Empuñadura)</option>
-                      <option value="dos_manos">Arma 2 Manos (Ocupa ambas)</option>
-                      <option value="accesorio">Accesorio Místico (6 Slots)</option>
-                      <option value="titulo">Título Nobiliario / Hazaña</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-[10px] font-mono text-neutral-400 uppercase">Nombre / Título Oficial</label>
-                    <input required value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} placeholder="Ej. Espada del Alba Caída / Cota de Sombras" className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-mono outline-none focus:border-orange-800" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono text-neutral-400 uppercase">Rango de Poder (Clase)</label>
-                    <select value={nuevaClase} onChange={(e) => setNuevaClase(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-mono outline-none focus:border-orange-800">
-                      <option value="F">Rango F (Común / Débil)</option>
-                      <option value="D">Rango D</option>
-                      <option value="C">Rango C</option>
-                      <option value="B">Rango B</option>
-                      <option value="A">Rango A (Épico)</option>
-                      <option value="S">Rango S (Legendario)</option>
-                      <option value="Z">Rango Z (Mítico / Jefe)</option>
-                      <option value="KUROI">Rango KUROI (Dios)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono text-neutral-400 uppercase">URL de Referencia Visual</label>
-                    <div className="flex gap-2">
-                      <input value={nuevaImagenUrl} onChange={(e) => setNuevaImagenUrl(e.target.value)} placeholder="Ej. https://imgur.com/..." className="flex-1 bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono outline-none focus:border-orange-800" />
-                      <div className="p-2 bg-neutral-900 border border-neutral-800 rounded text-neutral-500"><ImageIcon className="w-4 h-4" /></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* BLOQUE 2: ESTADÍSTICAS */}
-              <div className="bg-black border border-neutral-900 p-5 rounded-lg space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-neutral-900 pb-3">
-                  <div>
-                    <span className="text-[10px] font-mono text-orange-500 font-bold uppercase tracking-widest block">
-                      2. Atributos para [{categorias.find(c => c.clave === nuevoTipo)?.nombre || nuevoTipo}]
-                    </span>
-                    <p className="text-[9px] font-mono text-neutral-500">Atributos generales heredados y propios definidos en Estadísticas.</p>
-                  </div>
-
-                  <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800">
-                    <button
-                      type="button"
-                      onClick={() => setEsGrupo(false)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase rounded transition-colors ${
-                        !esGrupo ? "bg-cyan-950 border border-cyan-800 text-cyan-200 font-bold" : "text-neutral-500 hover:text-neutral-300"
-                      }`}
-                    >
-                      <Sparkle className="w-3.5 h-3.5" /> Estáticas (Único)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEsGrupo(true)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase rounded transition-colors ${
-                        esGrupo ? "bg-amber-950 border border-amber-800 text-amber-200 font-bold" : "text-neutral-500 hover:text-neutral-300"
-                      }`}
-                    >
-                      <Users className="w-3.5 h-3.5" /> Rango Variable (Malla)
-                    </button>
-                  </div>
-                </div>
-                
-                <p className="text-xs text-neutral-400">{esGrupo ? "Cada aparición se sortea una sola vez dentro de estos rangos y conserva sus valores." : "Estadísticas fijas. Puedes entregar varias copias iguales; único no significa una sola existencia."}</p>
-                {statsRelevantes.length === 0 ? (
-                  <p className="text-xs font-mono text-neutral-600 italic py-2">
-                    No hay atributos vinculados a esta categoría en la pantalla de Reglas.
-                  </p>
-                ) : (
-                  <>
-                    {!esGrupo && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {statsRelevantes.map((stat) => (
-                          <div key={stat.clave} className="space-y-1 bg-neutral-950 p-2 rounded border border-neutral-900">
-                            <label className="text-[9px] font-mono text-neutral-400 uppercase flex items-center gap-1">
-                              <Activity className="w-3 h-3 text-neutral-600"/> {stat.etiqueta}
-                            </label>
-                            <input 
-                              type="number" step="0.01"
-                              value={nuevosStats[stat.clave] !== undefined ? nuevosStats[stat.clave] : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
-                              onChange={(e) => setNuevosStats({ ...nuevosStats, [stat.clave]: Number(e.target.value) })}
-                              placeholder="0"
-                              className="w-full bg-black border border-neutral-800 p-1.5 text-xs text-emerald-400 font-bold rounded font-mono outline-none focus:border-emerald-800 text-center" 
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {esGrupo && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {statsRelevantes.map((stat) => (
-                          <div key={stat.clave} className="space-y-1 bg-neutral-950 p-2.5 rounded border border-amber-900/40">
-                            <label className="text-[9px] font-mono text-amber-400 uppercase flex items-center gap-1">
-                              <Activity className="w-3 h-3 text-amber-600"/> {stat.etiqueta} (Mín ~ Máx)
-                            </label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <input 
-                                type="number" step="0.01"
-                                value={nuevosStatsRango[stat.clave]?.min !== undefined ? nuevosStatsRango[stat.clave]?.min : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
-                                onChange={(e) => setNuevosStatsRango({
-                                  ...nuevosStatsRango,
-                                  [stat.clave]: { min: Number(e.target.value), max: nuevosStatsRango[stat.clave]?.max ?? (entidadEditandoId ? 0 : stat.valor_defecto ?? 0) }
-                                })}
-                                placeholder="Mín"
-                                className="w-full bg-black border border-neutral-800 p-1.5 text-xs text-amber-300 font-bold rounded font-mono outline-none focus:border-amber-800 text-center" 
-                              />
-                              <input 
-                                type="number" step="0.01"
-                                value={nuevosStatsRango[stat.clave]?.max !== undefined ? nuevosStatsRango[stat.clave]?.max : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
-                                onChange={(e) => setNuevosStatsRango({
-                                  ...nuevosStatsRango,
-                                  [stat.clave]: { min: nuevosStatsRango[stat.clave]?.min ?? (entidadEditandoId ? 0 : stat.valor_defecto ?? 0), max: Number(e.target.value) }
-                                })}
-                                placeholder="Máx"
-                                className="w-full bg-black border border-neutral-800 p-1.5 text-xs text-amber-300 font-bold rounded font-mono outline-none focus:border-amber-800 text-center" 
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* BLOQUE 3: TRASFONDO */}
-              <div className="bg-black border border-neutral-900 p-5 rounded-lg space-y-4">
-                <span className="text-[10px] font-mono text-orange-500 font-bold uppercase tracking-widest block mb-2">3. Trasfondo y Funcionamiento</span>
-                
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono text-neutral-400 uppercase flex items-center gap-1"><BookOpen className="w-3 h-3" /> Descripción y Efectos</label>
-                  <textarea required rows={2} value={nuevaDesc} onChange={(e) => setNuevaDesc(e.target.value)} placeholder="¿Qué hace mecánicamente en el juego?" className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-serif outline-none focus:border-orange-800 resize-none leading-relaxed" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono text-neutral-400 uppercase flex items-center gap-1"><BookOpen className="w-3 h-3" /> Historia / Lore (Opcional)</label>
-                  <textarea rows={2} value={nuevaHistoria} onChange={(e) => setNuevaHistoria(e.target.value)} placeholder="¿Quién lo creó? ¿De dónde viene?" className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-serif outline-none focus:border-orange-800 resize-none leading-relaxed italic text-neutral-400" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono text-neutral-400 uppercase">Requisitos de Uso (Opcional)</label>
-                    <input value={nuevoRequisito} onChange={(e) => setNuevoRequisito(e.target.value)} placeholder="Ej. Ser Nivel 5, Fuerza > 20..." className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono outline-none focus:border-orange-800" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono text-neutral-400 uppercase">Defectos / Maldiciones (Opcional)</label>
-                    <input value={nuevoDefecto} onChange={(e) => setNuevoDefecto(e.target.value)} placeholder="Ej. Consume 10 HP por turno..." className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-red-400 rounded font-mono outline-none focus:border-red-800" />
-                  </div>
-                </div>
-              </div>
-
-              {/* BLOQUE 4: MERCADO */}
-              <div className="bg-black border border-neutral-900 p-5 rounded-lg space-y-4">
-                <span className="text-[10px] font-mono text-orange-500 font-bold uppercase tracking-widest block mb-2">4. Mecánicas del Motor Yugen</span>
-                
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <label className="flex items-center gap-3 cursor-pointer group p-3 bg-neutral-950 border border-neutral-800 rounded-lg flex-1 hover:border-indigo-800 transition-colors">
-                    <input type="checkbox" checked={ligadoAlma} onChange={(e) => setLigadoAlma(e.target.checked)} className="w-4 h-4 accent-indigo-600 cursor-pointer" />
-                    <div>
-                      <span className="text-[11px] font-mono uppercase text-indigo-400 font-bold block">Ligado al Alma</span>
-                      <span className="text-[9px] font-mono text-neutral-500 leading-tight">Si el personaje muere, el objeto NO cae al mundo.</span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 cursor-pointer group p-3 bg-neutral-950 border border-neutral-800 rounded-lg flex-1 hover:border-emerald-800 transition-colors">
-                    <input type="checkbox" checked={esVendible} onChange={(e) => setEsVendible(e.target.checked)} className="w-4 h-4 accent-emerald-600 cursor-pointer" />
-                    <div className="flex-1">
-                      <span className="text-[11px] font-mono uppercase text-emerald-400 font-bold block">Vender en Mercado Clandestino</span>
-                      {esVendible && (
-                        <input 
-                          type="text" 
-                          required 
-                          value={precioSugerido} 
-                          onChange={(e) => setPrecioSugerido(e.target.value)} 
-                          placeholder="Precio (Ej. 500 Oro)" 
-                          className="w-full bg-black border border-emerald-900/50 p-1.5 mt-1 text-[10px] text-emerald-300 rounded font-mono outline-none focus:border-emerald-500" 
-                        />
-                      )}
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-orange-900/40">
-                <button type="submit" disabled={guardando} className="w-full bg-gradient-to-r from-orange-950 to-red-950 hover:from-orange-900 hover:to-red-900 border border-orange-800 text-orange-200 py-4 rounded-lg text-sm font-mono font-bold uppercase transition-all shadow-lg hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] flex items-center justify-center gap-2">
-                  {entidadEditandoId ? <Save className="w-5 h-5" /> : <Hammer className="w-5 h-5" />} 
-                  {entidadEditandoId ? "Guardar Cambios en la Entidad" : (peticionEnYunque ? "Aprobar Creación Oficialmente" : "Insuflar Vida en Yugen")}
-                </button>
-              </div>
-            </form>
-          </section>
-        )}
-
-        {/* PESTAÑA 3: PETICIONES */}
-        {pestana === "peticiones" && (
-          <section className="space-y-6">
-            <h2 className="text-sm font-bold text-neutral-300 font-mono uppercase tracking-widest border-b border-neutral-900 pb-2 flex items-center gap-2">
-              <Star className="w-4 h-4 text-amber-500" /> Ideas Esperando Juicio Divino
-            </h2>
-
-            {peticiones.length === 0 ? (
-              <div className="bg-neutral-950 border border-neutral-900 p-12 text-center rounded-xl text-neutral-500 font-mono text-sm">
-                No hay plegarias ni peticiones nuevas de los reencarnados.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {peticiones.map((pet) => (
-                  <div key={pet.id} className="bg-black border border-amber-900/30 p-5 rounded-xl space-y-4 flex flex-col justify-between shadow-lg">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[10px] font-mono text-amber-500 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900">
-                          NUEVA IDEA
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-500">{new Date(pet.created_at).toLocaleDateString()}</span>
-                      </div>
-                      
-                      <h3 className="text-lg font-bold text-neutral-100 font-mono">{pet.nombre}</h3>
-                      <p className="text-xs text-neutral-400 font-serif leading-relaxed line-clamp-4">"{pet.descripcion}"</p>
-                    </div>
-
-                    <div className="flex gap-2 pt-4 border-t border-neutral-900">
-                      <button 
-                        onClick={() => llevarAlYunque(pet)}
-                        className="flex-1 bg-orange-950 hover:bg-orange-900 border border-orange-800 text-orange-200 text-[10px] font-mono py-2 rounded font-bold uppercase transition-colors flex items-center justify-center gap-1"
-                      >
-                        <Hammer className="w-3.5 h-3.5" /> Evaluar en Yunque
-                      </button>
-                      <button 
-                        onClick={() => rechazarPeticion(pet.id)}
-                        className="p-2 bg-neutral-900 hover:bg-red-950 border border-neutral-800 hover:border-red-800 text-neutral-500 hover:text-red-400 rounded transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-      </div>
-    </main>
-  );
+import {useEffect,useRef,useState,type FormEvent} from "react";
+import Link from "next/link";
+import {supabase} from "../../../lib/supabase";
+import {atributosEfectivos,linaje,type CategoriaBase} from "../../../lib/estadisticas";
+import {validarValoresForja,type Rango} from "../../../lib/forja";
+import {TIPOS,SLOTS,EFECTOS_NOMBRE,tipoDe,subcategorias,clasificacionesPara,efectosDe,formula,validarEfectos,validarEquipamiento,type Efecto,type TipoCreacion} from "../../../lib/creacion";
+import {EditorDados} from "../../../components/EditorDados";
+import {ForjaOperacion,ForjaInstancias} from "../../../components/ForjaOperacion";
+
+type Atributo={id:string;categoria:string;clave:string;etiqueta:string;valor_defecto:number;descripcion?:string};
+type Creacion={id:string;nombre:string;tipo:string;tipo_creacion?:TipoCreacion;descripcion:string;historia:string;requisitos:string;defectos:string;imagen_url:string;clase:string;stats:Record<string,number>;stats_rango:Record<string,Rango>;es_grupo:boolean;slot_tipo:string;estado:string;ligado_al_alma:boolean;es_vendible:boolean;precio_sugerido:string;habilidades:string[];equipamiento:Record<string,string>;configuracion_dados:Efecto[]};
+type Peticion={id:string;nombre:string;descripcion:string;user_id:string};
+type Borrador={id?:string;peticion?:Peticion;nombre:string;tipo:TipoCreacion;clasificacion:string;descripcion:string;historia:string;requisitos:string;defectos:string;imagen:string;clase:string;malla:boolean;slot:string;stats:Record<string,number>;rangos:Record<string,Rango>;efectos:Efecto[];habilidades:string[];equipamiento:Record<string,string>;alma:boolean;venta:boolean;precio:string};
+const vacio=():Borrador=>({nombre:"",tipo:"objeto",clasificacion:"",descripcion:"",historia:"",requisitos:"",defectos:"",imagen:"",clase:"D",malla:false,slot:"ninguno",stats:{},rangos:{},efectos:[],habilidades:[],equipamiento:{},alma:false,venta:false,precio:""});
+const campo="mt-1 w-full rounded-lg border border-neutral-700 bg-black px-3 py-2.5 text-sm text-neutral-100 focus:border-orange-500 focus:outline-none";
+const boton="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-orange-600 disabled:cursor-not-allowed disabled:opacity-40";
+const panel="space-y-5 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6";
+export default function Forja(){
+ const [categorias,setCategorias]=useState<CategoriaBase[]>([]),[atributos,setAtributos]=useState<Atributo[]>([]),[creaciones,setCreaciones]=useState<Creacion[]>([]),[peticiones,setPeticiones]=useState<Peticion[]>([]);
+ const [pestana,setPestana]=useState<"creacion"|"yunque">("creacion"),[b,setB]=useState<Borrador>(vacio),[cargando,setCargando]=useState(true),[guardando,setGuardando]=useState(false),[error,setError]=useState(""),[aviso,setAviso]=useState("");
+ const [filtro,setFiltro]=useState("todos"),[tipoFiltro,setTipoFiltro]=useState("todos"),[busqueda,setBusqueda]=useState(""),[revision,setRevision]=useState(0),[preparados,setPreparados]=useState(false),[verPeticiones,setVerPeticiones]=useState(false);
+ const [operacion,setOperacion]=useState<{item:Creacion;modo:"inventario"|"batalla"}|null>(null);const bloqueo=useRef(false);
+ async function cargar(){setCargando(true);setError("");try{
+  const [c,a,f,p]=await Promise.all([supabase.from("categorias_forja").select("*").order("created_at"),supabase.from("config_estadisticas").select("*"),supabase.from("forja_maestra").select("*").order("created_at",{ascending:false}),supabase.from("creaciones_forja").select("id,nombre,descripcion,user_id").eq("estado","pendiente")]);
+  const fallo=c.error||a.error||f.error||p.error;if(fallo)throw new Error(fallo.message);
+  setCategorias(c.data||[]);setAtributos(a.data||[]);setCreaciones((f.data||[]) as Creacion[]);setPeticiones(p.data||[]);
+ }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar la Forja.");}finally{setCargando(false);}}
+ useEffect(()=>{void cargar();},[]);
+ const clasificaciones=subcategorias(categorias),activas=creaciones.filter(f=>f.estado==="aprobado");
+ const opcionesClasificacion=clasificacionesPara(b.tipo,categorias);
+ const disponibles=atributosEfectivos(categorias,atributos,b.clasificacion);
+ const tecnicos=["dados_dano","caras_dano"];
+ const statsVisibles=disponibles.filter(a=>!["objeto","habilidad"].includes(b.tipo)||!tecnicos.includes(a.clave));
+ const habilidades=activas.filter(f=>tipoDe(f,categorias)==="habilidad");
+ const galeria=activas.filter(f=>(filtro==="todos"||f.tipo===filtro)&&(tipoFiltro==="todos"||tipoDe(f,categorias)===tipoFiltro)&&`${f.nombre} ${f.descripcion}`.toLowerCase().includes(busqueda.toLowerCase()));
+ function patch(p:Partial<Borrador>){setB(actual=>({...actual,...p}));}
+ function elegirClasificacion(clave:string){const a=atributosEfectivos(categorias,atributos,clave);setB(prev=>({...prev,clasificacion:clave,stats:Object.fromEntries(a.map(s=>[s.clave,prev.stats[s.clave]??s.valor_defecto??0])),rangos:Object.fromEntries(a.map(s=>[s.clave,prev.rangos[s.clave]??{min:s.valor_defecto??0,max:s.valor_defecto??0}]))}));}
+ function nuevo(tipo:TipoCreacion=b.tipo){setB({...vacio(),tipo});setError("");setAviso("");setPestana("yunque");}
+ function editar(f:Creacion){setB({id:f.id,nombre:f.nombre,tipo:tipoDe(f,categorias),clasificacion:f.tipo,descripcion:f.descripcion||"",historia:f.historia||"",requisitos:f.requisitos||"",defectos:f.defectos||"",imagen:f.imagen_url||"",clase:f.clase||"D",malla:!!f.es_grupo,slot:f.slot_tipo||"ninguno",stats:f.stats||{},rangos:f.stats_rango||{},efectos:efectosDe(f),habilidades:Array.isArray(f.habilidades)?f.habilidades.filter(h=>typeof h==="string"):[],equipamiento:f.equipamiento||{},alma:!!f.ligado_al_alma,venta:!!f.es_vendible,precio:f.precio_sugerido||""});setError("");setPestana("yunque");}
+ function cambiarTipo(tipo:TipoCreacion){patch({tipo,clasificacion:clasificacionesPara(tipo,categorias).some(c=>c.clave===b.clasificacion)?b.clasificacion:"",slot:tipo==="objeto"?b.slot:tipo==="titulo"?"titulo":"ninguno",habilidades:tipo==="personaje"?b.habilidades:[],equipamiento:tipo==="personaje"?b.equipamiento:{},efectos:tipo==="personaje"?[]:b.efectos});}
+ function ponerEquipo(slot:string,id:string){const equipo={...b.equipamiento};if(id)equipo[slot]=id;else delete equipo[slot];const item=creaciones.find(f=>f.id===id);if(slot==="mano_der"||slot==="mano_izq"){const otra=slot==="mano_der"?"mano_izq":"mano_der";if(item?.slot_tipo==="dos_manos"||creaciones.find(f=>f.id===equipo[otra])?.slot_tipo==="dos_manos")delete equipo[otra];}patch({equipamiento:equipo});}
+ async function guardar(e:FormEvent){e.preventDefault();if(bloqueo.current)return;setError("");
+  if(!b.nombre.trim()||!opcionesClasificacion.some(c=>c.clave===b.clasificacion))return setError("Escribe un nombre y selecciona una subcategoría. Puedes crearlas en Estadísticas.");
+  const stats={...b.stats},rangos={...b.rangos};for(const a of disponibles){if(!(a.clave in stats))stats[a.clave]=a.valor_defecto??0;if(!(a.clave in rangos))rangos[a.clave]={min:a.valor_defecto??0,max:a.valor_defecto??0};}
+  if(["objeto","habilidad"].includes(b.tipo))for(const clave of tecnicos){delete stats[clave];delete rangos[clave];}
+  const fallo=validarValoresForja(stats,b.malla?rangos:undefined)||validarEfectos(b.efectos)||(b.tipo==="personaje"?validarEquipamiento(b.equipamiento,creaciones,categorias):null);
+  if(fallo)return setError(fallo);
+  if(b.tipo==="personaje"&&b.habilidades.some(id=>!habilidades.some(h=>h.id===id)))return setError("Quita las habilidades que ya no están disponibles.");
+  bloqueo.current=true;setGuardando(true);
+  try{
+   const payload={nombre:b.nombre.trim(),tipo:b.clasificacion,tipo_creacion:b.tipo,descripcion:b.descripcion,historia:b.historia,requisitos:b.requisitos,defectos:b.defectos,imagen_url:b.imagen,clase:b.clase,es_grupo:b.malla,slot_tipo:b.tipo==="objeto"?b.slot:b.tipo==="titulo"?"titulo":"ninguno",stats:b.malla?{}:stats,stats_rango:b.malla?rangos:{},configuracion_dados:b.tipo==="personaje"?[]:b.efectos,habilidades:b.tipo==="personaje"?b.habilidades:[],equipamiento:b.tipo==="personaje"?b.equipamiento:{},ligado_al_alma:b.alma,es_vendible:b.venta,precio_sugerido:b.venta?b.precio:null,ubicacion:b.venta?"mercado":"forja"};
+   const r=b.id?await supabase.from("forja_maestra").update(payload).eq("id",b.id).select("id").single():await supabase.from("forja_maestra").insert({...payload,estado:"aprobado",creador_id:b.peticion?.user_id||null}).select("id").single();
+   if(r.error)throw new Error(r.error.message);if(!r.data)throw new Error("No se confirmó el guardado.");
+   if(b.peticion){const p=await supabase.from("creaciones_forja").update({estado:"aprobada"}).eq("id",b.peticion.id);if(p.error)setAviso("La creación se guardó, pero no se pudo marcar la petición como aprobada.");else setAviso("Creación y petición guardadas.");}else setAviso("Creación guardada. Las copias existentes conservan sus valores.");
+   setB(vacio());setPestana("creacion");await cargar();
+  }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}finally{bloqueo.current=false;setGuardando(false);}
+ }
+ async function archivar(f:Creacion){if(!window.confirm(`¿Archivar «${f.nombre}»? Sus copias existentes se conservarán.`))return;const r=await supabase.from("forja_maestra").update({estado:"archivado",es_vendible:false}).eq("id",f.id);if(r.error)setError(r.error.message);else await cargar();}
+ async function venta(f:Creacion){const r=await supabase.from("forja_maestra").update({es_vendible:!f.es_vendible,ubicacion:f.es_vendible?"forja":"mercado"}).eq("id",f.id);if(r.error)setError(r.error.message);else await cargar();}
+ const etiquetaClasificacion=(c:CategoriaBase)=>categorias.filter(v=>v.parent_id&&v.nombre===c.nombre).length>1?`${c.nombre} (${categorias.find(p=>p.id===c.parent_id)?.nombre||""})`:c.nombre;
+ const nombreClasificacion=(clave:string)=>categorias.find(c=>c.clave===clave)?.nombre||`Sin clasificación (${clave})`;
+ return <main className="min-h-full bg-black p-4 text-neutral-100 sm:p-8"><div className="mx-auto max-w-6xl space-y-6">
+ <header className="flex flex-wrap items-end justify-between gap-4 border-b border-orange-900/40 pb-6"><div><p className="text-xs uppercase tracking-widest text-orange-500">Yugen</p><h1 className="mt-2 text-3xl font-semibold">La Forja</h1><p className="mt-2 text-sm text-neutral-400">Personajes, habilidades y objetos del mundo, creados desde una misma base.</p></div><Link className={boton} href="/dm/reglas">Estadísticas</Link></header>
+ <nav className="flex flex-wrap gap-2" aria-label="Secciones de la Forja"><button className={`${boton} ${pestana==="creacion"?"border-orange-600 bg-orange-950":""}`} onClick={()=>setPestana("creacion")}>La creación ({activas.length})</button><button className={`${boton} ${pestana==="yunque"?"border-orange-600 bg-orange-950":""}`} onClick={()=>setPestana("yunque")}>El yunque</button><button className={boton} onClick={()=>setPreparados(!preparados)}>Preparados para batalla</button><button className={boton} onClick={()=>setVerPeticiones(!verPeticiones)}>Peticiones ({peticiones.length})</button></nav>
+ {error&&<p role="alert" className="text-sm text-red-300">{error} <button onClick={()=>void cargar()} className="underline">Actualizar</button></p>}{aviso&&<p role="status" className="text-sm text-emerald-300">{aviso}</p>}
+ {preparados&&<ForjaInstancias revision={revision}/>}
+ {verPeticiones&&<section className={panel}><h2 className="text-lg">Peticiones pendientes</h2>{peticiones.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-3"><div><h3>{p.nombre}</h3><p className="text-sm text-neutral-400">{p.descripcion}</p></div><button className={boton} onClick={()=>{setB({...vacio(),nombre:p.nombre,descripcion:p.descripcion,peticion:p});setPestana("yunque");}}>Abrir en el yunque</button></div>)}{!peticiones.length&&<p className="text-sm text-neutral-500">No hay peticiones pendientes.</p>}</section>}
+ {operacion&&<ForjaOperacion item={operacion.item} modo={operacion.modo} onClose={()=>setOperacion(null)} onDone={()=>{if(operacion.modo==="batalla")setPreparados(true);setAviso(operacion.modo==="batalla"?"Instancias preparadas con su equipo y habilidades.":"Copias entregadas al personaje.");setOperacion(null);setRevision(v=>v+1);}}/>}
+ {pestana==="creacion"?<section className="space-y-5"><div className="flex flex-wrap items-center gap-3"><label className="min-w-44 flex-1"><span className="sr-only">Buscar creaciones</span><input className={campo} value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar por nombre…"/></label><label><span className="sr-only">Filtrar por tipo</span><select className={campo} value={tipoFiltro} onChange={e=>setTipoFiltro(e.target.value)}><option value="todos">Todos los tipos</option>{TIPOS.map(t=><option key={t.valor} value={t.valor}>{t.nombre}</option>)}</select></label><button className={boton} onClick={()=>nuevo()}>+ Nueva creación</button></div>
+ <div className="flex flex-wrap gap-2"><button className={boton} onClick={()=>setFiltro("todos")} aria-pressed={filtro==="todos"}>Todo</button>{clasificaciones.map(c=><button key={c.id} className={`${boton} ${filtro===c.clave?"border-orange-600 text-orange-300":""}`} title={linaje(categorias,c.clave).map(v=>v.nombre).join(" / ")} onClick={()=>setFiltro(c.clave)} aria-pressed={filtro===c.clave}>{etiquetaClasificacion(c)}</button>)}</div>
+ {cargando?<p>Cargando creaciones…</p>:<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{galeria.map(f=><article key={f.id} className={`${panel} flex flex-col`}>
+ <div className="flex flex-wrap gap-2 text-xs text-orange-300"><span>{TIPOS.find(t=>t.valor===tipoDe(f,categorias))?.nombre}</span><span>· {nombreClasificacion(f.tipo)}</span><span>· {f.es_grupo?"Malla":"Único / fijo"}</span></div><h2 className="text-xl font-semibold">{f.nombre}</h2><p className="text-sm text-neutral-400">{f.descripcion||"Sin descripción"}</p>
+ <dl className="grid grid-cols-2 gap-2 text-sm">{Object.entries(f.es_grupo?f.stats_rango||{}:f.stats||{}).filter(([k])=>!tecnicos.includes(k)).map(([k,v])=><div key={k}><dt className="text-xs text-neutral-500">{atributosEfectivos(categorias,atributos,f.tipo).find(a=>a.clave===k)?.etiqueta||k}</dt><dd>{typeof v==="object"&&v!==null?`${v.min}–${v.max}`:String(v)}</dd></div>)}</dl>
+ {efectosDe(f).map(e=><p key={e.id} className="text-sm text-amber-200">{e.nombre}: {e.efecto==="estado"?e.estado:formula(e)} · {EFECTOS_NOMBRE[e.efecto]} · {e.coste_ph} PH</p>)}
+ {tipoDe(f,categorias)==="personaje"&&<p className="text-xs text-neutral-400">{f.habilidades?.length||0} habilidades · {Object.keys(f.equipamiento||{}).length} piezas de equipo</p>}
+ <div className="mt-auto flex flex-wrap gap-2 pt-3"><button className={boton} onClick={()=>editar(f)}>Editar</button><button className={boton} onClick={()=>setOperacion({item:f,modo:"inventario"})}>Entregar</button>{tipoDe(f,categorias)==="personaje"&&<button className={boton} onClick={()=>setOperacion({item:f,modo:"batalla"})}>Preparar batalla</button>}<button className={boton} onClick={()=>void venta(f)}>{f.es_vendible?"Retirar de tienda":"Ofrecer en tienda"}</button><button className="px-2 text-xs text-neutral-500" onClick={()=>void archivar(f)}>Archivar</button></div>
+ </article>)}</div>}{!cargando&&!galeria.length&&<p className="py-10 text-center text-neutral-500">No hay creaciones con estos filtros.</p>}</section>:<form onSubmit={guardar} className="space-y-6"><fieldset disabled={guardando} className="space-y-6">
+ <section className={panel}><div className="flex items-center justify-between gap-3"><h2 className="text-xl">{b.id?"Editar creación":"Nueva creación"}</h2><button type="button" className={boton} onClick={()=>nuevo()}>Limpiar</button></div>
+ <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Tipo<select className={campo} value={b.tipo} onChange={e=>cambiarTipo(e.target.value as TipoCreacion)}>{TIPOS.map(t=><option key={t.valor} value={t.valor}>{t.nombre}</option>)}</select></label><label className="text-sm">Clasificación<select required className={campo} value={b.clasificacion} onChange={e=>elegirClasificacion(e.target.value)}><option value="">Selecciona una subcategoría</option>{!opcionesClasificacion.some(c=>c.clave===b.clasificacion)&&b.clasificacion&&<option value={b.clasificacion} disabled>Elige una subcategoría válida</option>}{opcionesClasificacion.map(c=><option key={c.id} value={c.clave}>{etiquetaClasificacion(c)}</option>)}</select></label></div>
+ <p className="text-xs text-neutral-500">El tipo define el formulario. La clasificación aporta los atributos generales y propios de Estadísticas.</p>
+ <label className="block text-sm">Nombre<input required maxLength={160} className={campo} value={b.nombre} onChange={e=>patch({nombre:e.target.value})}/></label><label className="block text-sm">Descripción<textarea rows={3} maxLength={5000} className={campo} value={b.descripcion} onChange={e=>patch({descripcion:e.target.value})}/></label>
+ {b.tipo==="objeto"&&<label className="block text-sm">Espacio de equipamiento<select className={campo} value={b.slot} onChange={e=>patch({slot:e.target.value})}><option value="ninguno">No se equipa / consumible</option><option value="casco">Cabeza</option><option value="pechera">Torso</option><option value="pantalones">Piernas</option><option value="zapatos">Pies</option><option value="mano">Una mano</option><option value="dos_manos">Dos manos</option><option value="accesorio">Accesorio</option></select></label>}
+ </section>
+ <section className={panel}><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Atributos de {nombreClasificacion(b.clasificacion)}</h2><label className="text-sm">Modelo<select className={campo} value={b.malla?"malla":"fijo"} onChange={e=>patch({malla:e.target.value==="malla"})}><option value="fijo">Único: copias con valores fijos</option><option value="malla">Malla: valores por rango</option></select></label></div><p className="text-xs text-neutral-500">{b.malla?"Las estadísticas se sortean una vez al generar cada aparición. Los dados de sus acciones se lanzan cuando se utilizan.":"Todas las copias tienen estos valores. Sus acciones pueden utilizar dados."}</p>
+ <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{statsVisibles.map(a=><div key={a.id}><label className="text-sm">{a.etiqueta}{!b.malla?<input type="number" step="0.01" className={campo} value={b.stats[a.clave]??a.valor_defecto??0} onChange={e=>patch({stats:{...b.stats,[a.clave]:Number(e.target.value)}})}/>:<span className="mt-1 flex gap-2"><input aria-label={`${a.etiqueta} mínimo`} type="number" step="0.01" className={campo} value={b.rangos[a.clave]?.min??a.valor_defecto??0} onChange={e=>patch({rangos:{...b.rangos,[a.clave]:{min:Number(e.target.value),max:b.rangos[a.clave]?.max??a.valor_defecto??0}}})}/><input aria-label={`${a.etiqueta} máximo`} type="number" step="0.01" className={campo} value={b.rangos[a.clave]?.max??a.valor_defecto??0} onChange={e=>patch({rangos:{...b.rangos,[a.clave]:{min:b.rangos[a.clave]?.min??a.valor_defecto??0,max:Number(e.target.value)}}})}/></span>}</label><p className="mt-1 text-xs text-neutral-500">{a.categoria===b.clasificacion?"Propio":"Heredado"}</p></div>)}</div>{!statsVisibles.length&&<p className="text-sm text-neutral-500">Selecciona una clasificación o define sus atributos en Estadísticas.</p>}
+ </section>
+ {b.tipo==="personaje"?<><section className={panel}><h2 className="text-lg font-semibold">Habilidades</h2><p className="text-sm text-neutral-400">Solo puedes añadir habilidades que ya existen en La creación.</p><div className="grid gap-3 sm:grid-cols-2">{habilidades.map(h=><label key={h.id} className="flex items-start gap-3 rounded border border-neutral-800 p-3 text-sm"><input type="checkbox" checked={b.habilidades.includes(h.id)} onChange={e=>patch({habilidades:e.target.checked?[...b.habilidades,h.id]:b.habilidades.filter(id=>id!==h.id)})}/><span>{h.nombre}<span className="block text-xs text-neutral-500">{efectosDe(h).map(e=>`${e.nombre} ${formula(e)}`).join(" · ")||"Sin acciones configuradas"}</span></span></label>)}</div>{!habilidades.length&&<p className="text-sm text-amber-200">Crea primero una Habilidad en el Yunque. Después aparecerá aquí.</p>}{b.habilidades.filter(id=>!habilidades.some(h=>h.id===id)).map(id=><p key={id} className="text-sm text-red-300">Habilidad no disponible <button type="button" onClick={()=>patch({habilidades:b.habilidades.filter(h=>h!==id)})} className="underline">Quitar referencia</button></p>)}</section>
+ <section className={panel}><h2 className="text-lg font-semibold">Equipamiento</h2><p className="text-sm text-neutral-400">Elige piezas existentes. Los atributos de arriba son la base; al generar el personaje se suman los bonos del equipo a sus atributos correspondientes. Sus valores y acciones quedan guardados.</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{SLOTS.map(s=>{const items=activas.filter(f=>["objeto","titulo"].includes(tipoDe(f,categorias))&&s.tipos.includes(f.slot_tipo));return <label key={s.clave} className="text-sm">{s.nombre}<select className={campo} value={b.equipamiento[s.clave]||""} onChange={e=>ponerEquipo(s.clave,e.target.value)}><option value="">Sin equipo</option>{b.equipamiento[s.clave]&&!items.some(i=>i.id===b.equipamiento[s.clave])&&<option value={b.equipamiento[s.clave]} disabled>Pieza no disponible: quita o sustituye</option>}{items.map(i=><option key={i.id} value={i.id}>{i.nombre}{i.es_grupo?" (malla)":""}</option>)}</select></label>;})}</div></section></>:<section className={panel}><EditorDados value={b.efectos} onChange={efectos=>patch({efectos})} disabled={guardando}/></section>}
+ <details className={panel}><summary className="cursor-pointer">Detalles, tienda y presentación</summary><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Clase<select className={campo} value={b.clase} onChange={e=>patch({clase:e.target.value})}>{[...new Set(["D","C","B","A","S","SS","SSS",b.clase])].map(c=><option key={c}>{c}</option>)}</select></label><label className="text-sm">URL de imagen<input type="url" className={campo} value={b.imagen} onChange={e=>patch({imagen:e.target.value})}/></label></div><label className="block text-sm">Historia<textarea className={campo} value={b.historia} onChange={e=>patch({historia:e.target.value})}/></label><label className="block text-sm">Requisitos<input className={campo} value={b.requisitos} onChange={e=>patch({requisitos:e.target.value})}/></label><label className="block text-sm">Limitaciones o defectos<input className={campo} value={b.defectos} onChange={e=>patch({defectos:e.target.value})}/></label><label className="flex gap-2 text-sm"><input type="checkbox" checked={b.alma} onChange={e=>patch({alma:e.target.checked})}/>Ligado al alma</label><label className="flex gap-2 text-sm"><input type="checkbox" checked={b.venta} onChange={e=>patch({venta:e.target.checked})}/>Ofrecer en tienda</label>{b.venta&&<label className="block text-sm">Precio sugerido<input className={campo} value={b.precio} onChange={e=>patch({precio:e.target.value})}/></label>}</details>
+ </fieldset>{error&&<p role="alert" className="text-sm text-red-300">{error}</p>}<div className="flex flex-wrap gap-3"><button disabled={guardando} className={`${boton} border-orange-700 bg-orange-950`}>{guardando?"Guardando…":"Guardar en La creación"}</button><button disabled={guardando} type="button" className={boton} onClick={()=>setPestana("creacion")}>Volver</button></div>
+ </form>}
+ </div></main>;
 }

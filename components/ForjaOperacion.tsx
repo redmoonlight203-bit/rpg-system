@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { formula, EFECTOS_NOMBRE, type Efecto } from "../lib/creacion";
 import { supabase } from "../lib/supabase";
 
 type Creacion = { id: string; nombre: string; es_grupo: boolean };
@@ -66,7 +67,8 @@ export function ForjaOperacion({ item, modo, usuarioId, negociacionId, onClose, 
   </dialog>;
 }
 
-type Instancia = { id: string; nombre: string; stats: Record<string, number>; recursos: Record<string, number>; estado: string; created_at: string };
+type Snapshot = { stats_base?: Record<string,number>; habilidades?: {nombre:string;efectos:Efecto[]}[]; equipamiento?: Record<string,{nombre:string;stats:Record<string,number>;efectos:Efecto[]}> };
+type Instancia = { configuracion?: Snapshot; id: string; nombre: string; stats: Record<string, number>; recursos: Record<string, number>; estado: string; created_at: string };
 export function ForjaInstancias({ revision }: { revision: number }) {
   const [filas, setFilas] = useState<Instancia[]>([]);
   const [error, setError] = useState("");
@@ -89,6 +91,6 @@ export function ForjaInstancias({ revision }: { revision: number }) {
     finally { setOcupado(false); }
   }
   return <section className="space-y-4 rounded-xl border border-neutral-800 p-5"><div className="flex justify-between gap-3"><h2 className="text-xl">Preparados para batalla</h2><button onClick={() => void cargar()}>Actualizar</button></div><p className="text-sm text-neutral-400">Apariciones independientes con estadísticas guardadas. Máximo 200 activas visibles. Esta lista prepara enemigos; todavía no resuelve turnos ni daño.</p>
-    {error && <p role="alert" className="text-red-300">{error}</p>}{cargando ? <p>Cargando instancias…</p> : <div className="grid gap-3 md:grid-cols-2">{filas.map(f => <article key={f.id} className="rounded border border-neutral-800 p-4"><h3>{f.nombre} <span className="text-xs text-neutral-500">#{f.id.slice(0,8)} · {f.estado}</span></h3><p className="mt-2 text-xs text-neutral-400">{Object.entries(f.stats).map(([k,v]) => `${k}: ${v}`).join(" · ") || "Sin atributos"}</p><div className="mt-3 flex gap-4 text-sm">{f.estado === "pendiente" && <button disabled={ocupado} onClick={() => void cambiar(f.id,"en_batalla")}>Marcar en batalla</button>}<button disabled={ocupado} onClick={() => void cambiar(f.id,"finalizado")}>Finalizar</button></div></article>)}</div>}{!cargando && !filas.length && <p className="text-neutral-500">Genera una malla desde la galería para preparar sus apariciones.</p>}
+    {error && <p role="alert" className="text-red-300">{error}</p>}{cargando ? <p>Cargando instancias…</p> : <div className="grid gap-3 md:grid-cols-2">{filas.map(f => <article key={f.id} className="rounded border border-neutral-800 p-4"><h3>{f.nombre} <span className="text-xs text-neutral-500">#{f.id.slice(0,8)} · {f.estado}</span></h3><p className="mt-2 text-xs text-neutral-400">{Object.entries(f.stats).map(([k,v]) => `${k}: ${v}`).join(" · ") || "Sin atributos"}</p>{f.configuracion && <details className="mt-3 text-sm"><summary className="cursor-pointer text-orange-300">Habilidades y equipamiento</summary>{f.configuracion.stats_base && <p className="mt-2 text-xs text-neutral-500">Base: {Object.entries(f.configuracion.stats_base).map(([k,v])=>`${k}: ${v}`).join(" · ")}. Las cifras superiores incluyen los bonos del equipo.</p>}{f.configuracion.habilidades?.map((h,i)=><div key={i} className="mt-2"><strong>{h.nombre}</strong>{h.efectos?.map(e=><p key={e.id} className="text-xs text-neutral-400">{e.nombre} · {e.efecto === "estado" ? e.estado : formula(e)} · {EFECTOS_NOMBRE[e.efecto]} · {e.coste_ph} PH</p>)}</div>)}{Object.entries(f.configuracion.equipamiento||{}).map(([slot,item])=><div key={slot} className="mt-2"><strong>{slot}: {item.nombre}</strong><p className="text-xs text-neutral-400">{Object.entries(item.stats).map(([k,v])=>`${k}: ${v}`).join(" · ")}</p>{item.efectos?.map(e=><p key={e.id} className="text-xs text-amber-200">{e.nombre}: {e.efecto === "estado" ? e.estado : formula(e)} · {EFECTOS_NOMBRE[e.efecto]}</p>)}</div>)}</details>}<div className="mt-3 flex gap-4 text-sm">{f.estado === "pendiente" && <button disabled={ocupado} onClick={() => void cambiar(f.id,"en_batalla")}>Marcar en batalla</button>}<button disabled={ocupado} onClick={() => void cambiar(f.id,"finalizado")}>Finalizar</button></div></article>)}</div>}{!cargando && !filas.length && <p className="text-neutral-500">Genera una malla desde La creación para preparar sus apariciones.</p>}
   </section>;
 }

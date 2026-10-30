@@ -62,14 +62,6 @@ export default function HubPersonajeJugador() {
 
   const modulos = [
     {
-      id: "tablero",
-      titulo: "El Tablero",
-      descripcion: "Explora el mapa del mundo, tokens y posición en tiempo real.",
-      icon: Map,
-      ruta: "/ficha/tablero",
-      color: "hover:border-red-700/80 text-red-500",
-    },
-    {
       id: "inventario",
       titulo: "Inventario",
       descripcion: "Mochila y objetos portados en tu viaje por Yugen.",
