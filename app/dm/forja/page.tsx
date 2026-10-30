@@ -2,12 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { atributosEfectivos } from "../../../lib/estadisticas";
 import { 
   Hammer, ImageIcon, BookOpen, Shield, Sparkles, User, Skull, 
   Tag, Activity, Star, Eye, Filter, Package, Flame, XCircle, Users, Sparkle, Edit3, Save, Layers, RotateCcw, MapPin, Crosshair
 } from "lucide-react";
 
 interface CategoriaForja {
+  parent_id?: string | null;
   id: string;
   clave: string;
   nombre: string;
@@ -36,6 +38,7 @@ interface EntidadForja {
 }
 
 interface StatConfig {
+  valor_defecto?: number | null;
   id: string;
   categoria: string;
   clave: string;
@@ -175,9 +178,19 @@ export default function ForjaMaestraKuroi() {
     e.preventDefault();
     if (!nuevoNombre || !nuevoTipo) return;
 
-    const statsA_Guardar = Object.fromEntries(Object.entries(nuevosStats).filter(([_, v]) => v !== 0 && v !== null && !isNaN(v)));
+    const efectivos = atributosEfectivos(categorias, statsGlobales, nuevoTipo);
+    const valores = entidadEditandoId ? nuevosStats : {
+      ...Object.fromEntries(efectivos.map(s => [s.clave, s.valor_defecto ?? 0])), ...nuevosStats,
+    };
+    const statsA_Guardar = Object.fromEntries(Object.entries(valores).filter(([, v]) => Number.isFinite(v)));
+    const rangos = entidadEditandoId ? nuevosStatsRango : {
+      ...Object.fromEntries(efectivos.map(s => [s.clave, { min: s.valor_defecto ?? 0, max: s.valor_defecto ?? 0 }])), ...nuevosStatsRango,
+    };
+    if (esGrupo && Object.values(rangos).some(r => !Number.isFinite(r.min) || !Number.isFinite(r.max) || r.min > r.max)) {
+      alert("Los rangos deben tener valores numéricos y un mínimo menor o igual al máximo."); return;
+    }
     const rangosA_Guardar = Object.fromEntries(
-      Object.entries(nuevosStatsRango).filter(([_, range]) => range && (range.min !== 0 || range.max !== 0))
+      Object.entries(rangos).filter(([, range]) => range && Number.isFinite(range.min) && Number.isFinite(range.max))
     );
 
     const payload = {
@@ -281,7 +294,7 @@ export default function ForjaMaestraKuroi() {
   if (cargando) return <div className="min-h-screen bg-black flex items-center justify-center text-orange-500 font-mono animate-pulse">Encendiendo el Yunque de la Creación...</div>;
 
   const galeria = entidades.filter(e => e.estado === "aprobado" && (filtroTipo === "todos" || e.tipo === filtroTipo));
-  const statsRelevantes = statsGlobales.filter(s => s.categoria === nuevoTipo);
+  const statsRelevantes = atributosEfectivos(categorias, statsGlobales, nuevoTipo);
 
   return (
     <main className="min-h-screen bg-black text-neutral-200 p-6 font-serif relative overflow-x-hidden">
@@ -416,7 +429,7 @@ export default function ForjaMaestraKuroi() {
                       {!ent.es_grupo && ent.stats && Object.keys(ent.stats).length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-2 border-t border-neutral-900">
                           {Object.entries(ent.stats).map(([clave, valor]) => {
-                            const statRef = statsGlobales.find(s => s.clave === clave);
+                            const statRef = atributosEfectivos(categorias, statsGlobales, ent.tipo).find(s => s.clave === clave);
                             return (
                               <span key={clave} className="text-[9px] font-mono bg-neutral-900 border border-neutral-800 px-1.5 py-0.5 rounded text-neutral-400 flex items-center gap-1">
                                 {statRef ? statRef.etiqueta : clave}: <strong className="text-emerald-400">{valor > 0 ? `+${valor}` : valor}</strong>
@@ -430,7 +443,7 @@ export default function ForjaMaestraKuroi() {
                       {ent.es_grupo && ent.stats_rango && Object.keys(ent.stats_rango).length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-2 border-t border-neutral-900">
                           {Object.entries(ent.stats_rango).map(([clave, range]) => {
-                            const statRef = statsGlobales.find(s => s.clave === clave);
+                            const statRef = atributosEfectivos(categorias, statsGlobales, ent.tipo).find(s => s.clave === clave);
                             return (
                               <span key={clave} className="text-[9px] font-mono bg-amber-950/30 border border-amber-900/50 px-1.5 py-0.5 rounded text-amber-300 flex items-center gap-1">
                                 {statRef ? statRef.etiqueta : clave}: <strong className="text-amber-400">{range.min} ~ {range.max}</strong>
@@ -539,11 +552,11 @@ export default function ForjaMaestraKuroi() {
                     </label>
                     <select 
                       value={nuevoTipo} 
-                      onChange={(e) => setNuevoTipo(e.target.value)} 
+                      onChange={(e) => { setNuevoTipo(e.target.value); if (!entidadEditandoId) { setNuevosStats({}); setNuevosStatsRango({}); } }}
                       className="w-full bg-neutral-950 border border-neutral-800 p-2.5 text-xs text-neutral-200 rounded font-mono outline-none focus:border-orange-800 font-bold"
                     >
                       {categorias.map((cat) => (
-                        <option key={cat.clave} value={cat.clave}>{cat.nombre}</option>
+                        <option key={cat.clave} value={cat.clave}>{cat.parent_id ? `${categorias.find(c => c.id === cat.parent_id)?.nombre || "Grupo"} / ` : ""}{cat.nombre}</option>
                       ))}
                     </select>
                   </div>
@@ -647,7 +660,7 @@ export default function ForjaMaestraKuroi() {
                             </label>
                             <input 
                               type="number"
-                              value={nuevosStats[stat.clave] !== undefined ? nuevosStats[stat.clave] : ""}
+                              value={nuevosStats[stat.clave] !== undefined ? nuevosStats[stat.clave] : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
                               onChange={(e) => setNuevosStats({ ...nuevosStats, [stat.clave]: Number(e.target.value) })}
                               placeholder="0"
                               className="w-full bg-black border border-neutral-800 p-1.5 text-xs text-emerald-400 font-bold rounded font-mono outline-none focus:border-emerald-800 text-center" 
@@ -667,20 +680,20 @@ export default function ForjaMaestraKuroi() {
                             <div className="grid grid-cols-2 gap-2">
                               <input 
                                 type="number"
-                                value={nuevosStatsRango[stat.clave]?.min !== undefined ? nuevosStatsRango[stat.clave]?.min : ""}
+                                value={nuevosStatsRango[stat.clave]?.min !== undefined ? nuevosStatsRango[stat.clave]?.min : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
                                 onChange={(e) => setNuevosStatsRango({
                                   ...nuevosStatsRango,
-                                  [stat.clave]: { min: Number(e.target.value), max: nuevosStatsRango[stat.clave]?.max || 0 }
+                                  [stat.clave]: { min: Number(e.target.value), max: nuevosStatsRango[stat.clave]?.max ?? (entidadEditandoId ? 0 : stat.valor_defecto ?? 0) }
                                 })}
                                 placeholder="Mín"
                                 className="w-full bg-black border border-neutral-800 p-1.5 text-xs text-amber-300 font-bold rounded font-mono outline-none focus:border-amber-800 text-center" 
                               />
                               <input 
                                 type="number"
-                                value={nuevosStatsRango[stat.clave]?.max !== undefined ? nuevosStatsRango[stat.clave]?.max : ""}
+                                value={nuevosStatsRango[stat.clave]?.max !== undefined ? nuevosStatsRango[stat.clave]?.max : (entidadEditandoId ? "" : stat.valor_defecto ?? 0)}
                                 onChange={(e) => setNuevosStatsRango({
                                   ...nuevosStatsRango,
-                                  [stat.clave]: { min: nuevosStatsRango[stat.clave]?.min || 0, max: Number(e.target.value) }
+                                  [stat.clave]: { min: nuevosStatsRango[stat.clave]?.min ?? (entidadEditandoId ? 0 : stat.valor_defecto ?? 0), max: Number(e.target.value) }
                                 })}
                                 placeholder="Máx"
                                 className="w-full bg-black border border-neutral-800 p-1.5 text-xs text-amber-300 font-bold rounded font-mono outline-none focus:border-amber-800 text-center" 
