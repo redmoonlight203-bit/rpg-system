@@ -1,348 +1,129 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Sliders, Plus, Trash2, Activity, Tag, Shield, FolderPlus, Layers
-} from "lucide-react";
+import { Activity, ArrowRight, Layers, Pencil, Plus, Search, X } from "lucide-react";
 
-interface CategoriaForja {
-  id: string;
-  clave: string;
-  nombre: string;
-  descripcion: string;
-}
+type Categoria = { id: string; clave: string; nombre: string; descripcion: string | null };
+type Stat = { id: string; categoria: string; clave: string; etiqueta: string; descripcion: string | null; valor_defecto: number };
+type Editor = { tipo: "categoria"; original?: Categoria } | { tipo: "atributo"; original?: Stat };
+const claveDe = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+const campo = "w-full rounded-lg border border-neutral-800 bg-black px-3 py-2.5 text-sm text-neutral-100 outline-none focus:border-emerald-600 disabled:text-neutral-500";
+const boton = "inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed";
 
-interface StatConfig {
-  id: string;
-  categoria: string; // Guarda la 'clave' de la categoría
-  clave: string;
-  etiqueta: string;
-  valor_defecto: number;
-}
-
-export default function ReglasYStatsKuroi() {
-  const [categorias, setCategorias] = useState<CategoriaForja[]>([]);
-  const [stats, setStats] = useState<StatConfig[]>([]);
+export default function Estadisticas() {
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [stats, setStats] = useState<Stat[]>([]);
+  const [seleccion, setSeleccion] = useState("");
+  const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const [nombre, setNombre] = useState("");
+  const [clave, setClave] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [valor, setValor] = useState("0");
+  const [guardando, setGuardando] = useState(false);
+  const [errorEditor, setErrorEditor] = useState("");
+  const dialogo = useRef<HTMLDialogElement>(null);
+  useEffect(() => { if (editor) dialogo.current?.showModal(); }, [editor]);
 
-  // Formulario Nueva Categoría
-  const [nuevaCatNombre, setNuevaCatNombre] = useState("");
-  const [nuevaCatClave, setNuevaCatClave] = useState("");
-  const [nuevaCatDesc, setNuevaCatDesc] = useState("");
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const [cats, atributos] = await Promise.all([
+        supabase.from("categorias_forja").select("*").order("created_at", { ascending: true }),
+        supabase.from("config_estadisticas").select("*").order("created_at", { ascending: true }),
+      ]);
+      if (cats.error || atributos.error) throw new Error(cats.error?.message || atributos.error?.message);
+      const lista = (cats.data || []) as Categoria[];
+      setCategorias(lista); setStats((atributos.data || []) as Stat[]);
+      setSeleccion(actual => lista.some(c => c.clave === actual) ? actual : lista[0]?.clave || "");
+    } catch (e) { setError(e instanceof Error ? e.message : "No se pudieron cargar los datos."); }
+    finally { setCargando(false); }
+  }
+  useEffect(() => { void cargar(); }, []);
+  const actual = categorias.find(c => c.clave === seleccion);
+  const deCategoria = stats.filter(s => s.categoria === seleccion);
+  const coincide = (texto: string) => texto.toLocaleLowerCase().includes(busqueda.trim().toLocaleLowerCase());
+  const visibles = deCategoria.filter(s => coincide(`${s.etiqueta} ${s.clave} ${s.descripcion || ""}`));
+  const huerfanos = stats.filter(s => !categorias.some(c => c.clave === s.categoria));
 
-  // Formulario Nueva Stat
-  const [statCategoria, setStatCategoria] = useState("");
-  const [statEtiqueta, setStatEtiqueta] = useState("");
-  const [statClave, setStatClave] = useState("");
-  const [statDefecto, setStatDefecto] = useState(0);
+  function abrir(e: Editor) {
+    setEditor(e); setErrorEditor(""); setAviso("");
+    setNombre(e.original ? (e.tipo === "categoria" ? e.original.nombre : e.original.etiqueta) : "");
+    setClave(e.original?.clave || ""); setDescripcion(e.original?.descripcion || "");
+    setValor(e.tipo === "atributo" ? String(e.original?.valor_defecto ?? 0) : "0");
+  }
+  async function guardar(event: FormEvent) {
+    event.preventDefault(); if (!editor || guardando) return;
+    const nombreFinal = nombre.trim(), claveFinal = editor.original?.clave || claveDe(clave || nombre);
+    if (!nombreFinal || !claveFinal) return setErrorEditor("Escribe un nombre y una clave válida.");
+    const duplicado = editor.tipo === "categoria"
+      ? categorias.some(c => c.clave === claveFinal && c.id !== editor.original?.id)
+      : stats.some(s => s.categoria === seleccion && s.clave === claveFinal && s.id !== editor.original?.id);
+    if (duplicado) return setErrorEditor("Esta clave ya existe. Elige otra para evitar duplicados.");
+    if (editor.tipo === "atributo" && (!actual || valor.trim() === "" || !Number.isFinite(Number(valor)))) return setErrorEditor("Selecciona una categoría y un valor numérico válido.");
+    setGuardando(true); setErrorEditor("");
+    try {
+      const tabla = editor.tipo === "categoria" ? "categorias_forja" : "config_estadisticas";
+      const datos = editor.tipo === "categoria"
+        ? { nombre: nombreFinal, descripcion: descripcion.trim() }
+        : { etiqueta: nombreFinal, descripcion: descripcion.trim(), valor_defecto: Number(valor) };
+      const consulta = editor.original
+        ? supabase.from(tabla).update(datos).eq("id", editor.original.id).select("id").single()
+        : supabase.from(tabla).insert({ ...datos, clave: claveFinal, ...(editor.tipo === "atributo" ? { categoria: seleccion } : {}) }).select("id").single();
+      const resultado = await consulta;
+      if (resultado.error) throw new Error(resultado.error.message);
+      if (!resultado.data) throw new Error("No se confirmó el guardado. Revisa los permisos de tu cuenta.");
+      if (editor.tipo === "categoria") setSeleccion(claveFinal);
+      setEditor(null); setAviso("Cambios guardados."); await cargar();
+    } catch (e) { setErrorEditor(e instanceof Error ? e.message : "No se pudieron guardar los cambios."); }
+    finally { setGuardando(false); }
+  }
 
-  const cargarDatos = async () => {
-    setCargando(true);
-    
-    // Cargar Categorías
-    const { data: catData } = await supabase.from("categorias_forja").select("*").order("created_at", { ascending: true });
-    if (catData) {
-      setCategorias(catData as CategoriaForja[]);
-      if (catData.length > 0 && !statCategoria) {
-        setStatCategoria(catData[0].clave);
-      }
-    }
-
-    // Cargar Stats
-    const { data: statsData } = await supabase.from("config_estadisticas").select("*").order("created_at", { ascending: true });
-    if (statsData) setStats(statsData as StatConfig[]);
-
-    setCargando(false);
-  };
-
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  // CREAR NUEVA CATEGORÍA DE ARTÍCULO
-  const crearCategoria = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nuevaCatNombre) return;
-
-    const claveLimpia = (nuevaCatClave || nuevaCatNombre)
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
-
-    const { error } = await supabase.from("categorias_forja").insert([{
-      clave: claveLimpia,
-      nombre: nuevaCatNombre,
-      descripcion: nuevaCatDesc
-    }]);
-
-    if (!error) {
-      setNuevaCatNombre("");
-      setNuevaCatClave("");
-      setNuevaCatDesc("");
-      cargarDatos();
-    } else {
-      alert("Error al crear la categoría. Asegúrate de que la clave no esté repetida.");
-    }
-  };
-
-  // ELIMINAR CATEGORÍA
-  const eliminarCategoria = async (id: string, clave: string) => {
-    if (!window.confirm(`¿Eliminar la categoría "${clave}"? Los stats asociados seguirán en la BD pero no se mostrarán.`)) return;
-    await supabase.from("categorias_forja").delete().eq("id", id);
-    cargarDatos();
-  };
-
-  // CREAR NUEVA STAT
-  const crearStat = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!statEtiqueta || !statCategoria) return;
-
-    const claveLimpia = (statClave || statEtiqueta)
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
-
-    const { error } = await supabase.from("config_estadisticas").insert([{
-      categoria: statCategoria,
-      clave: claveLimpia,
-      etiqueta: statEtiqueta,
-      valor_defecto: Number(statDefecto) || 0
-    }]);
-
-    if (!error) {
-      setStatEtiqueta("");
-      setStatClave("");
-      setStatDefecto(0);
-      cargarDatos();
-    } else {
-      alert("Error al crear el atributo.");
-    }
-  };
-
-  // ELIMINAR STAT
-  const eliminarStat = async (id: string) => {
-    if (!window.confirm("¿Seguro que deseas borrar este atributo global?")) return;
-    await supabase.from("config_estadisticas").delete().eq("id", id);
-    cargarDatos();
-  };
-
-  if (cargando) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-mono animate-pulse">Cargando las Leyes del Universo...</div>;
-
-  return (
-    <main className="min-h-screen bg-black text-neutral-200 p-6 font-serif relative overflow-x-hidden">
-      
-      <div className="max-w-7xl mx-auto space-y-10 relative z-10 pb-20">
-        
-        {/* CABECERA */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-emerald-900/50 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-950/40 border border-emerald-800 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.2)] text-emerald-500">
-              <Sliders className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-neutral-100 uppercase tracking-widest font-mono">
-                Reglas y Sistema de Stats
-              </h1>
-              <p className="text-emerald-700/80 text-xs font-mono tracking-widest uppercase">
-                [ CONFIGURACIÓN DE TIPOS DE ENTIDAD Y ATRIBUTOS GLOBALES ]
-              </p>
-            </div>
-          </div>
-        </header>
-
-        {/* SECCIÓN 1: TIPOS / CATEGORÍAS DE ARTÍCULOS */}
-        <section className="bg-neutral-950 border border-neutral-900 rounded-xl p-6 space-y-6">
-          <div className="border-b border-neutral-900 pb-3 flex justify-between items-center">
-            <div>
-              <h2 className="text-base font-bold text-neutral-100 font-mono uppercase tracking-wide flex items-center gap-2">
-                <Layers className="w-5 h-5 text-emerald-500" /> Categorías de la Forja ({categorias.length})
-              </h2>
-              <p className="text-xs font-mono text-neutral-500 mt-1">
-                Define qué tipos de entidades existen en Yugen (ej: Vehículos, Mascotas, Runas).
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Formulario Crear Categoría */}
-            <form onSubmit={crearCategoria} className="bg-black border border-neutral-900 p-4 rounded-lg space-y-4">
-              <span className="text-[10px] font-mono text-emerald-500 font-bold uppercase tracking-widest block flex items-center gap-1.5">
-                <FolderPlus className="w-4 h-4" /> Nueva Categoría
-              </span>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-neutral-400 uppercase">Nombre Visible</label>
-                <input 
-                  required 
-                  value={nuevaCatNombre} 
-                  onChange={(e) => setNuevaCatNombre(e.target.value)} 
-                  placeholder="Ej. Vehículo / Montura" 
-                  className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono outline-none focus:border-emerald-800" 
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-neutral-400 uppercase">Clave Única (Opcional)</label>
-                <input 
-                  value={nuevaCatClave} 
-                  onChange={(e) => setNuevaCatClave(e.target.value)} 
-                  placeholder="Ej. vehiculo" 
-                  className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono outline-none focus:border-emerald-800" 
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-neutral-400 uppercase">Descripción / Uso</label>
-                <input 
-                  value={nuevaCatDesc} 
-                  onChange={(e) => setNuevaCatDesc(e.target.value)} 
-                  placeholder="Para carrozas, dragones montables..." 
-                  className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-serif outline-none focus:border-emerald-800" 
-                />
-              </div>
-
-              <button type="submit" className="w-full bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-200 py-2 rounded text-xs font-mono font-bold uppercase transition-colors flex items-center justify-center gap-1.5">
-                <Plus className="w-4 h-4" /> Añadir Categoría
-              </button>
-            </form>
-
-            {/* Lista de Categorías Existentes */}
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {categorias.map((cat) => (
-                <div key={cat.id} className="bg-black border border-neutral-900 p-4 rounded-lg flex flex-col justify-between space-y-2">
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-sm font-bold text-neutral-200 font-mono">{cat.nombre}</h3>
-                      <button onClick={() => eliminarCategoria(cat.id, cat.clave)} className="text-neutral-600 hover:text-red-500 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <span className="text-[9px] font-mono text-emerald-500 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-900/50 inline-block">
-                      clave: {cat.clave}
-                    </span>
-                    <p className="text-[10px] text-neutral-500 italic font-serif leading-relaxed line-clamp-2 mt-1">"{cat.descripcion || 'Sin descripción'}"</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-          </div>
-        </section>
-
-        {/* SECCIÓN 2: ATRIBUTOS Y ESTADÍSTICAS GLOBALES */}
-        <section className="bg-neutral-950 border border-neutral-900 rounded-xl p-6 space-y-6">
-          <div className="border-b border-neutral-900 pb-3">
-            <h2 className="text-base font-bold text-neutral-100 font-mono uppercase tracking-wide flex items-center gap-2">
-              <Activity className="w-5 h-5 text-emerald-500" /> Atributos y Estadísticas por Categoría ({stats.length})
-            </h2>
-            <p className="text-xs font-mono text-neutral-500 mt-1">
-              Agrega variables numéricas (Velocidad, Blindaje, Fuerza) a cualquiera de tus categorías.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Formulario Crear Stat */}
-            <form onSubmit={crearStat} className="bg-black border border-neutral-900 p-4 rounded-lg space-y-4">
-              <span className="text-[10px] font-mono text-emerald-500 font-bold uppercase tracking-widest block flex items-center gap-1.5">
-                <Plus className="w-4 h-4" /> Registrar Nuevo Atributo
-              </span>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-neutral-400 uppercase">Categoría Pertinente</label>
-                <select 
-                  value={statCategoria} 
-                  onChange={(e) => setStatCategoria(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono outline-none focus:border-emerald-800"
-                >
-                  {categorias.map((c) => (
-                    <option key={c.clave} value={c.clave}>{c.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-neutral-400 uppercase">Nombre Visible (Etiqueta)</label>
-                <input 
-                  required 
-                  value={statEtiqueta} 
-                  onChange={(e) => setStatEtiqueta(e.target.value)} 
-                  placeholder="Ej. Blindaje / Velocidad Máxima" 
-                  className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono outline-none focus:border-emerald-800" 
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono text-neutral-400 uppercase">Clave BD (Opcional)</label>
-                  <input 
-                    value={statClave} 
-                    onChange={(e) => setStatClave(e.target.value)} 
-                    placeholder="blindaje" 
-                    className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-neutral-200 rounded font-mono outline-none focus:border-emerald-800" 
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono text-neutral-400 uppercase">Valor Defecto</label>
-                  <input 
-                    type="number"
-                    value={statDefecto} 
-                    onChange={(e) => setStatDefecto(Number(e.target.value))} 
-                    className="w-full bg-neutral-950 border border-neutral-800 p-2 text-xs text-emerald-400 font-bold rounded font-mono outline-none focus:border-emerald-800 text-center" 
-                  />
-                </div>
-              </div>
-
-              <button type="submit" className="w-full bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-200 py-2 rounded text-xs font-mono font-bold uppercase transition-colors flex items-center justify-center gap-1.5">
-                <Activity className="w-4 h-4" /> Vincular Atributo
-              </button>
-            </form>
-
-            {/* Atributos Agrupados por Categoría */}
-            <div className="lg:col-span-2 space-y-6">
-              {categorias.map((cat) => {
-                const statsDeEstaCat = stats.filter(s => s.categoria === cat.clave);
-                return (
-                  <div key={cat.clave} className="bg-black border border-neutral-900 p-4 rounded-lg space-y-3">
-                    <div className="flex justify-between items-center border-b border-neutral-900 pb-2">
-                      <h3 className="text-xs font-bold font-mono text-emerald-400 uppercase flex items-center gap-1.5">
-                        <Tag className="w-3.5 h-3.5" /> {cat.nombre}
-                      </h3>
-                      <span className="text-[10px] font-mono text-neutral-500">
-                        {statsDeEstaCat.length} atributos
-                      </span>
-                    </div>
-
-                    {statsDeEstaCat.length === 0 ? (
-                      <p className="text-[10px] font-mono text-neutral-600 italic">No hay atributos definidos para esta categoría.</p>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {statsDeEstaCat.map((s) => (
-                          <div key={s.id} className="bg-neutral-950 border border-neutral-800 p-2 rounded flex justify-between items-center">
-                            <div>
-                              <p className="text-xs font-bold font-mono text-neutral-300">{s.etiqueta}</p>
-                              <p className="text-[9px] font-mono text-neutral-600">clave: {s.clave}</p>
-                            </div>
-                            <button onClick={() => eliminarStat(s.id)} className="text-neutral-600 hover:text-red-500 transition-colors p-1">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-          </div>
-        </section>
-
-      </div>
-    </main>
-  );
+  return <main className="min-h-full bg-black p-4 text-neutral-200 sm:p-8">
+    <div className="mx-auto max-w-6xl space-y-7">
+      <header className="flex flex-wrap items-end justify-between gap-5 border-b border-neutral-800 pb-6">
+        <div><p className="mb-2 text-xs uppercase tracking-widest text-emerald-500">Configuración de Yugen</p><h1 className="text-3xl font-bold">Estadísticas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400">Define los tipos de creación y los atributos disponibles en la Forja: personajes, habilidades, títulos, pasivas, objetos y todo lo que incorpores al juego.</p></div>
+        <Link href="/dm/forja" className={boton}>Ir a la Forja <ArrowRight size={16}/></Link>
+      </header>
+      {aviso && <p role="status" className="text-sm text-emerald-400">{aviso}</p>}
+      {error && <div role="alert" className="space-y-3 text-sm text-red-300"><p>No se pudo actualizar la configuración: {error}</p><button className={boton} onClick={() => void cargar()}>Reintentar</button></div>}
+      {cargando ? <p role="status" className="py-16 text-neutral-400">Cargando categorías y atributos…</p> : <>
+        <div className="flex flex-wrap gap-6 text-sm text-neutral-400"><span><b className="text-white">{categorias.length}</b> categorías de creación</span><span><b className="text-white">{stats.length}</b> atributos definidos</span></div>
+        <div className="grid gap-7 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="space-y-4"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-semibold"><Layers size={17}/> Categorías</h2><button className={boton} onClick={() => abrir({ tipo: "categoria" })} aria-label="Crear categoría"><Plus size={16}/></button></div>
+            <p className="text-xs leading-5 text-neutral-500">Cada categoría será un tipo de creación disponible en la Forja.</p>
+            <nav aria-label="Categorías de creación" className="space-y-2">{categorias.map(c => <button key={c.id} onClick={() => {setSeleccion(c.clave);setBusqueda("");}} aria-pressed={seleccion === c.clave} className={`w-full rounded-lg border p-4 text-left ${seleccion === c.clave ? "border-emerald-800 bg-emerald-950/30" : "border-neutral-800 hover:border-neutral-600"}`}><span className="block font-medium">{c.nombre}</span><span className="mt-1 block text-xs text-neutral-500">{stats.filter(s => s.categoria === c.clave).length} atributos · {c.clave}</span></button>)}</nav>
+            {!categorias.length && <p className="py-6 text-sm text-neutral-500">Crea tu primera categoría para comenzar.</p>}
+          </aside>
+          <section className="min-w-0 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6">
+            {actual ? <><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-semibold">{actual.nombre}</h2><p className="mt-2 text-sm text-neutral-400">{actual.descripcion || "Añade una descripción para explicar qué se crea en esta categoría."}</p><p className="mt-2 font-mono text-xs text-emerald-500">{actual.clave}</p></div><button className={boton} onClick={() => abrir({ tipo: "categoria", original: actual })}><Pencil size={14}/> Editar categoría</button></div>
+              <div className="my-6 flex flex-wrap gap-3 border-t border-neutral-800 pt-6"><label className="relative min-w-0 flex-1"><span className="sr-only">Buscar atributos</span><Search size={16} className="absolute left-3 top-3 text-neutral-500"/><input className={`${campo} pl-9`} value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar atributo por nombre o descripción"/></label><button className={boton} onClick={() => abrir({ tipo: "atributo" })}><Plus size={16}/> Añadir atributo</button></div>
+              <div className="space-y-3">{visibles.map(s => <article key={s.id} className="flex items-start justify-between gap-4 rounded-lg border border-neutral-800 p-4"><div className="min-w-0"><h3 className="flex items-center gap-2 font-semibold"><Activity size={15} className="shrink-0 text-emerald-500"/>{s.etiqueta}</h3><p className="mt-1 break-all font-mono text-xs text-neutral-500">{s.clave}</p>{s.descripcion && <p className="mt-2 text-sm text-neutral-400">{s.descripcion}</p>}<p className="mt-3 text-xs text-neutral-400">Valor predeterminado: <b className="text-emerald-400">{s.valor_defecto ?? 0}</b></p></div><button className={boton} aria-label={`Editar ${s.etiqueta}`} onClick={() => abrir({ tipo: "atributo", original: s })}><Pencil size={14}/></button></article>)}</div>
+              {!visibles.length && <p className="py-10 text-center text-sm text-neutral-500">{busqueda ? "No hay atributos que coincidan con la búsqueda." : "Esta categoría aún no tiene atributos. Añade los que necesitarás al crear en la Forja."}</p>}
+              <p className="mt-6 border-t border-neutral-800 pt-4 text-xs leading-5 text-neutral-500">Los cambios de nombre y descripción conservan las referencias existentes. Cambiar el valor predeterminado no modifica las cifras de entidades ya creadas.</p>
+            </> : <div className="py-16 text-center"><Layers className="mx-auto mb-4 text-emerald-500"/><h2 className="text-xl">Todo empieza con una categoría</h2><p className="mt-3 text-sm text-neutral-400">Por ejemplo: personajes, habilidades, títulos, pasivas u objetos.</p><button className={`${boton} mt-6`} onClick={() => abrir({tipo:"categoria"})}>Crear categoría</button></div>}
+          </section>
+        </div>
+        {huerfanos.length > 0 && <section className="border-t border-amber-900 pt-5"><h2 className="font-semibold text-amber-400">Atributos sin categoría disponible ({huerfanos.length})</h2><p className="mt-2 text-sm text-neutral-400">Conservamos estos datos. Puedes recuperar su categoría creando una con la misma clave.</p><ul className="mt-3 space-y-2 text-sm">{huerfanos.map(s => <li key={s.id}>{s.etiqueta} <span className="font-mono text-neutral-500">· categoría: {s.categoria} · {s.clave}</span></li>)}</ul></section>}
+      </>}
+    </div>
+    {editor && <dialog ref={dialogo} aria-labelledby="titulo-editor" onCancel={e => { e.preventDefault(); if (!guardando) setEditor(null); }} className="m-auto w-full max-w-lg border-0 bg-transparent p-4 text-neutral-200 backdrop:bg-black/80">
+      <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-950 p-6">
+        <div className="mb-5 flex items-center justify-between"><h2 id="titulo-editor" className="text-xl font-semibold">{editor.original ? "Editar" : "Crear"} {editor.tipo === "categoria" ? "categoría" : "atributo"}</h2><button disabled={guardando} aria-label="Cerrar editor" className={boton} onClick={() => setEditor(null)}><X size={16}/></button></div>
+        <form onSubmit={guardar} className="space-y-4"><label className="block space-y-2 text-sm"><span>Nombre visible</span><input autoFocus required maxLength={120} className={campo} value={nombre} onChange={e => setNombre(e.target.value)}/></label>
+          <label className="block space-y-2 text-sm"><span>Clave interna {editor.original ? "(protegida)" : "(opcional)"}</span><input maxLength={120} className={campo} disabled={!!editor.original} value={clave} placeholder={claveDe(nombre) || "Se genera a partir del nombre"} onChange={e => setClave(e.target.value)}/></label>
+          <p className="text-xs text-neutral-500">{editor.original ? "Se conserva para mantener conectadas las creaciones existentes." : `Clave que se guardará: ${claveDe(clave || nombre) || "—"}`}</p>
+          <label className="block space-y-2 text-sm"><span>Descripción</span><textarea maxLength={2000} rows={3} className={campo} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder={editor.tipo === "categoria" ? "Qué tipo de elementos agrupa" : "Qué representa y cómo se utiliza este atributo"}/></label>
+          {editor.tipo === "atributo" && <><p className="text-sm text-neutral-400">Categoría: {actual?.nombre}</p><label className="block space-y-2 text-sm"><span>Valor predeterminado</span><input required type="number" step="any" className={campo} value={valor} onChange={e => setValor(e.target.value)}/></label></>}
+          {errorEditor && <p role="alert" className="text-sm text-red-400">{errorEditor}</p>}
+          <div className="flex justify-end gap-3 pt-3"><button type="button" disabled={guardando} className={boton} onClick={() => setEditor(null)}>Cancelar</button><button disabled={guardando} className={`${boton} border-emerald-800 bg-emerald-950 text-emerald-200`}>{guardando ? "Guardando…" : "Guardar cambios"}</button></div>
+        </form>
+      </section>
+    </dialog>}
+  </main>;
 }
