@@ -8,7 +8,10 @@ import {
   Shield, Sparkles, Crown, PackageCheck, Eye, Search, Flame, Key
 } from "lucide-react";
 
+import { Billetera } from "../../../components/Billetera";
+
 interface Perfil {
+  mente_colmena: boolean;
   id: string;
   email: string;
   rol: string;
@@ -86,7 +89,7 @@ export default function GestionPersonajesKuroi() {
     if (perfiles) {
       // Excluir la cuenta de Kuroi / DM de los listados de jugadores
       const cuentasJugadores = perfiles.filter(
-        (p: Perfil) => p.rol !== "admin" && p.rol !== "dm" && p.rol !== "kuroi"
+        (p: Perfil) => p.rol?.toUpperCase() === "REENCARNADO"
       );
       
       setTodasLasCuentas(cuentasJugadores as Perfil[]);
@@ -99,7 +102,7 @@ export default function GestionPersonajesKuroi() {
       .select("*")
       .in("estado_aprobacion", ["pendiente", "editado"])
       .order("created_at", { ascending: false });
-    if (charsPendientes) setPersonajesPendientes(charsPendientes as Personaje[]);
+    if (charsPendientes) setPersonajesPendientes((charsPendientes as Personaje[]).filter(p=>perfiles?.some(c=>c.id===p.user_id&&c.rol?.toUpperCase()==="REENCARNADO")));
 
     // 3. Registro Histórico de Todos los Personajes Aprobados
     const { data: todos } = await supabase
@@ -107,7 +110,7 @@ export default function GestionPersonajesKuroi() {
       .select("*")
       .eq("estado_aprobacion", "aprobado")
       .order("created_at", { ascending: false });
-    if (todos) setTodosLosPersonajes(todos as Personaje[]);
+    if (todos) setTodosLosPersonajes((todos as Personaje[]).filter(p=>perfiles?.some(c=>c.id===p.user_id&&c.rol?.toUpperCase()==="REENCARNADO")));
 
     setCargando(false);
   };
@@ -438,6 +441,7 @@ export default function GestionPersonajesKuroi() {
         {/* PESTAÑA 2: REGISTRO GENERAL DE CUENTAS DE REENCARNADOS (Sin Kuroi) */}
         {pestana === "cuentas" && (
           <section className="space-y-6">
+            <Billetera gm cuentas={todasLasCuentas}/>
             <div className="bg-neutral-950 border border-neutral-900 p-4 rounded-xl flex items-center gap-3">
               <Key className="w-5 h-5 text-red-500" />
               <div>
@@ -476,6 +480,7 @@ export default function GestionPersonajesKuroi() {
                         </div>
 
                         <div className="space-y-2">
+                          <label className="flex items-center gap-3 rounded border border-purple-900 p-3 text-xs text-purple-200"><input type="checkbox" checked={!!cuenta.mente_colmena} onChange={async e=>{const r=await supabase.from("perfiles").update({mente_colmena:e.target.checked}).eq("id",cuenta.id).eq("rol","REENCARNADO");if(r.error)alert(r.error.message);else void cargarDatos();}}/>Mente colmena · acceso a Tienda de almas</label>
                           <span className="text-[10px] font-mono text-neutral-500 uppercase block">Avatares del Usuario ({personajesDeCuenta.length}):</span>
                           {personajesDeCuenta.length === 0 ? (
                             <p className="text-[10px] font-mono text-neutral-600 italic">Sin avatares aprobados aún.</p>

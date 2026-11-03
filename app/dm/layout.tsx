@@ -15,6 +15,7 @@ const principales = [
 const gestion = [
   { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },
   { path: "/dm/mercado", label: "Tiendas", icon: ShoppingBag },
+  { path: "/dm/tienda-almas", label: "Tienda de almas", icon: ShoppingBag },
   { path: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
 ];
 

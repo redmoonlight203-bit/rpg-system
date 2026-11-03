@@ -1,3 +1,3 @@
-# Pendientes de Yugen
+# Recursos de usuario
 
-- **Puntos Kuro:** agregar un recurso único a la aplicación. Pendiente definir cómo se obtiene, quién lo asigna y para qué se utiliza. La tienda no cobra ni descuenta este recurso todavía.
+Oro y Puntos Kuro disponibles. El GM puede crear más monedas y ajustar saldos con motivo. Pendiente definir reglas automáticas para obtener Puntos Kuro; por ahora los asigna el GM.
