@@ -66,3 +66,13 @@ Sustituyen la mano o ambas manos, incluidos bonos y pasivas. La duración cuenta
 `node --test tests/*.test.mjs`
 
 `FORJA_PGLITE_MODULE=/ruta/pglite/index.js node tests/elementos-database.mjs`
+
+## Interfaz de combate
+
+La iniciativa se muestra en una tira ordenada; pulsar un participante reproduce su tirada sin cambiar el turno. Las tarjetas distinguen el turno activo en dorado y el objetivo en rojo, con vida, PH, Fatiga y estados visibles. La biblioteca se abre desde **Personajes** o **Añadir**; conserva búsqueda, botones de incorporación y arrastre durante preparación. Escape cierra la biblioteca.
+
+Seleccionar el nombre del objetivo **no ejecuta** la habilidad. Después de elegir habilidad y objetivo, se utiliza **Lanzar y resolver**. Los atajos Q/W/E/R seleccionan las primeras cuatro acciones disponibles; nunca lanzan ataques. Se ignoran mientras se escriben campos, se utiliza un control, está abierta la biblioteca o hay una operación pendiente. Pasar turno conserva las reglas de recuperación existentes.
+
+Los retratos son opcionales: sin imagen o si falla su carga, se muestran iniciales. En **Equipo, pasivas y configuración** se puede introducir una URL http/https o una ruta pública como `/personajes/axel.webp`. Esas preferencias se recuerdan solo en ese navegador y se comparten entre copias del mismo personaje. Para definir imágenes comunes a todos los navegadores, completar `lib/retratos-combate.ts` con claves `jugador:<id>` o `forja:<id>`. No se modifica la ficha ni se requiere migración de base de datos.
+
+El registro se coloca a la derecha en escritorio y debajo en pantallas estrechas. Los retratos no son necesarios para usar ninguna acción.

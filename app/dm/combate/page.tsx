@@ -14,6 +14,11 @@ import {
   Sparkles,
   Hammer,
   Trash2,
+  X,
+  BookOpen,
+  Crosshair,
+  Dices,
+  Save,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -42,7 +47,10 @@ import { formula } from "../../../lib/creacion";
 import AnimacionDados, {
   type TiradaVisual,
 } from "../../../components/AnimacionDados";
+import RetratoCombate from "../../../components/RetratoCombate";
+import { retratosCombate } from "../../../lib/retratos-combate";
 import "./combate.css";
+import "./diseno.css";
 type Personaje = {
   id: string;
   nombre: string;
@@ -74,6 +82,41 @@ export default function CampoCombate() {
     [ocupado, setOcupado] = useState(false),
     [cargando, setCargando] = useState(true);
   const bloqueo = useRef(false);
+  const buscarRef = useRef<HTMLInputElement>(null);
+  const [biblioteca, setBiblioteca] = useState(false);
+  const [arrastrando, setArrastrando] = useState(false);
+  const [retratos, setRetratos] = useState<Record<string, string>>(retratosCombate);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("yugen:retratos-combate") || "{}");
+      if (saved && typeof saved === "object" && !Array.isArray(saved))
+        setRetratos({ ...retratosCombate, ...Object.fromEntries(Object.entries(saved).filter(([, v]) => typeof v === "string")) } as Record<string, string>);
+    } catch { /* El combate funciona aunque el almacenamiento esté desactivado. */ }
+  }, []);
+  function claveRetrato(m: Combatiente) {
+    return m.personaje_id ? `jugador:${m.personaje_id}` : `forja:${m.forja_id || m.id}`;
+  }
+  function configurarRetrato(m: Combatiente, value: string) {
+    const url = value.trim();
+    if (url && !/^https?:\/\//i.test(url) && !/^\/(?!\/)/.test(url)) {
+      setError("Usa una URL http/https o una ruta de imagen que comience por /.");
+      return;
+    }
+    const next = { ...retratos, [claveRetrato(m)]: url };
+    setRetratos(next);
+    try { localStorage.setItem("yugen:retratos-combate", JSON.stringify(next)); }
+    catch { setError("El retrato se aplicó, pero este navegador no permite recordar la configuración."); }
+  }
+  function abrirBiblioteca() {
+    setBiblioteca(true);
+    requestAnimationFrame(() => buscarRef.current?.focus());
+  }
+  useEffect(() => {
+    if (!biblioteca) return;
+    const close = (e: KeyboardEvent) => { if (e.key === "Escape") setBiblioteca(false); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [biblioteca]);
   const [roll, setRoll] = useState<{
     id: string;
     nombre: string;
@@ -362,6 +405,8 @@ export default function CampoCombate() {
   }
   function soltar(e: React.DragEvent, bando: Bando) {
     e.preventDefault();
+    setArrastrando(false);
+    setBiblioteca(false);
     if (ocupado) return;
     try {
       const d = JSON.parse(e.dataTransfer.getData("application/yugen"));
@@ -388,12 +433,29 @@ export default function CampoCombate() {
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
       : c.miembros.find((m) => m.bando !== actor?.bando)?.id || actor?.id || "";
+  const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0 }];
+  useEffect(() => {
+    const atajo = (event: KeyboardEvent) => {
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || ocupado || biblioteca || pendiente || !actor || actor.accion_usada || c.fase !== "en_curso") return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input,select,textarea,button,summary"))) return;
+      const index = "qwer".indexOf(event.key.toLowerCase());
+      const a = index >= 0 ? opciones[index] : undefined;
+      if (!a || actor.cooldowns[a.id]) return;
+      const e = a.efecto;
+      if (e && (actor.ph < e.coste_ph || (!forzar && (e.coste_fatiga || 0) > 0 && (actor.agotado || actor.fatiga + (e.coste_fatiga || 0) > (estadisticas(actor).fatiga || 0))))) return;
+      event.preventDefault();
+      setAccion(a.id);
+    };
+    window.addEventListener("keydown", atajo);
+    return () => window.removeEventListener("keydown", atajo);
+  }, [actor, opciones, ocupado, biblioteca, pendiente, c.fase, forzar]);
   function tarjeta(m: Combatiente) {
     const s = estadisticas(m);
     return (
       <article
         key={m.id}
-        className={`battle-unit ${c.actual === m.id ? "is-current" : ""} ${m.vida <= 0 ? "is-down" : ""} ${c.actual === m.id && m.vida > 0 && m.vida / maxVida(m) <= 0.25 ? "is-critical" : ""}`}
+        className={`battle-unit ${actor && destino === m.id ? "is-target" : ""} ${c.actual === m.id ? "is-current" : ""} ${m.vida <= 0 ? "is-down" : ""} ${c.actual === m.id && m.vida > 0 && m.vida / maxVida(m) <= 0.25 ? "is-critical" : ""}`}
         draggable={!ocupado && c.fase === "preparacion"}
         onDragStart={(e) =>
           e.dataTransfer.setData(
@@ -421,7 +483,9 @@ export default function CampoCombate() {
             </button>
           )}
         </div>
-        <h3>
+        <div className="battle-identity">
+        <RetratoCombate nombre={m.nombre} src={retratos[claveRetrato(m)]} />
+        <div><h3>
           <button
             className={`battle-target-name ${destino === m.id ? "target-selected" : ""}`}
             disabled={
@@ -429,17 +493,19 @@ export default function CampoCombate() {
             }
             title={
               efecto?.efecto === "dano"
-                ? "Atacar a " + m.nombre
+                ? "Seleccionar objetivo: " + m.nombre
                 : "Seleccionar a " + m.nombre
             }
             onClick={() => {
               setObjetivo(m.id);
-              if (efecto?.efecto === "dano") void resolver(m.id);
             }}
           >
             {m.nombre}
           </button>
         </h3>
+        <span className="battle-owner-tag">{c.actual === m.id ? "En turno" : m.bando === "jugador" ? "Aliado" : "Adversario"}</span>
+        </div></div>
+        {actor && destino === m.id && <span className="battle-state target"><Crosshair size={12} /> Objetivo</span>}
         {m.personaje_id && (
           <span className="battle-owner-tag">Personaje de jugador</span>
         )}
@@ -476,6 +542,7 @@ export default function CampoCombate() {
             </b>
           </span>
         </div>
+        {(s.fatiga || 0) > 0 && <div className="battle-fatigue-pips" aria-hidden="true">{Array.from({ length: Math.min(12, Math.max(0, Math.floor(s.fatiga || 0))) }, (_, i) => <i className={i < m.fatiga ? "filled" : ""} key={i} />)}</div>}
         {m.arma && (
           <p className="battle-weapon">
             <Flame size={13} />
@@ -483,8 +550,19 @@ export default function CampoCombate() {
             turnos
           </p>
         )}
+        <div className="battle-states" aria-label="Estados activos">
+          {m.vida <= 0 && <span className="battle-state">Fuera de combate</span>}
+          {m.agotado && <span className="battle-state">Agotado</span>}
+          {m.estados.map((e) => <span className="battle-state" key={e.id} title={e.restantes > 0 ? `${e.restantes} turnos` : "Hasta resolver su condición"}>{e.nombre}{e.restantes > 0 ? ` · ${e.restantes}` : ""}</span>)}
+          {!m.estados.length && !m.agotado && m.vida > 0 && <span className="battle-no-state">Sin estados</span>}
+        </div>
         <details>
-          <summary>Equipo y pasivas</summary>
+          <summary>Equipo, pasivas y configuración</summary>
+          <label className="battle-portrait-setting">
+            Imagen del personaje (opcional)
+            <input type="text" placeholder="https://… o /personajes/axel.webp" defaultValue={retratos[claveRetrato(m)] || ""} key={`${claveRetrato(m)}:${retratos[claveRetrato(m)] || ""}`} onBlur={(e) => configurarRetrato(m, e.target.value)} />
+            <small>Se recuerda en este navegador. Vacío: mostrar iniciales.</small>
+          </label>
           <div className="battle-traits">
             <label>
               Bono de salvación
@@ -658,13 +736,15 @@ export default function CampoCombate() {
           </div>
           <div>
             <p>DOMINIO KUROI / COMBATE</p>
-            <h1>El campo de batalla</h1>
+            <h1>Campo de batalla</h1>
             <span>Un personaje, una acción. El sistema lleva las cuentas.</span>
           </div>
         </div>
+        <div className="battle-header-actions">
+        <button className="battle-button" onClick={abrirBiblioteca} aria-expanded={biblioteca} aria-controls="battle-library"><BookOpen size={16} />Personajes</button>
         <Link className="battle-button" href="/dm/forja">
           La creación
-        </Link>
+        </Link></div>
       </header>
       <div className="battle-toolbar">
         <input
@@ -699,7 +779,7 @@ export default function CampoCombate() {
           className="battle-button"
           onClick={() => void ejecutar(() => guardar(c))}
         >
-          {ocupado ? "Guardando…" : "Guardar"}
+          <Save size={15} />{ocupado ? "Guardando…" : "Guardar"}
         </button>
         <button
           disabled={ocupado}
@@ -751,7 +831,9 @@ export default function CampoCombate() {
         </p>
       )}
       <div className="battle-layout">
-        <aside className="battle-library">
+        {biblioteca && <div className={`battle-library-backdrop ${arrastrando ? "is-dragging" : ""}`} onClick={() => setBiblioteca(false)} />}
+        {biblioteca && <aside className="battle-library" id="battle-library" aria-label="Biblioteca de personajes" onDragStartCapture={() => setArrastrando(true)} onDragEndCapture={() => setArrastrando(false)}>
+          <button className="battle-library-close battle-button" onClick={() => setBiblioteca(false)} aria-label="Cerrar biblioteca"><X size={18} /></button>
           <div className="battle-section-title">
             <Users size={15} />
             <h2>Personajes</h2>
@@ -759,6 +841,7 @@ export default function CampoCombate() {
           </div>
           <p>Arrastra a un bando o utiliza los botones J / E.</p>
           <input
+            ref={buscarRef}
             aria-label="Buscar personajes"
             placeholder="Buscar personaje…"
             value={busqueda}
@@ -814,8 +897,9 @@ export default function CampoCombate() {
                 </div>
               ))
           )}
-        </aside>
-        <section>
+          {!cargando && !catalogo.filter((p) => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).length && <p>No se encontraron personajes.</p>}
+        </aside>}
+        <section className="battle-arena">
           <div className="battle-flow">
             <div>
               <span>RONDA</span>
@@ -829,7 +913,16 @@ export default function CampoCombate() {
                     ? "FINALIZADO"
                     : "TURNO ACTUAL"}
               </span>
-              <h2>{actor?.nombre || "Forma los bandos"}</h2>
+              <h2>{actor?.nombre || (c.fase === "finalizado" ? "Encuentro finalizado" : "Forma los bandos")}</h2>
+            </div>
+            <div className="battle-initiative" aria-label="Orden de iniciativa">
+              <span>INICIATIVA · D20</span>
+              <div>{[...c.miembros].sort((a, b) => b.iniciativa - a.iniciativa).map((m) => (
+                <button key={m.id} className={`battle-initiative-token ${c.actual === m.id ? "active" : ""} ${m.vida <= 0 ? "is-down" : ""}`} onClick={() => mostrarIniciativa(m)} aria-current={c.actual === m.id ? "step" : undefined} title={`Ver tirada de iniciativa de ${m.nombre}`}>
+                  <RetratoCombate nombre={m.nombre} src={retratos[claveRetrato(m)]} compacto />
+                  <span>{m.nombre}<b><Dices size={13} />{m.iniciativa}</b></span>
+                </button>
+              ))}{!c.miembros.length && <p>Añade personajes para ordenar sus turnos.</p>}</div>
             </div>
             <button
               disabled={
@@ -854,6 +947,7 @@ export default function CampoCombate() {
                   <span className="battle-team-dot" />
                   <h2>Bando {b}</h2>
                   <span>{c.miembros.filter((m) => m.bando === b).length}</span>
+                  {c.fase === "preparacion" && <button className="battle-button battle-add" disabled={ocupado} onClick={abrirBiblioteca}><Plus size={14} /> Añadir</button>}
                 </div>
                 {c.miembros.some((m) => m.bando === b) ? (
                   <div className="battle-team-grid">
@@ -864,6 +958,7 @@ export default function CampoCombate() {
                     <Users size={28} />
                     <p>Arrastra un personaje aquí</p>
                     <span>Se calcularán equipo, pasivas e iniciativa.</span>
+                    <button className="battle-button" disabled={ocupado || c.fase !== "preparacion"} onClick={abrirBiblioteca}>Elegir personaje</button>
                   </div>
                 )}
               </section>
@@ -872,28 +967,24 @@ export default function CampoCombate() {
           <section className="battle-action">
             <div className="battle-section-title">
               <Swords size={15} />
-              <h2>Resolver acción</h2>
-              <span>{actor?.accion_usada ? "ACCIÓN UTILIZADA" : ""}</span>
+              <h2>{actor ? `Turno de ${actor.nombre}` : c.fase === "finalizado" ? "Combate finalizado" : "Prepara el encuentro"}</h2>
+              <span className="battle-action-status">{actor ? actor.accion_usada ? "ACCIÓN UTILIZADA" : "1 ACCIÓN DISPONIBLE" : ""}</span>
             </div>
+            {actor && <div className="battle-actor-resources"><Shield size={15} /> ARM {estadisticas(actor).armadura || 0}<Zap size={15} /> PH {actor.ph}/{estadisticas(actor).ph || 0}<Flame size={15} /> Fatiga {actor.fatiga}/{estadisticas(actor).fatiga || 0}</div>}
+            {!actor && <p className="battle-action-empty">{c.fase === "preparacion" ? "Forma los bandos e inicia el combate para acceder a las habilidades." : "El encuentro ha terminado. Puedes revisar su registro o crear uno nuevo."}</p>}
             <div
               className="battle-action-tiles"
               role="group"
               aria-label="Acciones del personaje"
             >
-              {[
-                ...lista,
-                {
-                  id: "guardia",
-                  nombre: "Guardia",
-                  efecto: null,
-                  enfriamiento: 0,
-                },
-              ].map((a) => {
+              {opciones.filter(() => !!actor).map((a, indice) => {
                 const e = a.efecto,
                   espera = actor?.cooldowns[a.id] || 0;
                 const Icono = !e
                   ? Shield
-                  : e.efecto === "curacion"
+                  : elementoDe(e) === "fuego"
+                    ? Flame
+                    : e.efecto === "curacion"
                     ? Heart
                     : e.efecto === "recuperar_ph"
                       ? Zap
@@ -936,8 +1027,11 @@ export default function CampoCombate() {
                     }}
                   >
                     <Icono size={22} />
+                    {indice < 4 && <kbd className="battle-shortcut">{"QWER"[indice]}</kbd>}
                     <strong>{a.nombre}</strong>
                     <small>{e ? formula(e) : "+2 ARM"}</small>
+                    {e && <small className="battle-cost">{e.coste_ph ? `${e.coste_ph} PH` : "Sin PH"} · {e.coste_fatiga || 0} Fatiga{espera ? ` · Espera ${espera}` : ""}</small>}
+                    {motivo && <small className="battle-disabled-reason">{motivo}</small>}
                     <span className="battle-tooltip" role="tooltip">
                       {ayuda} {motivo}
                     </span>
@@ -955,7 +1049,8 @@ export default function CampoCombate() {
             </label>
             <div className="battle-action-grid">
               <label>
-                Objetivo · También puedes pulsar su nombre
+                Objetivo · Selecciona su nombre o usa la lista
+                {actor && <span className="battle-target-preview"><Crosshair size={14} />{actor.nombre} → {elegida === "guardia" || efecto?.efecto === "crear_arma" ? actor.nombre : c.miembros.find((m) => m.id === destino)?.nombre || "Selecciona un objetivo"}</span>}
                 <select
                   disabled={
                     ocupado ||
@@ -983,8 +1078,9 @@ export default function CampoCombate() {
                 }
                 onClick={() => void resolver()}
               >
-                Ejecutar
+                <Swords size={17} /> Lanzar y resolver
               </button>
+              {c.fase === "en_curso" && <button className="battle-button" disabled={ocupado} onClick={() => void avanzar()}>{actor?.accion_usada ? "Siguiente turno" : "Pasar turno"}</button>}
             </div>
             {resumen && (
               <p className="battle-result" role="status" key={resumen}>
@@ -1028,11 +1124,10 @@ export default function CampoCombate() {
             </p>
           </section>
         </section>
-      </div>
       <section className="battle-log">
         <div className="battle-section-title">
           <ScrollText size={15} />
-          <h2>Crónica del combate</h2>
+          <h2>Registro</h2>
           <span>{version ? "GUARDADO EN SUPABASE" : "SIN GUARDAR"}</span>
         </div>
         <div>
@@ -1045,6 +1140,7 @@ export default function CampoCombate() {
           )}
         </div>
       </section>
+      </div>
     </main>
   );
 }
