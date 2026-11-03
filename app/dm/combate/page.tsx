@@ -50,6 +50,8 @@ import AnimacionDados, {
 } from "../../../components/AnimacionDados";
 import RetratoCombate from "../../../components/RetratoCombate";
 import { retratosCombate } from "../../../lib/retratos-combate";
+import {describirEfecto,describirRegla,ayudaGuardia} from "../../../lib/descripciones";
+import ContenidoAyuda from "../../../components/ContenidoAyuda";
 import "./combate.css";
 import "./diseno.css";
 type Personaje = {
@@ -1009,9 +1011,9 @@ export default function CampoCombate() {
                             : Swords;
                 const reglaActiva = a.regla && actor ? reglasMotor(actor).find(r=>r.clave===a.regla)?.regla : undefined;
                 const sinUsos = !!(reglaActiva?.usos && actor && (actor.motor?.usos[a.regla!]||0)>=reglaActiva.usos);
-                const ayuda = reglaActiva ? `${reglaActiva.nombre}. Regla activa: ${reglaActiva.efectos.length} efectos en orden. Consume acción, ${reglaActiva.coste_ph} PH y ${reglaActiva.coste_fatiga} Fatiga. ${reglaActiva.usos?`${Math.max(0,reglaActiva.usos-(actor?.motor?.usos[a.regla!]||0))} usos restantes.`:'Usos ilimitados.'}` : e
-                  ? `${a.nombre}. ${e.efecto === "crear_arma" ? "Crea " + e.arma_nombre : e.efecto === "estado" ? e.estado : e.efecto}. ${formula(e)}. ${e.tipo_dano || ""}. Coste ${e.coste_ph} PH y ${e.coste_fatiga || 0} Fatiga. Elemento ${elementoDe(e)}. ${e.salvacion ? `Salvación CD ${e.salvacion.cd} + ${e.salvacion.atributo}.` : ""} Duración ${e.duracion} turnos. Enfriamiento ${a.enfriamiento} turnos.`
-                  : "Guardia: +2 ARM hasta el siguiente turno propio. Consume una acción.";
+                const ayuda = reglaActiva ? describirRegla(reglaActiva) : e ? describirEfecto(e,a.nombre) : ayudaGuardia;
+                if(e && !reglaActiva) ayuda.detalles.push("Consume tu acción.");
+                if(!reglaActiva && a.enfriamiento) ayuda.detalles.push(`Debes esperar ${a.enfriamiento} turnos antes de volver a usarla.`);
                 const motivo = sinUsos ? "Sin usos restantes." : espera
                   ? `En enfriamiento: ${espera} turnos.`
                   : e && actor && actor.ph < e.coste_ph
@@ -1023,7 +1025,7 @@ export default function CampoCombate() {
                           actor.fatiga + (e.coste_fatiga || 0) >
                             (estadisticas(actor).fatiga || 0)) &&
                         !forzar
-                      ? "Requiere Forzar natural."
+                      ? "No tienes resistencia suficiente. Activa «Forzar natural» para usarla a costa de tu vida."
                       : "";
                 return (
                   <button
@@ -1034,7 +1036,7 @@ export default function CampoCombate() {
                     aria-disabled={
                       ocupado || !actor || actor.accion_usada || !!motivo
                     }
-                    title={ayuda + " " + motivo}
+                    aria-describedby={`ayuda-${a.id}`}
                     onClick={() => {
                       if (!ocupado && actor && !actor.accion_usada && !motivo)
                         setAccion(a.id);
@@ -1044,10 +1046,10 @@ export default function CampoCombate() {
                     {indice < 4 && <kbd className="battle-shortcut">{"QWER"[indice]}</kbd>}
                     <strong>{a.nombre}</strong>
                     <small>{a.regla ? "Regla activa" : e ? formula(e) : "+2 ARM"}</small>
-                    {e && <small className="battle-cost">{e.coste_ph ? `${e.coste_ph} PH` : "Sin PH"} · {e.coste_fatiga || 0} Fatiga{espera ? ` · Espera ${espera}` : ""}</small>}
+                    {e && !!(e.coste_ph || e.coste_fatiga) && <small className="battle-cost">{e.coste_ph ? `${e.coste_ph} PH` : "Sin PH"} · {e.coste_fatiga || 0} Fatiga{espera ? ` · Espera ${espera}` : ""}</small>}
                     {motivo && <small className="battle-disabled-reason">{motivo}</small>}
-                    <span className="battle-tooltip" role="tooltip">
-                      {ayuda} {motivo}
+                    <span id={`ayuda-${a.id}`} className="battle-tooltip" role="tooltip">
+                      <ContenidoAyuda ayuda={ayuda}/>{motivo && <span className="help-warning">{motivo}</span>}
                     </span>
                   </button>
                 );

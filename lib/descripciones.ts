@@ -1,0 +1,64 @@
+import {formula, type Efecto} from './creacion';
+import {type Regla, type EfectoRegla, type CondicionRegla} from './reglas';
+export type AyudaClara={resumen:string;detalles:string[]};
+const elementos:Record<string,string>={fuego:'fuego',agua:'agua',hielo:'hielo',electricidad:'electricidad',luz_sagrada:'luz sagrada'};
+const atributo=(s:string)=>({vida:'vida máxima',hp:'vida máxima',vida_actual:'vida actual',ph:'PH',ph_actual:'PH actuales',fatiga:'Fatiga máxima',fatiga_actual:'Fatiga actual',armadura:'armadura',bono_impacto:'bonificación al ataque',salvacion:'bonificación de salvación'}[s]||s.replaceAll('_',' '));
+export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
+ const legacy=(e.tipo_dano||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const claveElemento=e.elemento||({electrico:'electricidad',frio:'hielo','luz sagrada':'luz_sagrada'}[legacy]||legacy);
+ const elemento=elementos[claveElemento];
+ let resumen:string;
+ switch(e.efecto){
+  case 'dano': resumen=/desarmado/i.test(nombre)?'Ataca con el puño.':/^Atacar con /i.test(nombre)?nombre.replace(/^Atacar /i,'Ataca ')+'.':elemento?`Ataca al objetivo con ${elemento}.`:'Ataca al objetivo para causarle daño.';break;
+  case 'curacion':resumen='Recupera vida del objetivo sin superar su vida máxima.';break;
+  case 'recuperar_ph':resumen='Recupera puntos de habilidad del objetivo.';break;
+  case 'reducir_fatiga':resumen='Reduce la Fatiga del objetivo. Si está agotado, aún necesita descansar.';break;
+  case 'estado':resumen=`Aplica ${e.estado||'un estado'} al objetivo.`;break;
+  case 'crear_arma':resumen=`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
+ }
+ const detalles:string[]=[];
+ if(e.efecto!=='estado')detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
+ if(e.efecto==='dano'&&elemento)detalles.push(`Añade 1d4 de daño de ${elemento}.`);
+ if(e.coste_ph)detalles.push(`Consume ${e.coste_ph} PH.`);
+ if(e.coste_fatiga)detalles.push(`Genera ${e.coste_fatiga} de Fatiga.`);
+ if(e.salvacion)detalles.push(`El objetivo tira una salvación de ${atributo(e.salvacion.atributo)} contra ${e.salvacion.cd}. Si la supera, ${e.salvacion.exito==='mitad'?'recibe la mitad del daño':e.salvacion.exito==='solo_estado'?'evita el estado, pero recibe el daño':'evita el efecto'}.`);
+ if(e.duracion>0)detalles.push(`Duración: ${e.duracion} turnos${e.efecto==='crear_arma'?' propios':''}.`);
+ if(e.efecto==='dano'&&claveElemento==='fuego')detalles.push('Puede quemar al objetivo si falla su salvación de 12.');
+ if(e.efecto==='dano'&&claveElemento==='agua')detalles.push('Deja al objetivo Mojado y permite combinaciones elementales.');
+ return {resumen:(typeof e.descripcion==="string"&&e.descripcion.trim())||resumen,detalles};
+}
+export function condicionClara(c:CondicionRegla):string {
+ switch(c.tipo){
+ case 'siempre':return 'Se activa sin condiciones adicionales.';
+ case 'estado':return `Requiere el estado ${c.estado}.`;
+ case 'comparar':return `Requiere ${atributo(c.atributo)} ${{'<':'menor que','<=':'menor o igual a','=':'igual a','>=':'mayor o igual a','>':'mayor que'}[c.operador]} ${c.valor}${c.porcentaje?'%':''}.`;
+ case 'elemento':return `Requiere un ataque de ${elementos[c.elemento]||c.elemento}.`;
+ case 'probabilidad':return `Tiene un ${c.porcentaje}% de probabilidad de activarse.`;
+ case 'todas':return 'Deben cumplirse todas las condiciones configuradas.';
+ case 'alguna':return 'Debe cumplirse al menos una de las condiciones configuradas.';
+ case 'no':return 'La condición configurada no debe cumplirse.';
+ }
+}
+function efectoReglaClaro(e:EfectoRegla):string{
+ const destino={yo:'al portador',actor:'a quien provocó el evento',objetivo:'al objetivo',aliados:'a los aliados vivos',enemigos:'a los enemigos vivos',todos:'a todos los personajes vivos'}[e.destino];
+ const valor=typeof e.valor==='number'?String(e.valor):e.valor?.dados?`${e.valor.dados}d${e.valor.caras}${e.valor.bono?`${e.valor.bono>0?'+':''}${e.valor.bono}`:''}`:e.valor?.atributo?`según ${atributo(e.valor.atributo)}`:'según su fórmula';
+ switch(e.tipo){
+ case 'atributo':return `Modifica ${atributo(e.atributo||'atributo')} ${destino}: ${e.operacion==='fijar'?'fija en':e.operacion==='multiplicar'?'multiplica por':'suma'} ${valor}${e.permanente?' de forma permanente':''}.`;
+ case 'transformar':return `Transforma ${destino} en ${e.nombre||e.clave||'una nueva forma'} y cambia sus estadísticas.`;
+ case 'estado':return `Aplica ${e.nombre||e.clave||'un estado'} ${destino}.`;
+ case 'quitar_estado':return `Quita ${e.nombre||e.clave||'el estado configurado'} ${destino}.`;
+ case 'dano':return `Causa ${valor} de daño directo ${destino}.`;
+ case 'curar':return `Recupera ${valor} de vida ${destino}.`;
+ case 'ph':return `Modifica los PH ${destino}: ${valor}.`;
+ case 'fatiga':return `Modifica la Fatiga ${destino}: ${valor}.`;
+ case 'perder_accion':return `Hace perder la acción del turno ${destino}.`;
+ case 'salvacion':return `Exige una salvación de ${atributo(e.atributo||'salvacion')} contra ${e.cd}; el resultado decide qué efectos se aplican.`;
+ case 'condicional':return 'Aplica efectos diferentes según se cumpla o no su condición.';
+ case 'habilidad':return `Concede la acción ${e.accion?.nombre||'configurada'} ${destino}.`;
+ case 'mensaje':return e.nombre||'Añade un mensaje al registro.';
+ }
+}
+export function describirRegla(r:Regla):AyudaClara{
+ return {resumen:(typeof r.descripcion==="string"&&r.descripcion.trim())||r.efectos.map(efectoReglaClaro).slice(0,2).join(' ')||'Activa los efectos configurados.',detalles:[condicionClara(r.condicion),...r.efectos.slice(0,6).map(efectoReglaClaro),...(r.coste_ph?[`Consume ${r.coste_ph} PH.`]:[]),...(r.coste_fatiga?[`Genera ${r.coste_fatiga} de Fatiga.`]:[]),...(r.enfriamiento?[`Debes esperar ${r.enfriamiento} turnos antes de volver a usarla.`]:[])]};
+}
+export const ayudaGuardia:AyudaClara={resumen:'Adopta una postura defensiva para protegerte.',detalles:['Ganas 2 de armadura hasta tu siguiente turno.','Consume tu acción.']};

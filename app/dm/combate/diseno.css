@@ -135,3 +135,9 @@
 .battle-fatigue-pips i{width:10px;height:10px;border:1px solid #7f7255;border-radius:50%;background:#161711}
 .battle-fatigue-pips i.filled{background:#ebbd62;border-color:#f3d899;box-shadow:0 0 5px #e4aa3b33}
 .battle-target-preview{display:flex;align-items:center;gap:7px;color:#edc89c;margin:8px 0;padding:9px 12px;border:1px solid #75333e;background:#301219;border-radius:6px;font:14px Georgia,serif}
+.battle-tooltip{width:330px;max-width:calc(100vw - 50px);padding:16px;font:13px/1.65 Arial,sans-serif!important;text-transform:none;letter-spacing:0;border-radius:9px;background:#11150f;border-color:#bc9459;box-shadow:0 10px 38px #000c;white-space:normal;max-height:55vh;overflow-y:auto;pointer-events:auto}
+.battle-tooltip .help-summary{display:block;font:500 17px/1.45 Georgia,serif;color:#f0dcb7;margin-bottom:10px}
+.battle-tooltip .help-details{display:grid;gap:7px;border-top:1px solid #5a482e;padding-top:10px;color:#bfb59f}
+.battle-tooltip .help-details>span{display:block;font:12px/1.6 Arial,sans-serif}
+.battle-tooltip .help-warning{display:block;margin-top:12px;padding-top:8px;border-top:1px solid #69383d;color:#ffb2b7;font:12px/1.5 Arial,sans-serif}
+.battle-tooltip .help-summary{overflow-wrap:anywhere;white-space:pre-line}

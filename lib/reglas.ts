@@ -36,7 +36,7 @@ export type EfectoRegla = {
  fallo?: EfectoRegla[];
 };
 export type Regla = {
- id: string; nombre: string; evento: EventoRegla; condicion: CondicionRegla; efectos: EfectoRegla[];
+ id: string; nombre: string; descripcion?: string; evento: EventoRegla; condicion: CondicionRegla; efectos: EfectoRegla[];
  coste_ph: number; coste_fatiga: number; enfriamiento: number; usos: number; prioridad: number;
 };
 export function nuevaRegla(): Regla {
@@ -83,6 +83,7 @@ export function validarReglas(input: unknown): string | null {
   }}
   if(!Array.isArray(input)||input.length>40)fallo('Máximo 40 reglas por creación.');const ids=new Set();
   for(const v of input as unknown[]){const r=objeto(v);if(typeof r.id!=='string'||!r.id||ids.has(r.id))fallo('Identificador de regla ausente o repetido.');ids.add(r.id);
+   if(r.descripcion!==undefined&&(typeof r.descripcion!=='string'||r.descripcion.length>2000))fallo('Descripción: máximo 2000 caracteres.');
    if(typeof r.nombre!=='string'||!r.nombre.trim()||r.nombre.length>120||!Object.hasOwn(EVENTOS,String(r.evento)))fallo('Nombre o evento inválido.');
    for(const k of ['coste_ph','coste_fatiga','enfriamiento','usos'])if(!entero(r[k]))fallo('Costes, usos y enfriamiento inválidos.');if(!entero(r.prioridad,-1000,1000))fallo('Prioridad inválida.');
    condicion(r.condicion);efectos(r.efectos);if(!(r.efectos as unknown[]).length)fallo('Añade al menos un efecto.');

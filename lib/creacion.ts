@@ -45,6 +45,7 @@ export type Efecto = {
     "narrativo" | "veneno" | "regeneracion" | "aturdido" | "quemadura";
   id: string;
   nombre: string;
+  descripcion?: string;
   efecto:
     | "dano"
     | "curacion"
@@ -166,6 +167,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       return "Una habilidad mágica debe consumir PH.";
     if (["natural", "fisica"].includes(e.naturaleza || "") && e.coste_ph > 0)
       return "Las acciones con PH son mágicas; el daño físico se configura aparte.";
+    if (e.descripcion !== undefined && (typeof e.descripcion !== "string" || e.descripcion.length > 2000)) return "La descripción de cada acción debe ser un texto de hasta 2000 caracteres.";
     if (!e.nombre.trim()) return "Cada acción necesita un nombre.";
     if (
       ![

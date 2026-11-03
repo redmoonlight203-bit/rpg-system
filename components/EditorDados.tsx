@@ -77,6 +77,9 @@ export function EditorDados({
             {e.nombre || "Nueva acción"} ·{" "}
             {e.efecto === "estado" ? "Estado" : formula(e)}
           </legend>
+          <label className="block text-sm">Descripción para el jugador (opcional)
+            <textarea className={campo} rows={2} maxLength={2000} value={e.descripcion || ""} onChange={v=>cambiar(e.id,{descripcion:v.target.value})} placeholder="Ej.: Ataca con el puño. Si lo dejas vacío, Yugen explica el efecto automáticamente." />
+          </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-sm">
               Nombre

@@ -113,3 +113,15 @@
 .cg-symbol-editor h4{font:18px Georgia,serif;color:#e5c994;margin-bottom:8px}
 .cg-symbol-editor>p{font-size:11px!important;line-height:1.7!important}
 .cg-placeholder>.yugen-glyph{opacity:.85;color:#dfbd7c;filter:drop-shadow(0 0 16px #d2ad5a22)}
+.cg-card{overflow:visible}
+.cg-cover{border-radius:11px 11px 0 0}
+.cg-open{position:relative}
+.cg-tooltip,.cg-effect-tooltip{display:none;position:absolute;z-index:30;top:12px;left:12px;right:12px;border:1px solid #b6935b;border-radius:9px;background:#10150ff5;padding:15px;box-shadow:0 8px 28px #000b;white-space:normal;text-align:left;max-height:290px;overflow:auto;color:#e9d5b1;cursor:default}
+.cg-tooltip .help-summary,.cg-effect-tooltip .help-summary{display:block;font:500 17px/1.45 Georgia,serif;color:#f4ddb6}
+.cg-tooltip .help-details,.cg-effect-tooltip .help-details{display:grid;gap:8px;padding-top:10px;margin-top:10px;border-top:1px solid #685332;font:12px/1.7 Arial,sans-serif;color:#c6baa1}
+.cg-open:hover .cg-tooltip,.cg-open:focus-visible .cg-tooltip,.cg-action-help:hover .cg-effect-tooltip,.cg-action-help:focus-visible .cg-effect-tooltip{display:block}
+.cg-action-help{position:relative;cursor:help}
+.cg-effect-tooltip{top:auto;bottom:calc(100% + 8px);left:0;right:auto;width:340px;max-width:100%}
+.cg-action-help:focus-visible{outline:2px solid #dbb36b;outline-offset:3px}
+@media(hover:none){.cg-open:hover:not(:focus-visible) .cg-tooltip{display:none}}
+.cg-tooltip .help-summary,.cg-effect-tooltip .help-summary{overflow-wrap:anywhere;white-space:pre-line}
