@@ -8,8 +8,11 @@ import {
   Sparkles, Map, Hammer, Hourglass, Handshake 
 } from "lucide-react";
 
+import { Billetera } from "../../components/Billetera";
+
 export default function NexoReencarnado() {
   const router = useRouter();
+  const [colmena,setColmena]=useState(false);
   const [correoAlma, setCorreoAlma] = useState<string>("");
 
   useEffect(() => {
@@ -19,6 +22,7 @@ export default function NexoReencarnado() {
         router.push("/login");
       } else {
         setCorreoAlma(session.user.email || "Alma Desconocida");
+        const p=await supabase.from("perfiles").select("mente_colmena").eq("id",session.user.id).single();setColmena(!!p.data?.mente_colmena);
       }
     };
     verificarSesion();
@@ -30,6 +34,7 @@ export default function NexoReencarnado() {
   };
 
   const menuOpciones = [
+    ...(colmena?[{titulo:"Tienda de almas",descripcion:"Un escaparate reservado para las Mentes colmena.",icono:Sparkles,ruta:"/ficha/tienda-almas",color:"text-purple-400"}]:[]),
     {
       titulo: "Personajes",
       descripcion: "Revisa tus avatares, estadísticas y estado en los mundos.",
@@ -83,6 +88,7 @@ export default function NexoReencarnado() {
 
       <div className="max-w-6xl mx-auto relative z-10 space-y-10 mt-4">
         
+        <Billetera/>
         {/* Cabecera del Nexo */}
         <header className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-red-900/40 pb-6">
           <div>
