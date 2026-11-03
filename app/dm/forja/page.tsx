@@ -8,11 +8,13 @@ import {EditorPasivas} from "../../../components/EditorPasivas";
 import {validarPasivas,type ReglaPasiva} from "../../../lib/pasivas";
 import "./forja.css";
 import {supabase} from "../../../lib/supabase";
-import {atributosEfectivos,linaje,type CategoriaBase} from "../../../lib/estadisticas";
+import {atributosEfectivos,type CategoriaBase} from "../../../lib/estadisticas";
 import {validarValoresForja,type Rango} from "../../../lib/forja";
-import {TIPOS,SLOTS,EFECTOS_NOMBRE,tipoDe,subcategorias,clasificacionesPara,efectosDe,formula,validarEfectos,validarEquipamiento,type Efecto,type TipoCreacion} from "../../../lib/creacion";
+import {TIPOS,SLOTS,tipoDe,subcategorias,clasificacionesPara,efectosDe,formula,validarEfectos,validarEquipamiento,type Efecto,type TipoCreacion} from "../../../lib/creacion";
 import {EditorDados} from "../../../components/EditorDados";
 import {ForjaOperacion,ForjaInstancias} from "../../../components/ForjaOperacion";
+import GaleriaCreacion from "../../../components/GaleriaCreacion";
+import {validarPortada} from "../../../lib/imagenes-creacion";
 
 type Atributo={id:string;categoria:string;clave:string;etiqueta:string;valor_defecto:number;descripcion?:string};
 type Creacion={id:string;nombre:string;tipo:string;tipo_creacion?:TipoCreacion;descripcion:string;historia:string;requisitos:string;defectos:string;imagen_url:string;clase:string;stats:Record<string,number>;stats_rango:Record<string,Rango>;es_grupo:boolean;slot_tipo:string;estado:string;ligado_al_alma:boolean;es_vendible:boolean;precio_sugerido:string;habilidades:string[];pasivas:string[];reglas:Regla[];reglas_pasivas:ReglaPasiva[];equipamiento:Record<string,string>;configuracion_dados:Efecto[]};
@@ -25,7 +27,7 @@ const panel="forja-panel space-y-5 rounded-xl border border-neutral-800 bg-neutr
 export default function Forja(){
  const [categorias,setCategorias]=useState<CategoriaBase[]>([]),[atributos,setAtributos]=useState<Atributo[]>([]),[creaciones,setCreaciones]=useState<Creacion[]>([]),[peticiones,setPeticiones]=useState<Peticion[]>([]);
  const [pestana,setPestana]=useState<"creacion"|"yunque">("creacion"),[b,setB]=useState<Borrador>(vacio),[cargando,setCargando]=useState(true),[guardando,setGuardando]=useState(false),[error,setError]=useState(""),[aviso,setAviso]=useState("");
- const [filtro,setFiltro]=useState("todos"),[tipoFiltro,setTipoFiltro]=useState("todos"),[busqueda,setBusqueda]=useState(""),[revision,setRevision]=useState(0),[preparados,setPreparados]=useState(false),[verPeticiones,setVerPeticiones]=useState(false);
+ const [revision,setRevision]=useState(0),[preparados,setPreparados]=useState(false),[verPeticiones,setVerPeticiones]=useState(false);
  const [operacion,setOperacion]=useState<{item:Creacion;modo:"inventario"|"batalla"}|null>(null);const bloqueo=useRef(false);
  async function cargar(){setCargando(true);setError("");try{
   const [c,a,f,p]=await Promise.all([supabase.from("categorias_forja").select("*").order("created_at"),supabase.from("config_estadisticas").select("*"),supabase.from("forja_maestra").select("*").order("created_at",{ascending:false}),supabase.from("creaciones_forja").select("id,nombre,descripcion,user_id").eq("estado","pendiente")]);
@@ -40,7 +42,6 @@ export default function Forja(){
  const statsVisibles=disponibles.filter(a=>!["objeto","habilidad"].includes(b.tipo)||!tecnicos.includes(a.clave));
  const pasivasDisponibles=activas.filter(f=>tipoDe(f,categorias)==="pasiva");
  const habilidades=activas.filter(f=>tipoDe(f,categorias)==="habilidad");
- const galeria=activas.filter(f=>(filtro==="todos"||f.tipo===filtro)&&(tipoFiltro==="todos"||tipoDe(f,categorias)===tipoFiltro)&&`${f.nombre} ${f.descripcion}`.toLowerCase().includes(busqueda.toLowerCase()));
  function patch(p:Partial<Borrador>){setB(actual=>({...actual,...p}));}
  function elegirClasificacion(clave:string){const a=atributosEfectivos(categorias,atributos,clave);setB(prev=>({...prev,clasificacion:clave,stats:Object.fromEntries(a.map(s=>[s.clave,prev.stats[s.clave]??s.valor_defecto??0])),rangos:Object.fromEntries(a.map(s=>[s.clave,prev.rangos[s.clave]??{min:s.valor_defecto??0,max:s.valor_defecto??0}]))}));}
  function nuevo(tipo:TipoCreacion=b.tipo){setB({...vacio(),tipo});setError("");setAviso("");setPestana("yunque");}
@@ -64,28 +65,36 @@ export default function Forja(){
    setB(vacio());setPestana("creacion");await cargar();
   }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}finally{bloqueo.current=false;setGuardando(false);}
  }
+ async function guardarImagen(id:string,imagen:string){
+  if(bloqueo.current)throw new Error("Hay otra operación en curso. Inténtalo de nuevo.");
+  const fallo=validarPortada(imagen);if(fallo)throw new Error(fallo);
+  bloqueo.current=true;
+  try{
+   const r=await supabase.from("forja_maestra").update({imagen_url:imagen}).eq("id",id).select("id,imagen_url").single();
+   if(r.error)throw new Error(r.error.message);
+   if(!r.data)throw new Error("No se confirmó el guardado de la imagen.");
+   setCreaciones(prev=>prev.map(f=>f.id===id?{...f,imagen_url:r.data.imagen_url||""}:f));
+  }finally{bloqueo.current=false;}
+ }
  async function eliminar(f:Creacion){if(!window.confirm(`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(r.error.message);else await cargar();}
 
  const etiquetaClasificacion=(c:CategoriaBase)=>categorias.filter(v=>v.parent_id&&v.nombre===c.nombre).length>1?`${c.nombre} (${categorias.find(p=>p.id===c.parent_id)?.nombre||""})`:c.nombre;
  const nombreClasificacion=(clave:string)=>categorias.find(c=>c.clave===clave)?.nombre||`Sin clasificación (${clave})`;
  return <main className="forja-theme min-h-full bg-black p-4 text-neutral-100 sm:p-8"><div className="mx-auto max-w-6xl space-y-6">
  <header className="forja-header flex flex-wrap items-end justify-between gap-4 border-b border-orange-900/40 pb-6"><div className="forja-heading"><div className="forja-emblem"><Hammer size={26}/></div><div><p className="text-xs uppercase tracking-widest text-orange-500">Yugen</p><h1 className="mt-2 text-3xl font-semibold">La Forja</h1><p className="mt-2 text-sm text-neutral-400">El origen de tu mundo. Crea sus personajes, habilidades, pasivas y objetos.</p></div></div><div className="flex gap-2"><Link className={boton} href="/dm/combate"><Swords size={14}/>Combate</Link><Link className={boton} href="/dm/reglas"><Layers size={14}/>Estadísticas</Link></div></header>
- {pestana==="creacion"&&<section className="forja-launch" aria-label="Crear en la Forja"><div><p className="forja-kicker">DAR FORMA A YUGEN</p><h2>¿Qué vas a crear?</h2><p>Elige un tipo para empezar en el Yunque.</p></div><div className="forja-types">{TIPOS.map(t=><button key={t.valor} onClick={()=>nuevo(t.valor)}><span>+</span>{t.nombre}<small>{cargando?"…":activas.filter(f=>tipoDe(f,categorias)===t.valor).length} en la colección</small></button>)}</div></section>}
+
  <nav className="forja-tabs flex flex-wrap gap-2" aria-label="Secciones de la Forja"><button className={`${boton} ${pestana==="creacion"?"border-orange-600 bg-orange-950":""}`} aria-pressed={pestana==="creacion"} onClick={()=>setPestana("creacion")}>La creación ({activas.length})</button><button className={`${boton} ${pestana==="yunque"?"border-orange-600 bg-orange-950":""}`} aria-pressed={pestana==="yunque"} onClick={()=>setPestana("yunque")}>El yunque</button><button className={boton} aria-expanded={preparados} onClick={()=>setPreparados(!preparados)}>Preparados para batalla</button><button className={boton} aria-expanded={verPeticiones} onClick={()=>setVerPeticiones(!verPeticiones)}>Peticiones ({peticiones.length})</button></nav>
  {error&&<p role="alert" className="text-sm text-red-300">{error} <button onClick={()=>void cargar()} className="underline">Actualizar</button></p>}{aviso&&<p role="status" className="text-sm text-emerald-300">{aviso}</p>}
  {preparados&&<ForjaInstancias revision={revision}/>}
  {verPeticiones&&<section className={panel}><h2 className="text-lg">Peticiones pendientes</h2>{peticiones.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-3"><div><h3>{p.nombre}</h3><p className="text-sm text-neutral-400">{p.descripcion}</p></div><button className={boton} onClick={()=>{setB({...vacio(),nombre:p.nombre,descripcion:p.descripcion,peticion:p});setPestana("yunque");}}>Abrir en el yunque</button></div>)}{!peticiones.length&&<p className="text-sm text-neutral-500">No hay peticiones pendientes.</p>}</section>}
  {operacion&&<ForjaOperacion item={operacion.item} modo={operacion.modo} onClose={()=>setOperacion(null)} onDone={()=>{if(operacion.modo==="batalla")setPreparados(true);setAviso(operacion.modo==="batalla"?"Instancias preparadas con su equipo y habilidades.":"Copias entregadas al personaje.");setOperacion(null);setRevision(v=>v+1);}}/>}
- {pestana==="creacion"?<section className="space-y-5"><div className="flex flex-wrap items-center gap-3"><label className="min-w-44 flex-1"><span className="sr-only">Buscar creaciones</span><input className={campo} value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar nombre o descripción…"/></label><label><span className="sr-only">Filtrar por tipo</span><select className={campo} value={tipoFiltro} onChange={e=>setTipoFiltro(e.target.value)}><option value="todos">Todos los tipos</option>{TIPOS.map(t=><option key={t.valor} value={t.valor}>{t.nombre}</option>)}</select></label><button className={boton} onClick={()=>nuevo()}>+ Nueva creación</button></div>
- <details className="forja-classifications"><summary>Filtrar por clasificación · {filtro==="todos"?"Todas":nombreClasificacion(filtro)}</summary><div className="flex flex-wrap gap-2"><button className={boton} onClick={()=>setFiltro("todos")} aria-pressed={filtro==="todos"}>Todo</button>{clasificaciones.map(c=><button key={c.id} className={`${boton} ${filtro===c.clave?"border-orange-600 text-orange-300":""}`} title={linaje(categorias,c.clave).map(v=>v.nombre).join(" / ")} onClick={()=>setFiltro(c.clave)} aria-pressed={filtro===c.clave}>{etiquetaClasificacion(c)}</button>)}</div></details>
- {cargando?<p>Cargando creaciones…</p>:<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{galeria.map(f=><article key={f.id} className={`${panel} forja-card flex flex-col`}>
- <div className="forja-badges flex flex-wrap gap-2 text-xs text-orange-300"><span className="forja-rank">{f.clase}</span><span>{TIPOS.find(t=>t.valor===tipoDe(f,categorias))?.nombre}</span><span>· {nombreClasificacion(f.tipo)}</span><span>· {f.es_grupo?"Malla":"Único / fijo"}</span></div><h2 className="text-xl font-semibold">{f.nombre}</h2><p className="text-sm text-neutral-400">{f.descripcion||"Sin descripción"}</p>
- <dl className="grid grid-cols-2 gap-2 text-sm">{Object.entries(f.es_grupo?f.stats_rango||{}:f.stats||{}).filter(([k])=>!tecnicos.includes(k)).map(([k,v])=><div key={k}><dt className="text-xs text-neutral-500">{atributosEfectivos(categorias,atributos,f.tipo).find(a=>a.clave===k)?.etiqueta||k}</dt><dd>{typeof v==="object"&&v!==null?`${v.min}–${v.max}`:String(v)}</dd></div>)}</dl>
- {efectosDe(f).map(e=><p key={e.id} className="text-sm text-amber-200">{e.nombre}: {e.efecto==="estado"?e.estado:formula(e)} · {EFECTOS_NOMBRE[e.efecto]} · {e.coste_ph} PH</p>)}
- {f.reglas_pasivas?.map(r=><p key={r.id} className="text-xs text-neutral-400">{r.nombre} · {r.condicion}</p>)}
- {tipoDe(f,categorias)==="personaje"&&<p className="text-xs text-neutral-400">{f.habilidades?.length||0} habilidades · {f.pasivas?.length||0} pasivas · {Object.keys(f.equipamiento||{}).length} piezas de equipo</p>}
- <div className="mt-auto flex flex-wrap gap-2 pt-3"><button className={boton} onClick={()=>editar(f)}>Editar</button><button className={boton} onClick={()=>setOperacion({item:f,modo:"inventario"})}>Entregar</button>{tipoDe(f,categorias)==="personaje"&&<button className={boton} onClick={()=>setOperacion({item:f,modo:"batalla"})}>Preparar batalla</button>}<Link className={boton} href={`/dm/mercado?forja=${f.id}`}>Publicar en tienda</Link><button className="px-2 text-xs text-neutral-500" onClick={()=>void eliminar(f)}>Eliminar</button></div>
- </article>)}</div>}{!cargando&&!galeria.length&&<p className="py-10 text-center text-neutral-500">No hay creaciones con estos filtros.</p>}</section>:<form onSubmit={guardar} className="space-y-6"><fieldset disabled={guardando} className="space-y-6">
+ {pestana==="creacion"?<GaleriaCreacion
+ items={activas} cargando={cargando} tipoDe={f=>tipoDe(f,categorias)}
+ clasificacion={nombreClasificacion} clasificaciones={clasificaciones.map(c=>({clave:c.clave,nombre:etiquetaClasificacion(c)}))}
+ etiqueta={(f,clave)=>atributosEfectivos(categorias,atributos,f.tipo).find(a=>a.clave===clave)?.etiqueta||clave}
+ onNueva={()=>nuevo()} onEditar={editar} onEntregar={f=>setOperacion({item:f,modo:"inventario"})}
+ onBatalla={f=>setOperacion({item:f,modo:"batalla"})} onEliminar={eliminar} onImagen={guardarImagen}
+ />:<form onSubmit={guardar} className="space-y-6"><fieldset disabled={guardando} className="space-y-6">
  <section className={panel}><div className="flex items-center justify-between gap-3"><h2 className="text-xl">{b.id?"Editar creación":"Nueva creación"}</h2><button type="button" className={boton} onClick={()=>nuevo()}>Limpiar</button></div>
  <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Tipo<select className={campo} value={b.tipo} onChange={e=>cambiarTipo(e.target.value as TipoCreacion)}>{TIPOS.map(t=><option key={t.valor} value={t.valor}>{t.nombre}</option>)}</select></label><label className="text-sm">Clasificación<select required className={campo} value={b.clasificacion} onChange={e=>elegirClasificacion(e.target.value)}><option value="">Selecciona una subcategoría</option>{!opcionesClasificacion.some(c=>c.clave===b.clasificacion)&&b.clasificacion&&<option value={b.clasificacion} disabled>Elige una subcategoría válida</option>}{opcionesClasificacion.map(c=><option key={c.id} value={c.clave}>{etiquetaClasificacion(c)}</option>)}</select></label></div>
  <p className="text-xs text-neutral-500">El tipo define el formulario. La clasificación aporta los atributos generales y propios de Estadísticas.</p>
