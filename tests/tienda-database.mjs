@@ -1,0 +1,31 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.FORJA_PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+const gm='00000000-0000-0000-0000-000000000001', a='00000000-0000-0000-0000-000000000002',b='00000000-0000-0000-0000-000000000003', template='00000000-0000-0000-0000-000000000004';
+try {
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;
+ create table public.perfiles(id uuid primary key,email text,rol text,estado text);alter table perfiles enable row level security;grant select,insert,update,delete on perfiles to authenticated;create policy "Permitir acceso a perfiles" on perfiles for all using(true) with check(true);
+ create table public.forja_maestra(id uuid primary key,nombre text,tipo_creacion text,clase text,estado text);
+ create table public.personajes(id bigint primary key,user_id uuid,nombre text);
+ insert into auth.users values('${gm}'),('${a}'),('${b}');insert into perfiles(id,rol,estado) values('${gm}','KUROI','aprobado'),('${a}','REENCARNADO','aprobado'),('${b}','REENCARNADO','aprobado');
+ insert into forja_maestra values('${template}','Espada de prueba','objeto','S','aprobado');insert into personajes values(1,'${a}','Jugador A'),(2,'${b}','Jugador B');`);
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261103174011_tienda_negociacion_privada.sql',import.meta.url),'utf8'));
+ const as=async(id)=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
+ const action=async(accion,id=null)=>db.query('select public.tienda_operar($1,$2,$3,$4) as id',[accion,id,template,'Una espada para la prueba']);
+ await as(gm);const id=(await action('publicar')).rows[0].id;
+ await as(a);assert.equal((await db.query('select * from tienda_ofertas')).rows.length,1);
+ await assert.rejects(action('publicar'));await action('negociar',id);
+ await as(b);assert.equal((await db.query('select * from tienda_ofertas')).rows.length,0,'Otro jugador no debe ver la oferta reservada');await assert.rejects(action('negociar',id));await assert.rejects(action('aceptar',id));
+ await db.exec(`update perfiles set rol='KUROI' where id='${b}'`);assert.equal((await db.query(`select rol from perfiles where id='${b}'`)).rows[0].rol,'REENCARNADO');
+ await assert.rejects(db.exec(`update tienda_ofertas set negociador_id='${b}' where id='${id}'`));
+ await as(a);assert.equal((await db.query('select * from tienda_ofertas')).rows.length,1);await action('negociar',id);
+ await as(gm);await action('rechazar',id);
+ await as(b);assert.equal((await db.query('select * from tienda_ofertas')).rows.length,1);await action('negociar',id);
+ await as(gm);await action('aceptar',id);await assert.rejects(action('rechazar',id));
+ await as(a);assert.equal((await db.query('select * from tienda_ofertas')).rows.length,0);
+ await as(b);assert.equal((await db.query('select estado from tienda_ofertas')).rows[0].estado,'aceptada');
+ await as(gm);const id2=(await action('publicar')).rows[0].id;await action('retirar',id2);
+ await as(a);assert.equal((await db.query('select * from tienda_ofertas')).rows.length,0);
+ console.log('Tienda: publicación, reserva exclusiva, RLS entre jugadores, permisos GM, rechazo y reapertura, aceptación definitiva, retiro y protección de roles correctos.');
+}finally{await db.close();}
