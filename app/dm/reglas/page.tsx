@@ -4,9 +4,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { atributosEfectivos, linaje, padreValido } from "../../../lib/estadisticas";
 import { supabase } from "../../../lib/supabase";
-import { Activity, ArrowRight, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import IconoYugen from "../../../components/IconoYugen";
+import SelectorIconoYugen from "../../../components/SelectorIconoYugen";
+import {iconoCategoria} from "../../../lib/iconos-yugen";
+import "./estadisticas.css";
+import { ArrowRight, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
-type Categoria = { id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null };
+type Categoria = { id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null };
 type Stat = { id: string; categoria: string; clave: string; etiqueta: string; descripcion: string | null; valor_defecto: number };
 type Editor = { tipo: "categoria"; original?: Categoria } | { tipo: "atributo"; original?: Stat };
 const claveDe = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -27,6 +31,9 @@ export default function Estadisticas() {
   const [descripcion, setDescripcion] = useState("");
   const [valor, setValor] = useState("0");
   const [padre, setPadre] = useState("");
+  const [icono,setIcono]=useState("");
+  const [buscarCategoria,setBuscarCategoria]=useState("");
+  const [filtroAtributo,setFiltroAtributo]=useState("todos");
   const [herenciaDisponible, setHerenciaDisponible] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [quitando, setQuitando] = useState<string | null>(null);
@@ -56,12 +63,13 @@ export default function Estadisticas() {
   const deCategoria = atributosEfectivos(categorias, stats, seleccion);
   const ruta = linaje(categorias, seleccion);
   const coincide = (texto: string) => texto.toLocaleLowerCase().includes(busqueda.trim().toLocaleLowerCase());
-  const visibles = deCategoria.filter(s => coincide(`${s.etiqueta} ${s.clave} ${s.descripcion || ""}`));
+  const visibles = deCategoria.filter(s => (filtroAtributo==="todos" || (filtroAtributo==="propios" ? s.categoria===seleccion : s.categoria!==seleccion)) && coincide(`${s.etiqueta} ${s.clave} ${s.descripcion || ""}`));
   const huerfanos = stats.filter(s => !categorias.some(c => c.clave === s.categoria));
 
   function abrir(e: Editor, categoriaSuperior = "") {
     setEditor(e); setErrorEditor(""); setAviso("");
     setNombre(e.original ? (e.tipo === "categoria" ? e.original.nombre : e.original.etiqueta) : "");
+    setIcono(e.tipo === "categoria" ? e.original?.icono || "" : "");
     setPadre(e.tipo === "categoria" ? e.original?.parent_id || categoriaSuperior : "");
     setClave(e.original?.clave || ""); setDescripcion(e.original?.descripcion || "");
     setValor(e.tipo === "atributo" ? String(e.original?.valor_defecto ?? 0) : "0");
@@ -80,7 +88,7 @@ export default function Estadisticas() {
     try {
       const tabla = editor.tipo === "categoria" ? "categorias_forja" : "config_estadisticas";
       const datos = editor.tipo === "categoria"
-        ? { nombre: nombreFinal, descripcion: descripcion.trim(), ...(herenciaDisponible ? { parent_id: padre || null } : {}) }
+        ? { nombre: nombreFinal, icono:icono||null, descripcion: descripcion.trim(), ...(herenciaDisponible ? { parent_id: padre || null } : {}) }
         : { etiqueta: nombreFinal, descripcion: descripcion.trim(), valor_defecto: Number(valor) };
       const consulta = editor.original
         ? supabase.from(tabla).update(datos).eq("id", editor.original.id).select("id").single()
@@ -117,46 +125,55 @@ export default function Estadisticas() {
   function mostrarCategoria(c: Categoria, profundidad = 0, vistos = new Set<string>()): React.ReactNode {
     if (vistos.has(c.id)) return null;
     const camino = new Set(vistos).add(c.id);
+    const contiene=(n:Categoria,visitados=new Set<string>()):boolean=>{
+      if(visitados.has(n.id))return false;
+      const v=new Set(visitados).add(n.id);
+      return `${n.nombre} ${n.clave}`.toLowerCase().includes(buscarCategoria.toLowerCase())||categorias.filter(h=>h.parent_id===n.id).some(h=>contiene(h,v));
+    };
+    if(buscarCategoria && !contiene(c))return null;
     return <div key={c.id} className={profundidad ? "ml-3 border-l border-neutral-800 pl-3" : ""}>
       <button onClick={() => { setSeleccion(c.clave); setBusqueda(""); }} aria-pressed={seleccion === c.clave}
         className={`mb-2 w-full rounded-lg border p-3 text-left ${seleccion === c.clave ? "border-emerald-800 bg-emerald-950/30" : "border-neutral-800 hover:border-neutral-600"}`}>
         <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-500">{c.parent_id ? "Subcategoría" : "Categoría"}</span>
-        <span className="block font-medium">{c.nombre}</span>
+        <span className="st-category-name"><IconoYugen id={iconoCategoria(categorias,c.clave)} size={24}/>{c.nombre}</span>
         <span className="mt-1 block text-xs text-neutral-500">{atributosEfectivos(categorias, stats, c.clave).length} atributos</span>
       </button>
       {categorias.filter(hija => hija.parent_id === c.id).map(hija => mostrarCategoria(hija, profundidad + 1, camino))}
     </div>;
   }
 
-  return <main className="min-h-full bg-black p-4 text-neutral-200 sm:p-8">
+  return <main className="st-theme min-h-full bg-black p-4 text-neutral-200 sm:p-8">
     <div className="mx-auto max-w-6xl space-y-7">
       <header className="flex flex-wrap items-end justify-between gap-5 border-b border-neutral-800 pb-6">
-        <div><p className="mb-2 text-xs uppercase tracking-widest text-emerald-500">Configuración de Yugen</p><h1 className="text-3xl font-bold">Estadísticas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400">Define categorías como Razas u Objetos y subcategorías como Enanos o Cascos. Las subcategorías comparten los atributos generales de su categoría y añaden sus atributos específicos.</p></div>
+        <div><p className="mb-2 text-xs uppercase tracking-widest text-emerald-500">Configuración de Yugen</p><h1 className="text-3xl font-bold">Estadísticas y reglas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400">Da identidad a las razas y define los atributos de tu mundo. Las subcategorías heredan las bases de su categoría y añaden sus propias reglas.</p></div>
         <Link href="/dm/forja" className={boton}>Ir a la Forja <ArrowRight size={16}/></Link>
       </header>
       {!cargando && !herenciaDisponible && <p role="status" className="text-sm leading-6 text-amber-300">Para activar categorías y subcategorías, ejecuta la migración 20261030_categorias_heredadas.sql en Supabase. Mientras tanto puedes seguir editando categorías y atributos existentes.</p>}
       {aviso && <p role="status" className="text-sm text-emerald-400">{aviso}</p>}
       {error && <div role="alert" className="space-y-3 text-sm text-red-300"><p>No se pudo actualizar la configuración: {error}</p><button className={boton} onClick={() => void cargar()}>Reintentar</button></div>}
       {cargando ? <p role="status" className="py-16 text-neutral-400">Cargando categorías y atributos…</p> : <>
-        <div className="flex flex-wrap gap-6 text-sm text-neutral-400"><span><b className="text-white">{categorias.filter(c => !c.parent_id).length}</b> categorías</span><span><b className="text-white">{categorias.filter(c => c.parent_id).length}</b> subcategorías</span><span><b className="text-white">{stats.length}</b> atributos definidos</span></div>
-        <div className="grid gap-7 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="space-y-4"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-semibold"><Layers size={17}/> Categorías</h2><button className={boton} onClick={() => abrir({ tipo: "categoria" })} aria-label="Crear categoría"><Plus size={16}/> Nueva</button></div>
+        <div className="st-overview flex flex-wrap gap-6 text-sm text-neutral-400"><span><b className="text-white">{categorias.filter(c => !c.parent_id).length}</b> categorías</span><span><b className="text-white">{categorias.filter(c => c.parent_id).length}</b> subcategorías</span><span><b className="text-white">{stats.length}</b> atributos definidos</span></div>
+        <div className="st-layout grid gap-7 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="st-library space-y-4"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-semibold"><Layers size={17}/> Categorías</h2><button className={boton} onClick={() => abrir({ tipo: "categoria" })} aria-label="Crear categoría"><Plus size={16}/> Nueva</button></div>
             <p className="text-xs leading-5 text-neutral-500">Categorías generales con sus subcategorías agrupadas debajo.</p>
+            <input className={campo} aria-label="Buscar categoría o raza" placeholder="Buscar categoría o raza…" value={buscarCategoria} onChange={e=>setBuscarCategoria(e.target.value)}/>
             <nav aria-label="Categorías y subcategorías" className="space-y-2">
               {categorias.filter(c => !c.parent_id || !categorias.some(p => p.id === c.parent_id)).map(c => mostrarCategoria(c))}
             </nav>
             {!categorias.length && <p className="py-6 text-sm text-neutral-500">Crea tu primera categoría para comenzar.</p>}
           </aside>
-          <section className="min-w-0 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6">
-            {actual ? <><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-semibold">{actual.nombre}</h2><p className="mt-1 text-xs uppercase tracking-wide text-neutral-500">{actual.parent_id ? "Subcategoría" : "Categoría"}</p><p className="mt-2 text-xs text-emerald-400">{ruta.map(c => c.nombre).join(" / ")}</p><p className="mt-2 text-sm text-neutral-400">{actual.descripcion || "Añade una descripción para explicar qué se crea en esta categoría."}</p><p className="mt-2 font-mono text-xs text-emerald-500">{actual.clave}</p></div><button className={boton} onClick={() => abrir({ tipo: "categoria", original: actual })}><Pencil size={14}/> Editar</button></div>
-              <div className="mt-6 border-t border-neutral-800 pt-5">
+          <section className="st-workspace min-w-0 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6">
+            {actual ? <><div className="st-category-head flex flex-wrap items-start justify-between gap-3"><div><div className="st-category-emblem"><IconoYugen id={iconoCategoria(categorias,actual.clave)} size={48}/></div><h2 className="text-xl font-semibold">{actual.nombre}</h2><p className="mt-1 text-xs uppercase tracking-wide text-neutral-500">{actual.parent_id ? "Subcategoría" : "Categoría"}</p><p className="mt-2 text-xs text-emerald-400">{ruta.map(c => c.nombre).join(" / ")}</p><p className="mt-2 text-sm text-neutral-400">{actual.descripcion || "Añade una descripción para explicar qué se crea en esta categoría."}</p><p className="mt-2 font-mono text-xs text-emerald-500">{actual.clave}</p></div><button className={boton} onClick={() => abrir({ tipo: "categoria", original: actual })}><Pencil size={14}/> Editar</button></div>
+              <div className="st-children mt-6 border-t border-neutral-800 pt-5">
                 <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold">Subcategorías ({subcategorias.length})</h3><button disabled={!herenciaDisponible} className={boton} onClick={() => abrir({ tipo: "categoria" }, actual.id)}><Plus size={14}/> Crear subcategoría</button></div>
-                {subcategorias.length ? <div className="mt-3 flex flex-wrap gap-2">{subcategorias.map(c => <button key={c.id} className={boton} onClick={() => {setSeleccion(c.clave);setBusqueda("");}}>{c.nombre}<ArrowRight size={14}/></button>)}</div> : <p className="mt-3 text-sm text-neutral-500">Sin subcategorías. Puedes añadirlas aquí o asignar una categoría existente desde su editor.</p>}
+                {subcategorias.length ? <div className="mt-3 flex flex-wrap gap-2">{subcategorias.map(c => <button key={c.id} className={boton} onClick={() => {setSeleccion(c.clave);setBusqueda("");}}><IconoYugen id={iconoCategoria(categorias,c.clave)} size={24}/>{c.nombre}<ArrowRight size={14}/></button>)}</div> : <p className="mt-3 text-sm text-neutral-500">Sin subcategorías. Puedes añadirlas aquí o asignar una categoría existente desde su editor.</p>}
               </div>
+              <div className="st-identity"><IconoYugen id={iconoCategoria(categorias,actual.clave)} size={28}/><div><strong>Identidad visual</strong><p>Este símbolo identifica la categoría y se usa en sus creaciones sin imagen.</p></div><button className={boton} onClick={()=>abrir({tipo:"categoria",original:actual})}>Elegir icono</button></div>
               <h3 className="mt-6 font-semibold">{actual.parent_id ? "Atributos de esta subcategoría" : "Atributos generales"}</h3>
               <p className="mt-4 text-xs text-neutral-400">{deCategoria.filter(s => s.categoria !== seleccion).length} heredados · {deCategoria.filter(s => s.categoria === seleccion).length} propios. Un atributo propio con la misma clave sustituye el valor heredado.</p>
               <div className="my-6 flex flex-wrap gap-3 border-t border-neutral-800 pt-6"><label className="relative min-w-0 flex-1"><span className="sr-only">Buscar atributos</span><Search size={16} className="absolute left-3 top-3 text-neutral-500"/><input className={`${campo} pl-9`} value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar atributo por nombre o descripción"/></label><button className={boton} onClick={() => abrir({ tipo: "atributo" })}><Plus size={16}/> Añadir atributo</button></div>
-              <div className="space-y-3">{visibles.map(s => <article key={s.id} className="flex items-start justify-between gap-4 rounded-lg border border-neutral-800 p-4"><div className="min-w-0"><h3 className="flex items-center gap-2 font-semibold"><Activity size={15} className="shrink-0 text-emerald-500"/>{s.etiqueta}</h3><p className="mt-1 break-all font-mono text-xs text-neutral-500">{s.clave}</p><p className="mt-1 text-xs text-emerald-500">{s.categoria === seleccion ? "Propio de esta categoría" : `Heredado de ${categorias.find(c => c.clave === s.categoria)?.nombre || s.categoria}`}</p>{s.descripcion && <p className="mt-2 text-sm text-neutral-400">{s.descripcion}</p>}<p className="mt-3 text-xs text-neutral-400">Valor predeterminado: <b className="text-emerald-400">{s.valor_defecto ?? 0}</b></p></div><div className="flex shrink-0 flex-col gap-2"><button disabled={quitando !== null} className={boton} aria-label={s.categoria === seleccion ? `Editar ${s.etiqueta}` : `Ver origen de ${s.etiqueta}`} onClick={() => { if (s.categoria === seleccion) abrir({ tipo: "atributo", original: s }); else { setSeleccion(s.categoria); setBusqueda(""); } }}>{s.categoria === seleccion ? <Pencil size={14}/> : "Ver origen"}</button>
+              <div className="st-attribute-filters" role="group" aria-label="Origen de los atributos">{[["todos","Todos"],["propios","Propios"],["heredados","Heredados"]].map(([key,label])=><button key={key} aria-pressed={filtroAtributo===key} onClick={()=>setFiltroAtributo(key)}>{label}</button>)}<span>{visibles.length} atributos</span></div>
+              <div className="st-attributes space-y-3">{visibles.map(s => <article key={s.id} className="flex items-start justify-between gap-4 rounded-lg border border-neutral-800 p-4"><div className="min-w-0"><h3 className="flex items-center gap-2 font-semibold"><IconoYugen id={({vida:"vida",hp:"vida",armadura:"escudo",ph:"alma",fatiga:"fuego",resistencia:"escudo",iniciativa:"rayo"} as Record<string,string>)[s.clave]||"yugen"} size={24}/>{s.etiqueta}</h3><p className="mt-1 break-all font-mono text-xs text-neutral-500">{s.clave}</p><p className="mt-1 text-xs text-emerald-500">{s.categoria === seleccion ? "Propio de esta categoría" : `Heredado de ${categorias.find(c => c.clave === s.categoria)?.nombre || s.categoria}`}</p>{s.descripcion && <p className="mt-2 text-sm text-neutral-400">{s.descripcion}</p>}<p className="st-default mt-3 text-xs text-neutral-400">Valor predeterminado: <b className="text-emerald-400">{s.valor_defecto ?? 0}</b></p></div><div className="flex shrink-0 flex-col gap-2"><button disabled={quitando !== null} className={boton} aria-label={s.categoria === seleccion ? `Editar ${s.etiqueta}` : `Ver origen de ${s.etiqueta}`} onClick={() => { if (s.categoria === seleccion) abrir({ tipo: "atributo", original: s }); else { setSeleccion(s.categoria); setBusqueda(""); } }}>{s.categoria === seleccion ? <Pencil size={14}/> : "Ver origen"}</button>
                 {actual.parent_id && s.categoria === seleccion && <button disabled={quitando !== null} className={`${boton} border-red-900 text-red-300 hover:border-red-600`} aria-label={`Quitar ${s.etiqueta} de ${actual.nombre}`} onClick={() => void quitarAtributo(s)}><Trash2 size={14}/>{quitando === s.id ? "Quitando…" : "Quitar"}</button>}
                 {s.categoria !== seleccion && <span className="text-xs text-neutral-500">Heredado · protegido</span>}
               </div></article>)}</div>
@@ -168,13 +185,14 @@ export default function Estadisticas() {
         {huerfanos.length > 0 && <section className="border-t border-amber-900 pt-5"><h2 className="font-semibold text-amber-400">Atributos sin categoría disponible ({huerfanos.length})</h2><p className="mt-2 text-sm text-neutral-400">Conservamos estos datos. Puedes recuperar su categoría creando una con la misma clave.</p><ul className="mt-3 space-y-2 text-sm">{huerfanos.map(s => <li key={s.id}>{s.etiqueta} <span className="font-mono text-neutral-500">· categoría: {s.categoria} · {s.clave}</span></li>)}</ul></section>}
       </>}
     </div>
-    {editor && <dialog ref={dialogo} aria-labelledby="titulo-editor" onCancel={e => { e.preventDefault(); if (!guardando) setEditor(null); }} className="m-auto w-full max-w-lg border-0 bg-transparent p-4 text-neutral-200 backdrop:bg-black/80">
+    {editor && <dialog ref={dialogo} aria-labelledby="titulo-editor" onCancel={e => { e.preventDefault(); if (!guardando) setEditor(null); }} className="st-dialog m-auto w-full max-w-lg border-0 bg-transparent p-4 text-neutral-200 backdrop:bg-black/80">
       <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-950 p-6">
         <div className="mb-5 flex items-center justify-between"><h2 id="titulo-editor" className="text-xl font-semibold">{editor.original ? "Editar" : "Crear"} {editor.tipo === "categoria" ? (padre ? "subcategoría" : "categoría") : "atributo"}</h2><button disabled={guardando} aria-label="Cerrar editor" className={boton} onClick={() => setEditor(null)}><X size={16}/></button></div>
         <form onSubmit={guardar} className="space-y-4"><label className="block space-y-2 text-sm"><span>Nombre visible</span><input autoFocus required maxLength={120} className={campo} value={nombre} onChange={e => setNombre(e.target.value)}/></label>
           <label className="block space-y-2 text-sm"><span>Clave interna {editor.original ? "(protegida)" : "(opcional)"}</span><input maxLength={120} className={campo} disabled={!!editor.original} value={clave} placeholder={claveDe(nombre) || "Se genera a partir del nombre"} onChange={e => setClave(e.target.value)}/></label>
           <p className="text-xs text-neutral-500">{editor.original ? "Se conserva para mantener conectadas las creaciones existentes." : `Clave que se guardará: ${claveDe(clave || nombre) || "—"}`}</p>
           {editor.tipo === "categoria" && <label className="block space-y-2 text-sm"><span>Categoría superior</span><select disabled={!herenciaDisponible} className={campo} value={padre} onChange={e => setPadre(e.target.value)}><option value="">Ninguna — categoría principal</option>{categorias.filter(c => padreValido(categorias, editor.original?.id, c.id)).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select><span className="block text-xs text-neutral-500">Al elegir una categoría superior, se convierte en subcategoría y comparte sus atributos generales.</span></label>}
+          {editor.tipo==="categoria"&&<section className="st-icon-editor"><h3>Símbolo de {nombre||"la categoría"}</h3><p>Se comparte con sus creaciones sin imagen. Cada raza puede tener su propio emblema.</p><SelectorIconoYugen value={icono} onChange={setIcono} automatico={iconoCategoria(categorias.map(c=>c.id===editor.original?.id?{...c,icono:null}:c),editor.original?.clave||claveDe(nombre))} disabled={guardando}/></section>}
           <label className="block space-y-2 text-sm"><span>Descripción</span><textarea maxLength={2000} rows={3} className={campo} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder={editor.tipo === "categoria" ? "Qué tipo de elementos agrupa" : "Qué representa y cómo se utiliza este atributo"}/></label>
           {editor.tipo === "atributo" && <><p className="text-sm text-neutral-400">Categoría: {actual?.nombre}</p><label className="block space-y-2 text-sm"><span>Valor predeterminado</span><input required type="number" step="any" className={campo} value={valor} onChange={e => setValor(e.target.value)}/></label></>}
           {errorEditor && <p role="alert" className="text-sm text-red-400">{errorEditor}</p>}

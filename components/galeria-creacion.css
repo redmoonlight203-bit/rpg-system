@@ -109,3 +109,7 @@
 .cg-effect-summary{font:12px/1.8 Arial,sans-serif;color:#c7b899;margin-top:8px}
 .cg-effect-branch{margin:8px 0 5px 10px;padding-left:12px;border-left:1px solid #77603a}
 .cg-effect-branch>b{color:#e2c48c;font-size:11px}
+.cg-symbol-editor{border-bottom:1px solid #51422c;padding-bottom:18px;margin-bottom:5px}
+.cg-symbol-editor h4{font:18px Georgia,serif;color:#e5c994;margin-bottom:8px}
+.cg-symbol-editor>p{font-size:11px!important;line-height:1.7!important}
+.cg-placeholder>.yugen-glyph{opacity:.85;color:#dfbd7c;filter:drop-shadow(0 0 16px #d2ad5a22)}

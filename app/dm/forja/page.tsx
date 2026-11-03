@@ -14,10 +14,11 @@ import {TIPOS,SLOTS,tipoDe,subcategorias,clasificacionesPara,efectosDe,formula,v
 import {EditorDados} from "../../../components/EditorDados";
 import {ForjaOperacion,ForjaInstancias} from "../../../components/ForjaOperacion";
 import GaleriaCreacion from "../../../components/GaleriaCreacion";
+import {iconoCreacion,iconoValido} from "../../../lib/iconos-yugen";
 import {validarPortada} from "../../../lib/imagenes-creacion";
 
 type Atributo={id:string;categoria:string;clave:string;etiqueta:string;valor_defecto:number;descripcion?:string};
-type Creacion={id:string;nombre:string;tipo:string;tipo_creacion?:TipoCreacion;descripcion:string;historia:string;requisitos:string;defectos:string;imagen_url:string;clase:string;stats:Record<string,number>;stats_rango:Record<string,Rango>;es_grupo:boolean;slot_tipo:string;estado:string;ligado_al_alma:boolean;es_vendible:boolean;precio_sugerido:string;habilidades:string[];pasivas:string[];reglas:Regla[];reglas_pasivas:ReglaPasiva[];equipamiento:Record<string,string>;configuracion_dados:Efecto[]};
+type Creacion={icono?:string|null;id:string;nombre:string;tipo:string;tipo_creacion?:TipoCreacion;descripcion:string;historia:string;requisitos:string;defectos:string;imagen_url:string;clase:string;stats:Record<string,number>;stats_rango:Record<string,Rango>;es_grupo:boolean;slot_tipo:string;estado:string;ligado_al_alma:boolean;es_vendible:boolean;precio_sugerido:string;habilidades:string[];pasivas:string[];reglas:Regla[];reglas_pasivas:ReglaPasiva[];equipamiento:Record<string,string>;configuracion_dados:Efecto[]};
 type Peticion={id:string;nombre:string;descripcion:string;user_id:string};
 type Borrador={id?:string;peticion?:Peticion;nombre:string;tipo:TipoCreacion;clasificacion:string;descripcion:string;historia:string;requisitos:string;defectos:string;imagen:string;clase:string;malla:boolean;slot:string;stats:Record<string,number>;rangos:Record<string,Rango>;efectos:Efecto[];habilidades:string[];pasivas:string[];reglas:Regla[];reglas_pasivas:ReglaPasiva[];equipamiento:Record<string,string>;alma:boolean;venta:boolean;precio:string};
 const vacio=():Borrador=>({nombre:"",tipo:"objeto",clasificacion:"",descripcion:"",historia:"",requisitos:"",defectos:"",imagen:"",clase:"D",malla:false,slot:"ninguno",stats:{},rangos:{},efectos:[],habilidades:[],pasivas:[],reglas:[],reglas_pasivas:[],equipamiento:{},alma:false,venta:false,precio:""});
@@ -65,15 +66,16 @@ export default function Forja(){
    setB(vacio());setPestana("creacion");await cargar();
   }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}finally{bloqueo.current=false;setGuardando(false);}
  }
- async function guardarImagen(id:string,imagen:string){
+ async function guardarImagen(id:string,imagen:string,icono:string){
   if(bloqueo.current)throw new Error("Hay otra operación en curso. Inténtalo de nuevo.");
   const fallo=validarPortada(imagen);if(fallo)throw new Error(fallo);
+  if(icono&&!iconoValido(icono))throw new Error("Selecciona un icono válido de Yugen.");
   bloqueo.current=true;
   try{
-   const r=await supabase.from("forja_maestra").update({imagen_url:imagen}).eq("id",id).select("id,imagen_url").single();
+   const r=await supabase.from("forja_maestra").update({imagen_url:imagen,icono:icono||null}).eq("id",id).select("id,imagen_url,icono").single();
    if(r.error)throw new Error(r.error.message);
    if(!r.data)throw new Error("No se confirmó el guardado de la imagen.");
-   setCreaciones(prev=>prev.map(f=>f.id===id?{...f,imagen_url:r.data.imagen_url||""}:f));
+   setCreaciones(prev=>prev.map(f=>f.id===id?{...f,imagen_url:r.data.imagen_url||"",icono:r.data.icono}:f));
   }finally{bloqueo.current=false;}
  }
  async function eliminar(f:Creacion){if(!window.confirm(`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(r.error.message);else await cargar();}
@@ -89,7 +91,7 @@ export default function Forja(){
  {verPeticiones&&<section className={panel}><h2 className="text-lg">Peticiones pendientes</h2>{peticiones.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-3"><div><h3>{p.nombre}</h3><p className="text-sm text-neutral-400">{p.descripcion}</p></div><button className={boton} onClick={()=>{setB({...vacio(),nombre:p.nombre,descripcion:p.descripcion,peticion:p});setPestana("yunque");}}>Abrir en el yunque</button></div>)}{!peticiones.length&&<p className="text-sm text-neutral-500">No hay peticiones pendientes.</p>}</section>}
  {operacion&&<ForjaOperacion item={operacion.item} modo={operacion.modo} onClose={()=>setOperacion(null)} onDone={()=>{if(operacion.modo==="batalla")setPreparados(true);setAviso(operacion.modo==="batalla"?"Instancias preparadas con su equipo y habilidades.":"Copias entregadas al personaje.");setOperacion(null);setRevision(v=>v+1);}}/>}
  {pestana==="creacion"?<GaleriaCreacion
- items={activas} cargando={cargando} tipoDe={f=>tipoDe(f,categorias)}
+ items={activas} cargando={cargando} iconoDe={f=>iconoCreacion(categorias,f)} tipoDe={f=>tipoDe(f,categorias)}
  clasificacion={nombreClasificacion} clasificaciones={clasificaciones.map(c=>({clave:c.clave,nombre:etiquetaClasificacion(c)}))}
  etiqueta={(f,clave)=>atributosEfectivos(categorias,atributos,f.tipo).find(a=>a.clave===clave)?.etiqueta||clave}
  onNueva={()=>nuevo()} onEditar={editar} onEntregar={f=>setOperacion({item:f,modo:"inventario"})}

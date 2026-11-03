@@ -1,0 +1,15 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+const exports={};
+vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/iconos-yugen.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,Set});
+const x=exports;
+const cats=[{id:'r',clave:'razas',nombre:'Razas'}, {id:'h',clave:'personajes',nombre:'Humanos',parent_id:'r'}, {id:'e',clave:'enanos',nombre:'Enanos',parent_id:'r'}, {id:'l',clave:'elfos',nombre:'Elfos',parent_id:'r'}, {id:'d',clave:'dragones',nombre:'Dragones',parent_id:'r'}];
+test('IDs estables únicos y SVG definidos para todos los símbolos',()=>{const ids=x.ICONOS_YUGEN.map(i=>i.id);assert.equal(new Set(ids).size,ids.length);for(const i of x.ICONOS_YUGEN){assert.match(i.id,/^[a-z][a-z0-9_-]{0,63}$/);assert.ok(i.trazos.length);assert.equal(x.iconoValido(i.id),true);}});
+test('las cuatro razas iniciales tienen símbolos diferentes, incluido Humanos con clave personajes',()=>{const ids=cats.slice(1).map(c=>x.iconoCategoria(cats,c.clave));assert.equal(ids.join(','),'humano,enano,elfo,dragon');assert.equal(new Set(ids).size,4);});
+test('símbolo propio de una creación tiene prioridad sobre el racial',()=>{assert.equal(x.iconoCreacion(cats,{tipo:'enanos',icono:'corona'}),'corona');assert.equal(x.iconoCreacion(cats,{tipo:'enanos',icono:null}),'enano');});
+test('un símbolo inválido utiliza el racial sin ejecutar datos arbitrarios',()=>{assert.equal(x.iconoCreacion(cats,{tipo:'elfos',icono:'<svg/>'}),'elfo');assert.equal(x.iconoValido(null),false);});
+test('subcategorías nuevas heredan el emblema configurado y su propio emblema lo sustituye',()=>{const a=[{id:'p',clave:'custom',icono:'ojo'},{id:'c',clave:'misterio',parent_id:'p'}];assert.equal(x.iconoCategoria(a,'misterio'),'ojo');a[1].icono='alma';assert.equal(x.iconoCategoria(a,'misterio'),'alma');});
+test('ciclos y categorías ausentes no bloquean el renderizado',()=>{assert.equal(x.iconoCategoria([{id:'x',clave:'foo',parent_id:'x'}],'foo'),'yugen');assert.equal(x.iconoCategoria(cats,'ausente'),'yugen');});

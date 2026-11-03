@@ -1,4 +1,4 @@
-export interface CategoriaBase { id: string; clave: string; nombre: string; parent_id?: string | null }
+export interface CategoriaBase { id: string; clave: string; nombre: string; parent_id?: string | null; icono?: string | null }
 export interface AtributoBase { clave: string; categoria: string; valor_defecto?: number | null }
 
 /** Root first, selected category last. Old rows without parent_id remain standalone. */
