@@ -12,6 +12,7 @@ try {
  insert into forja_maestra values('${template}','Espada de prueba','objeto','S','aprobado');insert into personajes values(1,'${a}','Jugador A'),(2,'${b}','Jugador B');`);
  await db.exec(readFileSync(new URL('../supabase/migrations/20261103174011_tienda_negociacion_privada.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261103175054_monedas_y_tienda_almas.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261103183117_tienda_almas_solo_personajes.sql',import.meta.url),'utf8'));
  const as=async(id)=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
  const action=async(accion,id=null)=>db.query('select public.tienda_operar($1,$2,$3,$4) as id',[accion,id,template,'Una espada para la prueba']);
  await as(gm);const id=(await action('publicar')).rows[0].id;
@@ -41,6 +42,8 @@ try {
  await as(gm);await v2('aceptar',priced);await assert.rejects(v2('aceptar',priced));assert.equal(Number((await db.query('select cantidad from saldos_usuario where user_id=$1',[a])).rows[0].cantidad),30);
  const costly=(await v2('publicar',null,'general',coin,90)).rows[0].id;
  await as(a);await v2('negociar',costly);await as(gm);await assert.rejects(v2('aceptar',costly));assert.equal((await db.query('select estado from tienda_ofertas where id=$1',[costly])).rows[0].estado,'negociando');assert.equal(Number((await db.query('select cantidad from saldos_usuario where user_id=$1',[a])).rows[0].cantidad),30);
+ await assert.rejects(v2('publicar',null,'almas'),/solo admite personajes/);
+ await db.exec('reset role');await db.query("update forja_maestra set tipo_creacion='personaje' where id=$1",[template]);await as(gm);
  const soul=(await v2('publicar',null,'almas')).rows[0].id;
  await as(a);assert.equal((await db.query('select * from tienda_ofertas where id=$1',[soul])).rows.length,0);await assert.rejects(v2('negociar',soul,'almas'));await assert.rejects(v2('negociar',soul,'general'));await db.exec(`update perfiles set mente_colmena=true where id='${a}'`);assert.equal((await db.query('select mente_colmena from perfiles where id=$1',[a])).rows[0].mente_colmena,false);
  await as(gm);await db.query('update perfiles set mente_colmena=true where id=$1',[a]);
