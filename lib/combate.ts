@@ -1,3 +1,4 @@
+import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
 export type Bando = "jugador" | "enemigo";
@@ -7,6 +8,7 @@ export type Fuente = {
   stats: Record<string, number>;
   efectos?: Efecto[];
   slot_tipo?: string;
+  reglas?: Regla[];
   reglas_pasivas?: ReglaPasiva[];
 };
 export type Config = {
@@ -16,7 +18,8 @@ export type Config = {
   stats_base?: Record<string, number>;
   equipamiento?: Record<string, Fuente>;
   habilidades?: Fuente[];
-  pasivas?: { nombre: string; reglas: ReglaPasiva[] }[];
+  pasivas?: { id?: string; nombre: string; reglas: ReglaPasiva[]; reglas_motor?: Regla[] }[];
+  reglas?: Regla[];
   reglas_pasivas?: ReglaPasiva[];
 };
 export type Combatiente = {
@@ -39,6 +42,7 @@ export type Combatiente = {
   grupo_cercania?: string;
   corrupto?: boolean;
   cooldowns: Record<string, number>;
+  motor?: EstadoMotor;
   arma?: {
     efecto: Efecto;
     nombre: string;
@@ -69,12 +73,14 @@ export type Combate = {
   registro: string[];
   resultado?: "Fallo" | "Fallo critico" | "Critico" | "Impacto";
   historial?: Combate[];
+  progreso_confirmado?: boolean;
 };
 export type Accion = {
   id: string;
   nombre: string;
   efecto: Efecto;
   enfriamiento: number;
+  regla?: string;
 };
 export type RNG = (caras: number) => number;
 export function dadoSeguro(caras: number) {
@@ -165,6 +171,11 @@ export function estadisticas(m: Combatiente) {
       for (const [k, v] of Object.entries(r.bonos)) s[k] = (s[k] || 0) + v;
   for (const e of m.estados)
     for (const [k, v] of Object.entries(e.bonos || {})) s[k] = (s[k] || 0) + v;
+  for (const mod of m.motor?.modificadores || [])
+    for (const cambio of mod.cambios) {
+      const anterior = s[cambio.atributo] || 0;
+      s[cambio.atributo] = cambio.operacion === 'sumar' ? anterior + cambio.valor : cambio.operacion === 'multiplicar' ? anterior * cambio.valor : cambio.valor;
+    }
   return s;
 }
 export function maxVida(m: Combatiente) {
@@ -362,8 +373,17 @@ function recibir(
   }
   const perdido = Math.min(t.vida, Math.max(0, total));
   t.vida -= perdido;
+  const cayo = perdido > 0 && t.vida <= 0;
   log(c, `${t.nombre} recibe ${perdido} daño; vida ${t.vida}.`);
-  if (perdido > 0) activarReglas(c, a, t, alDano, rng);
+  if (perdido > 0) {
+    activarReglas(c, a, t, alDano, rng);
+    emitirMotor(c, 'recibir_dano', t, a, t, rng, e, perdido);
+    if (a.id !== t.id) emitirMotor(c, 'causar_dano', a, a, t, rng, e, perdido);
+    if (cayo && t.vida <= 0) {
+      emitirMotor(c, 'morir', t, a, t, rng, e, perdido);
+      if (a.id !== t.id && a.bando !== t.bando) emitirMotor(c, 'matar', a, a, t, rng, e, perdido);
+    }
+  }
   return perdido;
 }
 function area(
@@ -392,6 +412,7 @@ function entrar(c: Combate, m: Combatiente, rng: RNG) {
       recuperar(m, r);
       log(c, `${m.nombre}: ${r.nombre} al iniciar turno.`);
     }
+  emitirMotor(c, 'inicio_turno', m, m, m, rng);
   for (const e of [...m.estados]) {
     if (["quemadura", "veneno", "regeneracion"].includes(e.tipo || "")) {
       const v = dados(
@@ -429,7 +450,10 @@ function iniciarInterno(c: Combate, rng: RNG) {
     primero = orden(n).find((m) => m.vida > 0);
   if (!primero) throw Error("Añade personajes en pie.");
   n.fase = "en_curso";
-  entrar(n, primero, rng);
+  for (const m of n.miembros) emitirMotor(n, 'inicio_combate', m, m, m, rng);
+  const vivo = orden(n).find(m=>m.vida>0);
+  if (!vivo) { n.fase='finalizado'; limpiarFinal(n); return n; }
+  entrar(n, vivo, rng);
   return n;
 }
 function siguienteInterno(c: Combate, rng: RNG) {
@@ -438,6 +462,8 @@ function siguienteInterno(c: Combate, rng: RNG) {
     a = n.miembros.find((m) => m.id === n.actual);
   delete n.resultado;
   if (a) {
+    emitirMotor(n, 'fin_turno', a, a, a, rng);
+    caducarMotor(a);
     if (
       (estadisticas(a).fatiga || 0) > 0 &&
       a.fatiga >= (estadisticas(a).fatiga || 0)
@@ -497,10 +523,11 @@ export function siguiente(c: Combate, rng: RNG = dadoSeguro) {
 export function deshacer(c: Combate) {
   const h = [...(c.historial || [])],
     previo = h.pop();
+  if (c.progreso_confirmado) throw Error("El progreso ya fue aplicado a las fichas.");
   if (!previo) throw Error("No hay una acción anterior.");
   return { ...copia(previo), historial: h };
 }
-function limpiarFinal(n:Combate){for(const m of n.miembros){m.estados=[];delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
+function limpiarFinal(n:Combate){for(const m of n.miembros){emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);m.estados=[];if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
 export function finalizar(c:Combate){return registrar(c,()=>{const n=copia(c);n.fase='finalizado';n.actual=null;limpiarFinal(n);return n;});}
 export function descansar(c: Combate) {
   if (c.fase === "en_curso")
@@ -595,6 +622,8 @@ export function acciones(m: Combatiente) {
         efecto: e,
         enfriamiento: 0,
       });
+  for (const h of m.motor?.habilidades || []) lista.push({id:`motor-hab:${h.id}`,nombre:h.accion.nombre,efecto:h.accion,enfriamiento:0});
+  for (const {clave, regla} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
   return lista;
 }
 function actuarInterno(
@@ -611,6 +640,14 @@ function actuarInterno(
   if (n.fase !== "en_curso" || n.actual !== actorId || !a || a.vida <= 0)
     throw Error("Solo puede actuar el personaje de turno.");
   if (a.accion_usada) throw Error("Ya utilizó su acción.");
+  if (accionId.startsWith('regla:')) {
+    const clave = accionId.slice(6), entrada = reglasMotor(a).find(r=>r.clave===clave);
+    if (!entrada || entrada.regla.evento !== 'usar') throw Error('La regla activa no existe.');
+    const t = n.miembros.find(m=>m.id===objetivoId) || a;
+    ejecutarRegla(n,a,entrada.clave,entrada.regla,a,t,rng,undefined,0,true);
+    a.accion_usada=true;
+    return n;
+  }
   if (accionId === "guardia") {
     estado(a, "guardia", "Guardia", 1, { armadura: 2 }, { inicio: true });
     a.accion_usada = true;
@@ -701,6 +738,8 @@ function actuarInterno(
     normalizar(t);
     return n;
   }
+  emitirMotor(n, 'atacar', a, a, t, rng, e);
+  if (a.vida <= 0) return n;
   const elemento = elementoDe(e),
     antes = reactivas(t, e, "recibir_ataque");
   activarReglas(n, a, t, antes, rng);
@@ -750,7 +789,8 @@ function actuarInterno(
   // A blind penalty is consumed by the next attempted attack, even on a miss.
   quitarEstado(a, "ciego");
   quitarEstado(t, "escarcha");
-  if (!acierta) return n;
+  if (!acierta) { emitirMotor(n, 'fallar', a, a, t, rng, e); return n; }
+  emitirMotor(n, 'impactar', a, a, t, rng, e);
   const permiteEstados = !(supera && e.salvacion?.exito === "solo_estado");
   let dadosTotal = dados(n, e.cantidad, e.caras, rng, act.nombre);
   if (elemento !== "ninguno")
@@ -890,4 +930,116 @@ export function retirar(c: Combate, id: string) {
     `${m.nombre} se retira del campo. Su ficha e inventario se conservan.`,
   );
   return n;
+}
+
+
+// Runtime serializable: se guarda junto al encuentro y participa en Deshacer.
+export type EstadoMotor = {
+ modificadores: {clave:string;nombre:string;creado:number;duracion:number;cambios:{atributo:string;operacion:'sumar'|'multiplicar'|'fijar';valor:number}[]}[];
+ habilidades: {id:string;clave:string;creado:number;duracion:number;accion:Efecto}[];
+ usos: Record<string,number>; proximos: Record<string,number>;
+ progreso: {id:string;atributo:string;delta:number;regla:string}[];
+};
+function motor(m:Combatiente):EstadoMotor {return m.motor ||= {modificadores:[],habilidades:[],usos:{},proximos:{},progreso:[]};}
+export function reglasMotor(m:Combatiente) {
+ const fuentes = [
+  {id:'propio',reglas:m.configuracion.reglas||[]},
+  ...(m.configuracion.pasivas||[]).map((p,i)=>({id:`pasiva:${p.id||i}`,reglas:p.reglas_motor||[]})),
+  ...(m.configuracion.habilidades||[]).map((p,i)=>({id:`hab:${p.id||i}`,reglas:p.reglas||[]})),
+  ...Object.entries(piezas(m)).map(([slot,p])=>({id:`equipo:${p.id||slot}`,reglas:p.reglas||[]})),
+ ];
+ const vistos=new Set<string>();
+ return fuentes.flatMap(f=>f.reglas.map(regla=>({clave:`${f.id}:${regla.id}`,regla}))).filter(r=>{if(vistos.has(r.clave))return false;vistos.add(r.clave);return true;}).sort((a,b)=>b.regla.prioridad-a.regla.prioridad||a.clave.localeCompare(b.clave));
+}
+type ContextoMotor = {c:Combate;yo:Combatiente;actor:Combatiente;objetivo:Combatiente;rng:RNG;efecto?:Efecto;cantidad:number;profundidad:number};
+function sujetoMotor(ctx:ContextoMotor,s:Sujeto) {return s==='actor'?ctx.actor:s==='objetivo'?ctx.objetivo:ctx.yo;}
+function valorMotor(v:ValorRegla|undefined,ctx:ContextoMotor):number {
+ if(typeof v==='number')return v;
+ if(!v)return 0;
+ const m=sujetoMotor(ctx,v.desde||'yo');
+ const n=(v.bono||0)+(v.dados?dados(ctx.c,v.dados,v.caras||6,ctx.rng,'Regla'):0)+(v.atributo?(estadisticas(m)[v.atributo]||0):0)+(v.evento?ctx.cantidad:0);
+ const total=n*(v.escala??1);
+ if(!Number.isFinite(total)||Math.abs(total)>100000000)throw Error('La fórmula produjo un valor fuera de rango.');
+ return total;
+}
+function tieneMotor(m:Combatiente,clave:string){return m.estados.some(e=>e.tipo===clave||e.nombre===clave)||!!m.motor?.modificadores.some(e=>e.clave===clave);}
+function condicionMotor(c:CondicionRegla,ctx:ContextoMotor):boolean {
+ if(ctx.profundidad>8)throw Error('Demasiados niveles de reglas.');
+ const sub={...ctx,profundidad:ctx.profundidad+1};
+ switch(c.tipo){
+  case 'siempre':return true;
+  case 'todas':return c.condiciones.every(x=>condicionMotor(x,sub));
+  case 'alguna':return c.condiciones.some(x=>condicionMotor(x,sub));
+  case 'no':return !condicionMotor(c.condicion,sub);
+  case 'estado':return tieneMotor(sujetoMotor(ctx,c.sujeto),c.estado);
+  case 'elemento':return elementoDe(ctx.efecto)===c.elemento;
+  case 'probabilidad':return ctx.rng(100)<=c.porcentaje;
+  case 'comparar':{
+   const m=sujetoMotor(ctx,c.sujeto),s=estadisticas(m);
+   const actual=c.atributo==='vida_actual'?m.vida:c.atributo==='ph_actual'?m.ph:c.atributo==='fatiga_actual'?m.fatiga:s[c.atributo]||0;
+   const max=c.atributo==='vida_actual'?maxVida(m):c.atributo==='ph_actual'?s.ph:c.atributo==='fatiga_actual'?s.fatiga:100;
+   const a=c.porcentaje?(max?actual/max*100:0):actual;
+   return c.operador==='<'?a<c.valor:c.operador==='<='?a<=c.valor:c.operador==='>'?a>c.valor:c.operador==='>='?a>=c.valor:a===c.valor;
+  }
+ }
+}
+let profundidadMotor=0;
+function emitirMotor(c:Combate,evento:EventoRegla,yo:Combatiente,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0){
+ if(profundidadMotor>=8){log(c,'Se detuvo una cadena de reglas al alcanzar 8 eventos.');return;}
+ profundidadMotor++;
+ try {for(const {clave,regla} of reglasMotor(yo))if(regla.evento===evento)ejecutarRegla(c,yo,clave,regla,actor,objetivo,rng,efecto,cantidad,false);} finally {profundidadMotor--;}
+}
+function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0,manual=false){
+ const ctx:ContextoMotor={c,yo,actor,objetivo,rng,efecto,cantidad,profundidad:0},m=motor(yo);
+ const error=!condicionMotor(r.condicion,ctx)?'No se cumplen las condiciones.':r.usos>0&&(m.usos[clave]||0)>=r.usos?'Sin usos restantes.':(m.proximos[clave]||0)>yo.turnos?'Regla en enfriamiento.':yo.ph<r.coste_ph?'PH insuficientes.':r.coste_fatiga>0&&(yo.agotado||yo.fatiga+r.coste_fatiga>(estadisticas(yo).fatiga||0))?'Fatiga insuficiente.':'';
+ if(error){if(manual)throw Error(error);return;}
+ yo.ph-=r.coste_ph;yo.fatiga+=r.coste_fatiga;
+ if(r.coste_fatiga){yo.uso_fatiga=true;if(yo.fatiga>=(estadisticas(yo).fatiga||0))yo.agotado=true;}
+ m.usos[clave]=(m.usos[clave]||0)+1;m.proximos[clave]=yo.turnos+r.enfriamiento+1;
+ // Sin enfriamiento, distintas muertes durante un mismo turno sí cuentan.
+ if(!r.enfriamiento)m.proximos[clave]=yo.turnos;
+ log(c,`${yo.nombre} · ${r.nombre}`);
+ efectosMotor(r.efectos,ctx,clave);
+}
+function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
+ if(ctx.profundidad>8)throw Error('Demasiadas ramas de efectos.');
+ for(const [indice,e] of efectos.entries()){
+  const destinos=['aliados','enemigos','todos'].includes(e.destino)?ctx.c.miembros.filter(m=>m.vida>0&&(e.destino==='todos'||(e.destino==='aliados'?m.bando===ctx.yo.bando:m.bando!==ctx.yo.bando))):[sujetoMotor(ctx,e.destino as Sujeto)];
+  for(const t of destinos){
+   const v=()=>valorMotor(e.valor,ctx),m=motor(t),clave=e.clave||`${origen}:${indice}`;
+   switch(e.tipo){
+    case 'salvacion':case 'condicional':{
+     const exito=e.tipo==='salvacion'?salvacion(ctx.c,t,e.cd||12,e.atributo||'salvacion',ctx.rng):condicionMotor(e.condicion||{tipo:'siempre'},ctx);
+     efectosMotor((exito?e.exito:e.fallo)||[],{...ctx,objetivo:t,profundidad:ctx.profundidad+1},`${origen}:${indice}:${exito}`);break;
+    }
+    case 'perder_accion':t.accion_usada=true;log(ctx.c,`${t.nombre} pierde su acción del turno.`);break;
+    case 'mensaje':log(ctx.c,`${t.nombre}: ${e.nombre||'Efecto activado'}`);break;
+    case 'curar':t.vida=Math.min(maxVida(t),t.vida+Math.max(0,v()));break;
+    case 'ph':t.ph+=v();break;
+    case 'fatiga':{const n=v();if(n>0||!t.agotado)t.fatiga+=n;if(t.fatiga>=(estadisticas(t).fatiga||0)&&t.fatiga>0)t.agotado=true;break;}
+    case 'dano':{
+     const antes=t.vida,perdido=Math.min(antes,Math.max(0,v()));t.vida-=perdido;log(ctx.c,`${t.nombre}: ${perdido} daño directo por regla (sin impacto ni ARM).`);
+     if(perdido>0){emitirMotor(ctx.c,'recibir_dano',t,ctx.yo,t,ctx.rng,undefined,perdido);if(t.id!==ctx.yo.id)emitirMotor(ctx.c,'causar_dano',ctx.yo,ctx.yo,t,ctx.rng,undefined,perdido);}
+     if(antes>0&&t.vida<=0){emitirMotor(ctx.c,'morir',t,ctx.yo,t,ctx.rng);if(t.id!==ctx.yo.id&&t.bando!==ctx.yo.bando)emitirMotor(ctx.c,'matar',ctx.yo,ctx.yo,t,ctx.rng);}break;
+    }
+    case 'quitar_estado':m.modificadores=m.modificadores.filter(x=>x.clave!==clave);m.habilidades=m.habilidades.filter(x=>x.clave!==clave);t.estados=t.estados.filter(x=>x.tipo!==clave&&x.nombre!==clave);break;
+    case 'habilidad':if(e.accion){m.habilidades=m.habilidades.filter(x=>x.id!==`${origen}:${indice}`);m.habilidades.push({id:`${origen}:${indice}`,clave,accion:copia(e.accion),duracion:e.duracion||0,creado:t.turnos});}break;
+    case 'estado':case 'transformar':case 'atributo':{
+     const cambios=e.tipo==='atributo'?[{atributo:e.atributo||'vida',operacion:e.operacion||'sumar' as const,valor:v()}]:e.tipo==='transformar'?(e.cambios||[]).map(x=>({...x,valor:valorMotor(x.valor,ctx)})):[];
+     if(e.permanente){for(const cambio of cambios){let delta=cambio.valor;
+      if(e.limite){const ganado=m.progreso.filter(x=>x.regla===clave&&x.atributo===cambio.atributo).reduce((a,x)=>a+x.delta,0);delta=Math.max(0,Math.min(delta,e.limite-ganado));}
+      if(delta){t.stats[cambio.atributo]=(t.stats[cambio.atributo]||0)+delta;m.progreso.push({id:crypto.randomUUID(),atributo:cambio.atributo,delta,regla:clave});log(ctx.c,`${t.nombre}: ${cambio.atributo} ${delta>0?'+':''}${delta} permanente.`);}
+     }}else{
+      if(!e.acumular)m.modificadores=m.modificadores.filter(x=>x.clave!==clave);
+      if(!e.limite||m.modificadores.filter(x=>x.clave===clave).length<e.limite)m.modificadores.push({clave,nombre:e.nombre||clave,creado:t.turnos,duracion:e.duracion||0,cambios});
+     }break;
+    }
+   }
+   normalizar(t);
+  }
+ }
+}
+function caducarMotor(m:Combatiente){if(!m.motor)return;
+ m.motor.modificadores=m.motor.modificadores.filter(x=>x.duracion===0||x.creado>=m.turnos||--x.duracion>0);
+ m.motor.habilidades=m.motor.habilidades.filter(x=>x.duracion===0||x.creado>=m.turnos||--x.duracion>0);
 }

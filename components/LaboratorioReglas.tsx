@@ -1,0 +1,17 @@
+"use client";
+import {useState} from 'react';
+import type {Regla} from '../lib/reglas';
+import {validarReglas} from '../lib/reglas';
+import {nuevoCombate,agregar,iniciar,siguiente,actuar,acciones,estadisticas,maxVida,deshacer,type Combate} from '../lib/combate';
+export function LaboratorioReglas({reglas}:{reglas:Regla[]}){
+ const [c,setC]=useState<Combate|null>(null),[error,setError]=useState(''),[objetivo,setObjetivo]=useState('prueba');
+ const boton='rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-orange-500 disabled:opacity-40';
+ function ejecutar(f:()=>Combate){try{setC(f());setError('');}catch(e){setError(e instanceof Error?e.message:'No se pudo probar.');}}
+ function preparar(){const fallo=validarReglas(reglas);if(fallo){setError(fallo);return;}
+  ejecutar(()=>{let b=nuevoCombate();b.regla='directo';for(const [id,nombre,bando,ini] of [['prueba','Portador de prueba','jugador',18],['rival','Enemigo de prueba','enemigo',5]] as const)b=agregar(b,{id,forja_id:null,nombre,stats:{vida:20,armadura:5,ph:20,fatiga:10,bono_impacto:3,salvacion:0},configuracion:{tipo_creacion:'personaje',reglas:id==='prueba'?structuredClone(reglas):[]}},bando,()=>ini);return iniciar(b);});
+ }
+ const actor=c?.miembros.find(m=>m.id===c.actual);
+ return <details className="rounded-xl border border-orange-900/60 bg-orange-950/10 p-4"><summary className="cursor-pointer font-semibold text-orange-200">Laboratorio · Probar estas reglas</summary><p className="my-3 text-sm text-neutral-400">Combate de prueba aislado, con vida 20, ARM 5, PH 20 y Fatiga 10. No modifica fichas ni guarda progreso. Reinicia para cargar los últimos cambios del editor.</p><div className="flex flex-wrap gap-2"><button type="button" className={boton} onClick={preparar}>{c?'Reiniciar con las reglas actuales':'Preparar prueba'}</button>{c&&<><button type="button" className={boton} onClick={()=>ejecutar(()=>siguiente(c))}>Siguiente turno</button><button type="button" disabled={!c.historial?.length} className={boton} onClick={()=>ejecutar(()=>deshacer(c))}>Deshacer</button></>}</div>
+ {c&&<div className="mt-4 space-y-4"><div className="grid gap-3 sm:grid-cols-2">{c.miembros.map(m=><div key={m.id} className="rounded border border-neutral-700 p-3"><strong>{c.actual===m.id?'▶ ':''}{m.nombre}</strong><p className="mt-2 text-sm">Vida {m.vida}/{maxVida(m)} · PH {m.ph} · Fatiga {m.fatiga}</p><p className="text-xs text-neutral-400">{Object.entries(estadisticas(m)).map(([k,v])=>`${k}: ${v}`).join(' · ')}</p>{m.motor?.modificadores.map((x,i)=><p key={i} className="text-xs text-orange-300">{x.nombre}</p>)}</div>)}</div><label className="block text-sm">Objetivo<select className="ml-2 rounded border border-neutral-700 bg-black p-2" value={objetivo} onChange={e=>setObjetivo(e.target.value)}>{c.miembros.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select></label><p className="text-sm">Turno: {actor?.nombre} · {actor?.accion_usada?'Acción consumida':'Acción disponible'}</p><div className="flex flex-wrap gap-2">{actor&&acciones(actor).map(a=><button key={a.id} type="button" disabled={actor.accion_usada||actor.vida<=0} className={boton} onClick={()=>ejecutar(()=>actuar(c,actor.id,a.id,objetivo))}>{a.nombre}</button>)}</div><ol className="max-h-64 space-y-1 overflow-y-auto rounded bg-black p-3 text-xs text-neutral-300" aria-label="Registro de prueba">{c.registro.slice(0,30).map((x,i)=><li key={i}>{x}</li>)}</ol></div>}{error&&<p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
+ </details>;
+}

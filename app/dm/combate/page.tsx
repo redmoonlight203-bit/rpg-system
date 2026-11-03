@@ -33,6 +33,7 @@ import {
   estadisticas,
   maxVida,
   reglas,
+  reglasMotor,
   dadoSeguro,
   elementoDe,
   deshacer,
@@ -239,6 +240,14 @@ export default function CampoCombate() {
       setResumen(next.registro.slice(0, 4).reverse().join(" "));
     });
   }
+  async function confirmarProgreso() {
+    await ejecutar(async()=>{
+      const r=await supabase.rpc('combate_confirmar_progreso',{p_id:id,p_version:version});
+      if(r.error)throw Error(r.error.message);
+      setC(r.data.datos as Combate);setVersion(r.data.version);
+      setResumen('Progreso permanente aplicado a las fichas de jugadores. Este encuentro queda cerrado.');
+    });
+  }
   async function borrarEncuentro() {
     if (
       !version ||
@@ -433,7 +442,7 @@ export default function CampoCombate() {
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
       : c.miembros.find((m) => m.bando !== actor?.bando)?.id || actor?.id || "";
-  const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0 }];
+  const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
     const atajo = (event: KeyboardEvent) => {
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || ocupado || biblioteca || pendiente || !actor || actor.accion_usada || c.fase !== "en_curso") return;
@@ -542,6 +551,8 @@ export default function CampoCombate() {
             </b>
           </span>
         </div>
+        {!!m.motor?.modificadores.length && <div className="battle-metrics">{m.motor.modificadores.map((x,i)=><span key={i} title={x.cambios.map(v=>`${v.atributo}: ${v.operacion} ${v.valor}`).join(' · ')}>{x.nombre} · {x.duracion?`${x.duracion} turnos`:'combate'}</span>)}</div>}
+        {!!m.motor?.progreso.length && <p className="text-xs text-amber-300">Progreso permanente: {m.motor.progreso.map(x=>`${x.atributo} ${x.delta>0?'+':''}${x.delta}`).join(' · ')}</p>}
         {(s.fatiga || 0) > 0 && <div className="battle-fatigue-pips" aria-hidden="true">{Array.from({ length: Math.min(12, Math.max(0, Math.floor(s.fatiga || 0))) }, (_, i) => <i className={i < m.fatiga ? "filled" : ""} key={i} />)}</div>}
         {m.arma && (
           <p className="battle-weapon">
@@ -798,7 +809,7 @@ export default function CampoCombate() {
         </button>
         <button
           className="battle-button"
-          disabled={ocupado || !c.historial?.length}
+          disabled={ocupado || !!c.progreso_confirmado || !c.historial?.length}
           onClick={() => void deshacerUltimo()}
         >
           Deshacer última operación
@@ -825,6 +836,7 @@ export default function CampoCombate() {
           </button>
         )}
       </div>
+      {c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">Hasta confirmarlo, los cambios viven en este encuentro y puedes deshacerlos. Al aplicarlos se actualizan las fichas reales una sola vez y el encuentro queda cerrado. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={ocupado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
       {error && (
         <p className="battle-error" role="alert">
           {error}
@@ -979,7 +991,7 @@ export default function CampoCombate() {
             >
               {opciones.filter(() => !!actor).map((a, indice) => {
                 const e = a.efecto,
-                  espera = actor?.cooldowns[a.id] || 0;
+                  espera = a.regla ? Math.max(0,(actor?.motor?.proximos[a.regla]||0)-(actor?.turnos||0)) : actor?.cooldowns[a.id] || 0;
                 const Icono = !e
                   ? Shield
                   : elementoDe(e) === "fuego"
@@ -995,10 +1007,12 @@ export default function CampoCombate() {
                           : e.efecto === "reducir_fatiga"
                             ? Flame
                             : Swords;
-                const ayuda = e
+                const reglaActiva = a.regla && actor ? reglasMotor(actor).find(r=>r.clave===a.regla)?.regla : undefined;
+                const sinUsos = !!(reglaActiva?.usos && actor && (actor.motor?.usos[a.regla!]||0)>=reglaActiva.usos);
+                const ayuda = reglaActiva ? `${reglaActiva.nombre}. Regla activa: ${reglaActiva.efectos.length} efectos en orden. Consume acción, ${reglaActiva.coste_ph} PH y ${reglaActiva.coste_fatiga} Fatiga. ${reglaActiva.usos?`${Math.max(0,reglaActiva.usos-(actor?.motor?.usos[a.regla!]||0))} usos restantes.`:'Usos ilimitados.'}` : e
                   ? `${a.nombre}. ${e.efecto === "crear_arma" ? "Crea " + e.arma_nombre : e.efecto === "estado" ? e.estado : e.efecto}. ${formula(e)}. ${e.tipo_dano || ""}. Coste ${e.coste_ph} PH y ${e.coste_fatiga || 0} Fatiga. Elemento ${elementoDe(e)}. ${e.salvacion ? `Salvación CD ${e.salvacion.cd} + ${e.salvacion.atributo}.` : ""} Duración ${e.duracion} turnos. Enfriamiento ${a.enfriamiento} turnos.`
                   : "Guardia: +2 ARM hasta el siguiente turno propio. Consume una acción.";
-                const motivo = espera
+                const motivo = sinUsos ? "Sin usos restantes." : espera
                   ? `En enfriamiento: ${espera} turnos.`
                   : e && actor && actor.ph < e.coste_ph
                     ? "PH insuficientes."
@@ -1029,7 +1043,7 @@ export default function CampoCombate() {
                     <Icono size={22} />
                     {indice < 4 && <kbd className="battle-shortcut">{"QWER"[indice]}</kbd>}
                     <strong>{a.nombre}</strong>
-                    <small>{e ? formula(e) : "+2 ARM"}</small>
+                    <small>{a.regla ? "Regla activa" : e ? formula(e) : "+2 ARM"}</small>
                     {e && <small className="battle-cost">{e.coste_ph ? `${e.coste_ph} PH` : "Sin PH"} · {e.coste_fatiga || 0} Fatiga{espera ? ` · Espera ${espera}` : ""}</small>}
                     {motivo && <small className="battle-disabled-reason">{motivo}</small>}
                     <span className="battle-tooltip" role="tooltip">
@@ -1144,3 +1158,4 @@ export default function CampoCombate() {
     </main>
   );
 }
+
