@@ -44,7 +44,7 @@ export default function HomePage() {
 
       // Redirección inteligente
       if (perfil.rol === "KUROI") {
-        router.push("/dm/panel");
+        router.replace("/dm/forja");
       } else {
         router.push("/ficha");
       }

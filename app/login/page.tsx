@@ -75,7 +75,7 @@ export default function LoginPage() {
 
         // Redirección según rol
         if (perfil.rol === "KUROI") {
-          router.push("/dm/panel");
+          router.replace("/dm/forja");
         } else {
           router.push("/ficha");
         }
