@@ -1,23 +1,11 @@
 "use client";
-import{useEffect,useState}from'react';
-import{supabase}from'../lib/supabase';
-import'./alerta-turno.css';
-type Estado={nombre:string;vida:number;max_vida:number;es_turno:boolean;fase:string;encuentro:string};
+import {useEffect,useRef,useState} from 'react';
+import Link from 'next/link';
+import {consultarCombateJugador} from '../lib/jugador';
+import './alerta-turno.css';
 export default function AlertaTurnoJugador(){
- const[estado,setEstado]=useState<Estado|null>(null);
- useEffect(()=>{
-  let vivo=true,consultando=false;
-  async function consultar(){if(consultando||document.hidden)return;consultando=true;
-   try{const id=localStorage.getItem('personaje_activo_id');if(!id){if(vivo)setEstado(null);return;}
-    const r=await supabase.rpc('combate_estado_jugador',{p_personaje:id});
-    if(vivo)setEstado(!r.error?r.data:null);
-   }catch{if(vivo)setEstado(null);}finally{consultando=false;}
-  }
-  void consultar();const t=setInterval(()=>void consultar(),3000);
-  const visible=()=>void consultar();document.addEventListener('visibilitychange',visible);
-  return()=>{vivo=false;clearInterval(t);document.removeEventListener('visibilitychange',visible);};
- },[]);
- if(!estado?.es_turno||estado.fase!=='en_curso')return null;
- const critico=estado.vida>0&&estado.vida/Math.max(1,estado.max_vida)<=.25;
- return <><div className={critico?'player-turn-vignette':''} aria-hidden="true"/><aside className={`player-turn-notice ${critico?'critical':''}`} role="status" aria-live="polite"><strong>Es tu turno · {estado.nombre}</strong><span>{critico?'Vida crítica · ':''}{estado.vida} / {estado.max_vida} vida · {estado.encuentro}</span></aside></>;
+ const[nombres,setNombres]=useState(''),[aviso,setAviso]=useState(false),anterior=useRef('');
+ useEffect(()=>{let vivo=true,leyendo=false;let cierre:ReturnType<typeof setTimeout>;async function consultar(){if(leyendo||document.hidden)return;leyendo=true;try{const data=await consultarCombateJugador();if(!vivo)return;const turnos=data.encuentros.filter((e:{fase:string})=>e.fase==='en_curso').flatMap((e:{id:string;personajes:{id:string;nombre:string;es_turno:boolean}[]})=>e.personajes.filter(p=>p.es_turno).map(p=>({clave:`${e.id}:${p.id}`,nombre:p.nombre})));const clave=turnos.map((p:{clave:string})=>p.clave).join(',');setNombres(turnos.map((p:{nombre:string})=>p.nombre).join(', '));if(clave&&clave!==anterior.current){setAviso(true);clearTimeout(cierre);cierre=setTimeout(()=>setAviso(false),2400);}anterior.current=clave;}catch{/* Se reintenta al reconectar. */}finally{leyendo=false;}}void consultar();const t=setInterval(()=>void consultar(),3000);document.addEventListener('visibilitychange',consultar);return()=>{vivo=false;clearInterval(t);clearTimeout(cierre);document.removeEventListener('visibilitychange',consultar);};},[]);
+ if(!nombres)return null;
+ return <>{aviso&&<div className="player-turn-flash" role="status">TU TURNO<span>{nombres}</span></div>}<aside className="player-turn-notice" role="status"><strong>Tu turno · {nombres}</strong><Link href="/ficha/combate" style={{pointerEvents:'auto'}}>Entrar al combate →</Link></aside></>;
 }

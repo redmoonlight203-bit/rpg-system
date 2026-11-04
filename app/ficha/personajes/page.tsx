@@ -126,6 +126,8 @@ export default function MisPersonajes() {
           </div>
         </header>
 
+        <button onClick={() => router.push("/ficha/alma")} className="rounded-xl border border-purple-800 p-4 text-purple-300">Mi alma · pertenencias de la cuenta</button>
+
         {!mostrarFormulario ? (
           <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             <button

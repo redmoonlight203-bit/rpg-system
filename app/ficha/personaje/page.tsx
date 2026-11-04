@@ -85,30 +85,7 @@ export default function HubPersonajeJugador() {
       ruta: "/ficha/equipamiento",
       color: "hover:border-purple-700/80 text-purple-500",
     },
-    {
-      id: "tiradas",
-      titulo: "Tiradas & Dados",
-      descripcion: "Lanzamiento de dados para pruebas de atributos y combate.",
-      icon: Dices,
-      ruta: "/ficha/tiradas",
-      color: "hover:border-emerald-700/80 text-emerald-500",
-    },
-    {
-      id: "arbol",
-      titulo: "Árbol de Habilidades",
-      descripcion: "Progreso de talentos y ramificaciones de poder.",
-      icon: GitFork,
-      ruta: "/ficha/arbol",
-      color: "hover:border-indigo-700/80 text-indigo-500",
-    },
-    {
-      id: "estadisticas",
-      titulo: "Estadísticas",
-      descripcion: "Detalle completo de hoja de personaje y bonos.",
-      icon: Activity,
-      ruta: "/ficha/estadisticas",
-      color: "hover:border-rose-700/80 text-rose-500",
-    },
+    {id:"alma",titulo:"Mi alma",descripcion:"Compras asociadas a tu cuenta que cualquiera de tus personajes puede llevar.",icon:Flame,ruta:"/ficha/alma",color:"hover:border-purple-700 text-purple-400"},
   ];
 
   return (

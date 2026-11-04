@@ -34,50 +34,10 @@ export default function NexoReencarnado() {
   };
 
   const menuOpciones = [
-    ...(colmena?[{titulo:"Tienda de almas",descripcion:"Un escaparate reservado para las Mentes colmena.",icono:Sparkles,ruta:"/ficha/tienda-almas",color:"text-purple-400"}]:[]),
-    {
-      titulo: "Personajes",
-      descripcion: "Revisa tus avatares, estadísticas y estado en los mundos.",
-      icono: User,
-      ruta: "/ficha/personajes",
-      color: "text-red-500"
-    },
-    {
-      titulo: "Deudas de Kuroi",
-      descripcion: "Pactos y promesas del Master. Una vez aprobado, el contrato es inquebrantable.",
-      icono: Handshake,
-      ruta: "/ficha/deudas",
-      color: "text-amber-500"
-    },
-    {
-      titulo: "El Códice",
-      descripcion: "Conocimiento, bestiario y secretos descubiertos en tus viajes.",
-      icono: BookOpen,
-      ruta: "/ficha/codex",
-      color: "text-neutral-400"
-    },
-    {
-      titulo: "Tienda de Kuroi",
-      descripcion: "Intercambia recursos por favores, objetos o milagros.",
-      icono: ShoppingBag,
-      ruta: "/ficha/tienda",
-      color: "text-yellow-600"
-    },
-    {
-      titulo: "Vínculo de Alma",
-      descripcion: "Habilidades y reliquias que conservas tras la muerte para futuros runs.",
-      icono: Sparkles,
-      ruta: "/ficha/alma",
-      color: "text-cyan-600"
-    },
-    
-    {
-      titulo: "Forja de Creación",
-      descripcion: "Propón nuevos objetos o habilidades. Kuroi decidirá su destino.",
-      icono: Hammer,
-      ruta: "/ficha/creacion",
-      color: "text-orange-600"
-    }
+    {titulo:"Combates",descripcion:"Entra cuando el GM añada uno de tus personajes al simulador. Actúa durante tu turno.",icono:Hammer,ruta:"/ficha/combate",color:"text-red-500"},
+    {titulo:"Gestión de personajes",descripcion:"Consulta habilidades, equipamiento, inventario y el alma compartida de tu cuenta.",icono:User,ruta:"/ficha/personajes",color:"text-cyan-400"},
+    {titulo:"Tienda",descripcion:"Consulta las ofertas y negocia tus compras con el GM.",icono:ShoppingBag,ruta:"/ficha/tienda",color:"text-yellow-500"},
+    ...(colmena?[{titulo:"Tienda de almas",descripcion:"Personajes disponibles para las Mentes colmena.",icono:Sparkles,ruta:"/ficha/tienda-almas",color:"text-purple-400"}]:[]),
   ];
 
   return (

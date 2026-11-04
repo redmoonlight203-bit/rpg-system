@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, Hammer, Swords, ShoppingBag, Sliders, MoreHorizontal, X, BookOpen, Handshake, Sparkles, Shield } from "lucide-react";
 
-export default function NavegacionMovil({ gm = false }: { gm?: boolean }) {
+export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: boolean; colmena?: boolean }) {
   const pathname = usePathname();
   const [rutaMenu, setRutaMenu] = useState<string | null>(null);
   const abierto = rutaMenu === pathname;
@@ -19,7 +19,7 @@ export default function NavegacionMovil({ gm = false }: { gm?: boolean }) {
   ] : [
     { href: "/ficha", label: "Inicio", icon: Home },
     { href: "/ficha/personajes", label: "Personajes", icon: Users },
-    { href: "/ficha/equipamiento", label: "Equipo", icon: Shield },
+    { href: "/ficha/combate", label: "Combates", icon: Swords },
     { href: "/ficha/tienda", label: "Tienda", icon: ShoppingBag },
   ];
   const extras = gm ? [
@@ -27,10 +27,8 @@ export default function NavegacionMovil({ gm = false }: { gm?: boolean }) {
     { href: "/dm/tienda-almas", label: "Tienda de almas", icon: Users },
     { href: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
   ] : [
-    { href: "/ficha/codex", label: "El Códice", icon: BookOpen },
-    { href: "/ficha/alma", label: "Vínculo de alma", icon: Sparkles },
-    { href: "/ficha/creacion", label: "Creación", icon: Hammer },
-    { href: "/ficha/deudas", label: "Pactos y deudas", icon: Handshake },
+    { href: "/ficha/alma", label: "Mi alma", icon: Sparkles },
+    ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
   ];
   const activo = (href: string) => pathname === href || (href !== "/ficha" && pathname.startsWith(href + "/"));
   return <div className="mobile-navigation" onKeyDown={e => { if (e.key === "Escape") { setAbierto(false); boton.current?.focus(); } }}>
