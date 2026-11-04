@@ -14,7 +14,7 @@ end $$;
 insert into public.categorias_forja (clave,nombre,descripcion,icono,parent_id)
 select seed.clave,seed.nombre,seed.descripcion,seed.icono,root.id
 from (values
-  ('gigantes','Gigantes','De constitución robusta, con fuerza, regeneración y marcas ancestrales.','linaje'),
+  ('gigantes','Gigantes','De constitución robusta, con fuerza, regeneración y marcas ancestrales.','gigante'),
   ('hombres_bestia','Hombres Bestia','Pueblos de herencia animal y capacidades de transformación parcial.','bestia'),
   ('hadas','Hadas','Afinidad elemental, percepción de magia y vuelo mediante su magia.','alada')
 ) as seed(clave,nombre,descripcion,icono)
