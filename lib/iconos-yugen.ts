@@ -2,6 +2,7 @@
 export const ICONOS_YUGEN = [
  { id:'humano', nombre:'Humano', grupo:'Razas', trazos:['M16 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z','M9 27v-5a7 7 0 0 1 14 0v5M12 20l4 4 4-4'] },
  { id:'enano', nombre:'Enano', grupo:'Razas', trazos:['M7 12 10 5h12l3 7H7Z','M9 14v7l7 7 7-7v-7M12 17l4 2 4-2M13 21l3 3 3-3M16 5v7'] },
+ { id:'gigante', nombre:'Gigante', grupo:'Razas', trazos:['M16 3 25 10v13l-9 7-9-7V10l9-7Z','M11 10l5 5 5-5M10 19h12M13 24h6'] },
  { id:'elfo', nombre:'Elfo', grupo:'Razas', trazos:['M16 4c-6 4-7 10-5 15l5 9 5-9c2-5 1-11-5-15Z','M11 15 4 10l3 10 6 3M21 15l7-5-3 10-6 3M16 10v11'] },
  { id:'dragon', nombre:'Dragón', grupo:'Razas', trazos:['M6 26 8 15l8-9 1 6 9-3-3 8-6 3-1 8-5-4-5 2Z','M10 14 5 7l10 2M20 15h1M11 21l4-4'] },
  { id:'orco', nombre:'Orco', grupo:'Razas', trazos:['M8 9 16 5l8 4 2 10-5 8H11l-5-8 2-10Z','M10 14l4 2M22 14l-4 2M10 21l1-5 3 7h4l3-7 1 5'] },
@@ -37,7 +38,7 @@ export function iconoCategoria(categorias: CategoriaIcono[], clave: string): Ico
   vistos.add(c.id);
   if(iconoValido(c.icono)) return c.icono;
   const n=normal(`${c.clave} ${c.nombre || ''}`);
-  const aliases: [RegExp,IconoYugenId][] = [[/human|personajes/,'humano'],[/enan/,'enano'],[/elf/,'elfo'],[/dragon|kuro/,'dragon'],[/orc/,'orco'],[/hada|alado|arpia/,'alada'],[/bestia/,'bestia'],[/razas/,'linaje'],[/armadura|casco/,'armadura'],[/arma/,'espada'],[/pasiva/,'escudo'],[/habilidad/,'alma'],[/titulo/,'corona'],[/objeto/,'anillo']];
+  const aliases: [RegExp,IconoYugenId][] = [[/human|personajes/,'humano'],[/enan/,'enano'],[/gigant/,'gigante'],[/elf/,'elfo'],[/dragon|kuro/,'dragon'],[/orc/,'orco'],[/hada|alado|arpia/,'alada'],[/bestia/,'bestia'],[/razas/,'linaje'],[/armadura|casco/,'armadura'],[/arma/,'espada'],[/pasiva/,'escudo'],[/habilidad/,'alma'],[/titulo/,'corona'],[/objeto/,'anillo']];
   const match=aliases.find(([r])=>r.test(n)); if(match) return match[1];
   c=categorias.find(p=>p.id===c?.parent_id);
  }
