@@ -157,6 +157,7 @@ function resumenValor(v?: ValorRegla): string {
 function resumenCondicion(c: CondicionRegla): string {
   switch (c.tipo) {
     case "siempre": return "Siempre";
+    case "estado_terminado": return `Al terminar ${c.clave}`;
     case "todas": return c.condiciones.map(resumenCondicion).join(" y ");
     case "alguna": return c.condiciones.map(resumenCondicion).join(" o ");
     case "no": return `No (${resumenCondicion(c.condicion)})`;
@@ -175,3 +176,4 @@ function ResumenEfecto({ efecto: e, depth = 0 }: { efecto: EfectoRegla; depth?: 
     {([['Éxito', e.exito], ['Fallo', e.fallo]] as const).map(([label, efectos]) => efectos?.length ? <div className="cg-effect-branch" key={label}><b>{label}</b>{efectos.map((efecto, i) => <ResumenEfecto key={i} efecto={efecto} depth={depth + 1} />)}</div> : null)}
   </div>;
 }
+

@@ -30,6 +30,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
 export function condicionClara(c:CondicionRegla):string {
  switch(c.tipo){
  case 'siempre':return 'Se activa sin condiciones adicionales.';
+ case 'estado_terminado':return `Se activa cuando termina ${c.clave}.`;
  case 'estado':return `Requiere el estado ${c.estado}.`;
  case 'comparar':return `Requiere ${atributo(c.atributo)} ${{'<':'menor que','<=':'menor o igual a','=':'igual a','>=':'mayor o igual a','>':'mayor que'}[c.operador]} ${c.valor}${c.porcentaje?'%':''}.`;
  case 'elemento':return `Requiere un ataque de ${elementos[c.elemento]||c.elemento}.`;
@@ -62,3 +63,4 @@ export function describirRegla(r:Regla):AyudaClara{
  return {resumen:(typeof r.descripcion==="string"&&r.descripcion.trim())||r.efectos.map(efectoReglaClaro).slice(0,2).join(' ')||'Activa los efectos configurados.',detalles:[condicionClara(r.condicion),...r.efectos.slice(0,6).map(efectoReglaClaro),...(r.coste_ph?[`Consume ${r.coste_ph} PH.`]:[]),...(r.coste_fatiga?[`Genera ${r.coste_fatiga} de Fatiga.`]:[]),...(r.enfriamiento?[`Debes esperar ${r.enfriamiento} turnos antes de volver a usarla.`]:[])]};
 }
 export const ayudaGuardia:AyudaClara={resumen:'Adopta una postura defensiva para protegerte.',detalles:['Ganas 2 de armadura hasta tu siguiente turno.','Consume tu acción.']};
+

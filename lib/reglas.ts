@@ -1,6 +1,6 @@
 import type { Efecto } from './creacion';
 export const EVENTOS = {
- usar: 'Al activar / usar', inicio_combate: 'Al iniciar combate', inicio_turno: 'Al iniciar mi turno', fin_turno: 'Al terminar mi turno',
+ equipar: 'Al equipar', desequipar: 'Al desequipar', fin_efecto: 'Al terminar un estado o forma', usar: 'Al activar / usar', inicio_combate: 'Al iniciar combate', inicio_turno: 'Al iniciar mi turno', fin_turno: 'Al terminar mi turno',
  atacar: 'Antes de mi ataque', impactar: 'Al impactar', fallar: 'Al fallar', recibir_dano: 'Al recibir daño', causar_dano: 'Al causar daño', matar: 'Al matar a un enemigo', morir: 'Al caer a 0 de vida', fin_combate: 'Al terminar combate',
 } as const;
 export type EventoRegla = keyof typeof EVENTOS;
@@ -9,6 +9,7 @@ export type DestinoRegla = Sujeto | 'aliados' | 'enemigos' | 'todos';
 export type ValorRegla = number | { dados?: number; caras?: number; bono?: number; atributo?: string; desde?: Sujeto; escala?: number; evento?: boolean };
 export type CondicionRegla =
  | { tipo: 'siempre' }
+ | { tipo: 'estado_terminado'; clave: string }
  | { tipo: 'todas' | 'alguna'; condiciones: CondicionRegla[] }
  | { tipo: 'no'; condicion: CondicionRegla }
  | { tipo: 'estado'; sujeto: Sujeto; estado: string }
@@ -59,7 +60,7 @@ export function validarReglas(input: unknown): string | null {
   }
   function nodo(depth:number){if(depth>8||++nodos>500)fallo('Máximo 8 niveles y 500 bloques.');}
   function condicion(v:unknown,d=0){nodo(d);const c=objeto(v);
-   switch(c.tipo){case 'siempre':return;case 'todas':case 'alguna':if(!Array.isArray(c.condiciones)||!c.condiciones.length)fallo('Añade condiciones al grupo.');(c.condiciones as unknown[]).forEach(x=>condicion(x,d+1));return;
+   switch(c.tipo){case 'siempre':return;case 'estado_terminado':if(typeof c.clave!=='string'||!c.clave.trim())fallo('Escribe la clave del estado terminado.');return;case 'todas':case 'alguna':if(!Array.isArray(c.condiciones)||!c.condiciones.length)fallo('Añade condiciones al grupo.');(c.condiciones as unknown[]).forEach(x=>condicion(x,d+1));return;
     case 'no':condicion(c.condicion,d+1);return;
     case 'estado':if(!sujeto(c.sujeto)||typeof c.estado!=='string'||!c.estado.trim()||c.estado.length>100)fallo('Estado o sujeto inválido.');return;
     case 'comparar':if(!sujeto(c.sujeto)||!clave(c.atributo)||!['<','<=','=','>=','>'].includes(String(c.operador))||typeof c.valor!=='number'||!Number.isFinite(c.valor)||Math.abs(c.valor)>1000000)fallo('Comparación inválida.');return;
@@ -96,3 +97,4 @@ export function receta(tipo:'crecimiento'|'furia'|'objeto'):Regla[]{
  const forma:EfectoRegla={tipo:'transformar',destino:'yo',clave:'furia',nombre:'Furia',duracion:0,cambios:[{atributo:'dano',operacion:'sumar',valor:8},{atributo:'armadura',operacion:'sumar',valor:3},{atributo:'vida',operacion:'sumar',valor:15}]};
  return [{...r,nombre:tipo==='objeto'?'Usar objeto de transformación':'Desatar furia',usos:1,efectos:[forma]}, {...nuevaRegla(),nombre:'Mantener la voluntad',evento:'inicio_turno',condicion:{tipo:'estado',sujeto:'yo',estado:'furia'},efectos:[{tipo:'salvacion',destino:'yo',cd:12,atributo:'salvacion',exito:[],fallo:[{tipo:'perder_accion',destino:'yo'}]}]}, {...nuevaRegla(),nombre:'Abandonar furia',condicion:{tipo:'estado',sujeto:'yo',estado:'furia'},efectos:[{tipo:'quitar_estado',destino:'yo',clave:'furia'}]}];
 }
+

@@ -44,6 +44,7 @@ import {
   type Combatiente,
   type Bando,
 } from "../../../lib/combate";
+import {EditorEquipoCombate,consultarEquipo,type ContextoEquipo} from "../../../components/EditorEquipoCombate";
 import { formula } from "../../../lib/creacion";
 import AnimacionDados, {
   type TiradaVisual,
@@ -85,6 +86,10 @@ export default function CampoCombate() {
     [ocupado, setOcupado] = useState(false),
     [cargando, setCargando] = useState(true);
   const bloqueo = useRef(false);
+  const [editorEquipo,setEditorEquipo]=useState<{actor:string;contexto:ContextoEquipo}|null>(null);
+  async function refrescarEncuentro(){const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(r.error)throw Error(r.error.message);if(r.data){setC(r.data.datos as Combate);setVersion(r.data.version);}}
+  async function abrirEquipoActual(){if(!actor)return;await ejecutar(async()=>{const contexto=await consultarEquipo({combate_id:id,actor_id:actor.id,consultar:true});setEditorEquipo({actor:actor.id,contexto});});}
+  useEffect(()=>{if(c.fase!=='en_curso')return;let vivo=true,leyendo=false;const t=setInterval(()=>{if(bloqueo.current||leyendo||document.hidden)return;leyendo=true;void(async()=>{try{const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(vivo&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}}catch{/* Se reintentará en la próxima consulta. */}finally{leyendo=false;}})();},3000);return()=>{vivo=false;clearInterval(t);};},[id,version,c.fase]);
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
@@ -439,7 +444,7 @@ export default function CampoCombate() {
     elegida =
       lista.some((a) => a.id === accion) || accion === "guardia"
         ? accion
-        : "ataque",
+        : lista[0]?.id || "ataque",
     efecto = lista.find((a) => a.id === elegida)?.efecto,
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
@@ -839,6 +844,7 @@ export default function CampoCombate() {
         )}
       </div>
       {c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">Hasta confirmarlo, los cambios viven en este encuentro y puedes deshacerlos. Al aplicarlos se actualizan las fichas reales una sola vez y el encuentro queda cerrado. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={ocupado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
+      {editorEquipo&&<EditorEquipoCombate contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}
       {error && (
         <p className="battle-error" role="alert">
           {error}
@@ -986,6 +992,7 @@ export default function CampoCombate() {
             </div>
             {actor && <div className="battle-actor-resources"><Shield size={15} /> ARM {estadisticas(actor).armadura || 0}<Zap size={15} /> PH {actor.ph}/{estadisticas(actor).ph || 0}<Flame size={15} /> Fatiga {actor.fatiga}/{estadisticas(actor).fatiga || 0}</div>}
             {!actor && <p className="battle-action-empty">{c.fase === "preparacion" ? "Forma los bandos e inicia el combate para acceder a las habilidades." : "El encuentro ha terminado. Puedes revisar su registro o crear uno nuevo."}</p>}
+            {actor&&<button className="battle-button" disabled={ocupado||actor.accion_usada||actor.vida<=0} onClick={()=>void abrirEquipoActual()}>Cambiar equipamiento · 1 acción</button>}
             <div
               className="battle-action-tiles"
               role="group"
@@ -1160,4 +1167,5 @@ export default function CampoCombate() {
     </main>
   );
 }
+
 

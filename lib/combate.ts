@@ -21,6 +21,7 @@ export type Config = {
   pasivas?: { id?: string; nombre: string; reglas: ReglaPasiva[]; reglas_motor?: Regla[] }[];
   reglas?: Regla[];
   reglas_pasivas?: ReglaPasiva[];
+  reserva?: Fuente[];
 };
 export type Combatiente = {
   id: string;
@@ -56,6 +57,7 @@ export type Combatiente = {
     restantes: number;
     creado: number;
     bonos: Record<string, number>;
+    origen?: string;
     inicio?: boolean;
     tipo?: string;
     cantidad?: number;
@@ -228,7 +230,9 @@ export function agregar(
   m.grupo_cercania = "";
   m.dado_iniciativa = rng(20);
   m.iniciativa = m.dado_iniciativa + (estadisticas(m).iniciativa || 0);
+  m.configuracion.reserva ||= [...new Map(Object.values(m.configuracion.equipamiento||{}).filter(p=>p.id).map(p=>[p.id,p])).values()];
   n.miembros.push(m);
+  activarEquipo(n,m,rng);
   log(
     n,
     `${m.nombre} → ${bando}. Iniciativa ${m.dado_iniciativa} + ${estadisticas(m).iniciativa || 0} = ${m.iniciativa}. Vida ${m.vida}, ARM ${estadisticas(m).armadura || 0}.`,
@@ -463,7 +467,7 @@ function siguienteInterno(c: Combate, rng: RNG) {
   delete n.resultado;
   if (a) {
     emitirMotor(n, 'fin_turno', a, a, a, rng);
-    caducarMotor(a);
+    caducarMotor(n,a,rng);
     if (
       (estadisticas(a).fatiga || 0) > 0 &&
       a.fatiga >= (estadisticas(a).fatiga || 0)
@@ -592,17 +596,12 @@ export function acciones(m: Combatiente) {
       enfriamiento: 0,
     });
   else {
-    const p = Object.values(piezas(m)).find((p) =>
-      p.efectos?.some((e) => e.efecto === "dano"),
-    );
-    const a = p?.efectos?.find((e) => e.efecto === "dano") || basico();
-    lista.push({
-      id: "ataque",
-      nombre: p ? `Atacar con ${p.nombre}` : a.nombre,
-      efecto: a,
-      enfriamiento: 0,
-    });
+    const p = ['mano_der','mano_izq'].map(slot=>piezas(m)[slot]).find(p=>p?.efectos?.some(e=>e.efecto==='dano'));
+    if (p) lista.push({id:'ataque',nombre:`Atacar con ${p.nombre}`,efecto:p.efectos!.find(e=>e.efecto==='dano')!,enfriamiento:0});
+    else if (manosLibres(m)>0) lista.push({id:'ataque',nombre:'Ataque desarmado',efecto:basico(),enfriamiento:0});
   }
+  if ((m.arma || lista.some(a=>a.id==='ataque'&&a.efecto.id!=='basico')) && manosLibres(m)>0)
+    lista.push({id:'desarmado',nombre:'Ataque desarmado · mano libre',efecto:basico(),enfriamiento:0});
   for (const h of m.configuracion.habilidades || [])
     for (const e of h.efectos || [])
       lista.push({
@@ -624,7 +623,7 @@ export function acciones(m: Combatiente) {
       });
   for (const h of m.motor?.habilidades || []) lista.push({id:`motor-hab:${h.id}`,nombre:h.accion.nombre,efecto:h.accion,enfriamiento:0});
   for (const {clave, regla} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
-  return lista;
+  return lista.filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo);
 }
 function actuarInterno(
   c: Combate,
@@ -935,8 +934,8 @@ export function retirar(c: Combate, id: string) {
 
 // Runtime serializable: se guarda junto al encuentro y participa en Deshacer.
 export type EstadoMotor = {
- modificadores: {clave:string;nombre:string;creado:number;duracion:number;cambios:{atributo:string;operacion:'sumar'|'multiplicar'|'fijar';valor:number}[]}[];
- habilidades: {id:string;clave:string;creado:number;duracion:number;accion:Efecto}[];
+ modificadores: {origen?:string;clave:string;nombre:string;creado:number;duracion:number;cambios:{atributo:string;operacion:'sumar'|'multiplicar'|'fijar';valor:number}[]}[];
+ habilidades: {origen?:string;id:string;clave:string;creado:number;duracion:number;accion:Efecto}[];
  usos: Record<string,number>; proximos: Record<string,number>;
  progreso: {id:string;atributo:string;delta:number;regla:string}[];
 };
@@ -951,7 +950,7 @@ export function reglasMotor(m:Combatiente) {
  const vistos=new Set<string>();
  return fuentes.flatMap(f=>f.reglas.map(regla=>({clave:`${f.id}:${regla.id}`,regla}))).filter(r=>{if(vistos.has(r.clave))return false;vistos.add(r.clave);return true;}).sort((a,b)=>b.regla.prioridad-a.regla.prioridad||a.clave.localeCompare(b.clave));
 }
-type ContextoMotor = {c:Combate;yo:Combatiente;actor:Combatiente;objetivo:Combatiente;rng:RNG;efecto?:Efecto;cantidad:number;profundidad:number};
+type ContextoMotor = {c:Combate;yo:Combatiente;actor:Combatiente;objetivo:Combatiente;rng:RNG;efecto?:Efecto;cantidad:number;profundidad:number;fuente?:string;estado_terminado?:string};
 function sujetoMotor(ctx:ContextoMotor,s:Sujeto) {return s==='actor'?ctx.actor:s==='objetivo'?ctx.objetivo:ctx.yo;}
 function valorMotor(v:ValorRegla|undefined,ctx:ContextoMotor):number {
  if(typeof v==='number')return v;
@@ -968,6 +967,7 @@ function condicionMotor(c:CondicionRegla,ctx:ContextoMotor):boolean {
  const sub={...ctx,profundidad:ctx.profundidad+1};
  switch(c.tipo){
   case 'siempre':return true;
+  case 'estado_terminado':return ctx.estado_terminado===c.clave;
   case 'todas':return c.condiciones.every(x=>condicionMotor(x,sub));
   case 'alguna':return c.condiciones.some(x=>condicionMotor(x,sub));
   case 'no':return !condicionMotor(c.condicion,sub);
@@ -984,13 +984,13 @@ function condicionMotor(c:CondicionRegla,ctx:ContextoMotor):boolean {
  }
 }
 let profundidadMotor=0;
-function emitirMotor(c:Combate,evento:EventoRegla,yo:Combatiente,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0){
+function emitirMotor(c:Combate,evento:EventoRegla,yo:Combatiente,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0,estadoTerminado?:string){
  if(profundidadMotor>=8){log(c,'Se detuvo una cadena de reglas al alcanzar 8 eventos.');return;}
  profundidadMotor++;
- try {for(const {clave,regla} of reglasMotor(yo))if(regla.evento===evento)ejecutarRegla(c,yo,clave,regla,actor,objetivo,rng,efecto,cantidad,false);} finally {profundidadMotor--;}
+ try {for(const {clave,regla} of reglasMotor(yo))if(regla.evento===evento)ejecutarRegla(c,yo,clave,regla,actor,objetivo,rng,efecto,cantidad,false,estadoTerminado);} finally {profundidadMotor--;}
 }
-function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0,manual=false){
- const ctx:ContextoMotor={c,yo,actor,objetivo,rng,efecto,cantidad,profundidad:0},m=motor(yo);
+function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0,manual=false,estadoTerminado?:string){
+ const ctx:ContextoMotor={c,yo,actor,objetivo,rng,efecto,cantidad,profundidad:0,fuente:clave.startsWith('equipo:')?clave.split(':').slice(0,2).join(':'):undefined,estado_terminado:estadoTerminado},m=motor(yo);
  const error=!condicionMotor(r.condicion,ctx)?'No se cumplen las condiciones.':r.usos>0&&(m.usos[clave]||0)>=r.usos?'Sin usos restantes.':(m.proximos[clave]||0)>yo.turnos?'Regla en enfriamiento.':yo.ph<r.coste_ph?'PH insuficientes.':r.coste_fatiga>0&&(yo.agotado||yo.fatiga+r.coste_fatiga>(estadisticas(yo).fatiga||0))?'Fatiga insuficiente.':'';
  if(error){if(manual)throw Error(error);return;}
  yo.ph-=r.coste_ph;yo.fatiga+=r.coste_fatiga;
@@ -1023,7 +1023,7 @@ function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
      if(antes>0&&t.vida<=0){emitirMotor(ctx.c,'morir',t,ctx.yo,t,ctx.rng);if(t.id!==ctx.yo.id&&t.bando!==ctx.yo.bando)emitirMotor(ctx.c,'matar',ctx.yo,ctx.yo,t,ctx.rng);}break;
     }
     case 'quitar_estado':m.modificadores=m.modificadores.filter(x=>x.clave!==clave);m.habilidades=m.habilidades.filter(x=>x.clave!==clave);t.estados=t.estados.filter(x=>x.tipo!==clave&&x.nombre!==clave);break;
-    case 'habilidad':if(e.accion){m.habilidades=m.habilidades.filter(x=>x.id!==`${origen}:${indice}`);m.habilidades.push({id:`${origen}:${indice}`,clave,accion:copia(e.accion),duracion:e.duracion||0,creado:t.turnos});}break;
+    case 'habilidad':if(e.accion){m.habilidades=m.habilidades.filter(x=>x.id!==`${origen}:${indice}`);m.habilidades.push({origen:ctx.fuente,id:`${origen}:${indice}`,clave,accion:copia(e.accion),duracion:e.duracion||0,creado:t.turnos});}break;
     case 'estado':case 'transformar':case 'atributo':{
      const cambios=e.tipo==='atributo'?[{atributo:e.atributo||'vida',operacion:e.operacion||'sumar' as const,valor:v()}]:e.tipo==='transformar'?(e.cambios||[]).map(x=>({...x,valor:valorMotor(x.valor,ctx)})):[];
      if(e.permanente){for(const cambio of cambios){let delta=cambio.valor;
@@ -1031,7 +1031,7 @@ function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
       if(delta){t.stats[cambio.atributo]=(t.stats[cambio.atributo]||0)+delta;m.progreso.push({id:crypto.randomUUID(),atributo:cambio.atributo,delta,regla:clave});log(ctx.c,`${t.nombre}: ${cambio.atributo} ${delta>0?'+':''}${delta} permanente.`);}
      }}else{
       if(!e.acumular)m.modificadores=m.modificadores.filter(x=>x.clave!==clave);
-      if(!e.limite||m.modificadores.filter(x=>x.clave===clave).length<e.limite)m.modificadores.push({clave,nombre:e.nombre||clave,creado:t.turnos,duracion:e.duracion||0,cambios});
+      if(!e.limite||m.modificadores.filter(x=>x.clave===clave).length<e.limite)m.modificadores.push({origen:ctx.fuente,clave,nombre:e.nombre||clave,creado:t.turnos,duracion:e.duracion||0,cambios});
      }break;
     }
    }
@@ -1039,7 +1039,63 @@ function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
   }
  }
 }
-function caducarMotor(m:Combatiente){if(!m.motor)return;
- m.motor.modificadores=m.motor.modificadores.filter(x=>x.duracion===0||x.creado>=m.turnos||--x.duracion>0);
+function caducarMotor(c:Combate,m:Combatiente,rng:RNG){if(!m.motor)return;
+ const terminados:string[]=[];
+ m.motor.modificadores=m.motor.modificadores.filter(x=>{if(x.duracion===0||x.creado>=m.turnos||--x.duracion>0)return true;terminados.push(x.clave);return false;});
  m.motor.habilidades=m.motor.habilidades.filter(x=>x.duracion===0||x.creado>=m.turnos||--x.duracion>0);
+ for(const clave of new Set(terminados))if(!m.motor.modificadores.some(x=>x.clave===clave))emitirMotor(c,'fin_efecto',m,m,m,rng,undefined,0,clave);
+}
+
+export const ESPACIOS_EQUIPO:Record<string,{nombre:string;tipos:string[]}>= {
+ casco:{nombre:'Cabeza',tipos:['casco']},pechera:{nombre:'Torso',tipos:['pechera']},pantalones:{nombre:'Piernas',tipos:['pantalones']},zapatos:{nombre:'Pies',tipos:['zapatos']},
+ mano_der:{nombre:'Mano derecha',tipos:['mano','dos_manos']},mano_izq:{nombre:'Mano izquierda',tipos:['mano','dos_manos']},
+ ...Object.fromEntries(Array.from({length:6},(_,i)=>[`acc_${i+1}`,{nombre:`Accesorio ${i+1}`,tipos:['accesorio']}])),titulo:{nombre:'Título',tipos:['titulo']}
+};
+export function manosLibres(m:Combatiente):number {
+ if(m.arma?.efecto.arma_slot==='dos_manos')return 0;
+ const equipo={...piezas(m)};
+ if(Object.values(equipo).some(p=>p.slot_tipo==='dos_manos'))return 0;
+ if(m.arma)equipo[m.arma.slot]={nombre:m.arma.nombre,stats:{}};
+ return Number(!equipo.mano_der)+Number(!equipo.mano_izq);
+}
+function activarEquipo(c:Combate,m:Combatiente,rng:RNG,ids?:Set<string>){
+ for(const {clave,regla} of reglasMotor(m))if(regla.evento==='equipar'&&clave.startsWith('equipo:')&&(!ids||ids.has(clave.split(':')[1])))ejecutarRegla(c,m,clave,regla,m,m,rng);
+}
+export function seleccionEquipo(m:Combatiente):Record<string,string>{return Object.fromEntries(Object.entries(m.configuracion.equipamiento||{}).filter(([,p])=>p.id).map(([slot,p])=>[slot,p.id!]));}
+export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,string>,rng:RNG=dadoSeguro):Combate {
+ return registrar(c,()=>{
+  const n=copia(c),m=n.miembros.find(v=>v.id===actorId);
+  if(!m)throw Error('Personaje inexistente.');
+  if(n.fase==='finalizado')throw Error('El encuentro ha terminado.');
+  if(n.fase==='en_curso'&&(n.actual!==m.id||m.accion_usada||m.vida<=0))throw Error('Cambiar equipo requiere tu turno y una acción disponible.');
+  const anterior=m.configuracion.equipamiento||{},reserva=new Map([...(m.configuracion.reserva||[]),...Object.values(anterior)].filter(p=>p.id).map(p=>[p.id!,p]));
+  const elegido:Record<string,Fuente>={},usados=new Set<string>();
+  for(const [slot,id] of Object.entries(seleccion)){
+   if(!id)continue;
+   const espacio=ESPACIOS_EQUIPO[slot],pieza=reserva.get(id);
+   if(!espacio||!pieza||!espacio.tipos.includes(pieza.slot_tipo||'ninguno'))throw Error('Objeto incompatible o fuera del inventario.');
+   if(usados.has(id))throw Error('Una misma pieza no puede ocupar dos espacios.');usados.add(id);elegido[slot]=pieza;
+  }
+  if((elegido.mano_der?.slot_tipo==='dos_manos'&&elegido.mano_izq)||(elegido.mano_izq?.slot_tipo==='dos_manos'&&elegido.mano_der))throw Error('Un arma de dos manos ocupa ambas manos.');
+  if(JSON.stringify(Object.entries(seleccionEquipo(m)).sort())===JSON.stringify(Object.entries(seleccion).filter(([,id])=>id).sort()))throw Error('No hay cambios de equipamiento.');
+  const antiguos=new Set(Object.values(anterior).map(p=>p.id).filter(Boolean)),nuevos=new Set(Object.values(elegido).map(p=>p.id).filter(Boolean));
+  for(const {clave,regla} of reglasMotor(m))if(regla.evento==='desequipar'&&clave.startsWith('equipo:')&&!nuevos.has(clave.split(':')[1]))ejecutarRegla(n,m,clave,regla,m,m,rng);
+  if(m.motor){
+   const retirar=(origen?:string)=>!!origen&&origen.startsWith('equipo:')&&!nuevos.has(origen.slice(7));
+   m.motor.modificadores=m.motor.modificadores.filter(x=>!retirar(x.origen));
+   m.motor.habilidades=m.motor.habilidades.filter(x=>!retirar(x.origen));
+  }
+  const bonos=(equipo:Record<string,Fuente>)=>{const b:Record<string,number>={};for(const p of Object.values(equipo))for(const [k,v] of Object.entries(p.stats||{}))if(!['peso','durabilidad','dados_dano','caras_dano','dano'].includes(k))b[k]=(b[k]||0)+v;return b;};
+  const viejos=bonos(anterior),actuales=bonos(elegido);
+  for(const k of new Set([...Object.keys(viejos),...Object.keys(actuales)]))m.stats[k]=(m.stats[k]||0)-(viejos[k]||0)+(actuales[k]||0);
+  const cambianManos=['mano_der','mano_izq'].some(k=>anterior[k]?.id!==elegido[k]?.id);
+  if(cambianManos)delete m.arma;
+  m.configuracion.habilidades=m.configuracion.habilidades?.filter(h=>!h.id||!reserva.has(h.id));
+  m.configuracion.equipamiento=elegido;m.configuracion.bonos_equipamiento=actuales;m.configuracion.reserva=[...reserva.values()];
+  activarEquipo(n,m,rng,new Set([...nuevos].filter((id):id is string=>!!id&&!antiguos.has(id))));
+  normalizar(m);
+  if(n.fase==='en_curso')m.accion_usada=true;
+  log(n,`${m.nombre} cambia su equipamiento${n.fase==='en_curso'?' y consume su acción':''}. Manos libres: ${manosLibres(m)}.`);
+  return n;
+ });
 }

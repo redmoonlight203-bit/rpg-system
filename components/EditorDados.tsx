@@ -181,6 +181,7 @@ export function EditorDados({
               />
             </label>
           </div>
+          <div className="space-y-2 rounded border border-neutral-800 p-3"><label className="text-sm"><input type="checkbox" checked={!!e.requisito_forma} onChange={v=>cambiar(e.id,{requisito_forma:v.target.checked?{atributo:'etapa_phoenix',minimo:2}:undefined})}/> Requiere una etapa o atributo mínimo</label>{e.requisito_forma&&<div className="grid gap-3 sm:grid-cols-2"><label>Atributo<input className={campo} value={e.requisito_forma.atributo} onChange={v=>cambiar(e.id,{requisito_forma:{...e.requisito_forma!,atributo:v.target.value}})}/></label><label>Mínimo<input type="number" className={campo} value={e.requisito_forma.minimo} onChange={v=>cambiar(e.id,{requisito_forma:{...e.requisito_forma!,minimo:Number(v.target.value)}})}/></label></div>}</div>
           <label className="block text-sm">
             Coste de Fatiga
             <input
@@ -473,3 +474,4 @@ export function EditorDados({
     </section>
   );
 }
+

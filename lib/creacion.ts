@@ -34,6 +34,7 @@ export const ELEMENTOS: Elemento[] = [
   "luz_sagrada",
 ];
 export type Efecto = {
+  requisito_forma?: { atributo: string; minimo: number };
   elemento?: Elemento;
   naturaleza?: "automatica" | "fisica" | "magica" | "natural";
   salvacion?: {
@@ -136,6 +137,7 @@ export function formula(
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
+    if (e.requisito_forma && (!/^[a-z_][a-z0-9_]*$/.test(e.requisito_forma.atributo) || !Number.isFinite(e.requisito_forma.minimo))) return 'Requisito de forma inválido.';
     if (e.elemento && !ELEMENTOS.includes(e.elemento))
       return "Elemento inválido.";
     if (
@@ -278,3 +280,4 @@ export function efectosDe(f: FuenteCreacion): Efecto[] {
     ];
   return [];
 }
+
