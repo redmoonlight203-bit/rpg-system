@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { Hammer, Swords, Sliders, Users, Handshake, ShoppingBag, LogOut, ChevronDown } from "lucide-react";
 import "./gm.css";
+import NavegacionMovil from "../../components/NavegacionMovil";
 
 const principales = [
   { path: "/dm/forja", label: "La Forja", detail: "Crear y dar forma al mundo", icon: Hammer },
@@ -42,6 +43,7 @@ export default function DMLayout({ children }: { children: React.ReactNode }) {
       </details>
       <div className="gm-footer"><p>Todo empieza en la Forja.<br/><span>Crea. Equipa. Lleva a combate.</span></p><button onClick={()=>void cerrarSesion()}><LogOut size={16}/>Cerrar sesión</button></div>
     </aside>
+    <NavegacionMovil gm/>
     <div id="gm-content" tabIndex={-1} className="gm-content">{children}</div>
   </div>;
 }

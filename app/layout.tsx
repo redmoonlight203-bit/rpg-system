@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import "./globals.css";
+import "./mobile.css";
 
 const sansKr = Noto_Sans_KR({
   subsets: ["latin"],
@@ -15,6 +16,8 @@ const serifKr = Noto_Serif_KR({
   variable: "--font-serif-kr",
   display: "swap",
 });
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#090a08" };
 
 export const metadata: Metadata = {
   title: "Yugen Realm | Nexus System",
