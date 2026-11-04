@@ -130,10 +130,26 @@ function armado(m: Combatiente) {
     )
   );
 }
-export function reglas(m: Combatiente) {
+export /** La pasiva racial tiene prioridad sobre versiones equipadas con el mismo nombre.
+ * Evita apilar Escamas de Dragon antiguas y raciales sin modificar las fichas existentes. */
+function pasivasAplicables(m: Combatiente) {
+  const todas = m.configuracion.pasivas || [];
+  const raciales = todas.filter((p) => String(p.id || "").startsWith("raza:"));
+  const otras = todas.filter((p) => !String(p.id || "").startsWith("raza:"));
+  const vistas = new Set<string>();
+  return [...raciales, ...otras].filter((p) => {
+    const nombre = (p.nombre || "").normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+    if (vistas.has(nombre)) return false;
+    vistas.add(nombre);
+    return true;
+  });
+}
+
+function reglas(m: Combatiente) {
   const todas = [
     ...(m.configuracion.reglas_pasivas || []),
-    ...(m.configuracion.pasivas || []).flatMap((p) => p.reglas || []),
+    ...pasivasAplicables(m).flatMap((p) => p.reglas || []),
     ...Object.values(piezas(m)).flatMap((p) => p.reglas_pasivas || []),
   ];
   return [...new Map(todas.map((r) => [JSON.stringify(r), r])).values()];
@@ -958,7 +974,7 @@ function motor(m:Combatiente):EstadoMotor {return m.motor ||= {modificadores:[],
 export function reglasMotor(m:Combatiente) {
  const fuentes = [
   {id:'propio',reglas:m.configuracion.reglas||[]},
-  ...(m.configuracion.pasivas||[]).map((p,i)=>({id:`pasiva:${p.id||i}`,reglas:p.reglas_motor||[]})),
+  ...pasivasAplicables(m).map((p,i)=>({id:`pasiva:${p.id||i}`,reglas:p.reglas_motor||[]})),
   ...(m.configuracion.habilidades||[]).map((p,i)=>({id:`hab:${p.id||i}`,reglas:p.reglas||[]})),
   ...Object.entries(piezas(m)).map(([slot,p])=>({id:`equipo:${p.id||slot}`,reglas:p.reglas||[]})),
  ];
