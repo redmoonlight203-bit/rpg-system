@@ -9,3 +9,14 @@ test('solo personajes; mover no relanza iniciativa',()=>{assert.throws(()=>c.agr
 test('arma temporal consume acción y fatiga, dura tres turnos completos posteriores',()=>{let x=c.actuar(campo(),'a','hab:h:crear','a',()=>1);assert.equal(x.miembros[0].ph,0);assert.equal(x.miembros[0].fatiga,1);assert.throws(()=>c.actuar(x,'a','ataque','b'));x=c.siguiente(x);assert.equal(x.miembros[0].arma.restantes,3);for(let i=0;i<2;i++){x=c.siguiente(c.siguiente(x));assert.equal(x.miembros[0].arma.restantes,2-i);}x=c.siguiente(c.siguiente(x));assert.equal(x.miembros[0].arma,undefined);});
 test('fallar consume acción sin dañar; guardia caduca al siguiente turno propio',()=>{let x=c.actuar(campo(),'a','ataque','b',()=>1);assert.equal(x.miembros[1].vida,100);assert.equal(x.miembros[0].accion_usada,true);x=c.actuar(campo(),'a','guardia','a');assert.equal(c.estadisticas(x.miembros[0]).armadura,22);x=c.siguiente(c.siguiente(x));assert.equal(c.estadisticas(x.miembros[0]).armadura,20);});
 test('pasiva condicional se recalcula con la vida actual',()=>{const m=personaje();m.configuracion.reglas_pasivas=[{...regla,condicion:'vida_mitad',bonos:{armadura:2}}];const x=c.agregar(c.nuevoCombate(),m,'jugador',()=>1).miembros[0];assert.equal(c.estadisticas(x).armadura,20);x.vida=50;assert.equal(c.estadisticas(x).armadura,22);});
+
+
+test('la pasiva racial de Escamas prevalece sobre la versión antigua equipada',()=>{
+ const m=personaje();m.configuracion.pasivas=[
+  {id:'vieja',nombre:'Escamas de dragon',reglas:[{...regla,bonos:{armadura:5}}],reglas_motor:[]},
+  {id:'raza:dragones',nombre:'Escamas de Dragón',reglas:[{...regla,id:'escamas',nombre:'Escamas de Dragón',evento:'recibir_ataque',condicion:'ataque_magico',bonos:{armadura:5},reduccion_pct:50}],reglas_motor:[]}
+ ];
+ const x=c.agregar(c.nuevoCombate(),m,'jugador',()=>10).miembros[0];
+ assert.equal(c.estadisticas(x).armadura,20,'no se suman los 5 ARM permanentes de la versión antigua');
+ assert.equal(c.reglas(x).filter(r=>r.nombre==='Escamas de Dragón').length,1);
+});
