@@ -660,7 +660,8 @@ function actuarInterno(
   const act = acciones(a).find((v) => v.id === accionId);
   if (!act) throw Error("La acción no existe.");
   if ((a.cooldowns[act.id] || 0) > 0) throw Error("Habilidad en enfriamiento.");
-  const e = act.efecto,
+  let e = act.efecto;
+  const
     s = estadisticas(a),
     coste = e.coste_ph || 0,
     fatiga = e.coste_fatiga || 0,
@@ -689,6 +690,15 @@ function actuarInterno(
   }
   log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
   if (e.efecto === "crear_arma") {
+    if (e.tabla_armas) {
+      const tabla = e.tabla_armas;
+      if (!Number.isInteger(tabla.caras) || tabla.caras < 2 || tabla.caras > 100 || !Array.isArray(tabla.resultados) || tabla.resultados.length !== tabla.caras || new Set(tabla.resultados.map(r=>r.cara)).size !== tabla.caras || tabla.resultados.some(r=>!Number.isInteger(r.cara)||r.cara<1||r.cara>tabla.caras)) throw Error('La tabla de armas está incompleta.');
+      const cara = dados(n, 1, tabla.caras, rng, 'Creación de arma');
+      const r = tabla.resultados.find(r=>r.cara===cara);
+      if (!r || !r.nombre?.trim() || !Number.isInteger(r.cantidad) || r.cantidad<1 || r.cantidad>100 || !Number.isInteger(r.caras) || r.caras<2 || r.caras>1000 || !Number.isInteger(r.modificador) || Math.abs(r.modificador)>1000000 || !['mano_der','mano_izq','dos_manos'].includes(r.arma_slot)) throw Error('Arma del resultado inválida.');
+      e = {...e, tabla_armas:undefined, arma_nombre:r.nombre, cantidad:r.cantidad, caras:r.caras, modificador:r.modificador, tipo_dano:r.tipo_dano, elemento:r.elemento, arma_slot:r.arma_slot};
+      log(n, `${act.nombre}: d${tabla.caras} → ${cara}: ${r.nombre}.`);
+    }
     a.arma = {
       efecto: { ...e },
       nombre: e.arma_nombre || "Arma temporal",

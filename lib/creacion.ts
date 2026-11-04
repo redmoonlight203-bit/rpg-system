@@ -34,7 +34,20 @@ export const ELEMENTOS: Elemento[] = [
   "hielo",
   "luz_sagrada",
 ];
+export type ArmaResultado = {
+  cara: number;
+  origen_id?: string;
+  nombre: string;
+  cantidad: number;
+  caras: number;
+  modificador: number;
+  tipo_dano: string;
+  elemento?: Elemento;
+  arma_slot: "mano_der" | "mano_izq" | "dos_manos";
+};
 export type Efecto = {
+  tabla_armas?: { caras: number; resultados: ArmaResultado[] };
+
   requisito_forma?: { atributo: string; minimo: number };
   elemento?: Elemento;
   naturaleza?: "automatica" | "fisica" | "magica" | "natural";
@@ -138,6 +151,20 @@ export function formula(
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
+    const tabla = e.tabla_armas;
+    if (tabla !== undefined) {
+      if (e.efecto !== 'crear_arma' || !tabla || !Number.isInteger(tabla.caras) || tabla.caras < 2 || tabla.caras > 100 || !Array.isArray(tabla.resultados) || tabla.resultados.length !== tabla.caras)
+        return 'Asigna un arma a cada cara del dado (entre 2 y 100 caras).';
+      const caras = new Set<number>();
+      for (const r of tabla.resultados) {
+        if (!r || !Number.isInteger(r.cara) || r.cara < 1 || r.cara > tabla.caras || caras.has(r.cara)) return 'Cada cara debe aparecer exactamente una vez.';
+        caras.add(r.cara);
+        if (typeof r.nombre !== 'string' || !r.nombre.trim() || r.nombre.length > 120 || !['mano_der','mano_izq','dos_manos'].includes(r.arma_slot)) return `Cara ${r.cara}: elige nombre y mano válidos.`;
+        const fallo = validarEfectos([{...e, tabla_armas: undefined, arma_nombre:r.nombre, cantidad:r.cantidad, caras:r.caras, modificador:r.modificador, tipo_dano:r.tipo_dano, elemento:r.elemento, arma_slot:r.arma_slot}]);
+        if (fallo) return `Cara ${r.cara}: ${fallo}`;
+      }
+    }
+
     if (e.requisito_forma && (!/^[a-z_][a-z0-9_]*$/.test(e.requisito_forma.atributo) || !Number.isFinite(e.requisito_forma.minimo))) return 'Requisito de forma inválido.';
     if (e.elemento && !ELEMENTOS.includes(e.elemento))
       return "Elemento inválido.";
@@ -210,7 +237,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       return "Coste de Fatiga inválido.";
     if (
       e.efecto === "crear_arma" &&
-      (!e.arma_nombre?.trim() ||
+      ((!e.tabla_armas && !e.arma_nombre?.trim()) ||
         e.cantidad < 1 ||
         e.duracion < 1 ||
         !["mano_der", "mano_izq", "dos_manos"].includes(
