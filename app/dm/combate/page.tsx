@@ -43,6 +43,7 @@ import {
   type Combate,
   type Combatiente,
   type Bando,
+  type Fuente,
 } from "../../../lib/combate";
 import {EditorEquipoCombate,consultarEquipo,type ContextoEquipo} from "../../../components/EditorEquipoCombate";
 import { formula } from "../../../lib/creacion";
@@ -86,9 +87,18 @@ export default function CampoCombate() {
     [ocupado, setOcupado] = useState(false),
     [cargando, setCargando] = useState(true);
   const bloqueo = useRef(false);
+  const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
   const [editorEquipo,setEditorEquipo]=useState<{actor:string;contexto:ContextoEquipo}|null>(null);
   async function refrescarEncuentro(){const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(r.error)throw Error(r.error.message);if(r.data){setC(r.data.datos as Combate);setVersion(r.data.version);}}
-  async function abrirEquipoActual(){if(!actor)return;await ejecutar(async()=>{const contexto=await consultarEquipo({combate_id:id,actor_id:actor.id,consultar:true});setEditorEquipo({actor:actor.id,contexto});});}
+  async function abrirEquipoActual(participante:Combatiente|undefined=actor){if(!participante)return;await ejecutar(async()=>{if(c.fase==='preparacion'&&!participante.personaje_id){const r=await supabase.from('forja_maestra').select('id,nombre').eq('tipo_creacion','objeto').eq('estado','aprobado').order('nombre');if(r.error)throw Error(r.error.message);setObjetosMochila(r.data||[]);}const contexto=await consultarEquipo({combate_id:id,actor_id:participante.id,consultar:true});setEditorEquipo({actor:participante.id,contexto});});}
+  async function agregarObjetoMochila(objetoId:string){
+    if(!editorEquipo||c.fase!=='preparacion')throw Error('Prepara la mochila antes de iniciar el combate.');
+    const participante=c.miembros.find(m=>m.id===editorEquipo.actor);if(!participante||participante.personaje_id)throw Error('Los jugadores utilizan las copias de su inventario.');
+    const r=await supabase.rpc('combate_preparar_objeto',{p_id:objetoId});if(r.error)throw Error(r.error.message);
+    const next=structuredClone(c),m=next.miembros.find(m=>m.id===participante.id)!;
+    (m.configuracion.reserva||=[]).push(r.data as Fuente);await guardar(next);
+    const contexto=await consultarEquipo({combate_id:id,actor_id:m.id,consultar:true});setEditorEquipo({actor:m.id,contexto});
+  }
   useEffect(()=>{if(c.fase!=='en_curso')return;let vivo=true,leyendo=false;const t=setInterval(()=>{if(bloqueo.current||leyendo||document.hidden)return;leyendo=true;void(async()=>{try{const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(vivo&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}}catch{/* Se reintentará en la próxima consulta. */}finally{leyendo=false;}})();},3000);return()=>{vivo=false;clearInterval(t);};},[id,version,c.fase]);
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);
@@ -231,7 +241,7 @@ export default function CampoCombate() {
         c,
         actor.id,
         elegida,
-        objetivoId || destino,
+        objetivoId || (elegida === "guardia" || efecto?.efecto === "crear_arma" ? actor.id : destino),
         (caras) => {
           const valor = dadoSeguro(caras);
           dados.push({ caras, valor });
@@ -448,7 +458,7 @@ export default function CampoCombate() {
     efecto = lista.find((a) => a.id === elegida)?.efecto,
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
-      : c.miembros.find((m) => m.bando !== actor?.bando)?.id || actor?.id || "";
+      : "";
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
     const atajo = (event: KeyboardEvent) => {
@@ -472,6 +482,7 @@ export default function CampoCombate() {
       <article
         key={m.id}
         className={`battle-unit ${actor && destino === m.id ? "is-target" : ""} ${c.actual === m.id ? "is-current" : ""} ${m.vida <= 0 ? "is-down" : ""} ${c.actual === m.id && m.vida > 0 && m.vida / maxVida(m) <= 0.25 ? "is-critical" : ""}`}
+        onClick={(e) => {if(c.fase==='en_curso'&&!ocupado&&actor&&!actor.accion_usada&&!(e.target as HTMLElement).closest('button,input,select,textarea,a,summary'))setObjetivo(m.id);}}
         draggable={!ocupado && c.fase === "preparacion"}
         onDragStart={(e) =>
           e.dataTransfer.setData(
@@ -522,6 +533,7 @@ export default function CampoCombate() {
         <span className="battle-owner-tag">{c.actual === m.id ? "En turno" : m.bando === "jugador" ? "Aliado" : "Adversario"}</span>
         </div></div>
         {actor && destino === m.id && <span className="battle-state target"><Crosshair size={12} /> Objetivo</span>}
+        <button className="battle-button battle-inventory-open" disabled={ocupado} onClick={()=>void abrirEquipoActual(m)}>Inventario y equipo</button>
         {m.personaje_id && (
           <span className="battle-owner-tag">Personaje de jugador</span>
         )}
@@ -844,7 +856,7 @@ export default function CampoCombate() {
         )}
       </div>
       {c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">Hasta confirmarlo, los cambios viven en este encuentro y puedes deshacerlos. Al aplicarlos se actualizan las fichas reales una sola vez y el encuentro queda cerrado. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={ocupado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
-      {editorEquipo&&<EditorEquipoCombate contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}
+      {editorEquipo&&<EditorEquipoCombate key={`${editorEquipo.actor}:${editorEquipo.contexto.version}`} catalogo={c.fase==='preparacion'&&!c.miembros.find(m=>m.id===editorEquipo.actor)?.personaje_id?objetosMochila:undefined} onAgregar={agregarObjetoMochila} contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}
       {error && (
         <p className="battle-error" role="alert">
           {error}
@@ -984,15 +996,15 @@ export default function CampoCombate() {
               </section>
             ))}
           </div>
-          <section className="battle-action">
+          <>{c.fase === "en_curso" && <section className="battle-action">
             <div className="battle-section-title">
               <Swords size={15} />
-              <h2>{actor ? `Turno de ${actor.nombre}` : c.fase === "finalizado" ? "Combate finalizado" : "Prepara el encuentro"}</h2>
+              <h2>{actor ? `Turno de ${actor.nombre}` : "Selecciona un participante"}</h2>
               <span className="battle-action-status">{actor ? actor.accion_usada ? "ACCIÓN UTILIZADA" : "1 ACCIÓN DISPONIBLE" : ""}</span>
             </div>
             {actor && <div className="battle-actor-resources"><Shield size={15} /> ARM {estadisticas(actor).armadura || 0}<Zap size={15} /> PH {actor.ph}/{estadisticas(actor).ph || 0}<Flame size={15} /> Fatiga {actor.fatiga}/{estadisticas(actor).fatiga || 0}</div>}
-            {!actor && <p className="battle-action-empty">{c.fase === "preparacion" ? "Forma los bandos e inicia el combate para acceder a las habilidades." : "El encuentro ha terminado. Puedes revisar su registro o crear uno nuevo."}</p>}
-            {actor&&<button className="battle-button" disabled={ocupado||actor.accion_usada||actor.vida<=0} onClick={()=>void abrirEquipoActual()}>Cambiar equipamiento · 1 acción</button>}
+            
+            {actor&&<button className="battle-button" disabled={ocupado} onClick={()=>void abrirEquipoActual()}>Inventario y equipo</button>}
             <div
               className="battle-action-tiles"
               role="group"
@@ -1062,41 +1074,23 @@ export default function CampoCombate() {
                 );
               })}
             </div>
-            <label className="battle-force">
+            {!!efecto?.coste_fatiga && <label className="battle-force">
               <input
                 type="checkbox"
                 checked={forzar}
                 onChange={(e) => setForzar(e.target.checked)}
               />{" "}
               Forzar natural con agotamiento: sufres 1d4 antes de actuar.
-            </label>
+            </label>}
             <div className="battle-action-grid">
-              <label>
-                Objetivo · Selecciona su nombre o usa la lista
-                {actor && <span className="battle-target-preview"><Crosshair size={14} />{actor.nombre} → {elegida === "guardia" || efecto?.efecto === "crear_arma" ? actor.nombre : c.miembros.find((m) => m.id === destino)?.nombre || "Selecciona un objetivo"}</span>}
-                <select
-                  disabled={
-                    ocupado ||
-                    !actor ||
-                    efecto?.efecto === "crear_arma" ||
-                    elegida === "guardia"
-                  }
-                  value={destino}
-                  onChange={(e) => setObjetivo(e.target.value)}
-                >
-                  {c.miembros.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre} · {m.bando} · #{m.id.slice(0, 4)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="battle-target-choice"><span className="battle-target-preview"><Crosshair size={16}/>{elegida === "guardia" || efecto?.efecto === "crear_arma" ? actor?.nombre : c.miembros.find(m=>m.id===destino)?.nombre || "Pulsa la tarjeta de un objetivo"}</span><small>Elige una acción y selecciona a quién va dirigida pulsando su tarjeta o su nombre.</small></div>
               <button
                 className="battle-primary"
                 disabled={
                   ocupado ||
                   !actor ||
                   actor.accion_usada ||
+                  (!destino && elegida !== "guardia" && efecto?.efecto !== "crear_arma") ||
                   c.fase !== "en_curso"
                 }
                 onClick={() => void resolver()}
@@ -1118,7 +1112,8 @@ export default function CampoCombate() {
                 Coste {efecto.coste_ph} PH / {efecto.coste_fatiga || 0} Fatiga.
               </p>
             )}
-            <label className="battle-rule">
+          </section>}
+          {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select
                 disabled={ocupado || c.fase !== "preparacion"}
@@ -1145,7 +1140,8 @@ export default function CampoCombate() {
               automáticos configurados sí se resuelven. Los grupos de cercanía
               determinan chispas y Superconducción.
             </p>
-          </section>
+          </details>}</>
+
         </section>
       <section className="battle-log">
         <div className="battle-section-title">

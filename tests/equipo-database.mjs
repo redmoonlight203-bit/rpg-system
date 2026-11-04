@@ -3,7 +3,7 @@ const {PGlite}=await import(process.env.FORJA_PGLITE_MODULE||'@electric-sql/pgli
 try{
  for(const path of ['./fixtures/forja_copias_schema.sql','./fixtures/creacion_schema.sql','../supabase/migrations/20261030_forja_copias.sql','../supabase/migrations/20261030_forja_tipos_y_dados.sql','../supabase/migrations/20261030_combate_pasivas.sql','../supabase/migrations/20261030190047_pasivas_reactivas_y_elementos.sql'])await db.exec(readFileSync(new URL(path,import.meta.url),'utf8'));
  await db.exec("create role service_role;alter table forja_maestra add column requisitos text,add column defectos text;alter table personajes add column atributos jsonb default '{}',add column estado_vida text default 'vivo';alter table inventario_jugador add column created_at timestamptz default now();");
- for(const path of ['../supabase/migrations/20261103173113_forja_motor_reglas.sql','../supabase/migrations/20261103182719_equipo_en_combate.sql'])await db.exec(readFileSync(new URL(path,import.meta.url),'utf8'));
+ for(const path of ['../supabase/migrations/20261103173113_forja_motor_reglas.sql','../supabase/migrations/20261103182719_equipo_en_combate.sql','../supabase/migrations/20261104005416_inventario_visual_consumibles.sql'])await db.exec(readFileSync(new URL(path,import.meta.url),'utf8'));
  const gm='00000000-0000-0000-0000-000000000001',jugador='00000000-0000-0000-0000-000000000003',otro='00000000-0000-0000-0000-000000000099',combate='00000000-0000-0000-0000-000000000002';
  await db.query("insert into perfiles values($1,'KUROI'),($2,'JUGADOR')",[gm,jugador]);await db.query("insert into personajes(id,user_id,nombre,estado_aprobacion,atributos) values(1,$1,'Prueba','aprobado','{\"vida\":20}')",[jugador]);
  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[gm]);
@@ -32,6 +32,30 @@ try{
  // GM undo restores inventory atomically with encounter state.
  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[gm]);await db.query('select combate_guardar($1,$2,$3,2)',[combate,'Prueba',JSON.stringify(datos)]);
  assert.equal((await db.query('select slot_equipado from inventario_jugador where id=$1',[item.id])).rows[0].slot_equipado,'mano_der');
+ // Consumed copies are deleted atomically; undo restores the original snapshot even if the template changes.
+ const plantilla=(await db.query("insert into forja_maestra(nombre,tipo,tipo_creacion,slot_tipo,consumible) values('Poción','armas','objeto','ninguno',true) returning id")).rows[0];
+ const pocion=(await db.query("insert into inventario_jugador(user_id,personaje_id,forja_id,nombre,tipo,slot_tipo,stats) values($1,1,$2,'Poción','armas','ninguno','{}') returning *",[jugador,plantilla.id])).rows[0];
+ const todo=(await db.query('select combate_preparar_jugador(1) as m')).rows[0].m;
+ assert.equal(todo.configuracion.reserva.find(p=>p.id===pocion.id).consumible,true);
+ const consumido=structuredClone(datos);consumido.miembros[0].configuracion.consumidos=[pocion.id];consumido.miembros[0].accion_usada=true;
+ await db.query('select combate_guardar($1,$2,$3,3)',[combate,'Prueba',JSON.stringify(consumido)]);
+ assert.equal((await db.query('select count(*)::int as n from inventario_jugador where id=$1',[pocion.id])).rows[0].n,0);
+ await db.query('update forja_maestra set consumible=false where id=$1',[plantilla.id]);
+ await db.query('select combate_guardar($1,$2,$3,4)',[combate,'Prueba',JSON.stringify(datos)]);
+ const restaurada=(await db.query('select * from inventario_jugador where id=$1',[pocion.id])).rows[0];assert.deepEqual(restaurada,pocion);
+ assert.equal((await db.query('select count(*)::int as n from yugen_interno.combate_consumos')).rows[0].n,0);
+ // Invalid consumption cannot alter encounter state or remove a non-consumable.
+ const invalido=structuredClone(datos);invalido.miembros[0].configuracion.consumidos=[item.id];
+ await assert.rejects(db.query('select combate_guardar($1,$2,$3,5)',[combate,'Prueba',JSON.stringify(invalido)]));
+ assert.equal((await db.query('select version from combates_yugen where id=$1',[combate])).rows[0].version,5);
+ const capa=(await db.query("insert into forja_maestra(nombre,tipo,tipo_creacion,slot_tipo) values('Capa','armadura','objeto','capa') returning id")).rows[0];
+ const copiaCapa=(await db.query("insert into inventario_jugador(user_id,personaje_id,forja_id,nombre,tipo,slot_tipo,stats) values($1,1,$2,'Capa','armadura','capa','{}') returning id",[jugador,capa.id])).rows[0];
+ const preparado=await db.query('select combate_preparar_objeto($1) as p',[capa.id]);assert.equal(preparado.rows[0].p.slot_tipo,'capa');assert.notEqual(preparado.rows[0].p.id,capa.id);
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[jugador]);await assert.rejects(db.query('select combate_preparar_objeto($1)',[capa.id]));
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[gm]);
+ const prep=structuredClone(datos);prep.fase='preparacion';prep.miembros[0].configuracion.equipamiento.capa={id:copiaCapa.id,nombre:'Capa',slot_tipo:'capa',stats:{}};
+ await db.query('select combate_guardar($1,$2,$3,5)',[combate,'Prueba',JSON.stringify(prep)]);
+ assert.equal((await db.query('select slot_equipado from inventario_jugador where id=$1',[copiaCapa.id])).rows[0].slot_equipado,'capa');
  assert.equal((await db.query("select has_function_privilege('authenticated','public.equipo_contexto_servidor(uuid,bigint,uuid,text)','EXECUTE') as permitido")).rows[0].permitido,false);
  await db.exec('set role authenticated');await assert.rejects(db.query('select equipo_contexto_servidor($1,1,null,null)',[jugador]));await db.exec('reset role');
  console.log('PostgreSQL: Phoenix, reservas, autorización, turnos, bloqueo de cambios directos, conflictos y deshacer sincronizado correctos.');

@@ -1,5 +1,5 @@
 // @ts-nocheck -- Supabase Edge usa Deno; el proyecto web usa TypeScript para Next.
-import {agregar,nuevoCombate,cambiarEquipo,seleccionEquipo,estadisticas,maxVida,manosLibres} from './motor.js';
+import {agregar,nuevoCombate,cambiarEquipo,seleccionEquipo,estadisticas,maxVida,manosLibres,accionesObjeto,usarObjeto} from './motor.js';
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
 const respuesta=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 Deno.serve(async(req)=>{
@@ -31,14 +31,21 @@ Deno.serve(async(req)=>{
    if(!Object.hasOwn(body,'combate_esperado')||body.combate_esperado!==(ctx.combate_id||null))throw Error('El encuentro del personaje cambió. Recarga.');
    if(ctx.combate_id&&body.version!==ctx.version)throw Error('El encuentro cambió. Recarga el equipamiento.');
    if(!ctx.combate_id&&body.firma!==ctx.firma)throw Error('El inventario cambió. Recarga el equipamiento.');
-   if(!body.equipo||typeof body.equipo!=='object'||Array.isArray(body.equipo)||Object.keys(body.equipo).length>13||Object.values(body.equipo).some(x=>typeof x!=='string'||!uuid(x)))throw Error('Selección de equipo inválida.');
    const {c,m}=preparar(ctx);
-   const next=cambiarEquipo(c,m.id,body.equipo);
-   await rpc('equipo_confirmar_servidor',{p_usuario:user.id,p_personaje:ctx.personaje_id??null,p_combate:ctx.combate_id??null,p_actor:m.id,p_version:ctx.version??0,p_firma:ctx.firma??'',p_equipo:body.equipo,p_datos:ctx.combate_id?next:null});
+   let next;
+   if(body.operacion==='usar_objeto'){
+    if(!ctx.combate_id)throw Error('Los objetos se usan desde un combate activo.');
+    if(!uuid(body.objeto_id)||typeof body.efecto_id!=='string'||body.efecto_id.length>200||typeof body.objetivo_id!=='string')throw Error('Objeto, acción u objetivo inválido.');
+    next=usarObjeto(c,m.id,body.objeto_id,body.efecto_id,body.objetivo_id);
+   }else{
+    if(!body.equipo||typeof body.equipo!=='object'||Array.isArray(body.equipo)||Object.keys(body.equipo).length>14||Object.values(body.equipo).some(x=>typeof x!=='string'||!uuid(x)))throw Error('Selección de equipo inválida.');
+    next=cambiarEquipo(c,m.id,body.equipo);
+   }
+   await rpc('equipo_confirmar_servidor',{p_usuario:user.id,p_personaje:ctx.personaje_id??null,p_combate:ctx.combate_id??null,p_actor:m.id,p_version:ctx.version??0,p_firma:ctx.firma??'',p_equipo:seleccionEquipo(next.miembros.find(x=>x.id===m.id)),p_datos:ctx.combate_id?next:null});
    ctx=await contexto();
   }
   const {c,m}=preparar(ctx);
   // Nunca devolvemos al jugador las fichas ni el registro privado de sus enemigos.
-  return respuesta({equipo:seleccionEquipo(m),fuentes:ctx.fuentes.map(p=>({id:p.id,nombre:p.nombre,slot_tipo:p.slot_tipo})),combate_id:ctx.combate_id||null,version:ctx.version||0,firma:ctx.combate_id?undefined:ctx.firma,es_turno:ctx.combate_id?c.actual===m.id:true,accion_usada:!!m.accion_usada,vida:m.vida,max_vida:maxVida(m),manos_libres:manosLibres(m),stats:estadisticas(m),formas:(m.motor?.modificadores||[]).map(x=>x.nombre),nombre:m.nombre});
+  return respuesta({equipo:seleccionEquipo(m),fuentes:ctx.fuentes.map(p=>({id:p.id,nombre:p.nombre,slot_tipo:p.slot_tipo,stats:p.stats,tipo_creacion:p.tipo_creacion,descripcion:p.descripcion,imagen_url:p.imagen_url,consumible:!!p.consumible,acciones:accionesObjeto(m,p)})),combate_id:ctx.combate_id||null,fase:c.fase,version:ctx.version||0,firma:ctx.combate_id?undefined:ctx.firma,es_turno:ctx.combate_id?c.actual===m.id:true,accion_usada:!!m.accion_usada,vida:m.vida,max_vida:maxVida(m),manos_libres:manosLibres(m),stats:estadisticas(m),formas:(m.motor?.modificadores||[]).map(x=>x.nombre),nombre:m.nombre,actor_id:m.id,objetivos:c.miembros.filter(x=>x.vida>0).map(x=>({id:x.id,nombre:x.nombre,bando:x.bando}))});
  }catch(e){return respuesta({error:e.message||'No se pudo cambiar el equipo.'},400);}
 });

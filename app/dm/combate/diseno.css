@@ -141,3 +141,6 @@
 .battle-tooltip .help-details>span{display:block;font:12px/1.6 Arial,sans-serif}
 .battle-tooltip .help-warning{display:block;margin-top:12px;padding-top:8px;border-top:1px solid #69383d;color:#ffb2b7;font:12px/1.5 Arial,sans-serif}
 .battle-tooltip .help-summary{overflow-wrap:anywhere;white-space:pre-line}
+
+
+.battle-target-choice{display:grid;gap:8px;padding:12px 16px;border:1px solid #65502d;border-radius:9px;background:#251e13}.battle-target-choice small{color:#b8ac95;font-size:12px;line-height:1.5}.battle-options{margin-top:20px}.battle-options summary{cursor:pointer;color:#c8b17f}.battle-options .battle-rule{margin-top:18px}.battle-inventory-open{margin:10px 0}.battle-unit.is-target{outline:2px solid #dfb65f;outline-offset:2px}.battle-target-name:focus-visible{outline:2px solid #dfb65f;outline-offset:3px}

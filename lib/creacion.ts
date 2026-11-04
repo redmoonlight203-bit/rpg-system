@@ -13,7 +13,8 @@ export const SLOTS = [
   { clave: "casco", nombre: "Cabeza", tipos: ["casco"] },
   { clave: "pechera", nombre: "Torso", tipos: ["pechera"] },
   { clave: "pantalones", nombre: "Piernas", tipos: ["pantalones"] },
-  { clave: "zapatos", nombre: "Pies", tipos: ["zapatos"] },
+  { clave: "zapatos", nombre: "Botas", tipos: ["zapatos"] },
+  { clave: "capa", nombre: "Capa", tipos: ["capa"] },
   { clave: "mano_der", nombre: "Mano derecha", tipos: ["mano", "dos_manos"] },
   { clave: "mano_izq", nombre: "Mano izquierda", tipos: ["mano", "dos_manos"] },
   ...Array.from({ length: 6 }, (_, i) => ({

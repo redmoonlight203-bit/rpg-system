@@ -10,6 +10,7 @@ try{
  alter table forja_maestra add column historia text;create schema if not exists auth;create table public.tienda_ofertas(id uuid primary key,estado text,forja_id uuid,negociador_id uuid);
  grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;grant select,insert,update,delete on inventario_jugador,personajes to authenticated;`);
  await db.exec(readFileSync(new URL('../supabase/migrations/20261104004039_reencarnados_combate_alma.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261104005416_inventario_visual_consumibles.sql',import.meta.url),'utf8'));
  const gm='00000000-0000-0000-0000-000000000001',a='00000000-0000-0000-0000-000000000002',b='00000000-0000-0000-0000-000000000003';
  await db.query("insert into perfiles(id,rol) values($1,'KUROI'),($2,'REENCARNADO'),($3,'REENCARNADO')",[gm,a,b]);
  await db.query("insert into personajes(id,user_id,nombre,estado_aprobacion) values(1,$1,'Axel','aprobado'),(2,$1,'Otro','aprobado'),(3,$2,'Ajeno','aprobado')",[a,b]);
@@ -56,3 +57,4 @@ try{
  console.log('PostgreSQL: traspasos sin duplicación, propiedad, RLS, turnos, conflictos y entregas de compras correctos.');
 
 }catch(e){console.error(e.message,e.where||'');process.exitCode=1;}finally{await db.close();}
+

@@ -8,6 +8,10 @@ export type Fuente = {
   stats: Record<string, number>;
   efectos?: Efecto[];
   slot_tipo?: string;
+  tipo_creacion?: string;
+  consumible?: boolean;
+  descripcion?: string;
+  imagen_url?: string;
   reglas?: Regla[];
   reglas_pasivas?: ReglaPasiva[];
 };
@@ -22,6 +26,7 @@ export type Config = {
   reglas?: Regla[];
   reglas_pasivas?: ReglaPasiva[];
   reserva?: Fuente[];
+  consumidos?: string[];
 };
 export type Combatiente = {
   id: string;
@@ -1047,7 +1052,7 @@ function caducarMotor(c:Combate,m:Combatiente,rng:RNG){if(!m.motor)return;
 }
 
 export const ESPACIOS_EQUIPO:Record<string,{nombre:string;tipos:string[]}>= {
- casco:{nombre:'Cabeza',tipos:['casco']},pechera:{nombre:'Torso',tipos:['pechera']},pantalones:{nombre:'Piernas',tipos:['pantalones']},zapatos:{nombre:'Pies',tipos:['zapatos']},
+ casco:{nombre:'Cabeza',tipos:['casco']},pechera:{nombre:'Torso',tipos:['pechera']},pantalones:{nombre:'Piernas',tipos:['pantalones']},zapatos:{nombre:'Botas',tipos:['zapatos']},capa:{nombre:'Capa',tipos:['capa']},
  mano_der:{nombre:'Mano derecha',tipos:['mano','dos_manos']},mano_izq:{nombre:'Mano izquierda',tipos:['mano','dos_manos']},
  ...Object.fromEntries(Array.from({length:6},(_,i)=>[`acc_${i+1}`,{nombre:`Accesorio ${i+1}`,tipos:['accesorio']}])),titulo:{nombre:'Título',tipos:['titulo']}
 };
@@ -1073,7 +1078,7 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
   for(const [slot,id] of Object.entries(seleccion)){
    if(!id)continue;
    const espacio=ESPACIOS_EQUIPO[slot],pieza=reserva.get(id);
-   if(!espacio||!pieza||!espacio.tipos.includes(pieza.slot_tipo||'ninguno'))throw Error('Objeto incompatible o fuera del inventario.');
+   if(!espacio||!pieza||(pieza.tipo_creacion&&!['objeto','titulo'].includes(pieza.tipo_creacion))||!espacio.tipos.includes(pieza.slot_tipo||'ninguno'))throw Error('Objeto incompatible o fuera del inventario.');
    if(usados.has(id))throw Error('Una misma pieza no puede ocupar dos espacios.');usados.add(id);elegido[slot]=pieza;
   }
   if((elegido.mano_der?.slot_tipo==='dos_manos'&&elegido.mano_izq)||(elegido.mano_izq?.slot_tipo==='dos_manos'&&elegido.mano_der))throw Error('Un arma de dos manos ocupa ambas manos.');
@@ -1090,12 +1095,44 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
   for(const k of new Set([...Object.keys(viejos),...Object.keys(actuales)]))m.stats[k]=(m.stats[k]||0)-(viejos[k]||0)+(actuales[k]||0);
   const cambianManos=['mano_der','mano_izq'].some(k=>anterior[k]?.id!==elegido[k]?.id);
   if(cambianManos)delete m.arma;
-  m.configuracion.habilidades=m.configuracion.habilidades?.filter(h=>!h.id||!reserva.has(h.id));
+  m.configuracion.habilidades=m.configuracion.habilidades?.filter(h=>!h.id||!reserva.has(h.id)||['habilidad','pasiva'].includes(reserva.get(h.id)?.tipo_creacion||''));
   m.configuracion.equipamiento=elegido;m.configuracion.bonos_equipamiento=actuales;m.configuracion.reserva=[...reserva.values()];
   activarEquipo(n,m,rng,new Set([...nuevos].filter((id):id is string=>!!id&&!antiguos.has(id))));
   normalizar(m);
   if(n.fase==='en_curso')m.accion_usada=true;
   log(n,`${m.nombre} cambia su equipamiento${n.fase==='en_curso'?' y consume su acción':''}. Manos libres: ${manosLibres(m)}.`);
   return n;
+ });
+}
+
+export function accionesObjeto(m:Combatiente,p:Fuente):{id:string;nombre:string;coste_ph:number;coste_fatiga:number}[]{
+ if(p.tipo_creacion&&p.tipo_creacion!=='objeto')return [];
+ const equipado=Object.values(m.configuracion.equipamiento||{}).some(v=>v.id===p.id);
+ if(!equipado&&!p.consumible&&p.slot_tipo&&p.slot_tipo!=='ninguno')return [];
+ return [...(p.efectos||[]).filter(e=>!e.requisito_forma||(estadisticas(m)[e.requisito_forma.atributo]||0)>=e.requisito_forma.minimo).map(e=>({id:e.id,nombre:e.nombre,coste_ph:e.coste_ph||0,coste_fatiga:e.coste_fatiga||0})),...(p.reglas||[]).filter(r=>r.evento==='usar').map(r=>({id:'regla:'+r.id,nombre:r.nombre,coste_ph:r.coste_ph,coste_fatiga:r.coste_fatiga}))];
+}
+export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:string,objetivoId:string,rng:RNG=dadoSeguro):Combate{
+ return registrar(c,()=>{
+  const n=copia(c),m=n.miembros.find(x=>x.id===actorId);
+  if(!m||n.fase!=='en_curso'||n.actual!==m.id||m.accion_usada||m.vida<=0)throw Error('Usar un objeto requiere tu turno y una acción disponible.');
+  const p=m.configuracion.reserva?.find(p=>p.id===objetoId);
+  if(!p||!accionesObjeto(m,p).some(a=>a.id===efectoId))throw Error('Este objeto no está disponible o debes equiparlo primero.');
+  const objetivo=n.miembros.find(v=>v.id===objetivoId);if(!objetivo||objetivo.vida<=0)throw Error('Selecciona un objetivo vivo.');
+  const slot=Object.entries(m.configuracion.equipamiento||{}).find(([,v])=>v.id===p.id)?.[0];
+  const temporal='inventario-'+p.id;
+  if(!slot)(m.configuracion.habilidades||=[]).push({...p,id:temporal});
+  const id=efectoId.startsWith('regla:')?`regla:${slot?'equipo:'+p.id:'hab:'+temporal}:${efectoId.slice(6)}`:slot?`equipo:${slot}:${efectoId}`:`hab:${temporal}:${efectoId}`;
+  const resultado=actuarInterno(n,m.id,id,objetivoId,rng,false),actor=resultado.miembros.find(v=>v.id===actorId)!;
+  actor.configuracion.habilidades=actor.configuracion.habilidades?.filter(h=>h.id!==temporal);
+  if(p.consumible){
+   actor.configuracion.reserva=actor.configuracion.reserva?.filter(v=>v.id!==p.id);
+   actor.configuracion.consumidos=[...new Set([...(actor.configuracion.consumidos||[]),p.id!])];
+   if(slot){
+    // Solo los objetos no equipables deben marcarse consumibles.
+    throw Error('Guarda el objeto antes de consumirlo.');
+   }
+   log(resultado,`${actor.nombre} consume ${p.nombre}.`);
+  }else log(resultado,`${actor.nombre} usa ${p.nombre}.`);
+  return resultado;
  });
 }
