@@ -1,3 +1,4 @@
+import './jugador.css';
 import type {ReactNode} from 'react';
 import AccesoReencarnado from '../../components/AccesoReencarnado';
 import AlertaTurnoJugador from '../../components/AlertaTurnoJugador';

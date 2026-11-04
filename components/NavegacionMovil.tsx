@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Hammer, Swords, ShoppingBag, Sliders, MoreHorizontal, X, BookOpen, Handshake, Sparkles, Shield } from "lucide-react";
+import { Home, Users, Hammer, Swords, ShoppingBag, Sliders, MoreHorizontal, Dices, X, BookOpen, Handshake, Sparkles, Shield } from "lucide-react";
 
 export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: boolean; colmena?: boolean }) {
   const pathname = usePathname();
@@ -27,6 +27,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/dm/tienda-almas", label: "Tienda de almas", icon: Users },
     { href: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
   ] : [
+    { href: "/ficha/tiradas", label: "Mesa de dados", icon: Dices },
     { href: "/ficha/alma", label: "Mi alma", icon: Sparkles },
     ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
   ];

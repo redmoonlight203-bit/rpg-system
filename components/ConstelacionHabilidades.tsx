@@ -1,0 +1,8 @@
+"use client";
+import SiluetaYugen from './SiluetaYugen';
+import IconoYugen from './IconoYugen';
+export type NodoHabilidad={id:string;nombre:string;imagen_url?:string;icono:string;pasiva:boolean;clase?:string};
+export default function ConstelacionHabilidades({nodos,seleccion,onElegir}:{nodos:NodoHabilidad[];seleccion?:string;onElegir:(id:string)=>void}){
+ const alto=Math.max(560,Math.ceil(nodos.length/2)*112+100),raiz=alto/2-90;
+ return <section className="y-skill-map" aria-label="Habilidades conectadas al pecho del personaje" style={{height:alto}}><SiluetaYugen/><svg className="y-skill-lines" viewBox={`0 0 1000 ${alto}`} preserveAspectRatio="none" aria-hidden="true">{nodos.map((i,n)=>{const x=n%2===0?230:770,y=90+Math.floor(n/2)*112;return <path key={i.id} d={`M500 ${raiz} C${n%2===0?350:650} ${raiz},${x} ${y},${x} ${y}`}/>;})}<circle cx="500" cy={raiz} r="7"/></svg>{nodos.map((i,n)=><button key={i.id} className={`y-skill-node ${seleccion===i.id?'is-selected':''}`} style={{left:n%2===0?'23%':'77%',top:90+Math.floor(n/2)*112}} aria-pressed={seleccion===i.id} onClick={()=>onElegir(i.id)}>{i.imagen_url?<img src={i.imagen_url} alt="" style={{width:28,height:34,objectFit:'contain'}}/>:<IconoYugen id={i.icono} size={30}/>}<span><strong>{i.nombre}</strong><small>{i.pasiva?'PASIVA':'HABILIDAD'} · {i.clase||'D'}</small></span></button>)}{!nodos.length&&<p className="y-empty" style={{position:'absolute',bottom:65,left:'10%',right:'10%',background:'#11120edb'}}>Todavía no hay habilidades en este personaje.</p>}<span className="y-skill-map-caption">EL CUERPO ES EL CANAL / EL ALMA ES EL ORIGEN</span></section>;
+}
