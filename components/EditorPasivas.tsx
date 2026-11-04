@@ -1,5 +1,6 @@
 "use client";
-import { type ReglaPasiva } from "../lib/pasivas";
+import {ResumenYunque} from "./AyudaYunque";
+import {validarPasivas, type ReglaPasiva } from "../lib/pasivas";
 const campo =
   "mt-1 w-full rounded border border-neutral-700 bg-black p-2 text-sm";
 export function EditorPasivas({
@@ -12,9 +13,9 @@ export function EditorPasivas({
   const cambiar = (id: string, p: Partial<ReglaPasiva>) =>
     onChange(value.map((r) => (r.id === id ? { ...r, ...p } : r)));
   return (
-    <section className="space-y-4">
+    <section className="yunque-editor space-y-4">
       <div className="flex justify-between">
-        <h2>Reglas pasivas automáticas</h2>
+        <h2>¿Qué hace automáticamente?</h2>
         <button
           type="button"
           onClick={() =>
@@ -33,12 +34,11 @@ export function EditorPasivas({
             ])
           }
         >
-          + Añadir regla
+          + Crear pasiva
         </button>
       </div>
       <p className="text-xs text-neutral-500">
-        Las reglas se calculan por sus campos. La mayor reducción porcentual
-        prevalece; la misma regla no se duplica.
+        Una pasiva no necesita que el jugador pulse una acción. Elige cuándo se activa, bajo qué condición y qué beneficio aplica.
       </p>
       <button
         type="button"
@@ -62,10 +62,7 @@ export function EditorPasivas({
         + Ejemplo: Escamas de dragón
       </button>
       {value.map((r) => (
-        <div
-          key={r.id}
-          className="space-y-3 rounded border border-neutral-800 p-4"
-        >
+        <details key={r.id} open={value.length===1} className="yunque-tarjeta"><summary>{r.nombre||"Nueva pasiva"}<small>{r.evento==="permanente"?"Beneficio mientras se cumpla su condición":"Reacción automática durante el combate"}</small></summary><div className="yunque-contenido">
           <label className="block">
             Nombre
             <input
@@ -76,7 +73,7 @@ export function EditorPasivas({
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label>
-              Condición
+              1. Solo si…
               <select
                 className={campo}
                 value={r.condicion}
@@ -106,7 +103,7 @@ export function EditorPasivas({
               </select>
             </label>
             <label>
-              Momento
+              2. Se activa…
               <select
                 className={campo}
                 value={r.evento}
@@ -117,9 +114,9 @@ export function EditorPasivas({
                 }
               >
                 {Object.entries({
-                  permanente: "Bono permanente",
+                  permanente: "Mientras cumpla la condición",
                   inicio_turno: "Inicio del turno",
-                  recibir_ataque: "Antes de comprobar impacto",
+                  recibir_ataque: "Antes de saber si el ataque acierta",
                   recibir_impacto: "Cuando un ataque impacta",
                   recibir_dano: "Cuando recibe daño",
                 }).map(([k, v]) => (
@@ -143,7 +140,7 @@ export function EditorPasivas({
                 "salvacion",
               ].map((k) => (
                 <label key={k}>
-                  {k}
+                  {{vida:"Vida máxima",armadura:"Armadura",ph:"PH máximos",fatiga:"Límite de Fatiga",iniciativa:"Iniciativa",bono_impacto:"Bono al ataque",dano:"Daño adicional",salvacion:"Bono de salvación"}[k]||k}
                   <input
                     type="number"
                     className={campo}
@@ -163,7 +160,7 @@ export function EditorPasivas({
                 {(["curacion", "recuperar_ph", "reducir_fatiga"] as const).map(
                   (k) => (
                     <label key={k}>
-                      {k}
+                      {{curacion:"Vida que recupera",recuperar_ph:"PH que recupera",reducir_fatiga:"Fatiga que reduce"}[k]}
                       <input
                         type="number"
                         min="0"
@@ -232,7 +229,7 @@ export function EditorPasivas({
                     />
                   </label>
                   <label>
-                    Dados de represalia
+                    Dados de daño al atacante
                     <input
                       type="number"
                       min="0"
@@ -247,7 +244,7 @@ export function EditorPasivas({
                     />
                   </label>
                   <label>
-                    Caras de represalia
+                    Caras de esos dados
                     <input
                       type="number"
                       min="2"
@@ -269,6 +266,8 @@ export function EditorPasivas({
               )}
             </>
           )}
+          <ResumenYunque resumen={`${r.nombre||'Esta pasiva'}: ${{siempre:'sin condiciones adicionales',vida_mitad:'con la mitad de vida o menos',sin_arma:'sin un arma equipada',ataque_magico:'ante un ataque que gasta PH',ataque_natural:'ante un ataque natural',ataque_elemental:'ante un ataque elemental'}[r.condicion]}.`} detalles={[...Object.entries(r.bonos).filter(([,v])=>v!==0).map(([k,v])=>`${k.replaceAll('_',' ')}: ${v>0?'+':''}${v}.`),...(r.curacion?[`Recupera ${r.curacion} de vida.`]:[]),...(r.recuperar_ph?[`Recupera ${r.recuperar_ph} PH.`]:[]),...(r.reducir_fatiga?[`Reduce ${r.reducir_fatiga} de Fatiga.`]:[]),...(r.reduccion_pct?[`Reduce el daño un ${r.reduccion_pct}%. No se suman reducciones porcentuales: se aplica la mayor.`]:[])]}/>
+          {validarPasivas([r])&&<p className="yunque-aviso">Para poder guardar: {validarPasivas([r])}</p>}
           <button
             type="button"
             className="text-red-300"
@@ -276,7 +275,7 @@ export function EditorPasivas({
           >
             Quitar regla
           </button>
-        </div>
+        </div></details>
       ))}
     </section>
   );
