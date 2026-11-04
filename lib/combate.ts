@@ -130,7 +130,7 @@ function armado(m: Combatiente) {
     )
   );
 }
-export /** La pasiva racial tiene prioridad sobre versiones equipadas con el mismo nombre.
+/** La pasiva racial tiene prioridad sobre versiones equipadas con el mismo nombre.
  * Evita apilar Escamas de Dragon antiguas y raciales sin modificar las fichas existentes. */
 function pasivasAplicables(m: Combatiente) {
   const todas = m.configuracion.pasivas || [];
@@ -146,7 +146,7 @@ function pasivasAplicables(m: Combatiente) {
   });
 }
 
-function reglas(m: Combatiente) {
+export function reglas(m: Combatiente) {
   const todas = [
     ...(m.configuracion.reglas_pasivas || []),
     ...pasivasAplicables(m).flatMap((p) => p.reglas || []),
