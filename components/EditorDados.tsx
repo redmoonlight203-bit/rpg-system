@@ -1,5 +1,7 @@
 "use client";
 import { elementoDe } from "../lib/combate";
+import { TablaArmas } from "./TablaArmas";
+import { type FuenteCreacion } from "../lib/creacion";
 import { useState } from "react";
 import {
   type Efecto,
@@ -14,10 +16,12 @@ export function EditorDados({
   value,
   onChange,
   disabled = false,
+  armas = [],
 }: {
   value: Efecto[];
   onChange: (e: Efecto[]) => void;
   disabled?: boolean;
+  armas?: FuenteCreacion[];
 }) {
   const [prueba, setPrueba] = useState("");
   function cambiar(id: string, patch: Partial<Efecto>) {
@@ -28,6 +32,13 @@ export function EditorDados({
     const error = validarEfectos([e]);
     if (error) {
       setPrueba(error);
+      return;
+    }
+    if (e.tabla_armas) {
+      const caras=e.tabla_armas.caras, a=new Uint32Array(1), limite=Math.floor(4294967296/caras)*caras;
+      do {crypto.getRandomValues(a);} while(a[0]>=limite);
+      const cara=a[0]%caras+1, r=e.tabla_armas.resultados.find(r=>r.cara===cara)!;
+      setPrueba(`${e.nombre}: D${caras} → ${cara} → ${r.nombre}. Daño: ${formula(r)}. Duración: ${e.duracion} turnos. Prueba sin gastar recursos.`);
       return;
     }
     const rolls = Array.from({ length: e.cantidad }, () => {
@@ -49,7 +60,7 @@ export function EditorDados({
         <div>
           <h2 className="text-lg font-semibold">Dados y efectos</h2>
           <p className="text-sm text-neutral-400">
-            Configura cada acción: daño, curación, recuperación o estado.
+            Define qué ocurre al usar la habilidad, cuánto cuesta y cuánto dura. Usa «Crear arma temporal» para preparar un arsenal con resultados por dado.
           </p>
         </div>
         <button
@@ -75,7 +86,7 @@ export function EditorDados({
         >
           <legend className="px-2 text-orange-300">
             {e.nombre || "Nueva acción"} ·{" "}
-            {e.efecto === "estado" ? "Estado" : formula(e)}
+            {e.tabla_armas ? `D${e.tabla_armas.caras} → arma según resultado` : e.efecto === "estado" ? "Estado" : formula(e)}
           </legend>
           <label className="block text-sm">Descripción para el jugador (opcional)
             <textarea className={campo} rows={2} maxLength={2000} value={e.descripcion || ""} onChange={v=>cambiar(e.id,{descripcion:v.target.value})} placeholder="Ej.: Ataca con el puño. Si lo dejas vacío, Yugen explica el efecto automáticamente." />
@@ -97,7 +108,7 @@ export function EditorDados({
                 className={campo}
                 value={e.efecto}
                 onChange={(v) =>
-                  cambiar(e.id, { efecto: v.target.value as Efecto["efecto"] })
+                  cambiar(e.id, { efecto: v.target.value as Efecto["efecto"], tabla_armas:undefined })
                 }
               >
                 <option value="dano">Causar daño</option>
@@ -109,10 +120,10 @@ export function EditorDados({
               </select>
             </label>
           </div>
-          {e.efecto !== "estado" && (
+          {e.efecto !== "estado" && !e.tabla_armas && (
             <div className="grid grid-cols-3 gap-3">
               <label className="text-sm">
-                Cantidad de dados
+                {e.efecto === "crear_arma" ? "Dados de daño del arma" : "Cantidad de dados"}
                 <input
                   className={campo}
                   type="number"
@@ -194,7 +205,8 @@ export function EditorDados({
               }
             />
           </label>
-          {e.efecto === "crear_arma" && (
+          {e.efecto === "crear_arma" && <TablaArmas efecto={e} armas={armas} onChange={tabla_armas=>cambiar(e.id,{tabla_armas,...(tabla_armas?{arma_nombre:e.arma_nombre||"Arsenal aleatorio"}: {})})}/>}
+          {e.efecto === "crear_arma" && !e.tabla_armas && (
             <div className="grid gap-3 sm:grid-cols-2">
               <label>
                 Nombre del arma
@@ -257,7 +269,7 @@ export function EditorDados({
                 <option value="natural">Natural</option>
               </select>
             </label>
-            <label>
+            {!e.tabla_armas && <><label>
               Elemento
               <select
                 className={campo}
@@ -281,13 +293,13 @@ export function EditorDados({
                 onChange={(v) => cambiar(e.id, { tipo_dano: v.target.value })}
                 placeholder="Cortante, perforante…"
               />
-            </label>
+            </label></>}
           </div>
-          <p className="text-xs text-neutral-500">
+          {!e.tabla_armas && <p className="text-xs text-neutral-500">
             Cada ataque elemental añade 1d4. Fuego, Hielo y Luz aplican sus
             salvaciones CD 12. Los ataques que gastan PH activan las defensas
             contra magia.
-          </p>
+          </p>}
           <label className="block">
             <input
               type="checkbox"
@@ -460,7 +472,7 @@ export function EditorDados({
             </button>
             {e.efecto !== "estado" && (
               <button type="button" onClick={() => tirar(e)}>
-                Probar {formula(e)}
+                Probar {e.tabla_armas ? `D${e.tabla_armas.caras} → arma` : formula(e)}
               </button>
             )}
           </div>

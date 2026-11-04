@@ -14,10 +14,11 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
   case 'recuperar_ph':resumen='Recupera puntos de habilidad del objetivo.';break;
   case 'reducir_fatiga':resumen='Reduce la Fatiga del objetivo. Si está agotado, aún necesita descansar.';break;
   case 'estado':resumen=`Aplica ${e.estado||'un estado'} al objetivo.`;break;
-  case 'crear_arma':resumen=`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
+  case 'crear_arma':resumen=e.tabla_armas?`Lanza 1d${e.tabla_armas.caras} y crea el arma asignada al resultado.`:`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
  }
  const detalles:string[]=[];
- if(e.efecto!=='estado')detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
+ if(e.tabla_armas)detalles.push(...e.tabla_armas.resultados.map(r=>`${r.cara}: ${r.nombre || 'Sin asignar'} (${formula(r)}).`));
+ if(e.efecto!=='estado'&&!e.tabla_armas)detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
  if(e.efecto==='dano'&&elemento)detalles.push(`Añade 1d4 de daño de ${elemento}.`);
  if(e.coste_ph)detalles.push(`Consume ${e.coste_ph} PH.`);
  if(e.coste_fatiga)detalles.push(`Genera ${e.coste_fatiga} de Fatiga.`);
