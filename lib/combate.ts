@@ -1,8 +1,27 @@
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
+export type RequisitosUso={razas?:string[];minimos?:Record<string,number>};
+export function validarRequisitos(r:RequisitosUso|undefined):string|null{
+ if(r===undefined)return null;
+ if(!r||typeof r!=='object'||Array.isArray(r))return 'Requisitos inválidos.';
+ if(r.razas!==undefined&&(!Array.isArray(r.razas)||r.razas.length>50||r.razas.some(x=>typeof x!=='string'||!x.trim()||x.length>100)))return 'Selecciona razas válidas.';
+ if(r.minimos!==undefined&&(!r.minimos||typeof r.minimos!=='object'||Array.isArray(r.minimos)||Object.keys(r.minimos).length>50||Object.entries(r.minimos).some(([k,v])=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k)||typeof v!=='number'||!Number.isFinite(v)||v<0||v>1000000)))return 'Los mínimos deben ser atributos válidos y números de 0 a 1000000.';
+ return null;
+}
+export function faltantesRequisitos(r:RequisitosUso|undefined,razas:string[],stats:Record<string,number>):string[]{
+ const error=validarRequisitos(r);if(error)return [error];if(!r)return [];
+ const normal=(s:string)=>s.trim().toLocaleLowerCase();
+ const errores:string[]=[];
+ if(r.razas?.length&&!r.razas.some(x=>razas.map(normal).includes(normal(x))))errores.push('Raza requerida: '+r.razas.join(' o '));
+ for(const [k,min] of Object.entries(r.minimos||{}))if((stats[k]||0)<min)errores.push(`${k}: necesita ${min}, tiene ${stats[k]||0}`);
+ return errores;
+}
+function baseRequisitos(m:Combatiente){return Object.fromEntries(Object.entries(m.stats).map(([k,v])=>[k,v-(m.configuracion.bonos_equipamiento?.[k]||0)]));}
+function requisitosFuente(m:Combatiente,f:{requisitos_uso?:RequisitosUso}){return faltantesRequisitos(f.requisitos_uso,[m.configuracion.raza||'',...(m.configuracion.linaje_raza||[])],baseRequisitos(m));}
 export type Bando = "jugador" | "enemigo";
 export type Fuente = {
+  requisitos_uso?: RequisitosUso;
   id?: string;
   nombre: string;
   stats: Record<string, number>;
@@ -16,13 +35,15 @@ export type Fuente = {
   reglas_pasivas?: ReglaPasiva[];
 };
 export type Config = {
+  raza?: string;
+  linaje_raza?: string[];
   tipo_creacion?: string;
   bonos_equipamiento?: Record<string, number>;
   efectos?: Efecto[];
   stats_base?: Record<string, number>;
   equipamiento?: Record<string, Fuente>;
   habilidades?: Fuente[];
-  pasivas?: { id?: string; nombre: string; reglas: ReglaPasiva[]; reglas_motor?: Regla[] }[];
+  pasivas?: { requisitos_uso?:RequisitosUso; id?: string; nombre: string; reglas: ReglaPasiva[]; reglas_motor?: Regla[] }[];
   reglas?: Regla[];
   reglas_pasivas?: ReglaPasiva[];
   reserva?: Fuente[];
@@ -112,7 +133,7 @@ function log(c: Combate, t: string) {
   c.registro = c.registro.slice(0, 300);
 }
 function piezas(m: Combatiente) {
-  const p = { ...m.configuracion.equipamiento };
+  const p = Object.fromEntries(Object.entries(m.configuracion.equipamiento||{}).filter(([,p])=>!requisitosFuente(m,p).length));
   if (m.arma) {
     delete p[m.arma.slot];
     if (m.arma.efecto.arma_slot === "dos_manos") {
@@ -133,7 +154,7 @@ function armado(m: Combatiente) {
 /** La pasiva racial tiene prioridad sobre versiones equipadas con el mismo nombre.
  * Evita apilar Escamas de Dragon antiguas y raciales sin modificar las fichas existentes. */
 function pasivasAplicables(m: Combatiente) {
-  const todas = m.configuracion.pasivas || [];
+  const todas = (m.configuracion.pasivas || []).filter(p=>!requisitosFuente(m,p).length);
   const raciales = todas.filter((p) => String(p.id || "").startsWith("raza:"));
   const otras = todas.filter((p) => !String(p.id || "").startsWith("raza:"));
   const vistas = new Set<string>();
@@ -150,7 +171,7 @@ export function reglas(m: Combatiente) {
   const todas = [
     ...(m.configuracion.reglas_pasivas || []),
     ...pasivasAplicables(m).flatMap((p) => p.reglas || []),
-    ...Object.values(piezas(m)).flatMap((p) => p.reglas_pasivas || []),
+    ...Object.values(piezas(m)).filter(p=>!requisitosFuente(m,p).length).flatMap((p) => p.reglas_pasivas || []),
   ];
   return [...new Map(todas.map((r) => [JSON.stringify(r), r])).values()];
 }
@@ -174,21 +195,9 @@ function cumple(m: Combatiente, r: ReglaPasiva, e?: Efecto) {
 }
 export function estadisticas(m: Combatiente) {
   const s = { ...m.stats };
-  if (m.arma) {
-    for (const slot of m.arma.efecto.arma_slot === "dos_manos"
-      ? ["mano_der", "mano_izq"]
-      : [m.arma.slot])
-      for (const [k, v] of Object.entries(
-        m.configuracion.equipamiento?.[slot]?.stats || {},
-      ))
-        if (
-          k in s &&
-          !["peso", "durabilidad", "dano", "caras_dano", "dados_dano"].includes(
-            k,
-          )
-        )
-          s[k] -= v;
-  }
+  const excluidos=new Set(Object.entries(m.configuracion.equipamiento||{}).filter(([,p])=>requisitosFuente(m,p).length).map(([slot])=>slot));
+  if(m.arma)for(const slot of m.arma.efecto.arma_slot==='dos_manos'?['mano_der','mano_izq']:[m.arma.slot])excluidos.add(slot);
+  for(const slot of excluidos)for(const [k,v] of Object.entries(m.configuracion.equipamiento?.[slot]?.stats||{}))if(k in s&&!['peso','durabilidad','dano','caras_dano','dados_dano'].includes(k))s[k]-=v;
   for (const r of reglas(m))
     if (r.evento === "permanente" && cumple(m, r))
       for (const [k, v] of Object.entries(r.bonos)) s[k] = (s[k] || 0) + v;
@@ -252,6 +261,7 @@ export function agregar(
   m.dado_iniciativa = rng(20);
   m.iniciativa = m.dado_iniciativa + (estadisticas(m).iniciativa || 0);
   m.configuracion.reserva ||= [...new Map(Object.values(m.configuracion.equipamiento||{}).filter(p=>p.id).map(p=>[p.id,p])).values()];
+  for(const p of Object.values(m.configuracion.equipamiento||{})){const faltan=requisitosFuente(m,p);if(faltan.length)throw Error(`${p.nombre}: ${faltan.join('; ')}`);}
   n.miembros.push(m);
   activarEquipo(n,m,rng);
   log(
@@ -623,7 +633,7 @@ export function acciones(m: Combatiente) {
   }
   if ((m.arma || lista.some(a=>a.id==='ataque'&&a.efecto.id!=='basico')) && manosLibres(m)>0)
     lista.push({id:'desarmado',nombre:'Ataque desarmado · mano libre',efecto:basico(),enfriamiento:0});
-  for (const h of m.configuracion.habilidades || [])
+  for (const h of (m.configuracion.habilidades || []).filter(h=>!requisitosFuente(m,h).length))
     for (const e of h.efectos || [])
       lista.push({
         id: `hab:${h.id}:${e.id}`,
@@ -634,7 +644,7 @@ export function acciones(m: Combatiente) {
           h.stats.enfriamiento || h.stats.cooldown || 0,
         ),
       });
-  for (const [slot, p] of Object.entries(piezas(m)))
+  for (const [slot, p] of Object.entries(piezas(m)).filter(([,p])=>!requisitosFuente(m,p).length))
     for (const e of p.efectos || [])
       lista.push({
         id: `equipo:${slot}:${e.id}`,
@@ -975,8 +985,8 @@ export function reglasMotor(m:Combatiente) {
  const fuentes = [
   {id:'propio',reglas:m.configuracion.reglas||[]},
   ...pasivasAplicables(m).map((p,i)=>({id:`pasiva:${p.id||i}`,reglas:p.reglas_motor||[]})),
-  ...(m.configuracion.habilidades||[]).map((p,i)=>({id:`hab:${p.id||i}`,reglas:p.reglas||[]})),
-  ...Object.entries(piezas(m)).map(([slot,p])=>({id:`equipo:${p.id||slot}`,reglas:p.reglas||[]})),
+  ...(m.configuracion.habilidades||[]).filter(p=>!requisitosFuente(m,p).length).map((p,i)=>({id:`hab:${p.id||i}`,reglas:p.reglas||[]})),
+  ...Object.entries(piezas(m)).filter(([,p])=>!requisitosFuente(m,p).length).map(([slot,p])=>({id:`equipo:${p.id||slot}`,reglas:p.reglas||[]})),
  ];
  const vistos=new Set<string>();
  return fuentes.flatMap(f=>f.reglas.map(regla=>({clave:`${f.id}:${regla.id}`,regla}))).filter(r=>{if(vistos.has(r.clave))return false;vistos.add(r.clave);return true;}).sort((a,b)=>b.regla.prioridad-a.regla.prioridad||a.clave.localeCompare(b.clave));
@@ -1105,7 +1115,7 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
    if(!id)continue;
    const espacio=ESPACIOS_EQUIPO[slot],pieza=reserva.get(id);
    if(!espacio||!pieza||(pieza.tipo_creacion&&!['objeto','titulo'].includes(pieza.tipo_creacion))||!espacio.tipos.includes(pieza.slot_tipo||'ninguno'))throw Error('Objeto incompatible o fuera del inventario.');
-   if(usados.has(id))throw Error('Una misma pieza no puede ocupar dos espacios.');usados.add(id);elegido[slot]=pieza;
+   if(usados.has(id))throw Error('Una misma pieza no puede ocupar dos espacios.');usados.add(id);const faltan=requisitosFuente(m,pieza);if(faltan.length)throw Error(`${pieza.nombre}: ${faltan.join('; ')}`);elegido[slot]=pieza;
   }
   if((elegido.mano_der?.slot_tipo==='dos_manos'&&elegido.mano_izq)||(elegido.mano_izq?.slot_tipo==='dos_manos'&&elegido.mano_der))throw Error('Un arma de dos manos ocupa ambas manos.');
   if(JSON.stringify(Object.entries(seleccionEquipo(m)).sort())===JSON.stringify(Object.entries(seleccion).filter(([,id])=>id).sort()))throw Error('No hay cambios de equipamiento.');
@@ -1133,6 +1143,7 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
 
 export function accionesObjeto(m:Combatiente,p:Fuente):{id:string;nombre:string;coste_ph:number;coste_fatiga:number}[]{
  if(p.tipo_creacion&&p.tipo_creacion!=='objeto')return [];
+ if(requisitosFuente(m,p).length)return [];
  const equipado=Object.values(m.configuracion.equipamiento||{}).some(v=>v.id===p.id);
  if(!equipado&&!p.consumible&&p.slot_tipo&&p.slot_tipo!=='ninguno')return [];
  return [...(p.efectos||[]).filter(e=>!e.requisito_forma||(estadisticas(m)[e.requisito_forma.atributo]||0)>=e.requisito_forma.minimo).map(e=>({id:e.id,nombre:e.nombre,coste_ph:e.coste_ph||0,coste_fatiga:e.coste_fatiga||0})),...(p.reglas||[]).filter(r=>r.evento==='usar').map(r=>({id:'regla:'+r.id,nombre:r.nombre,coste_ph:r.coste_ph,coste_fatiga:r.coste_fatiga}))];
