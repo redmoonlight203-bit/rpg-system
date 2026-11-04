@@ -19,6 +19,13 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  const detalles:string[]=[];
  if(e.tabla_armas)detalles.push(...e.tabla_armas.resultados.map(r=>`${r.cara}: ${r.nombre || 'Sin asignar'} (${formula(r)}).`));
  if(e.efecto!=='estado'&&!e.tabla_armas)detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
+ if(e.efecto==='estado'){
+  if(['veneno','quemadura','regeneracion'].includes(e.estado_tipo||''))detalles.push(`${e.estado_tipo==='regeneracion'?'Recupera':'Sufre'} ${formula(e)} ${e.estado_tipo==='regeneracion'?'de vida':'de daño'} al inicio de cada turno.`);
+  if(e.estado_tipo==='aturdido')detalles.push('Pierde su próxima acción y el aturdimiento se retira.');
+  if(e.estado_tipo==='quemadura')detalles.push('Puede apagar la quemadura con una salvación de 12 al inicio del turno.');
+  for(const [k,v] of Object.entries(e.bonos_estado||{}))if(v)detalles.push(`${atributo(k)}: ${v>0?'+':''}${v} mientras dura el estado.`);
+ }
+ if(e.requisito_forma)detalles.push(`Requiere ${atributo(e.requisito_forma.atributo)} de al menos ${e.requisito_forma.minimo}.`);
  if(e.efecto==='dano'&&elemento)detalles.push(`Añade 1d4 de daño de ${elemento}.`);
  if(e.coste_ph)detalles.push(`Consume ${e.coste_ph} PH.`);
  if(e.coste_fatiga)detalles.push(`Genera ${e.coste_fatiga} de Fatiga.`);
