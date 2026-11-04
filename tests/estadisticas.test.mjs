@@ -41,3 +41,15 @@ test('categorías antiguas y referencias rotas no bloquean el resolvedor',()=>{
  const ciclo=[{id:'a',clave:'a',nombre:'A',parent_id:'b'},{id:'b',clave:'b',nombre:'B',parent_id:'a'}];
  assert.equal(linaje(ciclo,'a').length,2);
 });
+test('quitar todos los propios restaura los heredados y conserva el nivel superior',()=>{
+ const stats=[stat('razas','vida',15),stat('razas','armadura',5),stat('enanos','vida',30),stat('enanos','barba',1)];
+ const restantes=stats.filter(s=>s.categoria!=='enanos');
+ assert.deepEqual(atributosEfectivos(categorias,restantes,'enanos'),atributosEfectivos(categorias,stats,'razas'));
+ assert.deepEqual(atributosEfectivos(categorias,stats,'humanos'),atributosEfectivos(categorias,restantes,'humanos'));
+});
+test('una categoría raíz puede quedarse sin atributos propios',()=>{
+ const stats=[stat('razas','vida',15),stat('enanos','barba',1)];
+ const restantes=stats.filter(s=>s.categoria!=='razas');
+ assert.deepEqual(atributosEfectivos(categorias,restantes,'razas'),[]);
+ assert.deepEqual(atributosEfectivos(categorias,restantes,'enanos'),[stat('enanos','barba',1)]);
+});

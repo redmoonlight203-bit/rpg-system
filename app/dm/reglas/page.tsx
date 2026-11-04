@@ -4,13 +4,14 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { atributosEfectivos, linaje, padreValido } from "../../../lib/estadisticas";
 import { supabase } from "../../../lib/supabase";
+import { PasivaRacial } from "../../../components/PasivaRacial";
 import IconoYugen from "../../../components/IconoYugen";
 import SelectorIconoYugen from "../../../components/SelectorIconoYugen";
 import {iconoCategoria} from "../../../lib/iconos-yugen";
 import "./estadisticas.css";
 import { ArrowRight, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
-type Categoria = { id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null };
+type Categoria = { id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null; pasiva_racial?: import("../../../components/PasivaRacial").DefinicionRacial | null };
 type Stat = { id: string; categoria: string; clave: string; etiqueta: string; descripcion: string | null; valor_defecto: number };
 type Editor = { tipo: "categoria"; original?: Categoria } | { tipo: "atributo"; original?: Stat };
 const claveDe = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -103,12 +104,12 @@ export default function Estadisticas() {
   }
 
   async function quitarAtributo(stat: Stat) {
-    // Solo se quita una definición propia de una subcategoría, nunca la heredada.
-    if (bloqueoQuitar.current || !actual?.parent_id || stat.categoria !== actual.clave || !stats.some(s => s.id === stat.id && s.categoria === actual.clave)) return;
+    // Solo se elimina la definición del nivel seleccionado.
+    if (bloqueoQuitar.current || !actual || stat.categoria !== actual.clave || !stats.some(s => s.id === stat.id && s.categoria === actual.clave)) return;
     const heredado = atributosEfectivos(categorias, stats.filter(s => s.id !== stat.id), actual.clave).find(s => s.clave === stat.clave);
     const detalle = heredado
       ? "Al quitar esta definición propia volverá a mostrarse el atributo heredado de su categoría superior."
-      : "Dejará de estar disponible en esta subcategoría y en las que lo hereden de ella.";
+      : "Dejará de estar disponible en esta categoría y en las que lo hereden de ella.";
     if (!window.confirm(`¿Quitar «${stat.etiqueta}» de «${actual.nombre}»?\n\n${detalle}\nLos valores ya guardados en personajes y objetos no se borrarán.`)) return;
     bloqueoQuitar.current = true; setQuitando(stat.id); setError(""); setAviso("");
     try {
@@ -169,12 +170,13 @@ export default function Estadisticas() {
                 {subcategorias.length ? <div className="mt-3 flex flex-wrap gap-2">{subcategorias.map(c => <button key={c.id} className={boton} onClick={() => {setSeleccion(c.clave);setBusqueda("");}}><IconoYugen id={iconoCategoria(categorias,c.clave)} size={24}/>{c.nombre}<ArrowRight size={14}/></button>)}</div> : <p className="mt-3 text-sm text-neutral-500">Sin subcategorías. Puedes añadirlas aquí o asignar una categoría existente desde su editor.</p>}
               </div>
               <div className="st-identity"><IconoYugen id={iconoCategoria(categorias,actual.clave)} size={28}/><div><strong>Identidad visual</strong><p>Este símbolo identifica la categoría y se usa en sus creaciones sin imagen.</p></div><button className={boton} onClick={()=>abrir({tipo:"categoria",original:actual})}>Elegir icono</button></div>
+              <PasivaRacial key={actual.id} categoria={actual} categorias={categorias} onSaved={() => void cargar()}/>
               <h3 className="mt-6 font-semibold">{actual.parent_id ? "Atributos de esta subcategoría" : "Atributos generales"}</h3>
               <p className="mt-4 text-xs text-neutral-400">{deCategoria.filter(s => s.categoria !== seleccion).length} heredados · {deCategoria.filter(s => s.categoria === seleccion).length} propios. Un atributo propio con la misma clave sustituye el valor heredado.</p>
               <div className="my-6 flex flex-wrap gap-3 border-t border-neutral-800 pt-6"><label className="relative min-w-0 flex-1"><span className="sr-only">Buscar atributos</span><Search size={16} className="absolute left-3 top-3 text-neutral-500"/><input className={`${campo} pl-9`} value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar atributo por nombre o descripción"/></label><button className={boton} onClick={() => abrir({ tipo: "atributo" })}><Plus size={16}/> Añadir atributo</button></div>
               <div className="st-attribute-filters" role="group" aria-label="Origen de los atributos">{[["todos","Todos"],["propios","Propios"],["heredados","Heredados"]].map(([key,label])=><button key={key} aria-pressed={filtroAtributo===key} onClick={()=>setFiltroAtributo(key)}>{label}</button>)}<span>{visibles.length} atributos</span></div>
               <div className="st-attributes space-y-3">{visibles.map(s => <article key={s.id} className="flex items-start justify-between gap-4 rounded-lg border border-neutral-800 p-4"><div className="min-w-0"><h3 className="flex items-center gap-2 font-semibold"><IconoYugen id={({vida:"vida",hp:"vida",armadura:"escudo",ph:"alma",fatiga:"fuego",resistencia:"escudo",iniciativa:"rayo"} as Record<string,string>)[s.clave]||"yugen"} size={24}/>{s.etiqueta}</h3><p className="mt-1 break-all font-mono text-xs text-neutral-500">{s.clave}</p><p className="mt-1 text-xs text-emerald-500">{s.categoria === seleccion ? "Propio de esta categoría" : `Heredado de ${categorias.find(c => c.clave === s.categoria)?.nombre || s.categoria}`}</p>{s.descripcion && <p className="mt-2 text-sm text-neutral-400">{s.descripcion}</p>}<p className="st-default mt-3 text-xs text-neutral-400">Valor predeterminado: <b className="text-emerald-400">{s.valor_defecto ?? 0}</b></p></div><div className="flex shrink-0 flex-col gap-2"><button disabled={quitando !== null} className={boton} aria-label={s.categoria === seleccion ? `Editar ${s.etiqueta}` : `Ver origen de ${s.etiqueta}`} onClick={() => { if (s.categoria === seleccion) abrir({ tipo: "atributo", original: s }); else { setSeleccion(s.categoria); setBusqueda(""); } }}>{s.categoria === seleccion ? <Pencil size={14}/> : "Ver origen"}</button>
-                {actual.parent_id && s.categoria === seleccion && <button disabled={quitando !== null} className={`${boton} border-red-900 text-red-300 hover:border-red-600`} aria-label={`Quitar ${s.etiqueta} de ${actual.nombre}`} onClick={() => void quitarAtributo(s)}><Trash2 size={14}/>{quitando === s.id ? "Quitando…" : "Quitar"}</button>}
+                {s.categoria === seleccion && <button disabled={quitando !== null} className={`${boton} border-red-900 text-red-300 hover:border-red-600`} aria-label={`Quitar ${s.etiqueta} de ${actual.nombre}`} onClick={() => void quitarAtributo(s)}><Trash2 size={14}/>{quitando === s.id ? "Quitando…" : "Quitar"}</button>}
                 {s.categoria !== seleccion && <span className="text-xs text-neutral-500">Heredado · protegido</span>}
               </div></article>)}</div>
               {!visibles.length && <p className="py-10 text-center text-sm text-neutral-500">{busqueda ? "No hay atributos que coincidan con la búsqueda." : "Esta categoría aún no tiene atributos. Añade los que necesitarás al crear en la Forja."}</p>}

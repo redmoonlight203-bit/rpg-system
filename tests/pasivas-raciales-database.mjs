@@ -1,0 +1,32 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.FORJA_PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+try {
+ for(const path of ['fixtures/forja_copias_schema.sql','fixtures/creacion_schema.sql','../supabase/migrations/20261030_forja_copias.sql','../supabase/migrations/20261030_forja_tipos_y_dados.sql','../supabase/migrations/20261030_combate_pasivas.sql','../supabase/migrations/20261030190047_pasivas_reactivas_y_elementos.sql']) await db.exec(readFileSync(new URL(path,import.meta.url),'utf8'));
+ await db.exec("alter table personajes add column raza text,add column atributos jsonb default '{}',add column estado_vida text default 'vivo';alter table inventario_jugador add column created_at timestamptz default now();alter table forja_maestra add column consumible boolean default false;create schema yugen_interno;");
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261103173113_forja_motor_reglas.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261030_categorias_heredadas.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261104121007_pasivas_raciales.sql',import.meta.url),'utf8'));
+ await db.exec("insert into perfiles values('00000000-0000-0000-0000-000000000001','KUROI');select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);insert into categorias_forja(clave,nombre,parent_id) select 'prueba_raza','Raza de Prueba',id from categorias_forja where clave='razas';");
+ const regla={id:'escamas',nombre:'Escamas',evento:'recibir_ataque',condicion:'ataque_magico',bonos:{armadura:5},reduccion_pct:50,curacion:0,recuperar_ph:0,reducir_fatiga:0};
+ const pasiva={nombre:'Escamas raciales',descripcion:'Protección mágica',reglas:[],reglas_pasivas:[regla]};
+ await db.query("update categorias_forja set pasiva_racial=$1 where clave='prueba_raza'",[JSON.stringify(pasiva)]);
+ const snap=(await db.query("select pasivas_raciales_snapshot('Raza de Prueba') as c")).rows[0].c;
+ assert.equal(snap[0].reglas[0].bonos.armadura,5);
+ assert.deepEqual((await db.query("select pasivas_raciales_snapshot('prueba_raza') as c")).rows[0].c,snap);
+ assert.deepEqual((await db.query("select pasivas_raciales_snapshot('inexistente') as c")).rows[0].c,[]);
+ const {rows:[f]}=await db.query("insert into forja_maestra(nombre,tipo,tipo_creacion,stats) values('Guerrero','prueba_raza','personaje','{\"vida\":20}') returning id");
+ assert.equal((await db.query('select forja_snapshot_config($1) as c',[f.id])).rows[0].c.pasivas[0].nombre,pasiva.nombre);
+ await db.exec("insert into personajes(id,nombre,raza,atributos) values(1,'Jugador','Raza de Prueba','{\"vida\":20}')");
+ assert.equal((await db.query('select yugen_interno.preparar_jugador(1) as c')).rows[0].c.configuracion.pasivas[0].nombre,pasiva.nombre);
+ await db.query("update categorias_forja set pasiva_racial=$1 where clave='razas'",[JSON.stringify({...pasiva,nombre:'Ancestros'})]);
+ assert.equal((await db.query("select pasivas_raciales_snapshot('prueba_raza') as c")).rows[0].c.length,2);
+ await db.exec("update categorias_forja set pasiva_racial=null where clave='prueba_raza'");
+ assert.equal((await db.query("select pasivas_raciales_snapshot('prueba_raza') as c")).rows[0].c[0].nombre,'Ancestros');
+ assert.equal(snap[0].nombre,'Escamas raciales');
+ await assert.rejects(db.query("update categorias_forja set pasiva_racial=$1 where clave='prueba_raza'",[JSON.stringify({...pasiva,reglas_pasivas:[{...regla,reduccion_pct:101}]})]));
+ await db.exec("select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000099',false)");
+ await assert.rejects(db.query("update categorias_forja set pasiva_racial=$1 where clave='prueba_raza'",[JSON.stringify(pasiva)]));
+ console.log('Pasivas raciales: validación, permisos, herencia, eliminación local, snapshots de Forja y jugadores correctos.');
+}catch(e){console.error(e.message,e.where||'');process.exitCode=1;}finally{await db.close();}
