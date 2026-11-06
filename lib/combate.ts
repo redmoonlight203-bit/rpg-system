@@ -23,6 +23,7 @@ function baseRequisitos(m:Combatiente){return Object.fromEntries(Object.entries(
 function requisitosFuente(m:Combatiente,f:{requisitos_uso?:RequisitosUso}){return faltantesRequisitos(f.requisitos_uso,[m.configuracion.raza||'',...(m.configuracion.linaje_raza||[])],baseRequisitos(m));}
 export type Bando = "jugador" | "enemigo";
 export type Fuente = {
+  configuracion_invocacion?: import("./invocaciones").ConfiguracionInvocacion;
   requisitos_uso?: RequisitosUso;
   id?: string;
   nombre: string;
@@ -43,6 +44,7 @@ export type Config = {
   bonos_equipamiento?: Record<string, number>;
   efectos?: Efecto[];
   stats_base?: Record<string, number>;
+  rangos_malla?:Record<string,{min:number;max:number}>;nivel_maximo?:number;
   equipamiento?: Record<string, Fuente>;
   habilidades?: Fuente[];
   pasivas?: { requisitos_uso?:RequisitosUso; id?: string; nombre: string; reglas: ReglaPasiva[]; reglas_motor?: Regla[] }[];
@@ -57,6 +59,8 @@ export type Combatiente = {
   nombre: string;
   personaje_id?: string;
   nivel?: number;
+  exp_total?:number;
+  invocacion?: {invocador:string;habilidad:string;restantes:number;apariencia?:string};
   bando: Bando;
   stats: Record<string, number>;
   configuracion: Config;
@@ -531,7 +535,9 @@ function siguienteInterno(c: Combate, rng: RNG) {
       return true;
     });
     normalizar(a);
+    if(a.invocacion){a.invocacion.restantes--;if(a.invocacion.restantes<=0){a.vida=0;log(n,`${a.nombre}: termina su invocación.`);}}
   }
+  for(const m of n.miembros)if(m.invocacion&&m.vida<=0)m.configuracion={tipo_creacion:"personaje"};
   const lista = orden(n),
     idx = lista.findIndex((m) => m.id === n.actual);
   for (let p = 1; p <= lista.length; p++) {
@@ -567,7 +573,7 @@ export function deshacer(c: Combate) {
   if (!previo) throw Error("No hay una acción anterior.");
   return { ...copia(previo), historial: h };
 }
-function limpiarFinal(n:Combate){for(const m of n.miembros){emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);m.estados=[];if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
+function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);m.estados=[];if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
 export function finalizar(c:Combate){return registrar(c,()=>{const n=copia(c);n.fase='finalizado';n.actual=null;limpiarFinal(n);return n;});}
 export function descansar(c: Combate) {
   if (c.fase === "en_curso")
@@ -1176,5 +1182,27 @@ export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:str
    log(resultado,`${actor.nombre} consume ${p.nombre}.`);
   }else log(resultado,`${actor.nombre} usa ${p.nombre}.`);
   return resultado;
+ });
+}
+
+/** Invocar es una acción atómica: el llamador valida la propuesta antes de pagar. */
+export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,preparado:Parameters<typeof agregar>[1],duracion:number,maxActivas=1,rng:RNG=dadoSeguro){
+ const actor=c.miembros.find(m=>m.id===actorId);
+ if(c.fase!=="en_curso"||c.actual!==actorId||!actor||actor.vida<=0||actor.accion_usada)throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
+ if(!actor.configuracion.habilidades?.some(h=>h.id===habilidad.id))throw Error("Habilidad no equipada.");
+ const config=habilidad.configuracion_invocacion;
+ if(!config||!Number.isInteger(duracion)||duracion<1||!Number.isInteger(maxActivas)||maxActivas<1)throw Error("Configuración de invocación inválida.");
+ const faltan=requisitosFuente(actor,habilidad);if(faltan.length)throw Error(faltan.join("; "));
+ if(c.miembros.filter(m=>m.invocacion?.invocador===actorId&&m.invocacion.habilidad===habilidad.id&&m.vida>0).length>=maxActivas)throw Error("Ya alcanzaste el límite de invocaciones activas.");
+ const ph=config.costePh??0,fatiga=config.costeFatiga??0;
+ if(!Number.isInteger(ph)||!Number.isInteger(fatiga)||ph<0||fatiga<0)throw Error("Costes inválidos.");
+ if(actor.ph<ph||fatiga>0&&actor.fatiga+fatiga>(estadisticas(actor).fatiga||0))throw Error("No tienes recursos suficientes para invocar.");
+ if(c.miembros.length>=100)throw Error("Máximo cien participantes.");
+ return registrar(c,()=>{
+  const temporal={...c,fase:"preparacion" as const};
+  const n=agregar(temporal,{...preparado,id:crypto.randomUUID()},actor.bando,rng);n.fase=c.fase;
+  const a=n.miembros.find(m=>m.id===actorId)!;a.ph-=ph;a.fatiga+=fatiga;a.uso_fatiga=fatiga>0;a.accion_usada=true;
+  const criatura=n.miembros[n.miembros.length-1];criatura.invocacion={invocador:actorId,habilidad:habilidad.id!,restantes:duracion};
+  log(n,`${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);return n;
  });
 }

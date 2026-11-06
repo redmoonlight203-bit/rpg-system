@@ -388,7 +388,17 @@ function siguienteInterno(c, rng) {
             return true;
         });
         normalizar(a);
+        if (a.invocacion) {
+            a.invocacion.restantes--;
+            if (a.invocacion.restantes <= 0) {
+                a.vida = 0;
+                log(n, `${a.nombre}: termina su invocación.`);
+            }
+        }
     }
+    for (const m of n.miembros)
+        if (m.invocacion && m.vida <= 0)
+            m.configuracion = { tipo_creacion: "personaje" };
     const lista = orden(n), idx = lista.findIndex((m) => m.id === n.actual);
     for (let p = 1; p <= lista.length; p++) {
         const i = (Math.max(0, idx) + p) % lista.length;
@@ -426,7 +436,7 @@ export function deshacer(c) {
         throw Error("No hay una acción anterior.");
     return { ...copia(previo), historial: h };
 }
-function limpiarFinal(n) { for (const m of n.miembros) {
+function limpiarFinal(n) { n.miembros = n.miembros.filter(m => !m.invocacion); for (const m of n.miembros) {
     emitirMotor(n, 'fin_combate', m, m, m, dadoSeguro);
     m.estados = [];
     if (m.motor) {
@@ -1101,5 +1111,42 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
         else
             log(resultado, `${actor.nombre} usa ${p.nombre}.`);
         return resultado;
+    });
+}
+/** Invocar es una acción atómica: el llamador valida la propuesta antes de pagar. */
+export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion, maxActivas = 1, rng = dadoSeguro) {
+    const actor = c.miembros.find(m => m.id === actorId);
+    if (c.fase !== "en_curso" || c.actual !== actorId || !actor || actor.vida <= 0 || actor.accion_usada)
+        throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
+    if (!actor.configuracion.habilidades?.some(h => h.id === habilidad.id))
+        throw Error("Habilidad no equipada.");
+    const config = habilidad.configuracion_invocacion;
+    if (!config || !Number.isInteger(duracion) || duracion < 1 || !Number.isInteger(maxActivas) || maxActivas < 1)
+        throw Error("Configuración de invocación inválida.");
+    const faltan = requisitosFuente(actor, habilidad);
+    if (faltan.length)
+        throw Error(faltan.join("; "));
+    if (c.miembros.filter(m => m.invocacion?.invocador === actorId && m.invocacion.habilidad === habilidad.id && m.vida > 0).length >= maxActivas)
+        throw Error("Ya alcanzaste el límite de invocaciones activas.");
+    const ph = config.costePh ?? 0, fatiga = config.costeFatiga ?? 0;
+    if (!Number.isInteger(ph) || !Number.isInteger(fatiga) || ph < 0 || fatiga < 0)
+        throw Error("Costes inválidos.");
+    if (actor.ph < ph || fatiga > 0 && actor.fatiga + fatiga > (estadisticas(actor).fatiga || 0))
+        throw Error("No tienes recursos suficientes para invocar.");
+    if (c.miembros.length >= 100)
+        throw Error("Máximo cien participantes.");
+    return registrar(c, () => {
+        const temporal = { ...c, fase: "preparacion" };
+        const n = agregar(temporal, { ...preparado, id: crypto.randomUUID() }, actor.bando, rng);
+        n.fase = c.fase;
+        const a = n.miembros.find(m => m.id === actorId);
+        a.ph -= ph;
+        a.fatiga += fatiga;
+        a.uso_fatiga = fatiga > 0;
+        a.accion_usada = true;
+        const criatura = n.miembros[n.miembros.length - 1];
+        criatura.invocacion = { invocador: actorId, habilidad: habilidad.id, restantes: duracion };
+        log(n, `${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);
+        return n;
     });
 }

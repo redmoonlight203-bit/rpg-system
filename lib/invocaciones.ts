@@ -3,8 +3,8 @@ import type {Efecto} from "./creacion";
 
 export type ClaseYugen=typeof CLASES_YUGEN[number];
 export type CreacionInvocable={
- id:string;nombre:string;clase?:string;stats?:Record<string,number>;
- configuracion_dados?:Efecto[];habilidades?:string[];pasivas?:string[];
+ id:string;nombre:string;clase?:string;tipo_creacion?:string;stats?:Record<string,number>;
+ configuracion_dados?:Efecto[];habilidades?:string[];pasivas?:string[];reglas_pasivas?:{bonos:Record<string,number>}[];reglas?:{efectos:unknown[]}[];
 };
 export type ConfiguracionInvocacion={
  claseMaxima:ClaseYugen;
@@ -12,9 +12,11 @@ export type ConfiguracionInvocacion={
  modo:"existente"|"plantilla_temporal"|"jugador_en_combate"|"gm_en_combate";
  origenId?:string;
  duracionTurnos:number;
+ maxActivas?:number;costePh?:number;costeFatiga?:number;
+ rangos?:Record<string,{min:number;max:number}>;
 };
 export type PropuestaInvocacion={
- nombre:string;stats:Record<string,number>;habilidades:string[];pasivas:string[];
+ nombre:string;apariencia?:string;stats:Record<string,number>;habilidades:string[];pasivas:string[];
 };
 export type EvaluacionInvocacion={
  valida:boolean;errores:string[];clase:ClaseYugen;puntuacion:number;
@@ -35,7 +37,7 @@ export function techoPuntuacion(clase:ClaseYugen):number{
  return indice===CLASES_YUGEN.length-1?Number.POSITIVE_INFINITY:UMBRALES_CLASE[indice+1]-0.01;
 }
 export function habilidadesElegibles(creaciones:CreacionInvocable[],maxima:ClaseYugen):CreacionInvocable[]{
- return creaciones.filter(c=>!!c.id&&clasePermitida(c.clase||"",maxima));
+ return creaciones.filter(c=>!!c.id&&c.tipo_creacion==="habilidad"&&clasePermitida(c.clase||"",maxima));
 }
 /**
  * Cálculo conservador: añade la potencia de las habilidades y pasivas vinculadas
@@ -44,6 +46,10 @@ export function habilidadesElegibles(creaciones:CreacionInvocable[],maxima:Clase
  */
 export function evaluarInvocacion(config:ConfiguracionInvocacion,propuesta:PropuestaInvocacion,creaciones:CreacionInvocable[]):EvaluacionInvocacion{
  const errores:string[]=[];
+ if(indiceClase(config.claseMaxima)<0)errores.push("Clase máxima inválida.");
+ for(const [k,v] of Object.entries({maxActivas:config.maxActivas??1,costePh:config.costePh??0,costeFatiga:config.costeFatiga??0}))if(!Number.isInteger(v)||v<(k==="maxActivas"?1:0)||v>1000)errores.push("Configuración inválida: "+k);
+ for(const [k,r] of Object.entries(config.rangos||{})){if(!Number.isFinite(r.min)||!Number.isFinite(r.max)||r.min<0||r.max<r.min)errores.push("Rango inválido: "+k);const v=propuesta.stats[k]??0;if(v<r.min||v>r.max)errores.push(k+" debe estar entre "+r.min+" y "+r.max);}
+ if(propuesta.pasivas.length>20||new Set(propuesta.pasivas).size!==propuesta.pasivas.length)errores.push("Lista de pasivas inválida.");
  if(!propuesta.nombre.trim())errores.push("La invocación necesita nombre.");
  if(!Number.isInteger(config.maxHabilidades)||config.maxHabilidades<0||config.maxHabilidades>20)errores.push("El máximo de habilidades debe estar entre 0 y 20.");
  if(!Number.isInteger(config.duracionTurnos)||config.duracionTurnos<1)errores.push("La duración debe ser de al menos un turno.");
@@ -55,11 +61,12 @@ export function evaluarInvocacion(config:ConfiguracionInvocacion,propuesta:Propu
  let puntosAdicionales=0;
  for(const id of vinculadas){
   const creacion=creaciones.find(c=>c.id===id);
-  if(!creacion){errores.push("Hay una habilidad o pasiva que no existe en La Creación.");continue;}
+  if(!creacion||creacion.tipo_creacion!==(propuesta.habilidades.includes(id)?"habilidad":"pasiva")){errores.push("Hay una habilidad o pasiva que no existe en La Creación.");continue;}
   if(!clasePermitida(creacion.clase||"",config.claseMaxima)){
    errores.push(creacion.nombre+" supera la clase "+config.claseMaxima+".");continue;
   }
-  const calculada=calcularClase(creacion.stats||{},creacion.configuracion_dados||[]);
+  const bonos:Record<string,number>={};for(const r of creacion.reglas_pasivas||[])for(const [k,v] of Object.entries(r.bonos||{}))bonos[k]=(bonos[k]||0)+Math.max(0,v);
+  const calculada=calcularClase(creacion.stats||{},creacion.configuracion_dados||[],bonos,(creacion.reglas||[]).reduce((n,r)=>n+r.efectos.length,0));
   // Al menos el umbral inferior de su clase; evita poderes sin estadísticas gratuitas.
   puntosAdicionales+=Math.max(calculada.puntuacion,UMBRALES_CLASE[indiceClase(creacion.clase!)]);
  }

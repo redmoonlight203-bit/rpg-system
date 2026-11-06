@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import ReglasCriaturas from "../../../components/ReglasCriaturas";
 import { atributosEfectivos, linaje, padreValido } from "../../../lib/estadisticas";
 import { supabase } from "../../../lib/supabase";
 import { PasivaRacial } from "../../../components/PasivaRacial";
@@ -11,7 +12,7 @@ import {iconoCategoria} from "../../../lib/iconos-yugen";
 import "./estadisticas.css";
 import { ArrowRight, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
-type Categoria = { id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null; pasiva_racial?: import("../../../components/PasivaRacial").DefinicionRacial | null };
+type Categoria = { rangos_criatura?:Record<string,{min:number;max:number}>; id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null; pasiva_racial?: import("../../../components/PasivaRacial").DefinicionRacial | null };
 type Stat = { id: string; categoria: string; clave: string; etiqueta: string; descripcion: string | null; valor_defecto: number };
 type Editor = { tipo: "categoria"; original?: Categoria } | { tipo: "atributo"; original?: Stat };
 const claveDe = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -150,6 +151,8 @@ export default function Estadisticas() {
         <Link href="/dm/forja" className={boton}>Ir a la Forja <ArrowRight size={16}/></Link>
       </header>
       {!cargando && !herenciaDisponible && <p role="status" className="text-sm leading-6 text-amber-300">Para activar categorías y subcategorías, ejecuta la migración 20261030_categorias_heredadas.sql en Supabase. Mientras tanto puedes seguir editando categorías y atributos existentes.</p>}
+      {actual&&ruta.some(c=>c.clave==='monstruos')&&<ReglasCriaturas key={actual.id} categoria={actual} atributos={deCategoria} onGuardado={cargar}/>}
+      {actual&&ruta.some(c=>c.clave==='habilidades_invocacion')&&<p className="rounded-xl border border-sky-900 p-4 text-sm">Invocaciones: configura en El Yunque la criatura de origen o la plantilla temporal, quién la diseña, el techo absoluto de clase, rangos, costes, duración y máximo activo. Una invocación tira iniciativa, dispone de una acción por turno y no se publica en La Creación. La suma de estadísticas, habilidades y pasivas debe respetar el techo.</p>}
       {aviso && <p role="status" className="text-sm text-emerald-400">{aviso}</p>}
       {error && <div role="alert" className="space-y-3 text-sm text-red-300"><p>No se pudo actualizar la configuración: {error}</p><button className={boton} onClick={() => void cargar()}>Reintentar</button></div>}
       {cargando ? <p role="status" className="py-16 text-neutral-400">Cargando categorías y atributos…</p> : <>

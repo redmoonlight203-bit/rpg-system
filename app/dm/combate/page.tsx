@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import InvocarCombate from "../../../components/InvocarCombate";
 import {
   Swords,
   Users,
@@ -80,6 +81,7 @@ type Preparado = {
 };
 type Guardado = { id: string; nombre: string; version: number; datos: Combate };
 export default function CampoCombate() {
+  const [invocar,setInvocar]=useState<Fuente|null>(null);
   const [catalogo, setCatalogo] = useState<Personaje[]>([]),
     [partidas, setPartidas] = useState<Guardado[]>([]),
     [c, setC] = useState<Combate>(nuevoCombate),
@@ -878,6 +880,7 @@ export default function CampoCombate() {
         )}
       </div>
       {c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">Hasta confirmarlo, los cambios viven en este encuentro y puedes deshacerlos. Al aplicarlos se actualizan las fichas reales una sola vez y el encuentro queda cerrado. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={ocupado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
+      {invocar&&actor&&<InvocarCombate combate={c} actorId={actor.id} habilidad={invocar} onCerrar={()=>setInvocar(null)} onConfirmar={async next=>{await guardar(next);}}/>}
       {editorEquipo&&<EditorEquipoCombate key={`${editorEquipo.actor}:${editorEquipo.contexto.version}`} catalogo={c.fase==='preparacion'&&!c.miembros.find(m=>m.id===editorEquipo.actor)?.personaje_id?objetosMochila:undefined} onAgregar={agregarObjetoMochila} contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}
       {error && (
         <p className="battle-error" role="alert">
@@ -1024,6 +1027,7 @@ export default function CampoCombate() {
             <div className="battle-section-title">
               <Swords size={15} />
               <h2>{actor ? `Turno de ${actor.nombre}` : "Selecciona un participante"}</h2>
+              {c.fase==='en_curso'&&actor?.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} className="battle-button" disabled={ocupado||actor.accion_usada} onClick={()=>setInvocar(h)}>Invocar · {h.nombre}</button>)}
               <span className="battle-action-status">{actor ? actor.accion_usada ? "ACCIÓN UTILIZADA" : "1 ACCIÓN DISPONIBLE" : ""}</span>
             </div>
             {actor && <div className="battle-actor-resources"><Shield size={15} /> ARM {estadisticas(actor).armadura || 0}<Zap size={15} /> PH {actor.ph}/{estadisticas(actor).ph || 0}<Flame size={15} /> Fatiga {actor.fatiga}/{estadisticas(actor).fatiga || 0}</div>}
