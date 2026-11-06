@@ -24,6 +24,11 @@ insert into public.categorias_forja(clave,nombre,descripcion,parent_id,icono)
 select 'monstruos_generales','Generales','Especies y enemigos configurados mediante rangos de estadísticas.',c.id,'skull'
 from public.categorias_forja c where c.clave='monstruos'
 and not exists(select 1 from public.categorias_forja where clave='monstruos_generales');
+-- Heredar una ficha utilizable de combate (HP, ARM, PH, fatiga, etc.) desde la categoría estándar.
+insert into public.config_estadisticas(categoria,clave,etiqueta,descripcion,valor_defecto)
+select 'monstruos',s.clave,s.etiqueta,s.descripcion,s.valor_defecto
+from public.config_estadisticas s where s.categoria='personajes'
+and not exists (select 1 from public.config_estadisticas t where t.categoria='monstruos' and t.clave=s.clave);
 -- Respeta las creaciones previas; las nuevas criaturas son mallas desde la interfaz.
 create or replace function public.progresion_dar_experiencia(p_personaje bigint, p_cantidad integer)
 returns jsonb
