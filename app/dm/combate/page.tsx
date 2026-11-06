@@ -21,6 +21,7 @@ import {
   Save,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+import {escalarMalla,type RangoNivel} from "../../../lib/progresion";
 import {
   nuevoCombate,
   agregar,
@@ -62,12 +63,17 @@ type Personaje = {
   clase: string;
   stats: Record<string, number>;
   origen: "forja" | "jugador";
+  es_grupo?:boolean;
+  nivel?:number;
+  nivel_maximo?:number;
+  stats_rango?:Record<string,RangoNivel>;
 };
 type Preparado = {
   id: string;
   forja_id: string | null;
   personaje_id?: string;
   nombre: string;
+  nivel?: number;
   stats: Record<string, number>;
   configuracion: Combatiente["configuracion"];
   requiere_configuracion?: boolean;
@@ -86,6 +92,7 @@ export default function CampoCombate() {
     [error, setError] = useState(""),
     [ocupado, setOcupado] = useState(false),
     [cargando, setCargando] = useState(true);
+  const [nivelesSeleccionados,setNivelesSeleccionados] = useState<Record<string,number>>({});
   const bloqueo = useRef(false);
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
   const [editorEquipo,setEditorEquipo]=useState<{actor:string;contexto:ContextoEquipo}|null>(null);
@@ -300,7 +307,7 @@ export default function CampoCombate() {
       const [p, b, j] = await Promise.all([
         supabase
           .from("forja_maestra")
-          .select("id,nombre,clase,stats")
+          .select("id,nombre,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel")
           .eq("tipo_creacion", "personaje")
           .eq("estado", "aprobado")
           .order("nombre"),
@@ -311,7 +318,7 @@ export default function CampoCombate() {
           .limit(20),
         supabase
           .from("personajes")
-          .select("id,nombre,atributos")
+          .select("id,nombre,atributos,nivel")
           .eq("estado_aprobacion", "aprobado")
           .eq("estado_vida", "vivo")
           .order("nombre"),
@@ -323,6 +330,7 @@ export default function CampoCombate() {
           id: String(x.id),
           nombre: x.nombre,
           clase: "Jugador",
+          nivel: x.nivel || 1,
           stats: x.atributos || {},
           origen: "jugador" as const,
         })),
@@ -388,6 +396,7 @@ export default function CampoCombate() {
     origenId: string,
     bando: Bando,
     origen: "forja" | "jugador" = "forja",
+    nivelSolicitado?:number,
   ) {
     await ejecutar(async () => {
       if (c.fase !== "preparacion")
@@ -400,6 +409,10 @@ export default function CampoCombate() {
         c.miembros.some((m) => m.personaje_id === origenId)
       )
         throw Error("Este jugador ya está en el campo.");
+      const plantilla=catalogo.find(p=>p.id===origenId&&p.origen===origen);
+      if(!plantilla)throw Error("No se encontró la plantilla.");
+      const nivel=origen==="jugador"?(plantilla.nivel||1):Math.max(1,Math.min(plantilla.nivel_maximo||100,Math.floor(nivelSolicitado??nivelesSeleccionados[origenId]??plantilla.nivel??1)));
+      if(!Number.isFinite(nivel))throw Error("Selecciona un nivel válido.");
       const r =
         origen === "jugador"
           ? await supabase.rpc("combate_preparar_jugador", {
@@ -409,7 +422,15 @@ export default function CampoCombate() {
               p_forja: origenId,
             });
       if (r.error) throw Error(r.error.message);
-      const f = r.data as Preparado;
+      let f = r.data as Preparado;
+      if(plantilla.es_grupo&&plantilla.stats_rango&&Object.keys(plantilla.stats_rango).length){
+        const escaladas=escalarMalla(plantilla.stats_rango,nivel,plantilla.nivel_maximo||20);
+        const bonos=f.configuracion.bonos_equipamiento||{};
+        const actualizadas=Object.fromEntries(Object.entries(escaladas).map(([k,v])=>[k,v+(bonos[k]||0)]));
+        f={...f,nivel,stats:{...f.stats,...actualizadas,nivel},configuracion:{...f.configuracion,stats_base:{...(f.configuracion.stats_base||{}),...escaladas,nivel}}};
+      }else{
+        f={...f,nivel,stats:{...f.stats,nivel},configuracion:{...f.configuracion,stats_base:{...(f.configuracion.stats_base||{}),nivel}}};
+      }
       if (origen === "jugador" && f.requiere_configuracion) {
         setVitales({
           vida: Math.max(1, f.stats.vida ?? f.stats.hp ?? 1),
@@ -441,6 +462,7 @@ export default function CampoCombate() {
           d.id,
           bando,
           d.origen === "jugador" ? "jugador" : "forja",
+          d.nivel,
         );
       else if (d.tipo === "participante")
         void ejecutar(() => guardar(mover(c, d.id, bando)));
@@ -898,6 +920,7 @@ export default function CampoCombate() {
                         tipo: "personaje",
                         id: p.id,
                         origen: p.origen,
+                        nivel: nivelesSeleccionados[p.id]??p.nivel??1,
                       }),
                     )
                   }
@@ -908,10 +931,11 @@ export default function CampoCombate() {
                     <span>{p.clase}</span>
                   </div>
                   <p>
-                    {p.origen === "jugador" ? "JUGADOR" : "LA CREACIÓN"} ·{" "}
+                    {p.origen === "jugador" ? "JUGADOR" : "LA CREACIÓN"} · Nv. {nivelesSeleccionados[p.id]??p.nivel??1} ·{" "}
                     {p.stats.vida ?? p.stats.hp ?? "Configurar"} vida ·{" "}
                     {p.stats.armadura || 0} ARM
                   </p>
+                  {p.origen==="forja"&&<label className="flex items-center gap-2 text-xs text-neutral-300">Nivel al entrar al combate<input type="number" min={1} max={p.nivel_maximo||100} step={1} value={nivelesSeleccionados[p.id]??p.nivel??1} onChange={e=>setNivelesSeleccionados(prev=>({...prev,[p.id]:Math.max(1,Math.min(p.nivel_maximo||100,Number(e.target.value)||1))}))} onClick={e=>e.stopPropagation()} className="w-20 rounded border border-neutral-700 bg-black p-1 text-white" /></label>}
                   <div className="battle-source-actions">
                     <button
                       disabled={ocupado || c.fase !== "preparacion"}

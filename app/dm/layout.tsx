@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { Hammer, Swords, Sliders, Users, Handshake, ShoppingBag, LogOut, ChevronDown } from "lucide-react";
+import { Hammer, Swords, Sliders, Users, Handshake, ShoppingBag, LogOut, ChevronDown, TrendingUp } from "lucide-react";
 import "./gm.css";
 import NavegacionMovil from "../../components/NavegacionMovil";
 
@@ -12,6 +12,7 @@ const principales = [
   { path: "/dm/forja", label: "La Forja", detail: "Crear y dar forma al mundo", icon: Hammer },
   { path: "/dm/combate", label: "Combate", detail: "Probar tus creaciones", icon: Swords },
   { path: "/dm/reglas", label: "Estadísticas", detail: "Definir categorías y atributos", icon: Sliders },
+  { path: "/dm/experiencia", label: "Experiencia", detail: "Subidas de nivel de jugadores y monstruos", icon: TrendingUp },
 ];
 const gestion = [
   { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },

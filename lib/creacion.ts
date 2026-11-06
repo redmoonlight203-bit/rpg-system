@@ -104,7 +104,7 @@ export function tipoDe(
 ): TipoCreacion {
   if (f.tipo_creacion) return f.tipo_creacion;
   const root = linaje(categorias, f.tipo)[0]?.clave || f.tipo;
-  if (["razas", "personaje", "personajes", "npc", "monstruo"].includes(root))
+  if (["razas", "personaje", "personajes", "npc", "monstruo", "monstruos"].includes(root))
     return "personaje";
   if (
     ["objetos", "objeto", "armas", "arma", "armadura", "accesorios"].includes(
