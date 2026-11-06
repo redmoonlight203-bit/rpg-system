@@ -1,10 +1,11 @@
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
-export type RequisitosUso={razas?:string[];minimos?:Record<string,number>};
+export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number};
 export function validarRequisitos(r:RequisitosUso|undefined):string|null{
  if(r===undefined)return null;
  if(!r||typeof r!=='object'||Array.isArray(r))return 'Requisitos inválidos.';
+ if(r.nivel_minimo!==undefined&&(!Number.isInteger(r.nivel_minimo)||r.nivel_minimo<1||r.nivel_minimo>100))return 'El nivel requerido debe estar entre 1 y 100.';
  if(r.razas!==undefined&&(!Array.isArray(r.razas)||r.razas.length>50||r.razas.some(x=>typeof x!=='string'||!x.trim()||x.length>100)))return 'Selecciona razas válidas.';
  if(r.minimos!==undefined&&(!r.minimos||typeof r.minimos!=='object'||Array.isArray(r.minimos)||Object.keys(r.minimos).length>50||Object.entries(r.minimos).some(([k,v])=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k)||typeof v!=='number'||!Number.isFinite(v)||v<0||v>1000000)))return 'Los mínimos deben ser atributos válidos y números de 0 a 1000000.';
  return null;
@@ -13,6 +14,7 @@ export function faltantesRequisitos(r:RequisitosUso|undefined,razas:string[],sta
  const error=validarRequisitos(r);if(error)return [error];if(!r)return [];
  const normal=(s:string)=>s.trim().toLocaleLowerCase();
  const errores:string[]=[];
+ if(r.nivel_minimo!==undefined&&(stats.nivel??1)<r.nivel_minimo)errores.push('Nivel requerido: '+r.nivel_minimo);
  if(r.razas?.length&&!r.razas.some(x=>razas.map(normal).includes(normal(x))))errores.push('Raza requerida: '+r.razas.join(' o '));
  for(const [k,min] of Object.entries(r.minimos||{}))if((stats[k]||0)<min)errores.push(`${k}: necesita ${min}, tiene ${stats[k]||0}`);
  return errores;
@@ -54,6 +56,7 @@ export type Combatiente = {
   forja_id: string | null;
   nombre: string;
   personaje_id?: string;
+  nivel?: number;
   bando: Bando;
   stats: Record<string, number>;
   configuracion: Config;
@@ -226,6 +229,7 @@ export function agregar(
     id: string;
     forja_id: string | null;
     nombre: string;
+    nivel?: number;
     stats: Record<string, number>;
     configuracion: Config;
   },
@@ -240,7 +244,8 @@ export function agregar(
   if (n.miembros.some((m) => m.id === f.id)) return n;
   const m: Combatiente = {
     ...f,
-    stats: { ...f.stats },
+    stats: { ...f.stats, nivel: f.nivel ?? f.stats.nivel ?? 1 },
+    nivel: f.nivel ?? f.stats.nivel ?? 1,
     bando,
     vida: f.stats.vida ?? f.stats.hp ?? 1,
     ph: 0,
