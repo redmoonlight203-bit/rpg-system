@@ -134,3 +134,26 @@ revoke all on function public.progresion_escoger_habilidad(bigint,uuid) from pub
 grant execute on function public.progresion_dar_experiencia(bigint,integer) to authenticated;
 grant execute on function public.progresion_opciones(bigint) to authenticated;
 grant execute on function public.progresion_escoger_habilidad(bigint,uuid) to authenticated;
+
+-- Plantillas y monstruos también acumulan experiencia. El jugador decide el nivel en el encuentro.
+create or replace function public.progresion_dar_experiencia_creacion(p_forja uuid,p_cantidad integer)
+returns jsonb
+language plpgsql security definer set search_path=public,pg_temp
+as $$
+declare f public.forja_maestra%rowtype; n integer; total bigint;
+begin
+ if auth.uid() is null or not exists(select 1 from public.perfiles where id=auth.uid() and rol='KUROI') then
+   raise exception 'Solo Kuroi puede conceder experiencia.' using errcode='42501';
+ end if;
+ if p_cantidad is null or p_cantidad<1 or p_cantidad>1000000 then
+   raise exception 'Concede entre 1 y 1000000 de experiencia.';
+ end if;
+ select * into f from public.forja_maestra where id=p_forja and tipo_creacion='personaje' and estado='aprobado' for update;
+ if not found then raise exception 'Ser de La Creación no encontrado.'; end if;
+ n:=f.nivel;total:=f.exp_total+p_cantidad;
+ while n<least(f.nivel_maximo,100) and total>=50*n*(n+1) loop n:=n+1;end loop;
+ update public.forja_maestra set exp_total=total,nivel=n where id=f.id;
+ return jsonb_build_object('nivel',n,'exp_total',total,'elecciones_anadidas',0);
+end $$;
+revoke all on function public.progresion_dar_experiencia_creacion(uuid,integer) from public,anon;
+grant execute on function public.progresion_dar_experiencia_creacion(uuid,integer) to authenticated;
