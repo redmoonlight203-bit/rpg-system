@@ -36,7 +36,7 @@ begin
  end if;
  return jsonb_build_object('configuracion_invocacion',f.configuracion_invocacion,'requisitos_uso',f.requisitos_uso,'raza',f.tipo,'linaje_raza',public.forja_linaje_claves(f.tipo),'consumible',f.consumible,'reglas',f.reglas,'pasivas',pasivas,'reglas_pasivas',f.reglas_pasivas,'tipo_creacion',f.tipo_creacion,'efectos',f.configuracion_dados,'habilidades',habilidades,'equipamiento',equipo,'bonos_equipamiento',bonos);
 end;
-$function$
+$function$;
 alter table public.categorias_forja add column if not exists rangos_criatura jsonb not null default '{}';
 -- Monstruos tiene recursos propios y no depende de una raza concreta.
 insert into public.config_estadisticas(categoria,clave,etiqueta,descripcion,valor_defecto)
@@ -93,7 +93,7 @@ begin
  n:=round(n,2);
  
  return n;
-end;$function$
+end;$function$;
 -- La clase del personaje incluye también la potencia de sus habilidades y pasivas.
 create or replace function public.forja_validar_carga_y_clase() returns trigger language plpgsql security invoker set search_path=public,pg_temp as $$
 declare refid text;item public.forja_maestra%rowtype;base jsonb;s jsonb;extra numeric:=0;
