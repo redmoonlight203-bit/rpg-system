@@ -2,7 +2,7 @@ import { linaje, type CategoriaBase } from "./estadisticas";
 export type TipoCreacion =
   "personaje" | "habilidad" | "objeto" | "titulo" | "pasiva" | "otro";
 export const TIPOS: { valor: TipoCreacion; nombre: string }[] = [
-  { valor: "personaje", nombre: "Personaje / enemigo" },
+  { valor: "personaje", nombre: "Personaje" },
   { valor: "habilidad", nombre: "Habilidad" },
   { valor: "objeto", nombre: "Objeto" },
   { valor: "titulo", nombre: "Título" },

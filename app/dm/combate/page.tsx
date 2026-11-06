@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import {elegirVariante,prepararVariante,type ConfiguracionMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
 import InvocarCombate from "../../../components/InvocarCombate";
 import {
   Swords,
@@ -59,6 +60,7 @@ import ContenidoAyuda from "../../../components/ContenidoAyuda";
 import "./combate.css";
 import "./diseno.css";
 type Personaje = {
+  configuracion_monstruo?:ConfiguracionMonstruo|null;
   id: string;
   nombre: string;
   clase: string;
@@ -94,6 +96,8 @@ export default function CampoCombate() {
     [error, setError] = useState(""),
     [ocupado, setOcupado] = useState(false),
     [cargando, setCargando] = useState(true);
+  const [variantesSeleccionadas,setVariantesSeleccionadas]=useState<Record<string,string>>({});
+  const [cantidadesSeleccionadas,setCantidadesSeleccionadas]=useState<Record<string,number>>({});
   const [nivelesSeleccionados,setNivelesSeleccionados] = useState<Record<string,number>>({});
   const bloqueo = useRef(false);
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
@@ -309,7 +313,7 @@ export default function CampoCombate() {
       const [p, b, j] = await Promise.all([
         supabase
           .from("forja_maestra")
-          .select("id,nombre,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel")
+          .select("id,nombre,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel,configuracion_monstruo")
           .eq("tipo_creacion", "personaje")
           .eq("estado", "aprobado")
           .order("nombre"),
@@ -447,7 +451,19 @@ export default function CampoCombate() {
         setPendiente({ f, bando });
         return;
       }
-      const next = agregar(c, f, bando);
+      const config=plantilla.configuracion_monstruo;
+      const seleccion=variantesSeleccionadas[origenId]||'aleatorio';
+      const perfiles=config?.variantes?.length?(seleccion==='una_de_cada'?config.variantes.map(v=>v.id):Array.from({length:cantidadesSeleccionadas[origenId]||1},()=>seleccion)):[''];
+      if(c.miembros.length+perfiles.length>100)throw Error('Máximo cien participantes.');
+      const catalogoVariantes=config?.variantes?.length?await supabase.from('forja_maestra').select('*').eq('estado','aprobado'):null;
+      if(catalogoVariantes?.error)throw Error(catalogoVariantes.error.message);
+      let next=c;
+      for(const perfil of perfiles){
+       let copia={...f,id:crypto.randomUUID()};
+       if(plantilla.es_grupo&&plantilla.stats_rango){const base={...escalarMalla(plantilla.stats_rango,nivel,plantilla.nivel_maximo||20),nivel};const stats:Record<string,number>={...base};for(const [k,v] of Object.entries(f.configuracion.bonos_equipamiento||{}))stats[k]=(stats[k]||0)+v;copia={...copia,stats,configuracion:{...f.configuracion,stats_base:base}};}
+       if(config?.variantes?.length)copia=prepararVariante(copia,elegirVariante(config,perfil),catalogoVariantes!.data as FuenteMonstruo[]);
+       next=agregar(next,copia,bando);
+      }
       await guardar(next);
       mostrarIniciativa(next.miembros[next.miembros.length - 1]);
     });
@@ -939,6 +955,7 @@ export default function CampoCombate() {
                     {p.stats.armadura || 0} ARM
                   </p>
                   {p.origen==="forja"&&<label className="flex items-center gap-2 text-xs text-neutral-300">Nivel al entrar al combate<input type="number" min={1} max={p.nivel_maximo||100} step={1} value={nivelesSeleccionados[p.id]??p.nivel??1} onChange={e=>setNivelesSeleccionados(prev=>({...prev,[p.id]:Math.max(1,Math.min(p.nivel_maximo||100,Number(e.target.value)||1))}))} onClick={e=>e.stopPropagation()} className="w-20 rounded border border-neutral-700 bg-black p-1 text-white" /></label>}
+                  {!!p.configuracion_monstruo?.variantes?.length&&<div className="space-y-2 text-xs"><label>Variante<select aria-label={`Variante de ${p.nombre}`} className="w-full rounded border border-neutral-700 bg-black p-2" value={variantesSeleccionadas[p.id]||'aleatorio'} onChange={e=>setVariantesSeleccionadas({...variantesSeleccionadas,[p.id]:e.target.value})}><option value="aleatorio">Sortear variante por aparición</option><option value="una_de_cada">Una de cada variante</option>{p.configuracion_monstruo.variantes.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}</select></label>{variantesSeleccionadas[p.id]!=='una_de_cada'&&<label>Cantidad<input type="number" min={1} max={20} value={cantidadesSeleccionadas[p.id]||1} onChange={e=>setCantidadesSeleccionadas({...cantidadesSeleccionadas,[p.id]:Math.max(1,Math.min(20,Math.floor(Number(e.target.value)||1)))})} className="ml-2 w-16 rounded bg-black p-1"/></label>}</div>}
                   <div className="battle-source-actions">
                     <button
                       disabled={ocupado || c.fase !== "preparacion"}
