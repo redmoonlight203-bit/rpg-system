@@ -17,6 +17,9 @@ do $$ begin
     alter table public.forja_maestra add constraint forja_nivel_valido_yugen check (nivel between 1 and 100 and nivel_maximo between 1 and 100 and exp_total>=0);
   end if;
 end $$;
+-- La inserción administrativa de categorías sin pasiva no depende del JWT del GM.
+-- Bloqueo transaccional de ALTER TABLE: el trigger vuelve a habilitarse antes de confirmar.
+alter table public.categorias_forja disable trigger validar_pasiva_racial;
 insert into public.categorias_forja (clave,nombre,descripcion,icono)
 select 'monstruos','Monstruos','Criaturas que siempre se crean como mallas; cada aparición escala por nivel.','skull'
 where not exists(select 1 from public.categorias_forja where clave='monstruos');
@@ -24,6 +27,7 @@ insert into public.categorias_forja(clave,nombre,descripcion,parent_id,icono)
 select 'monstruos_generales','Generales','Especies y enemigos configurados mediante rangos de estadísticas.',c.id,'skull'
 from public.categorias_forja c where c.clave='monstruos'
 and not exists(select 1 from public.categorias_forja where clave='monstruos_generales');
+alter table public.categorias_forja enable trigger validar_pasiva_racial;
 -- Heredar una ficha utilizable de combate (HP, ARM, PH, fatiga, etc.) desde la categoría estándar.
 insert into public.config_estadisticas(categoria,clave,etiqueta,descripcion,valor_defecto)
 select 'monstruos',s.clave,s.etiqueta,s.descripcion,s.valor_defecto
