@@ -10,6 +10,7 @@ import {
   type Atributo,
 } from "../../../lib/personajes";
 import BaulAlma from "../../../components/BaulAlma";
+import NaturalezasYugen from "../../../components/NaturalezasYugen";
 import FichaVital from "../../../components/FichaVital";
 import "../../../components/personajes.css";
 type Cuenta = {
@@ -479,6 +480,7 @@ export default function GestionPersonajes() {
                   Cerrar ficha
                 </button>
               </div>
+              {!tumba && seleccion && <NaturalezasYugen personajeId={seleccion.id} onCambio={() => void cargar()} />}
               {tumba ? (
                 <>
                   <p>
