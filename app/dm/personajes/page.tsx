@@ -152,6 +152,26 @@ export default function GestionPersonajes() {
       );
     });
   }
+  async function borrar(p: Personaje) {
+    if (
+      !window.confirm(
+        `¿Borrar definitivamente a «${p.nombre}» de esta cuenta? Se eliminarán su ficha, árbol, naturalezas y pertenencias exclusivas. Todo lo ligado al alma volverá al baúl de la cuenta.`,
+      )
+    )
+      return;
+    await ejecutar(async () => {
+      const r = await supabase.rpc("personaje_borrar", {
+        p_personaje: p.id,
+        p_usuario: p.user_id,
+      });
+      if (r.error) throw Error(r.error.message);
+      setSeleccion(null);
+      setItems([]);
+      setAviso(
+        `Personaje «${p.nombre}» eliminado. Sus pertenencias del alma están en el baúl de la cuenta.`,
+      );
+    });
+  }
   async function guardar(estado: string) {
     if (!seleccion) return;
     await ejecutar(async () => {
@@ -350,6 +370,25 @@ export default function GestionPersonajes() {
                       )}
                     </div>
                     <details>
+                      <summary>Personajes de esta cuenta</summary>
+                      {personajes
+                        .filter((p) => p.user_id === c.id)
+                        .map((p) => (
+                          <div key={p.id} className="pj-actions">
+                            <span>
+                              {p.nombre} · {p.estado_aprobacion} ·{" "}
+                              {p.estado_vida}
+                            </span>
+                            <button
+                              disabled={ocupado}
+                              onClick={() => void borrar(p)}
+                            >
+                              Borrar personaje
+                            </button>
+                          </div>
+                        ))}
+                    </details>
+                    <details>
                       <summary>Lugares conocidos</summary>
                       <form
                         onSubmit={(e) => {
@@ -438,6 +477,9 @@ export default function GestionPersonajes() {
                   >
                     Abrir ficha
                   </button>
+                  <button disabled={ocupado} onClick={() => void borrar(p)}>
+                    Borrar personaje
+                  </button>
                   {p.estado_aprobacion === "aprobado" &&
                     p.estado_vida === "vivo" && (
                       <button
@@ -480,7 +522,12 @@ export default function GestionPersonajes() {
                   Cerrar ficha
                 </button>
               </div>
-              {!tumba && seleccion && <NaturalezasYugen personajeId={seleccion.id} onCambio={() => void cargar()} />}
+              {!tumba && seleccion && (
+                <NaturalezasYugen
+                  personajeId={seleccion.id}
+                  onCambio={() => void cargar()}
+                />
+              )}
               {tumba ? (
                 <>
                   <p>
@@ -599,6 +646,9 @@ export default function GestionPersonajes() {
                       />
                     </label>
                     <div className="pj-actions">
+                      <button onClick={() => void borrar(seleccion)}>
+                        Borrar personaje de la cuenta
+                      </button>
                       <button onClick={() => void guardar("aprobado")}>
                         <Check size={16} />
                         {seleccion.estado_aprobacion === "aprobado"

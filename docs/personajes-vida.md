@@ -19,3 +19,7 @@ Se preservan los datos anteriores de la campaña; los personajes ya muertos reci
 - `FORJA_PGLITE_MODULE=/ruta/a/@electric-sql/pglite/dist/index.js node tests/personajes-vida-database.mjs`
 
 La prueba PostgreSQL cubre herencia, límites, permisos, exclusión de encuentros simultáneos, recuperación, muerte, copia íntegra, devolución al alma y creación de una nueva vida. Se carga también la protección de equipo en combate para verificar la integración de la muerte con el sistema existente.
+
+## Borrado por el GM
+
+El GM puede borrar un personaje desde su tarjeta, su ficha o la lista de personajes de una cuenta. La interfaz pide confirmación y la operación del servidor verifica el rol de Kuroi y la cuenta propietaria. Se bloquea durante encuentros en preparación o en curso. Un trigger protege también los borrados directos: devuelve las pertenencias ligadas al alma a su cuenta, desequipándolas, y elimina el inventario exclusivo antes de borrar la ficha. Los árboles y naturalezas se eliminan por sus relaciones; los recuerdos ya existentes en el cementerio se conservan. La prueba `tests/gm-borrar-personajes-database.mjs` cubre permisos, propiedad, encuentros y la conservación del alma.
