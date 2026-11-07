@@ -104,3 +104,12 @@ Derribado aplica -2 al ataque y bloquea caminar hasta levantarse. Levantarse cue
 `supabase/seeds/azul.sql` crea Azul en la galería: alcance 6, radio 2 (13 casillas antes de recortar bordes), 2d6 de daño, coste 2 PH, atracción hasta 2 y CD 12 para evitar derribo. Superar la salvación reduce el daño a la mitad y conserva la atracción. El movimiento de razas y monstruos se configura por herencia en Estadísticas y reglas, con valor inicial 6.
 
 Para probar con cambios de habilidades, prepara un encuentro nuevo: los encuentros existentes guardan una instantánea de las habilidades que tenían al añadir al personaje.
+
+
+## Recursos y números de vida
+
+El recurso PH utilizable se limita a los PH actuales y al máximo efectivo. Un máximo cero, un recurso ausente o no finito no permiten pagar magias, acciones de objetos, reglas activas ni invocaciones. La barra deshabilita acciones sin PH y el servidor vuelve a comprobarlo al ejecutar. Las técnicas con coste cero conservan sus reglas de uso.
+
+Los cambios de vida se calculan sobre el resultado real de cada operación, después de armadura, salvaciones y topes de curación. Se comparten en el evento visual: números rojos negativos para daño y verdes positivos para curación, sobre cada retrato. Un fallo no muestra daño; mover después no repite el evento. También incluye los estados al inicio del turno y la reversión de vida al deshacer.
+
+La plantilla de Aurio Magno tenía Phoenix equipada; `supabase/seeds/reparar_equipo_aurio.sql` retira únicamente esa referencia. El equipo de las plantillas de PNJ y las copias del inventario de jugadores son independientes. Las consultas de inventario verifican la identidad del participante solicitado.

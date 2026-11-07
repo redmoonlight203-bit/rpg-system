@@ -1,17 +1,27 @@
 "use client";
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight} from 'lucide-react';
 import RetratoCombate from './RetratoCombate';
 import Dado3D from './Dado3D';
 import {describirEfecto,describirRegla} from '../lib/descripciones';
-import {alcanceDesde,areaDesde, type Accion, type Posicion} from '../lib/combate';
+import {alcanceDesde,areaDesde, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
 import type {Efecto} from '../lib/creacion';
 import type {TiradaVisual} from './AnimacionDados';
 import '../app/ficha/jugador.css';
 import './tablero-combate.css';
 
+const eventosMostrados=new Set<string>();
 export type FichaTablero={id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion};
-export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false}:{fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean}){
+export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento}:{fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual}){
+ const [cambios,setCambios]=useState<CambioVida[]>([]);
+ useEffect(()=>{
+  if(!evento?.id)return;
+  if(!eventosMostrados.has(evento.id)){
+   eventosMostrados.add(evento.id);if(eventosMostrados.size>200)eventosMostrados.delete(eventosMostrados.values().next().value!);
+   setCambios(evento.cambios_vida||[]);
+  }
+  const timer=setTimeout(()=>setCambios([]),2600);return()=>clearTimeout(timer);
+ },[evento?.id]);
  const [destino,setDestino]=useState<Posicion|null>(null),[hover,setHover]=useState<Posicion|null>(null);
  const coste=destino?alcanzables[`${destino.x},${destino.y}`]:undefined,origen=fichas.find(f=>f.id===lanzador),t=!moviendo?habilidad?.tablero:undefined;
  const rango=t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}):[],blancas=new Set(rango.map(p=>`${p.x},${p.y}`));
@@ -28,12 +38,14 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
       else if(t){if(enRango&&puedeApuntar)onApuntar?.(p,f?.id);}
       else if(f)onObjetivo(f.id);
     }}>
+    {f&&cambios.filter(c=>c.id===f.id).map(c=><span key={`${evento?.id}:${f.id}`} aria-hidden="true" className={`tactical-life-float ${c.delta<0?'damage':'healing'}`}>{c.delta>0?'+':'−'}{Number(Math.abs(c.delta).toFixed(2))}</span>)}
     {f?<><RetratoCombate nombre={f.nombre} src={f.imagen_url}/><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span style={{width:`${Math.max(0,Math.min(100,100*f.vida/Math.max(1,f.max_vida||1)))}%`}}/></span>}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.some(e=>e.includes('Derribado'))?'↘':`${f.estados.length} ✦`}</span>}</>:disponible?<span>{elegida?'✓':alcanzables[k]}</span>:esCentro?<Crosshair size={18}/>:<span className="tactical-coordinate">{p.x+1}·{p.y+1}</span>}
     </button>;
    })}
   </div></div>
 
   {fichaObjetivo&&!t&&<div className="tactical-target-info"><strong>{fichaObjetivo.nombre}</strong><span>{fichaObjetivo.vida!==undefined?`Vida ${fichaObjetivo.vida}/${fichaObjetivo.max_vida}`:""}</span><span>{fichaObjetivo.estados?.join(" · ")||"Sin estados activos"}</span></div>}
+  <span className="sr-only" role="status">{cambios.map(c=>`${fichas.find(f=>f.id===c.id)?.nombre||'Participante'}: ${c.delta>0?'+':'−'}${Math.abs(c.delta)} de vida`).join('. ')}</span>
   {moviendo&&<div className="tactical-move-confirm" role="status"><span>{coste?`Mover ${coste} casillas. Conservas tu acción.`:'Selecciona un destino. Movimiento horizontal y vertical.'}</span><button disabled={ocupado||!coste} onClick={()=>{if(destino&&coste){onMover(destino);setDestino(null);}}}>Confirmar movimiento <ChevronRight size={15}/></button></div>}
  </section>;
 }
@@ -42,17 +54,18 @@ export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,on
  const elegida=acciones.find(a=>a.id===seleccion),propio=seleccion==='guardia'||elegida?.efecto.efecto==='crear_arma';
  const ayuda=elegida?.regla_detalle?describirRegla(elegida.regla_detalle):elegida?describirEfecto(elegida.efecto,elegida.nombre):null;
  const [categoria,setCategoria]=useState('todas');
- const motivo=elegida?.bloqueada||((elegida?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(elegida?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!elegida?.regla)?'Fatiga insuficiente.':elegida?.enfriamiento?`Espera ${elegida.enfriamiento} turnos`:elegida&&actor.ph<elegida.efecto.coste_ph?'PH insuficientes':'');
+ const phReal=Number.isFinite(actor.ph)?Math.max(0,Math.min(actor.ph,actor.stats?(Number.isFinite(actor.stats.ph)?actor.stats.ph:0):actor.ph)):0;
+ const motivo=elegida?.bloqueada||((elegida?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(elegida?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!elegida?.regla)?'Fatiga insuficiente.':elegida?.enfriamiento?`Espera ${elegida.enfriamiento} turnos`:elegida&&phReal<elegida.efecto.coste_ph?'PH insuficientes':'');
  return <section className="tactical-hud" aria-label="Acciones del turno">
   <div className="tactical-die" aria-live="polite"><Dado3D caras={dados[0]?.caras||20} valor={dados[0]?.valor} animar={!!dados.length} key={JSON.stringify(dados)}/><div><strong>{resultado||'DADOS'}</strong><span>{dados.length?dados.map(d=>`d${d.caras}: ${d.valor}`).join(' · '):'Las tiradas aparecen aquí'}</span></div></div>
   <div className="tactical-dock">
-   <div className="tactical-actor"><RetratoCombate nombre={actor.nombre} src={actor.imagen_url}/><div><strong>{actor.nombre}</strong><span className="tactical-life">♥ {actor.vida}/{actor.max_vida}</span><small>PH {actor.ph} · Fatiga {actor.fatiga}</small></div><span className={`tactical-action-pip ${actor.accion_usada?'spent':''}`} title={actor.accion_usada?'Acción utilizada':'Una acción disponible'}>◆</span></div>
+   <div className="tactical-actor"><RetratoCombate nombre={actor.nombre} src={actor.imagen_url}/><div><strong>{actor.nombre}</strong><span className="tactical-life">♥ {actor.vida}/{actor.max_vida}</span><small>PH {phReal} · Fatiga {actor.fatiga}</small></div><span className={`tactical-action-pip ${actor.accion_usada?'spent':''}`} title={actor.accion_usada?'Acción utilizada':'Una acción disponible'}>◆</span></div>
    <div className="tactical-controls">
     <div className="tactical-tabs"><button aria-pressed={categoria==='todas'} onClick={()=>setCategoria('todas')}>Todas</button><button aria-pressed={categoria==='habilidades'} onClick={()=>setCategoria('habilidades')}>Habilidades</button><span>{!puede?'Espera tu turno':actor.accion_usada?'Acción utilizada':'1 acción disponible'}</span></div>
     <div className="tactical-slots" role="group" aria-label="Barra de acciones">
      <button className={moviendo?'chosen':''} disabled={!puede||ocupado||movimiento<=0||actor.derribado} aria-pressed={moviendo} onClick={onMovimiento}><Footprints/><strong>Mover</strong><small>{movimiento} casillas</small></button>
      {actor.derribado&&<button disabled={!puede||ocupado} onClick={onLevantarse}><Footprints/><strong>Levantarse</strong><small>½ movimiento</small></button>}
-     {acciones.filter(a=>categoria==='todas'||a.id!=='ataque').map((a,i)=><button key={a.id} disabled={!puede||ocupado||actor.accion_usada||(a.enfriamiento>0||!!a.bloqueada)} aria-pressed={!moviendo&&seleccion===a.id} className={!moviendo&&seleccion===a.id?'chosen':''} onClick={()=>onSeleccion(a.id)}><span className="tactical-key">{i+1}</span>{a.efecto.efecto==='dano'?<Swords/>:<Sparkles/>}<strong>{a.nombre}</strong><small>{a.enfriamiento?`${a.enfriamiento} turnos`:a.efecto.coste_ph?`${a.efecto.coste_ph} PH`:a.efecto.coste_fatiga?`${a.efecto.coste_fatiga} Fatiga`:'1 acción'}</small></button>)}
+     {acciones.filter(a=>categoria==='todas'||a.id!=='ataque').map((a,i)=><button key={a.id} disabled={!puede||ocupado||actor.accion_usada||(a.enfriamiento>0||!!a.bloqueada||phReal<(a.efecto.coste_ph||0))} aria-pressed={!moviendo&&seleccion===a.id} title={phReal<(a.efecto.coste_ph||0)?`PH insuficientes: necesitas ${a.efecto.coste_ph}, tienes ${phReal}.`:a.bloqueada||a.nombre} className={!moviendo&&seleccion===a.id?'chosen':''} onClick={()=>onSeleccion(a.id)}><span className="tactical-key">{i+1}</span>{a.efecto.efecto==='dano'?<Swords/>:<Sparkles/>}<strong>{a.nombre}</strong><small>{phReal<(a.efecto.coste_ph||0)?'PH insuficientes':a.enfriamiento?`${a.enfriamiento} turnos`:a.efecto.coste_ph?`${a.efecto.coste_ph} PH`:a.efecto.coste_fatiga?`${a.efecto.coste_fatiga} Fatiga`:'1 acción'}</small></button>)}
      <button disabled={!puede||ocupado||actor.accion_usada} className={!moviendo&&seleccion==='guardia'?'chosen':''} aria-pressed={!moviendo&&seleccion==='guardia'} onClick={()=>onSeleccion('guardia')}><Shield/><strong>Guardia</strong><small>+2 ARM</small></button>
      <button disabled={ocupado} onClick={onInventario}><Backpack/><strong>Inventario</strong><small>Equipo y objetos</small></button>{extras}
     </div>

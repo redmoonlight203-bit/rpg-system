@@ -1,5 +1,5 @@
 // @ts-nocheck -- Runtime Deno de Supabase.
-import {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse} from '../equipo-combate/motor.js';
+import {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles} from '../equipo-combate/motor.js';
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
 const respuesta=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 Deno.serve(async req=>{
@@ -32,11 +32,11 @@ Deno.serve(async req=>{
     if(typeof body.accion_id!=='string'||body.accion_id.length>300||typeof body.objetivo_id!=='string'||(!body.centro&&!c.miembros.some(x=>x.id===body.objetivo_id)))throw Error('Acción u objetivo inválidos.');
     next=actuar(c,m.id,body.accion_id,body.objetivo_id,rng,body.forzar===true,body.centro);resultado=next.resultado;
    }else throw Error('Operación no permitida.');
-   if(body.operacion!=='mover')next.evento_visual={id:crypto.randomUUID(),nombre:m.nombre,dados,resultado};
+   if(body.operacion!=='mover')next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:m.nombre,dados,resultado};
    await rpc('jugador_confirmar_servidor',{...args,p_version:ctx.version,p_datos:next});
    ctx=await rpc('jugador_contexto_servidor',args);
   }
   const c=ctx.combate,m=ctx.actor;
-  return respuesta({id:ctx.id,nombre:ctx.nombre,version:ctx.version,fase:c.fase,ronda:c.ronda,actual:c.miembros.find(x=>x.id===c.actual)?.nombre||'',es_turno:c.fase==='en_curso'&&c.actual===m.id,evento_visual:c.evento_visual,actual_id:c.actual,tablero:dimensionesTablero(c),movimiento_restante:movimientoRestante(m),alcanzables:casillasAlcanzables(c,m.id),registro:c.registro.slice(0,12),actor:{derribado:m.estados.some(e=>e.tipo==='derribado'),agotado:m.agotado,imagen_url:m.configuracion.imagen_url,id:m.id,personaje_id:m.personaje_id,nombre:m.nombre,vida:m.vida,max_vida:maxVida(m),ph:m.ph,fatiga:m.fatiga,stats:estadisticas(m),accion_usada:m.accion_usada,estados:m.estados.map(e=>e.nombre)},acciones:acciones(m).map(a=>({...a,enfriamiento:a.regla?Math.max(0,(m.motor?.proximos[a.regla]||0)-m.turnos):m.cooldowns[a.id]||0})),objetivos:c.miembros.map(x=>({id:x.id,nombre:x.nombre,bando:x.bando,caido:x.vida<=0,vida:x.vida,max_vida:maxVida(x),imagen_url:x.configuracion.imagen_url,estados:x.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[x.id]})),dados,resultado});
+  return respuesta({id:ctx.id,nombre:ctx.nombre,version:ctx.version,fase:c.fase,ronda:c.ronda,actual:c.miembros.find(x=>x.id===c.actual)?.nombre||'',es_turno:c.fase==='en_curso'&&c.actual===m.id,evento_visual:c.evento_visual,actual_id:c.actual,tablero:dimensionesTablero(c),movimiento_restante:movimientoRestante(m),alcanzables:casillasAlcanzables(c,m.id),registro:c.registro.slice(0,12),actor:{derribado:m.estados.some(e=>e.tipo==='derribado'),agotado:m.agotado,imagen_url:m.configuracion.imagen_url,id:m.id,personaje_id:m.personaje_id,nombre:m.nombre,vida:m.vida,max_vida:maxVida(m),ph:phDisponibles(m),fatiga:m.fatiga,stats:estadisticas(m),accion_usada:m.accion_usada,estados:m.estados.map(e=>e.nombre)},acciones:acciones(m).map(a=>({...a,enfriamiento:a.regla?Math.max(0,(m.motor?.proximos[a.regla]||0)-m.turnos):m.cooldowns[a.id]||0})),objetivos:c.miembros.map(x=>({id:x.id,nombre:x.nombre,bando:x.bando,caido:x.vida<=0,vida:x.vida,max_vida:maxVida(x),imagen_url:x.configuracion.imagen_url,estados:x.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[x.id]})),dados,resultado});
  }catch(e){return respuesta({error:e.message||'No se pudo completar la acción.'},400);}
 });

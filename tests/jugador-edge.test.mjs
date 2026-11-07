@@ -2,12 +2,13 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
-const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import .* from '\.\.\/equipo-combate\/motor.js';/m,'const {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse}=motor;');
+const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import .* from '\.\.\/equipo-combate\/motor.js';/m,'const {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles}=motor;');
 const jugador='00000000-0000-0000-0000-000000000001', combate='00000000-0000-0000-0000-000000000002';
-function servidor({auth=true,turno=true,usada=false,area=false}={}){
+function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false}={}){
  let handler;const escrituras=[];let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
  if(area){c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Azul',stats:{},efectos:[{id:'azul',nombre:'Azul',efecto:'dano',cantidad:2,caras:6,modificador:0,tipo_dano:'energia',estado:'',duracion:0,coste_ph:2,salvacion:{cd:12,atributo:'salvacion',exito:'mitad'},tablero:{alcance:6,forma:'circulo',tamano:2,afecta:'enemigos',desplazamiento:{tipo:'atraer',casillas:2,cuando:'siempre'},derribo:'fallo_salvacion'}}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:6,y:1};}
 
+ if(sinPH){c.miembros[0].stats.ph=0;c.miembros[0].ph=99;}
  const mock=async(url,options)=>{if(url.endsWith('/auth/v1/user'))return Response.json(auth?{id:jugador}:{error:'no'},{status:auth?200:401});if(url.endsWith('/jugador_contexto_servidor'))return Response.json({id:combate,nombre:'Prueba',version:3,combate:c,actor:c.miembros[0]});if(url.endsWith('/jugador_confirmar_servidor')){escrituras.push(JSON.parse(options.body));return Response.json(null);}throw Error(url);};
  new Function('Deno','fetch','Response','motor',entrada)({env:{get:k=>k==='SUPABASE_URL'?'https://test':'secreto-servidor'},serve:f=>handler=f},mock,Response,motor);return {handler,escrituras};
 }
@@ -24,3 +25,5 @@ test('movimiento rechaza turno ajeno, revisión vieja y destino ocupado sin guar
 
 test('el jugador puede lanzar un área sobre una casilla vacía y el servidor calcula sus víctimas',async()=>{const s=servidor({area:true}),r=await s.handler(req({operacion:'actuar',version:3,accion_id:'hab:h:azul',objetivo_id:'',centro:{x:5,y:1}}));assert.equal(r.status,200);const n=s.escrituras[0].p_datos;assert.equal(n.miembros[0].ph,8);assert.ok(n.miembros[1].vida<100);assert.deepEqual(n.miembros[1].posicion,{x:5,y:1});});
 test('el servidor rechaza un centro fuera de alcance sin guardar',async()=>{const s=servidor({area:true});assert.equal((await s.handler(req({operacion:'actuar',version:3,accion_id:'hab:h:azul',objetivo_id:'',centro:{x:11,y:7}}))).status,400);assert.equal(s.escrituras.length,0);});
+
+test('el servidor bloquea PH residuales cuando el máximo real es cero',async()=>{const s=servidor({area:true,sinPH:true}),r=await s.handler(req({operacion:'actuar',version:3,accion_id:'hab:h:azul',objetivo_id:'',centro:{x:5,y:1}}));assert.equal(r.status,400);assert.match((await r.json()).error,/PH insuficientes/);assert.equal(s.escrituras.length,0);});

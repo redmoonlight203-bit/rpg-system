@@ -1,5 +1,5 @@
 // @ts-nocheck -- Supabase Edge usa Deno; el proyecto web usa TypeScript para Next.
-import {agregar,nuevoCombate,cambiarEquipo,seleccionEquipo,estadisticas,maxVida,manosLibres,accionesObjeto,usarObjeto} from './motor.js';
+import {agregar,nuevoCombate,cambiarEquipo,seleccionEquipo,estadisticas,maxVida,manosLibres,accionesObjeto,usarObjeto,phDisponibles} from './motor.js';
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
 const respuesta=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 Deno.serve(async(req)=>{
@@ -23,8 +23,10 @@ Deno.serve(async(req)=>{
   const args={p_usuario:user.id,p_personaje:body.personaje_id??null,p_combate:body.combate_id??null,p_actor:body.actor_id??null};
   const contexto=async()=>{const ctx=await rpc('equipo_contexto_servidor',args);if(ctx.actor)ctx.fuentes=[...new Map([...ctx.fuentes,...Object.values(ctx.actor.configuracion.equipamiento||{})].filter(p=>p.id).map(p=>[p.id,p])).values()];return ctx;};
   let ctx=await contexto();
+  if(body.actor_id!=null&&ctx.actor?.id!==body.actor_id)throw Error('El inventario no corresponde al participante seleccionado.');
+  if(body.personaje_id!=null&&String(ctx.personaje_id)!==String(body.personaje_id))throw Error('El inventario no corresponde al personaje seleccionado.');
   const preparar=ctx=>{
-   if(ctx.combate){const c=ctx.combate,m=c.miembros.find(m=>m.id===ctx.actor.id);m.configuracion.reserva=[...ctx.fuentes];return {c,m};}
+   if(ctx.combate){const c=ctx.combate,m=c.miembros.find(m=>m.id===ctx.actor.id);m.configuracion.reserva=structuredClone(ctx.fuentes);return {c,m};}
    const c=agregar(nuevoCombate(),ctx.preparado,'jugador',()=>1);return {c,m:c.miembros[0]};
   };
   if(!body.consultar){
@@ -46,6 +48,6 @@ Deno.serve(async(req)=>{
   }
   const {c,m}=preparar(ctx);
   // Nunca devolvemos al jugador las fichas ni el registro privado de sus enemigos.
-  return respuesta({equipo:seleccionEquipo(m),fuentes:ctx.fuentes.map(p=>({id:p.id,nombre:p.nombre,slot_tipo:p.slot_tipo,stats:p.stats,tipo_creacion:p.tipo_creacion,descripcion:p.descripcion,imagen_url:p.imagen_url,consumible:!!p.consumible,acciones:accionesObjeto(m,p)})),combate_id:ctx.combate_id||null,fase:c.fase,version:ctx.version||0,firma:ctx.combate_id?undefined:ctx.firma,es_turno:ctx.combate_id?c.actual===m.id:true,accion_usada:!!m.accion_usada,vida:m.vida,max_vida:maxVida(m),manos_libres:manosLibres(m),stats:estadisticas(m),formas:(m.motor?.modificadores||[]).map(x=>x.nombre),nombre:m.nombre,actor_id:m.id,objetivos:c.miembros.filter(x=>x.vida>0).map(x=>({id:x.id,nombre:x.nombre,bando:x.bando}))});
+  return respuesta({equipo:seleccionEquipo(m),fuentes:ctx.fuentes.map(p=>({id:p.id,nombre:p.nombre,slot_tipo:p.slot_tipo,stats:p.stats,tipo_creacion:p.tipo_creacion,descripcion:p.descripcion,imagen_url:p.imagen_url,consumible:!!p.consumible,acciones:accionesObjeto(m,p)})),combate_id:ctx.combate_id||null,fase:c.fase,version:ctx.version||0,firma:ctx.combate_id?undefined:ctx.firma,es_turno:ctx.combate_id?c.actual===m.id:true,accion_usada:!!m.accion_usada,vida:m.vida,ph:phDisponibles(m),fatiga:m.fatiga,agotado:m.agotado,max_vida:maxVida(m),manos_libres:manosLibres(m),stats:estadisticas(m),formas:(m.motor?.modificadores||[]).map(x=>x.nombre),nombre:m.nombre,actor_id:m.id,objetivos:c.miembros.filter(x=>x.vida>0).map(x=>({id:x.id,nombre:x.nombre,bando:x.bando}))});
  }catch(e){return respuesta({error:e.message||'No se pudo cambiar el equipo.'},400);}
 });

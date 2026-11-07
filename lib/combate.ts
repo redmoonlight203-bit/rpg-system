@@ -103,8 +103,10 @@ export type Combatiente = {
     atributo?: string;
   }[];
 };
+export type CambioVida = {id:string;delta:number};
+export type EventoVisual = {id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[]};
 export type Combate = {
-  evento_visual?: { id:string; nombre:string; dados:{caras:number;valor:number}[]; resultado?:string };
+  evento_visual?: EventoVisual;
   fase: "preparacion" | "en_curso" | "finalizado";
   ronda: number;
   actual: string | null;
@@ -228,10 +230,16 @@ export function maxVida(m: Combatiente) {
   const s = estadisticas(m);
   return Math.max(1, s.vida ?? s.hp ?? 1);
 }
+/** Nunca permite gastar PH que excedan la capacidad real o un recurso inválido. */
+export function phDisponibles(m:Combatiente):number {
+ const max=estadisticas(m).ph;
+ if(typeof max!=='number'||!Number.isFinite(max)||max<=0||typeof m.ph!=='number'||!Number.isFinite(m.ph))return 0;
+ return Math.max(0,Math.min(max,m.ph));
+}
 function normalizar(m: Combatiente) {
   const s = estadisticas(m);
   m.vida = Math.max(0, Math.min(m.vida, maxVida(m)));
-  m.ph = Math.max(0, Math.min(m.ph, s.ph || 0));
+  m.ph = phDisponibles(m);
   m.fatiga = Math.max(0, Math.min(m.fatiga, s.fatiga || 0));
 }
 export function agregar(
@@ -565,7 +573,7 @@ function registrar(c: Combate, fn: () => Combate) {
   delete previo.historial;
   const n = fn();
   n.historial = [...(c.historial || []), previo].slice(-10);
-  return n;
+  return registrarCambiosVida(c,n);
 }
 export function iniciar(c: Combate, rng: RNG = dadoSeguro) {
   return registrar(c, () => iniciarInterno(c, rng));
@@ -578,7 +586,7 @@ export function deshacer(c: Combate) {
     previo = h.pop();
   if (c.progreso_confirmado) throw Error("El progreso ya fue aplicado a las fichas.");
   if (!previo) throw Error("No hay una acción anterior.");
-  return { ...copia(previo), historial: h };
+  return registrarCambiosVida(c,{ ...copia(previo), historial: h });
 }
 function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);m.estados=[];if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
 export function finalizar(c:Combate){return registrar(c,()=>{const n=copia(c);n.fase='finalizado';n.actual=null;limpiarFinal(n);return n;});}
@@ -724,7 +732,9 @@ function actuarInterno(
     for(const m of n.miembros)m.posicion=posiciones[m.id];
     objetivos.sort((u,v)=>distanciaCasillas(posiciones[u.id],punto)-distanciaCasillas(posiciones[v.id],punto)||u.id.localeCompare(v.id));
   }
-  if (a.ph < coste) throw Error("PH insuficientes.");
+  if(typeof coste!=='number'||!Number.isFinite(coste)||coste<0)throw Error('Coste de PH inválido.');
+  if (phDisponibles(a) < coste) throw Error("PH insuficientes.");
+  a.ph=phDisponibles(a);
   if (e.efecto !== "crear_arma" && !t && !tactica) throw Error("Elige un objetivo.");
   const forzando =
     fatiga > 0 && (a.agotado || a.fatiga + fatiga > (s.fatiga || 0));
@@ -1075,9 +1085,9 @@ function emitirMotor(c:Combate,evento:EventoRegla,yo:Combatiente,actor:Combatien
 }
 function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0,manual=false,estadoTerminado?:string){
  const ctx:ContextoMotor={c,yo,actor,objetivo,rng,efecto,cantidad,profundidad:0,fuente:clave.startsWith('equipo:')?clave.split(':').slice(0,2).join(':'):undefined,estado_terminado:estadoTerminado},m=motor(yo);
- const error=!condicionMotor(r.condicion,ctx)?'No se cumplen las condiciones.':r.usos>0&&(m.usos[clave]||0)>=r.usos?'Sin usos restantes.':(m.proximos[clave]||0)>yo.turnos?'Regla en enfriamiento.':yo.ph<r.coste_ph?'PH insuficientes.':r.coste_fatiga>0&&(yo.agotado||yo.fatiga+r.coste_fatiga>(estadisticas(yo).fatiga||0))?'Fatiga insuficiente.':'';
+ const error=typeof r.coste_ph!=='number'||!Number.isFinite(r.coste_ph)||r.coste_ph<0?'Coste de PH inválido.':!condicionMotor(r.condicion,ctx)?'No se cumplen las condiciones.':r.usos>0&&(m.usos[clave]||0)>=r.usos?'Sin usos restantes.':(m.proximos[clave]||0)>yo.turnos?'Regla en enfriamiento.':phDisponibles(yo)<r.coste_ph?'PH insuficientes.':r.coste_fatiga>0&&(yo.agotado||yo.fatiga+r.coste_fatiga>(estadisticas(yo).fatiga||0))?'Fatiga insuficiente.':'';
  if(error){if(manual)throw Error(error);return;}
- yo.ph-=r.coste_ph;yo.fatiga+=r.coste_fatiga;
+ yo.ph=phDisponibles(yo)-r.coste_ph;yo.fatiga+=r.coste_fatiga;
  if(r.coste_fatiga){yo.uso_fatiga=true;if(yo.fatiga>=(estadisticas(yo).fatiga||0))yo.agotado=true;}
  m.usos[clave]=(m.usos[clave]||0)+1;m.proximos[clave]=yo.turnos+r.enfriamiento+1;
  // Sin enfriamiento, distintas muertes durante un mismo turno sí cuentan.
@@ -1184,12 +1194,12 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
  });
 }
 
-export function accionesObjeto(m:Combatiente,p:Fuente):{id:string;nombre:string;coste_ph:number;coste_fatiga:number}[]{
+export function accionesObjeto(m:Combatiente,p:Fuente):{id:string;nombre:string;coste_ph:number;coste_fatiga:number;bloqueada?:string}[]{
  if(p.tipo_creacion&&p.tipo_creacion!=='objeto')return [];
  if(requisitosFuente(m,p).length)return [];
  const equipado=Object.values(m.configuracion.equipamiento||{}).some(v=>v.id===p.id);
  if(!equipado&&!p.consumible&&p.slot_tipo&&p.slot_tipo!=='ninguno')return [];
- return [...(p.efectos||[]).filter(e=>!e.requisito_forma||(estadisticas(m)[e.requisito_forma.atributo]||0)>=e.requisito_forma.minimo).map(e=>({id:e.id,nombre:e.nombre,coste_ph:e.coste_ph||0,coste_fatiga:e.coste_fatiga||0})),...(p.reglas||[]).filter(r=>r.evento==='usar').map(r=>({id:'regla:'+r.id,nombre:r.nombre,coste_ph:r.coste_ph,coste_fatiga:r.coste_fatiga}))];
+ return [...(p.efectos||[]).filter(e=>!e.requisito_forma||(estadisticas(m)[e.requisito_forma.atributo]||0)>=e.requisito_forma.minimo).map(e=>({id:e.id,nombre:e.nombre,coste_ph:e.coste_ph||0,coste_fatiga:e.coste_fatiga||0})),...(p.reglas||[]).filter(r=>r.evento==='usar').map(r=>({id:'regla:'+r.id,nombre:r.nombre,coste_ph:r.coste_ph,coste_fatiga:r.coste_fatiga}))].map(a=>({...a,bloqueada:phDisponibles(m)<a.coste_ph?'PH insuficientes.':a.coste_fatiga>0&&(m.agotado||m.fatiga+a.coste_fatiga>(estadisticas(m).fatiga||0))?'Fatiga insuficiente.':undefined}));
 }
 export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:string,objetivoId:string,rng:RNG=dadoSeguro):Combate{
  return registrar(c,()=>{
@@ -1228,12 +1238,12 @@ export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,p
  if(c.miembros.filter(m=>m.invocacion?.invocador===actorId&&m.invocacion.habilidad===habilidad.id&&m.vida>0).length>=maxActivas)throw Error("Ya alcanzaste el límite de invocaciones activas.");
  const ph=config.costePh??0,fatiga=config.costeFatiga??0;
  if(!Number.isInteger(ph)||!Number.isInteger(fatiga)||ph<0||fatiga<0)throw Error("Costes inválidos.");
- if(actor.ph<ph||fatiga>0&&actor.fatiga+fatiga>(estadisticas(actor).fatiga||0))throw Error("No tienes recursos suficientes para invocar.");
+ if(phDisponibles(actor)<ph||fatiga>0&&actor.fatiga+fatiga>(estadisticas(actor).fatiga||0))throw Error("No tienes recursos suficientes para invocar.");
  if(c.miembros.length>=100)throw Error("Máximo cien participantes.");
  return registrar(c,()=>{
   const temporal={...c,fase:"preparacion" as const};
   const n=agregar(temporal,{...preparado,id:crypto.randomUUID()},actor.bando,rng);n.fase=c.fase;
-  const a=n.miembros.find(m=>m.id===actorId)!;a.ph-=ph;a.fatiga+=fatiga;a.uso_fatiga=fatiga>0;a.accion_usada=true;
+  const a=n.miembros.find(m=>m.id===actorId)!;a.ph=phDisponibles(a)-ph;a.fatiga+=fatiga;a.uso_fatiga=fatiga>0;a.accion_usada=true;
   const criatura=n.miembros[n.miembros.length-1];criatura.invocacion={invocador:actorId,habilidad:habilidad.id!,restantes:duracion};
   log(n,`${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);return n;
  });
@@ -1355,4 +1365,17 @@ export function levantarse(c:Combate,actorId:string):Combate{
   if(movimientoRestante(m)<coste)throw Error('No queda movimiento suficiente para levantarte.');
   m.movimiento={turno:m.turnos,gastado:(m.movimiento?.turno===m.turnos?m.movimiento.gastado:0)+coste};quitarEstado(m,'derribado');log(n,`${m.nombre} se levanta y gasta ${coste} casillas de movimiento.`);return n;
  });
+}
+
+
+/** Delta real de vida, después de defensas, salvaciones y límites de curación. */
+export function cambiosVida(antes:Pick<Combate,'miembros'>,despues:Pick<Combate,'miembros'>):CambioVida[]{
+ const vidas=new Map(antes.miembros.map(m=>[m.id,m.vida]));
+ return despues.miembros.flatMap(m=>{
+  const previa=vidas.get(m.id);if(typeof previa!=='number'||!Number.isFinite(previa)||!Number.isFinite(m.vida)||m.vida===previa)return [];
+  return [{id:m.id,delta:m.vida-previa}];
+ });
+}
+export function registrarCambiosVida(antes:Combate,despues:Combate):Combate{
+ return {...despues,evento_visual:{id:crypto.randomUUID(),nombre:despues.miembros.find(m=>m.id===despues.actual)?.nombre||'Combate',dados:[],resultado:despues.resultado,cambios_vida:cambiosVida(antes,despues)}};
 }

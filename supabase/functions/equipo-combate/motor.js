@@ -134,10 +134,17 @@ export function maxVida(m) {
     const s = estadisticas(m);
     return Math.max(1, s.vida ?? s.hp ?? 1);
 }
+/** Nunca permite gastar PH que excedan la capacidad real o un recurso inválido. */
+export function phDisponibles(m) {
+    const max = estadisticas(m).ph;
+    if (typeof max !== 'number' || !Number.isFinite(max) || max <= 0 || typeof m.ph !== 'number' || !Number.isFinite(m.ph))
+        return 0;
+    return Math.max(0, Math.min(max, m.ph));
+}
 function normalizar(m) {
     const s = estadisticas(m);
     m.vida = Math.max(0, Math.min(m.vida, maxVida(m)));
-    m.ph = Math.max(0, Math.min(m.ph, s.ph || 0));
+    m.ph = phDisponibles(m);
     m.fatiga = Math.max(0, Math.min(m.fatiga, s.fatiga || 0));
 }
 export function agregar(c, f, bando, rng = dadoSeguro) {
@@ -420,7 +427,7 @@ function registrar(c, fn) {
     delete previo.historial;
     const n = fn();
     n.historial = [...(c.historial || []), previo].slice(-10);
-    return n;
+    return registrarCambiosVida(c, n);
 }
 export function iniciar(c, rng = dadoSeguro) {
     return registrar(c, () => iniciarInterno(c, rng));
@@ -434,7 +441,7 @@ export function deshacer(c) {
         throw Error("El progreso ya fue aplicado a las fichas.");
     if (!previo)
         throw Error("No hay una acción anterior.");
-    return { ...copia(previo), historial: h };
+    return registrarCambiosVida(c, { ...copia(previo), historial: h });
 }
 function limpiarFinal(n) { n.miembros = n.miembros.filter(m => !m.invocacion); for (const m of n.miembros) {
     emitirMotor(n, 'fin_combate', m, m, m, dadoSeguro);
@@ -586,8 +593,11 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
             m.posicion = posiciones[m.id];
         objetivos.sort((u, v) => distanciaCasillas(posiciones[u.id], punto) - distanciaCasillas(posiciones[v.id], punto) || u.id.localeCompare(v.id));
     }
-    if (a.ph < coste)
+    if (typeof coste !== 'number' || !Number.isFinite(coste) || coste < 0)
+        throw Error('Coste de PH inválido.');
+    if (phDisponibles(a) < coste)
         throw Error("PH insuficientes.");
+    a.ph = phDisponibles(a);
     if (e.efecto !== "crear_arma" && !t && !tactica)
         throw Error("Elige un objetivo.");
     const forzando = fatiga > 0 && (a.agotado || a.fatiga + fatiga > (s.fatiga || 0));
@@ -896,13 +906,13 @@ function emitirMotor(c, evento, yo, actor, objetivo, rng, efecto, cantidad = 0, 
 }
 function ejecutarRegla(c, yo, clave, r, actor, objetivo, rng, efecto, cantidad = 0, manual = false, estadoTerminado) {
     const ctx = { c, yo, actor, objetivo, rng, efecto, cantidad, profundidad: 0, fuente: clave.startsWith('equipo:') ? clave.split(':').slice(0, 2).join(':') : undefined, estado_terminado: estadoTerminado }, m = motor(yo);
-    const error = !condicionMotor(r.condicion, ctx) ? 'No se cumplen las condiciones.' : r.usos > 0 && (m.usos[clave] || 0) >= r.usos ? 'Sin usos restantes.' : (m.proximos[clave] || 0) > yo.turnos ? 'Regla en enfriamiento.' : yo.ph < r.coste_ph ? 'PH insuficientes.' : r.coste_fatiga > 0 && (yo.agotado || yo.fatiga + r.coste_fatiga > (estadisticas(yo).fatiga || 0)) ? 'Fatiga insuficiente.' : '';
+    const error = typeof r.coste_ph !== 'number' || !Number.isFinite(r.coste_ph) || r.coste_ph < 0 ? 'Coste de PH inválido.' : !condicionMotor(r.condicion, ctx) ? 'No se cumplen las condiciones.' : r.usos > 0 && (m.usos[clave] || 0) >= r.usos ? 'Sin usos restantes.' : (m.proximos[clave] || 0) > yo.turnos ? 'Regla en enfriamiento.' : phDisponibles(yo) < r.coste_ph ? 'PH insuficientes.' : r.coste_fatiga > 0 && (yo.agotado || yo.fatiga + r.coste_fatiga > (estadisticas(yo).fatiga || 0)) ? 'Fatiga insuficiente.' : '';
     if (error) {
         if (manual)
             throw Error(error);
         return;
     }
-    yo.ph -= r.coste_ph;
+    yo.ph = phDisponibles(yo) - r.coste_ph;
     yo.fatiga += r.coste_fatiga;
     if (r.coste_fatiga) {
         yo.uso_fatiga = true;
@@ -1110,7 +1120,7 @@ export function accionesObjeto(m, p) {
     const equipado = Object.values(m.configuracion.equipamiento || {}).some(v => v.id === p.id);
     if (!equipado && !p.consumible && p.slot_tipo && p.slot_tipo !== 'ninguno')
         return [];
-    return [...(p.efectos || []).filter(e => !e.requisito_forma || (estadisticas(m)[e.requisito_forma.atributo] || 0) >= e.requisito_forma.minimo).map(e => ({ id: e.id, nombre: e.nombre, coste_ph: e.coste_ph || 0, coste_fatiga: e.coste_fatiga || 0 })), ...(p.reglas || []).filter(r => r.evento === 'usar').map(r => ({ id: 'regla:' + r.id, nombre: r.nombre, coste_ph: r.coste_ph, coste_fatiga: r.coste_fatiga }))];
+    return [...(p.efectos || []).filter(e => !e.requisito_forma || (estadisticas(m)[e.requisito_forma.atributo] || 0) >= e.requisito_forma.minimo).map(e => ({ id: e.id, nombre: e.nombre, coste_ph: e.coste_ph || 0, coste_fatiga: e.coste_fatiga || 0 })), ...(p.reglas || []).filter(r => r.evento === 'usar').map(r => ({ id: 'regla:' + r.id, nombre: r.nombre, coste_ph: r.coste_ph, coste_fatiga: r.coste_fatiga }))].map(a => ({ ...a, bloqueada: phDisponibles(m) < a.coste_ph ? 'PH insuficientes.' : a.coste_fatiga > 0 && (m.agotado || m.fatiga + a.coste_fatiga > (estadisticas(m).fatiga || 0)) ? 'Fatiga insuficiente.' : undefined }));
 }
 export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dadoSeguro) {
     return registrar(c, () => {
@@ -1162,7 +1172,7 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
     const ph = config.costePh ?? 0, fatiga = config.costeFatiga ?? 0;
     if (!Number.isInteger(ph) || !Number.isInteger(fatiga) || ph < 0 || fatiga < 0)
         throw Error("Costes inválidos.");
-    if (actor.ph < ph || fatiga > 0 && actor.fatiga + fatiga > (estadisticas(actor).fatiga || 0))
+    if (phDisponibles(actor) < ph || fatiga > 0 && actor.fatiga + fatiga > (estadisticas(actor).fatiga || 0))
         throw Error("No tienes recursos suficientes para invocar.");
     if (c.miembros.length >= 100)
         throw Error("Máximo cien participantes.");
@@ -1171,7 +1181,7 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
         const n = agregar(temporal, { ...preparado, id: crypto.randomUUID() }, actor.bando, rng);
         n.fase = c.fase;
         const a = n.miembros.find(m => m.id === actorId);
-        a.ph -= ph;
+        a.ph = phDisponibles(a) - ph;
         a.fatiga += fatiga;
         a.uso_fatiga = fatiga > 0;
         a.accion_usada = true;
@@ -1348,4 +1358,17 @@ export function levantarse(c, actorId) {
         log(n, `${m.nombre} se levanta y gasta ${coste} casillas de movimiento.`);
         return n;
     });
+}
+/** Delta real de vida, después de defensas, salvaciones y límites de curación. */
+export function cambiosVida(antes, despues) {
+    const vidas = new Map(antes.miembros.map(m => [m.id, m.vida]));
+    return despues.miembros.flatMap(m => {
+        const previa = vidas.get(m.id);
+        if (typeof previa !== 'number' || !Number.isFinite(previa) || !Number.isFinite(m.vida) || m.vida === previa)
+            return [];
+        return [{ id: m.id, delta: m.vida - previa }];
+    });
+}
+export function registrarCambiosVida(antes, despues) {
+    return { ...despues, evento_visual: { id: crypto.randomUUID(), nombre: despues.miembros.find(m => m.id === despues.actual)?.nombre || 'Combate', dados: [], resultado: despues.resultado, cambios_vida: cambiosVida(antes, despues) } };
 }
