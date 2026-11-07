@@ -17,6 +17,14 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
   case 'crear_arma':resumen=e.tabla_armas?`Lanza 1d${e.tabla_armas.caras} y crea el arma asignada al resultado.`:`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
  }
  const detalles:string[]=[];
+ if(e.tablero){const t=e.tablero;
+  detalles.push(`Alcance: ${t.alcance} casillas desde el personaje.`);
+  detalles.push(t.forma==='individual'?'Afecta una casilla.':t.forma==='cuadrado'?`Área: cuadrado de ${t.tamano} × ${t.tamano} casillas.`:t.forma==='linea'||t.forma==='cono'?`Área: ${t.forma} de ${t.tamano} casillas desde el lanzador.`:`Área: ${t.forma==='circulo'?'círculo':'cruz'} de radio ${t.tamano} casillas alrededor del centro.`);
+  detalles.push(`Objetivos: ${{enemigos:'solo enemigos',aliados:'aliados, incluido el lanzador',todos:'todos, incluidos aliados',yo:'solo el lanzador'}[t.afecta]}.`);
+  if(t.desplazamiento)detalles.push(`${t.desplazamiento.tipo==='atraer'?'Atrae hacia':'Empuja lejos de'} el centro hasta ${t.desplazamiento.casillas} casillas${t.desplazamiento.cuando==='fallo_salvacion'?' si falla la salvación':''}; se detiene ante casillas ocupadas.`);
+  if(t.derribo)detalles.push(`Deja al objetivo derribado${t.derribo==='fallo_salvacion'?' si falla la salvación':''}. Levantarse cuesta la mitad del movimiento máximo.`);
+ }
+
  if(e.tabla_armas)detalles.push(...e.tabla_armas.resultados.map(r=>`${r.cara}: ${r.nombre || 'Sin asignar'} (${formula(r)}).`));
  if(e.efecto!=='estado'&&!e.tabla_armas)detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
  if(e.efecto==='estado'){

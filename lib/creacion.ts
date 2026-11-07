@@ -45,7 +45,17 @@ export type ArmaResultado = {
   elemento?: Elemento;
   arma_slot: "mano_der" | "mano_izq" | "dos_manos";
 };
+export type AlcanceHabilidad = {
+  alcance: number;
+  forma: 'individual'|'circulo'|'cuadrado'|'linea'|'cono'|'cruz';
+  tamano: number;
+  afecta: 'enemigos'|'aliados'|'todos'|'yo';
+  color?: 'azul'|'rojo'|'verde'|'dorado'|'violeta';
+  desplazamiento?: {tipo:'atraer'|'empujar';casillas:number;cuando:'siempre'|'fallo_salvacion'};
+  derribo?: 'siempre'|'fallo_salvacion';
+};
 export type Efecto = {
+  tablero?: AlcanceHabilidad;
   tabla_armas?: { caras: number; resultados: ArmaResultado[] };
 
   requisito_forma?: { atributo: string; minimo: number };
@@ -151,6 +161,15 @@ export function formula(
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
+    const t=e.tablero;
+    if(t!==undefined){
+      if(!t||typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['enemigos','aliados','todos','yo'].includes(t.afecta))return 'Configura alcance de 0 a 60 y tamaño de 1 a 12 casillas (individual: 0).';
+      if(t.color&&!['azul','rojo','verde','dorado','violeta'].includes(t.color))return 'Color de área inválido.';
+      if(e.efecto==='crear_arma')return 'Crear un arma no utiliza un área en el tablero.';
+      if(t.desplazamiento&&(!['atraer','empujar'].includes(t.desplazamiento.tipo)||!Number.isInteger(t.desplazamiento.casillas)||t.desplazamiento.casillas<1||t.desplazamiento.casillas>12||!['siempre','fallo_salvacion'].includes(t.desplazamiento.cuando)))return 'Configura un desplazamiento de 1 a 12 casillas.';
+      if(t.derribo&&!['siempre','fallo_salvacion'].includes(t.derribo))return 'Condición de derribo inválida.';
+      if((t.derribo==='fallo_salvacion'||t.desplazamiento?.cuando==='fallo_salvacion')&&!e.salvacion)return 'Activa una salvación para condicionar el desplazamiento o derribo a su fallo.';
+    }
     const tabla = e.tabla_armas;
     if (tabla !== undefined) {
       if (e.efecto !== 'crear_arma' || !tabla || !Number.isInteger(tabla.caras) || tabla.caras < 2 || tabla.caras > 100 || !Array.isArray(tabla.resultados) || tabla.resultados.length !== tabla.caras)

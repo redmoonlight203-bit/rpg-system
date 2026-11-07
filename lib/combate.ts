@@ -1,5 +1,5 @@
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
-import { type Efecto, type Elemento } from "./creacion";
+import { type Efecto, type Elemento, type AlcanceHabilidad } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number};
 export function validarRequisitos(r:RequisitosUso|undefined):string|null{
@@ -681,6 +681,7 @@ function actuarInterno(
   objetivoId: string,
   rng: RNG,
   forzar: boolean,
+  centro?: Posicion,
 ) {
   const n = copia(c),
     a = n.miembros.find((m) => m.id === actorId);
@@ -710,8 +711,21 @@ function actuarInterno(
     coste = e.coste_ph || 0,
     fatiga = e.coste_fatiga || 0,
     t = n.miembros.find((m) => m.id === objetivoId);
+  const tactica=e.tablero;
+  if(tactica){const fallo=validarTactica(e);if(fallo)throw Error(fallo);}
+  const posiciones=posicionesTablero(n), punto=centro || (t?posiciones[t.id]:undefined);
+  let objetivos= t?[t]:[];
+  if(tactica){
+    if(!punto||!alcanceDesde(posiciones[a.id],tactica,dimensionesTablero(n)).some(p=>p.x===punto.x&&p.y===punto.y))throw Error('El destino está fuera del alcance de la habilidad.');
+    const area=areaDesde(posiciones[a.id],punto,tactica,dimensionesTablero(n));
+    objetivos=n.miembros.filter(m=>m.vida>0&&objetivoPermitido(a,m,tactica)&&area.some(p=>p.x===posiciones[m.id].x&&p.y===posiciones[m.id].y));
+    if(!objetivos.length)throw Error('No hay objetivos válidos en el área.');
+    // Snapshot de posiciones y objetivos: los desplazamientos no cambian a quién alcanza el lanzamiento.
+    for(const m of n.miembros)m.posicion=posiciones[m.id];
+    objetivos.sort((u,v)=>distanciaCasillas(posiciones[u.id],punto)-distanciaCasillas(posiciones[v.id],punto)||u.id.localeCompare(v.id));
+  }
   if (a.ph < coste) throw Error("PH insuficientes.");
-  if (e.efecto !== "crear_arma" && !t) throw Error("Elige un objetivo.");
+  if (e.efecto !== "crear_arma" && !t && !tactica) throw Error("Elige un objetivo.");
   const forzando =
     fatiga > 0 && (a.agotado || a.fatiga + fatiga > (s.fatiga || 0));
   if (forzando && !forzar)
@@ -754,7 +768,15 @@ function actuarInterno(
     normalizar(a);
     return n;
   }
-  if (!t) throw Error("Falta objetivo.");
+  for(const objetivo of objetivos){
+    if(a.vida<=0)break;
+    resolverEfecto(n,a,objetivo,e,act,rng,punto);
+  }
+  if(tactica)log(n,`${act.nombre}: centro (${punto!.x+1}, ${punto!.y+1}), ${objetivos.length} objetivos afectados.`);
+  return n;
+}
+function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accion,rng:RNG,centro?:Posicion){
+  const s=estadisticas(a);
   if (e.efecto !== "dano") {
     const supera = e.salvacion
       ? salvacion(n, t, e.salvacion.cd, e.salvacion.atributo, rng)
@@ -792,6 +814,7 @@ function actuarInterno(
         t.fatiga = Math.max(0, t.fatiga - v);
       log(n, `${t.nombre}: ${e.efecto} ${v}.`);
     }
+    secundariosTablero(n,a,t,e,centro,supera);
     normalizar(a);
     normalizar(t);
     return n;
@@ -949,6 +972,7 @@ function actuarInterno(
       }
     }
   }
+  secundariosTablero(n,a,t,e,centro,supera);
   normalizar(a);
   normalizar(t);
   return n;
@@ -960,9 +984,10 @@ export function actuar(
   objetivoId: string,
   rng: RNG = dadoSeguro,
   forzar = false,
+  centro?: Posicion,
 ) {
   return registrar(c, () =>
-    actuarInterno(c, actorId, accionId, objetivoId, rng, forzar),
+    actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro),
   );
 }
 export function mover(c: Combate, id: string, bando: Bando) {
@@ -1237,12 +1262,12 @@ export function posicionesTablero(c: Pick<Combate, 'miembros'>): Record<string, 
   return resultado;
 }
 export function movimientoRestante(m: Combatiente) {
-  const limite = Math.max(0, Math.min(24, Math.floor(estadisticas(m).movimiento ?? 6)));
+  const limite = Math.max(0, Math.min(100, Math.floor(estadisticas(m).movimiento ?? 6)));
   return Math.max(0, limite - (m.movimiento?.turno === m.turnos ? m.movimiento.gastado : 0));
 }
 /** Distancias ortogonales: nadie atraviesa una casilla ocupada, incluidos caídos. */
 export function casillasAlcanzables(c: Combate, actorId: string): Record<string, number> {
-  const m = c.miembros.find(m => m.id === actorId); if (!m) return {};
+  const m = c.miembros.find(m => m.id === actorId); if (!m || tiene(m,'derribado')) return {};
   const posiciones = posicionesTablero(c), inicio = posiciones[actorId], {columnas,filas} = dimensionesTablero(c);
   const ocupadas = new Set(Object.entries(posiciones).filter(([id]) => id !== actorId).map(([,p]) => `${p.x},${p.y}`));
   const distancias: Record<string,number> = {[`${inicio.x},${inicio.y}`]:0}, cola = [inicio], limite = movimientoRestante(m);
@@ -1269,4 +1294,65 @@ export function desplazar(c: Combate, actorId: string, destino: Posicion): Comba
     m.movimiento={turno:m.turnos,gastado:(m.movimiento?.turno===m.turnos?m.movimiento.gastado:0)+coste};
     log(n,`${m.nombre} se mueve ${coste} casillas. Movimiento restante: ${movimientoRestante(m)}.`);return n;
   });
+}
+
+
+export const distanciaCasillas=(a:Posicion,b:Posicion)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+export function validarTactica(e:Efecto):string|null {
+ const t=e.tablero;if(!t)return null;
+ if(typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!['enemigos','aliados','todos','yo'].includes(t.afecta)||e.efecto==='crear_arma')return 'Configuración de tablero inválida.';
+ const d=t.desplazamiento;
+ if(d&&(!['atraer','empujar'].includes(d.tipo)||!Number.isInteger(d.casillas)||d.casillas<1||d.casillas>12||!['siempre','fallo_salvacion'].includes(d.cuando)))return 'Desplazamiento inválido.';
+ if(t.derribo&&!['siempre','fallo_salvacion'].includes(t.derribo))return 'Derribo inválido.';
+ if((t.derribo==='fallo_salvacion'||d?.cuando==='fallo_salvacion')&&!e.salvacion)return 'Falta la salvación de la habilidad.';
+ return null;
+}
+export function alcanceDesde(origen:Posicion,t:AlcanceHabilidad,d:{columnas:number;filas:number}):Posicion[]{
+ const resultado:Posicion[]=[];
+ for(let y=0;y<d.filas;y++)for(let x=0;x<d.columnas;x++)if(distanciaCasillas(origen,{x,y})<=t.alcance)resultado.push({x,y});
+ return resultado;
+}
+/** Círculo/cruz usan radio; cuadrado usa lado; línea/cono usan longitud desde el lanzador. */
+export function areaDesde(origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{columnas:number;filas:number}):Posicion[]{
+ const resultado:Posicion[]=[],n=t.tamano;
+ const vx=centro.x-origen.x,vy=centro.y-origen.y;
+ const horizontal=Math.abs(vx)>=Math.abs(vy),signo=Math.sign(horizontal?vx:vy)||1;
+ for(let y=0;y<d.filas;y++)for(let x=0;x<d.columnas;x++){
+  const dx=x-centro.x,dy=y-centro.y,dist=Math.abs(dx)+Math.abs(dy);
+  const avance=(horizontal?x-origen.x:y-origen.y)*signo,lateral=Math.abs(horizontal?y-origen.y:x-origen.x);
+  const dentro=t.forma==='individual'?dx===0&&dy===0:t.forma==='circulo'?dist<=n:t.forma==='cuadrado'?dx>=-Math.floor((n-1)/2)&&dx<=Math.ceil((n-1)/2)&&dy>=-Math.floor((n-1)/2)&&dy<=Math.ceil((n-1)/2):t.forma==='cruz'?(dx===0||dy===0)&&dist<=n:t.forma==='linea'?avance>=1&&avance<=n&&lateral===0:avance>=1&&avance<=n&&lateral<avance;
+  if(dentro)resultado.push({x,y});
+ }
+ return resultado;
+}
+function objetivoPermitido(a:Combatiente,t:Combatiente,e:AlcanceHabilidad){return e.afecta==='todos'||e.afecta==='yo'&&a.id===t.id||e.afecta==='aliados'&&a.bando===t.bando||e.afecta==='enemigos'&&a.bando!==t.bando;}
+function secundariosTablero(c:Combate,a:Combatiente,t:Combatiente,e:Efecto,centro:Posicion|undefined,supera:boolean){
+ const config=e.tablero;if(!config||!centro||t.vida<=0)return;
+ const d=config.desplazamiento;
+ if(d&&(d.cuando==='siempre'||!supera)){
+  const posiciones=posicionesTablero(c),dim=dimensionesTablero(c),origen=posiciones[t.id];let p={...origen};
+  const ocupadas=new Set(Object.entries(posiciones).filter(([id])=>id!==t.id).map(([,p])=>`${p.x},${p.y}`));
+  for(let i=0;i<d.casillas;i++){
+   let dx=centro.x-p.x,dy=centro.y-p.y;
+   if(d.tipo==='atraer'&&dx===0&&dy===0)break;
+   if(d.tipo==='empujar'){dx=-dx;dy=-dy;if(!dx&&!dy){dx=p.x-posiciones[a.id].x;dy=p.y-posiciones[a.id].y;}if(!dx&&!dy)break;}
+   const pasos=Math.abs(dx)>=Math.abs(dy)?[{x:Math.sign(dx),y:0},{x:0,y:Math.sign(dy)}]:[{x:0,y:Math.sign(dy)},{x:Math.sign(dx),y:0}];
+   const siguiente=pasos.filter(v=>v.x||v.y).map(v=>({x:p.x+v.x,y:p.y+v.y})).find(v=>v.x>=0&&v.y>=0&&v.x<dim.columnas&&v.y<dim.filas&&!ocupadas.has(`${v.x},${v.y}`));
+   if(!siguiente)break;p=siguiente;
+  }
+  t.posicion=p;log(c,`${t.nombre}: ${d.tipo==='atraer'?'atraído':'empujado'} ${distanciaCasillas(origen,p)} casillas hasta (${p.x+1}, ${p.y+1}).`);
+ }
+ if(config.derribo&&(config.derribo==='siempre'||!supera)){
+  estado(t,'derribado','Derribado: en el suelo',0,{bono_impacto:-2});
+  log(c,`${t.nombre} queda en el suelo. Levantarse cuesta la mitad de su movimiento máximo.`);
+ }
+}
+export function levantarse(c:Combate,actorId:string):Combate{
+ return registrar(c,()=>{
+  const n=copia(c),m=n.miembros.find(m=>m.id===actorId);
+  if(n.fase!=='en_curso'||n.actual!==actorId||!m||m.vida<=0||!tiene(m,'derribado'))throw Error('Solo puedes levantarte en tu turno si estás derribado.');
+  const max=Math.max(0,Math.min(100,Math.floor(estadisticas(m).movimiento??6))),coste=Math.ceil(max/2);
+  if(movimientoRestante(m)<coste)throw Error('No queda movimiento suficiente para levantarte.');
+  m.movimiento={turno:m.turnos,gastado:(m.movimiento?.turno===m.turnos?m.movimiento.gastado:0)+coste};quitarEstado(m,'derribado');log(n,`${m.nombre} se levanta y gasta ${coste} casillas de movimiento.`);return n;
+ });
 }

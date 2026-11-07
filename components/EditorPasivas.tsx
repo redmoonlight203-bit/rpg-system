@@ -138,9 +138,10 @@ export function EditorPasivas({
                 "bono_impacto",
                 "dano",
                 "salvacion",
+                "movimiento",
               ].map((k) => (
                 <label key={k}>
-                  {{vida:"Vida máxima",armadura:"Armadura",ph:"PH máximos",fatiga:"Límite de Fatiga",iniciativa:"Iniciativa",bono_impacto:"Bono al ataque",dano:"Daño adicional",salvacion:"Bono de salvación"}[k]||k}
+                  {{movimiento:"Movimiento (casillas)",vida:"Vida máxima",armadura:"Armadura",ph:"PH máximos",fatiga:"Límite de Fatiga",iniciativa:"Iniciativa",bono_impacto:"Bono al ataque",dano:"Daño adicional",salvacion:"Bono de salvación"}[k]||k}
                   <input
                     type="number"
                     className={campo}

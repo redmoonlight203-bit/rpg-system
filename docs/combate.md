@@ -84,8 +84,23 @@ El GM y el jugador usan el mismo tablero de casillas con retratos (o iniciales),
 
 Las tiradas aparecen sobre la barra en PC y en la esquina derecha de la barra en pantallas pequeñas. En móvil el tablero se desplaza con el dedo y las acciones se recorren horizontalmente.
 
-Mover muestra casillas alcanzables y requiere seleccionar y confirmar destino. El atributo `movimiento` define el presupuesto por turno; si no existe se usan 6 casillas (máximo 24). Cada paso horizontal o vertical cuesta una casilla. No se atraviesan participantes, incluidos caídos. Mover no consume la acción y puede hacerse antes o después de atacar. La distancia gastada, las posiciones y el historial se guardan en el encuentro y se validan también en la función del jugador con revisión optimista.
+Mover muestra casillas alcanzables y requiere seleccionar y confirmar destino. El atributo `movimiento` define el presupuesto por turno; si no existe se usan 6 casillas (máximo 100). Cada paso horizontal o vertical cuesta una casilla. No se atraviesan participantes, incluidos caídos. Mover no consume la acción y puede hacerse antes o después de atacar. La distancia gastada, las posiciones y el historial se guardan en el encuentro y se validan también en la función del jugador con revisión optimista.
 
 Los encuentros anteriores reciben posiciones iniciales automáticamente. Los retratos del GM se incorporan al próximo guardado para compartirlos con jugadores. No requiere migración SQL: los campos adicionales viven en `combates_yugen.datos`.
 
-Esta fase no incluye creación de mapas, obstáculos de terreno ni reglas de alcance/áreas por casillas. Los ataques mantienen los objetivos admitidos por el motor actual; el movimiento aún no limita su alcance. Publicar los cambios requiere actualizar `combate-jugador` con su `motor.js` compartido además del frontend.
+El editor de mapas y los obstáculos de terreno quedan pendientes. Las acciones antiguas sin configuración de tablero conservan su alcance anterior hasta que el GM lo configure. Publicar los cambios requiere actualizar `combate-jugador` con su `motor.js` compartido además del frontend.
+
+
+## Alcance, áreas y control de posición
+
+En el Yunque, cada acción puede habilitar «Alcance y casillas afectadas». El alcance se mide con distancia horizontal/vertical desde el lanzador y aparece en blanco. Se puede seleccionar una casilla vacía; antes de confirmar se colorea el área y se enumeran sus víctimas. La misma geometría se usa en PC, teléfono y servidor.
+
+Formas: individual (una casilla), círculo por casillas (radio con distancia horizontal/vertical), cuadrado (lado), cruz (radio), línea y cono (longitud desde el lanzador, orientados hacia la casilla elegida). El mapa recorta las casillas fuera de sus límites. El filtro puede incluir solo enemigos, aliados, todos o el lanzador. No hay línea de visión ni obstáculos de terreno en esta fase.
+
+La atracción y el empuje son configurables de 1 a 12 casillas, siempre o solo al fallar salvación. No atraviesan ni superponen participantes, y no gastan el movimiento de la víctima. Los objetivos se fijan antes de desplazar a ninguno; los costes se pagan una sola vez. Cada víctima resuelve su propia salvación, sin repetirla para el derribo.
+
+Derribado aplica -2 al ataque y bloquea caminar hasta levantarse. Levantarse cuesta la mitad del movimiento máximo, redondeada hacia arriba, sin consumir la acción. Se valida en el servidor y se puede deshacer desde el GM.
+
+`supabase/seeds/azul.sql` crea Azul en la galería: alcance 6, radio 2 (13 casillas antes de recortar bordes), 2d6 de daño, coste 2 PH, atracción hasta 2 y CD 12 para evitar derribo. Superar la salvación reduce el daño a la mitad y conserva la atracción. El movimiento de razas y monstruos se configura por herencia en Estadísticas y reglas, con valor inicial 6.
+
+Para probar con cambios de habilidades, prepara un encuentro nuevo: los encuentros existentes guardan una instantánea de las habilidades que tenían al añadir al personaje.

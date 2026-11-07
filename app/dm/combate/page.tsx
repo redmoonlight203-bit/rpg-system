@@ -26,7 +26,7 @@ import { supabase } from "../../../lib/supabase";
 import {escalarMalla,type RangoNivel} from "../../../lib/progresion";
 import {
   nuevoCombate,
-  posicionesTablero, dimensionesTablero, casillasAlcanzables, movimientoRestante, desplazar,
+  posicionesTablero, dimensionesTablero, casillasAlcanzables, movimientoRestante, desplazar, levantarse,
   agregar,
   mover,
   retirar,
@@ -86,6 +86,7 @@ type Preparado = {
 };
 type Guardado = { id: string; nombre: string; version: number; datos: Combate };
 export default function CampoCombate() {
+  const [centro,setCentro]=useState<import("../../../lib/combate").Posicion|null>(null);
   const [modoMovimiento,setModoMovimiento]=useState(false);
   const [invocar,setInvocar]=useState<Fuente|null>(null);
   const [catalogo, setCatalogo] = useState<Personaje[]>([]),
@@ -266,6 +267,7 @@ export default function CampoCombate() {
           return valor;
         },
         forzar,
+        (objetivoId?posicionesTablero(c)[objetivoId]:centro)||undefined,
       );
       next.evento_visual={id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado};
       await guardar(next);
@@ -507,7 +509,7 @@ export default function CampoCombate() {
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
       : "";
-  useEffect(()=>{setModoMovimiento(false);},[c.actual]);
+  useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
     const atajo = (event: KeyboardEvent) => {
@@ -520,7 +522,7 @@ export default function CampoCombate() {
       const e = a.efecto;
       if (e && (actor.ph < e.coste_ph || (!forzar && (e.coste_fatiga || 0) > 0 && (actor.agotado || actor.fatiga + (e.coste_fatiga || 0) > (estadisticas(actor).fatiga || 0))))) return;
       event.preventDefault();
-      setAccion(a.id);setModoMovimiento(false);
+      setAccion(a.id);setCentro(null);setModoMovimiento(false);
     };
     window.addEventListener("keydown", atajo);
     return () => window.removeEventListener("keydown", atajo);
@@ -1019,7 +1021,7 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
-          {c.miembros.length>0&&<TableroCombate key={`${id}:${c.actual}`} fichas={c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:retratos[claveRetrato(m)]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[m.id]}))} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={actor?casillasAlcanzables(c,actor.id):{}} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
+          {c.miembros.length>0&&<TableroCombate key={`${id}:${c.actual}:${elegida}`} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} fichas={c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:retratos[claveRetrato(m)]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[m.id]}))} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={actor?casillasAlcanzables(c,actor.id):{}} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (
@@ -1052,7 +1054,7 @@ export default function CampoCombate() {
             ))}
           </div>
           </details>
-          <>{c.fase==='en_curso'&&actor&&<BarraCombate actor={{...actor,stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:retratos[claveRetrato(actor)]||actor.configuracion.imagen_url}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setModoMovimiento(false);}} onResolver={()=>void resolver()} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} objetivo={c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={ocupado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={ocupado||actor.accion_usada} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
+          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:retratos[claveRetrato(actor)]||actor.configuracion.imagen_url}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={()=>void resolver()} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={ocupado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={ocupado||actor.accion_usada} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
           {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select
