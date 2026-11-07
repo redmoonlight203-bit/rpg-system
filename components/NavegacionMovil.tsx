@@ -30,7 +30,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
   ] : [
     { href: "/ficha/tiradas", label: "Mesa de dados", icon: Dices },
     { href: "/ficha/experiencia", label: "Experiencia", icon: TrendingUp },
-    { href: "/ficha/alma", label: "Mi alma", icon: Sparkles },
+    { href: "/ficha/alma", label: "Baúl del alma", icon: Sparkles },
     ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
   ];
   const activo = (href: string) => pathname === href || (href !== "/ficha" && pathname.startsWith(href + "/"));

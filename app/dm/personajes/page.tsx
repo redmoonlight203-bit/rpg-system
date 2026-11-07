@@ -9,6 +9,7 @@ import {
   type Raza,
   type Atributo,
 } from "../../../lib/personajes";
+import BaulAlma from "../../../components/BaulAlma";
 import FichaVital from "../../../components/FichaVital";
 import "../../../components/personajes.css";
 type Cuenta = {
@@ -57,6 +58,7 @@ export default function GestionPersonajes() {
     [tumba, setTumba] = useState<Tumba | null>(null),
     [items, setItems] = useState<Item[]>([]),
     [cura, setCura] = useState(1);
+  const [baul, setBaul] = useState<Cuenta | null>(null);
   const bloqueo = useRef(false);
   const cargar = useCallback(async () => {
     try {
@@ -218,6 +220,19 @@ export default function GestionPersonajes() {
             "",
         )
       : [];
+  if (baul)
+    return (
+      <>
+        <button
+          className="pj-button"
+          style={{ margin: 20 }}
+          onClick={() => setBaul(null)}
+        >
+          Cerrar baúl de la cuenta
+        </button>
+        <BaulAlma usuarioId={baul.id} nombreCuenta={baul.email} />
+      </>
+    );
   return (
     <main className="pj-page">
       <header className="pj-head">
@@ -302,6 +317,9 @@ export default function GestionPersonajes() {
                       personajes vivos
                     </p>
                     <div className="pj-actions">
+                      <button onClick={() => setBaul(c)}>
+                        Abrir baúl del alma
+                      </button>
                       {c.estado !== "aprobado" && (
                         <button
                           disabled={ocupado}

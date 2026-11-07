@@ -1,2 +1,4 @@
-import InventarioReencarnado from "../../../components/InventarioReencarnado";
-export default function Page(){return <InventarioReencarnado vista="alma"/>;}
+import BaulAlma from "../../../components/BaulAlma";
+export default function Page() {
+  return <BaulAlma />;
+}
