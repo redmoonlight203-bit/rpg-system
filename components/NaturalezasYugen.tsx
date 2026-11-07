@@ -1,5 +1,11 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { EditorDados } from "./EditorDados";
+import { EditorPasivas } from "./EditorPasivas";
+import { EditorReglas } from "./EditorReglas";
+import { type Efecto, validarEfectos } from "../lib/creacion";
+import { type ReglaPasiva, validarPasivas } from "../lib/pasivas";
+import { type Regla, validarReglas } from "../lib/reglas";
 import { supabase } from "../lib/supabase";
 
 type Naturaleza = { id:string; clave:string; nombre:string; descripcion:string; modificadores:Record<string,number>; pasivas:unknown[]; habilidades:unknown[]; reglas:Record<string,unknown> };
@@ -12,8 +18,10 @@ function objetoNumerico(texto:string):Record<string,number>{
  if(!obj || Array.isArray(obj) || typeof obj!=="object" || Object.values(obj).some(x=>typeof x!=="number"||!Number.isFinite(x)))throw Error("Los modificadores deben ser un objeto JSON con valores numéricos.");
  return obj as Record<string,number>;
 }
+function vista(texto:string,fallback:unknown){try{const v=JSON.parse(texto);return v && typeof v==="object" && Array.isArray(v)===Array.isArray(fallback)?v:fallback;}catch{return fallback;}}
 function lista(texto:string):unknown[]{const v=JSON.parse(texto||"[]");if(!Array.isArray(v))throw Error("Las pasivas y habilidades deben ser listas JSON.");return v;}
 export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=false}:{personajeId?:number;onCambio?:()=>void;soloCatalogo?:boolean}){
+ const [catalogo,setCatalogo]=useState<{id:string;nombre:string;tipo_creacion:string}[]>([]);
  const [naturalezas,setNaturalezas]=useState<Naturaleza[]>([]);
  const [vinculos,setVinculos]=useState<Vinculo[]>([]);
  const [nombre,setNombre]=useState("");
@@ -34,7 +42,7 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
   if(n.error||v.error){setError(n.error?.message||v.error?.message||"Error al cargar.");return;}
   setNaturalezas((n.data||[]) as Naturaleza[]);setVinculos((v.data||[]) as Vinculo[]);
  },[personajeId]);
- useEffect(()=>{void cargar();},[cargar]);
+ useEffect(()=>{void Promise.resolve().then(cargar);void supabase.from("forja_maestra").select("id,nombre,tipo_creacion").eq("estado","aprobado").in("tipo_creacion",["habilidad","pasiva"]).then(({data})=>setCatalogo(data||[]));},[cargar]);
  async function ejecutar(fn:()=>Promise<void>){
   setOcupado(true);setError("");setMensaje("");
   try{await fn();await cargar();onCambio?.();}catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}finally{setOcupado(false);}
@@ -48,6 +56,9 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
   await ejecutar(async()=>{
    const n=nombre.trim();if(!n)throw Error("Escribe el nombre de la naturaleza.");
    const r=JSON.parse(reglas||"{}");if(!r||typeof r!=="object"||Array.isArray(r))throw Error("Las reglas deben ser un objeto JSON.");
+   for(const x of lista(pasivas)) {if(typeof x==="string")continue;const p=x as {reglas?:ReglaPasiva[];reglas_motor?:Regla[]};const fallo=validarPasivas(p.reglas||[])||validarReglas(p.reglas_motor||[]);if(fallo)throw Error(fallo);}
+   for(const x of lista(habilidades)){if(typeof x==="string")continue;const h=x as {efectos?:Efecto[];reglas?:Regla[]};const fallo=validarEfectos(h.efectos||[])||validarReglas(h.reglas||[]);if(fallo)throw Error(fallo);}
+   const fallo=validarReglas(r.motor||[]);if(fallo)throw Error(fallo);
    const data={nombre:n,descripcion,modificadores:objetoNumerico(mod),pasivas:lista(pasivas),habilidades:lista(habilidades),reglas:r};
    const q=editId?supabase.from("naturalezas").update(data).eq("id",editId).select("id").single():supabase.from("naturalezas").insert({...data,clave:slug(n)}).select("id").single();
    const res=await q;if(res.error)throw Error(res.error.message);
@@ -92,10 +103,16 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
     <label className="text-sm">Nombre<input className={input} value={nombre} onChange={e=>setNombre(e.target.value)}/></label>
     <label className="text-sm">Descripción<textarea className={input} rows={2} value={descripcion} onChange={e=>setDescripcion(e.target.value)}/></label>
     <label className="text-sm">Bonificaciones numéricas (JSON)<textarea className={input+" font-mono"} rows={3} value={mod} onChange={e=>setMod(e.target.value)}/></label>
-    <label className="text-sm">Pasivas (lista JSON)<textarea className={input+" font-mono"} rows={2} value={pasivas} onChange={e=>setPasivas(e.target.value)}/></label>
+    <label className="text-sm">Añadir desde El Yunque<select className={input} value="" onChange={e=>{const f=catalogo.find(f=>f.id===e.target.value);if(!f)return;const actual=lista(f.tipo_creacion==='pasiva'?pasivas:habilidades);if(!actual.includes(f.id))(f.tipo_creacion==='pasiva'?setPasivas:setHabilidades)(JSON.stringify([...actual,f.id]));}}><option value="">Selecciona una habilidad o pasiva aprobada…</option>{catalogo.map(f=><option key={f.id} value={f.id}>{f.nombre} · {f.tipo_creacion}</option>)}</select></label>
+   <div className="flex flex-wrap gap-2">{([['pasiva',vista(pasivas,[])],['habilidad',vista(habilidades,[])]] as [string,unknown[]][]).flatMap(([tipo,items])=>items.filter((x):x is string=>typeof x==='string').map(id=><button key={tipo+id} className={btn} onClick={()=>{const setter=tipo==='pasiva'?setPasivas:setHabilidades;setter(JSON.stringify(items.filter(x=>x!==id)));}}>{catalogo.find(f=>f.id===id)?.nombre||id} · Quitar</button>))}</div>
+   <EditorPasivas value={(vista(pasivas,[]).filter((p:unknown)=>typeof p!=="string")[0]?.reglas||[]) as ReglaPasiva[]} onChange={reglas=>{const todas=lista(pasivas);const i=todas.findIndex(p=>typeof p!=="string");if(i<0)todas.push({id:"propia",nombre:nombre||"Naturaleza",reglas});else todas[i]={...(todas[i] as object),reglas};setPasivas(JSON.stringify(todas));}}/>
+   <EditorDados value={(vista(habilidades,[]).filter((p:unknown)=>typeof p!=="string")[0]?.efectos||[]) as Efecto[]} onChange={efectos=>{const todas=lista(habilidades);const i=todas.findIndex(p=>typeof p!=="string");if(i<0)todas.push({id:"propia",nombre:nombre||"Naturaleza",stats:{},efectos});else todas[i]={...(todas[i] as object),efectos};setHabilidades(JSON.stringify(todas));}}/>
+   <EditorReglas value={(vista(reglas,{}).motor||[]) as Regla[]} onChange={motor=>setReglas(JSON.stringify({...vista(reglas,{}),motor}))}/>
+   <details><summary>Definiciones avanzadas y referencias del Yunque</summary>
+   <label className="text-sm">Pasivas (lista JSON)<textarea className={input+" font-mono"} rows={2} value={pasivas} onChange={e=>setPasivas(e.target.value)}/></label>
     <label className="text-sm">Habilidades (lista JSON)<textarea className={input+" font-mono"} rows={2} value={habilidades} onChange={e=>setHabilidades(e.target.value)}/></label>
     <label className="text-sm">Condiciones y reglas (objeto JSON)<textarea className={input+" font-mono"} rows={3} value={reglas} onChange={e=>setReglas(e.target.value)}/></label>
-    <p className="text-xs text-amber-300">Las pasivas, habilidades y reglas quedan registradas como definiciones. Su ejecución automática en combate requiere conectarlas al motor de efectos del Yunque.</p>
+    </details><p className="text-xs text-emerald-300">Los efectos se incorporan al preparar el próximo encuentro. Las reglas permiten condiciones, transformaciones y costes con el mismo motor del Yunque. La raza de origen conserva sus pasivas.</p>
     <div className="flex gap-2"><button className={btn} disabled={ocupado} onClick={()=>void guardar()}>{editId?"Guardar cambios":"Crear naturaleza"}</button><button className={btn} disabled={ocupado} onClick={()=>editar()}>Nueva / limpiar</button></div>
    </div>
   </details>
