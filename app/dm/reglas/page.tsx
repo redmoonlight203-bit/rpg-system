@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import ReglasCriaturas from "../../../components/ReglasCriaturas";
+import NaturalezasYugen from "../../../components/NaturalezasYugen";
 import { atributosEfectivos, linaje, padreValido } from "../../../lib/estadisticas";
 import { supabase } from "../../../lib/supabase";
 import { PasivaRacial } from "../../../components/PasivaRacial";
@@ -153,6 +154,7 @@ export default function Estadisticas() {
       {!cargando && !herenciaDisponible && <p role="status" className="text-sm leading-6 text-amber-300">Para activar categorías y subcategorías, ejecuta la migración 20261030_categorias_heredadas.sql en Supabase. Mientras tanto puedes seguir editando categorías y atributos existentes.</p>}
       {actual&&ruta.some(c=>c.clave==='monstruos')&&<ReglasCriaturas key={actual.id} categoria={actual} atributos={deCategoria} onGuardado={cargar}/>}
       {actual&&ruta.some(c=>c.clave==='habilidades_invocacion')&&<p className="rounded-xl border border-sky-900 p-4 text-sm">Invocaciones: configura en El Yunque la criatura de origen o la plantilla temporal, quién la diseña, el techo absoluto de clase, rangos, costes, duración y máximo activo. Una invocación tira iniciativa, dispone de una acción por turno y no se publica en La Creación. La suma de estadísticas, habilidades y pasivas debe respetar el techo.</p>}
+      <NaturalezasYugen soloCatalogo />
       {aviso && <p role="status" className="text-sm text-emerald-400">{aviso}</p>}
       {error && <div role="alert" className="space-y-3 text-sm text-red-300"><p>No se pudo actualizar la configuración: {error}</p><button className={boton} onClick={() => void cargar()}>Reintentar</button></div>}
       {cargando ? <p role="status" className="py-16 text-neutral-400">Cargando categorías y atributos…</p> : <>
