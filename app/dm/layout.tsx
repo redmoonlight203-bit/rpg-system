@@ -13,6 +13,7 @@ const principales = [
   { path: "/dm/combate", label: "Combate", detail: "Probar tus creaciones", icon: Swords },
   { path: "/dm/reglas", label: "Estadísticas", detail: "Definir categorías y atributos", icon: Sliders },
   { path: "/dm/experiencia", label: "Experiencia", detail: "Subidas de nivel de jugadores y monstruos", icon: TrendingUp },
+  { path: "/dm/arbol", label: "Árboles de habilidades", detail: "Ramas y puntos por personaje", icon: TrendingUp },
 ];
 const gestion = [
   { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },

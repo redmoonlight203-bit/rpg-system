@@ -101,8 +101,8 @@ export default function FichaPersonaje() {
       icon: Package,
     },
     {
-      nombre: "Experiencia y evolución",
-      texto: "Descubre tu crecimiento y elige tus habilidades.",
+      nombre: "Árbol de habilidades",
+      texto: "Invierte tus puntos en habilidades y estadísticas.",
       href: "/ficha/experiencia",
       icon: TrendingUp,
     },

@@ -25,11 +25,12 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
   const extras = gm ? [
     { href: "/dm/reglas", label: "Estadísticas y reglas", icon: Sliders },
     { href: "/dm/experiencia", label: "Experiencia", icon: TrendingUp },
+    { href: "/dm/arbol", label: "Árboles de habilidades", icon: Sparkles },
     { href: "/dm/tienda-almas", label: "Tienda de almas", icon: Users },
     { href: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
   ] : [
     { href: "/ficha/tiradas", label: "Mesa de dados", icon: Dices },
-    { href: "/ficha/experiencia", label: "Experiencia", icon: TrendingUp },
+    { href: "/ficha/experiencia", label: "Árbol de habilidades", icon: TrendingUp },
     { href: "/ficha/alma", label: "Baúl del alma", icon: Sparkles },
     ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
   ];

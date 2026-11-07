@@ -1,43 +1,34 @@
 "use client";
-import {useEffect,useState} from "react";
-import Link from "next/link";
-import {ArrowLeft,BookOpen,Sparkles,TrendingUp} from "lucide-react";
-import {supabase} from "../../../lib/supabase";
-import {experienciaParaNivel} from "../../../lib/progresion";
-
-type Ser={id:string;nombre:string;nivel:number;exp_total:number;elecciones_pendientes?:number;tipo:"jugador"|"creacion";malla?:boolean;maximo?:number};
+import {useEffect,useRef,useState} from 'react';
+import Link from 'next/link';
+import {ArrowLeft,GitBranch,Sparkles,TrendingUp,TriangleAlert} from 'lucide-react';
+import {supabase} from '../../../lib/supabase';
+import {experienciaParaNivel} from '../../../lib/progresion';
+import '../../../components/arbol.css';
+type Ser={id:string;nombre:string;nivel:number;exp_total:number;puntos_habilidad?:number;tipo:'jugador'|'creacion';malla?:boolean;maximo?:number;user_id?:string};
+type Prevision={nombre:string;nivel_anterior:number;nivel:number;puntos_anadidos:number;avisos:{nivel:number;mensaje:string}[]};
 export default function ExperienciaGM(){
- const [seres,setSeres]=useState<Ser[]>([]),[cantidades,setCantidades]=useState<Record<string,string>>({}),[error,setError]=useState(""),[aviso,setAviso]=useState(""),[ocupado,setOcupado]=useState(false),[cargando,setCargando]=useState(true);
- async function cargar(){setCargando(true);try{
-  const [jugadores,creaciones]=await Promise.all([
-   supabase.from("personajes").select("id,nombre,nivel,exp_total,elecciones_pendientes").order("nombre"),
-   supabase.from("forja_maestra").select("id,nombre,nivel,exp_total,nivel_maximo,es_grupo").eq("tipo_creacion","personaje").eq("estado","aprobado").order("nombre")
-  ]);
-  if(jugadores.error||creaciones.error)throw Error(jugadores.error?.message||creaciones.error?.message);
-  setSeres([...(jugadores.data||[]).map(x=>({id:String(x.id),nombre:x.nombre,nivel:x.nivel||1,exp_total:x.exp_total||0,elecciones_pendientes:x.elecciones_pendientes||0,tipo:"jugador" as const})),...(creaciones.data||[]).map(x=>({id:x.id,nombre:x.nombre,nivel:x.nivel||1,exp_total:x.exp_total||0,malla:!!x.es_grupo,maximo:x.nivel_maximo||20,tipo:"creacion" as const}))]);
- }catch(e){setError(e instanceof Error?e.message:"No se pudieron cargar los seres vivos.");}finally{setCargando(false);}}
+ const [seres,setSeres]=useState<Ser[]>([]),[cuentas,setCuentas]=useState<Record<string,string>>({}),[cantidades,setCantidades]=useState<Record<string,string>>({}),[error,setError]=useState(''),[aviso,setAviso]=useState(''),[ocupado,setOcupado]=useState(false),[cargando,setCargando]=useState(true),[alerta,setAlerta]=useState<{ser:Ser;valor:number;prev:Prevision}|null>(null);
+ const bloqueo=useRef(false),dialogo=useRef<HTMLDialogElement>(null);
+ async function cargar(){try{
+  const [p,f,u]=await Promise.all([supabase.from('personajes').select('id,nombre,user_id,nivel,exp_total,puntos_habilidad').eq('estado_vida','vivo').eq('estado_aprobacion','aprobado').order('nombre'),supabase.from('forja_maestra').select('id,nombre,nivel,exp_total,nivel_maximo,es_grupo').eq('tipo_creacion','personaje').eq('estado','aprobado').order('nombre'),supabase.from('perfiles').select('id,email')]);
+  if(p.error||f.error||u.error)throw p.error||f.error||u.error;
+  setCuentas(Object.fromEntries((u.data||[]).map(p=>[p.id,p.email])));
+  setSeres([...(p.data||[]).map(x=>({...x,id:String(x.id),tipo:'jugador' as const})),...(f.data||[]).map(x=>({...x,tipo:'creacion' as const,malla:!!x.es_grupo,maximo:x.nivel_maximo||20}))]);
+ }catch(e){setError((e as Error).message);}finally{setCargando(false);}}
  useEffect(()=>{void cargar();},[]);
- async function otorgar(s:Ser){const key=s.tipo+":"+s.id,valor=Number(cantidades[key]);if(!Number.isInteger(valor)||valor<1||valor>1000000){setError("La experiencia debe ser un entero de 1 a 1 000 000.");return;}
-  setOcupado(true);setError("");setAviso("");try{
-   const {data,error}=await supabase.rpc(s.tipo==="jugador"?"progresion_dar_experiencia":"progresion_dar_experiencia_creacion",s.tipo==="jugador"?{p_personaje:s.id,p_cantidad:valor}:{p_forja:s.id,p_cantidad:valor});
-   if(error)throw Error(error.message);
-   setAviso(s.nombre+" recibió "+valor+" XP. Nivel actual: "+data.nivel+(data.elecciones_anadidas?" · Nuevas elecciones: "+data.elecciones_anadidas:""));
-   await cargar();
-  }catch(e){setError(e instanceof Error?e.message:"No se pudo otorgar la experiencia.");}finally{setOcupado(false);}
+ useEffect(()=>{if(alerta)dialogo.current?.showModal();else dialogo.current?.close();},[alerta]);
+ async function otorgar(s:Ser,valor:number,confirmar=false){if(bloqueo.current)return;if(!Number.isInteger(valor)||valor<1||valor>1000000){setError('La experiencia debe ser un entero de 1 a 1 000 000.');return;}
+  bloqueo.current=true;setOcupado(true);setError('');setAviso('');try{
+   if(s.tipo==='jugador'&&!confirmar){const r=await supabase.rpc('arbol_prever_experiencia',{p_personaje:Number(s.id),p_cantidad:valor});if(r.error)throw r.error;const prev=r.data as Prevision;if(prev.avisos.length){setAlerta({ser:s,valor,prev});return;}}
+   const r=await supabase.rpc(s.tipo==='jugador'?'arbol_dar_experiencia':'progresion_dar_experiencia_creacion',s.tipo==='jugador'?{p_personaje:Number(s.id),p_cantidad:valor,p_confirmar_sin_habilidades:confirmar}:{p_forja:s.id,p_cantidad:valor});if(r.error)throw r.error;
+   setAlerta(null);setAviso(`${s.nombre} recibió ${valor} XP. Nivel ${r.data.nivel}${r.data.puntos_anadidos?` · +${r.data.puntos_anadidos} puntos para su árbol`:''}.`);setCantidades(p=>({...p,[s.tipo+':'+s.id]:''}));await cargar();
+  }catch(e){setError((e as Error).message);setAlerta(null);}finally{bloqueo.current=false;setOcupado(false);}
  }
- return <main className="min-h-screen bg-black px-4 py-8 text-neutral-100 sm:px-8"><div className="mx-auto max-w-5xl space-y-6">
-  <Link href="/dm/combate" className="inline-flex items-center gap-2 text-sm text-amber-400"><ArrowLeft size={15}/>Volver al combate</Link>
-  <header className="rounded-2xl border border-amber-800/40 bg-neutral-950 p-6"><p className="text-xs uppercase tracking-widest text-amber-400">Kuroi · Progresión</p><h1 className="mt-2 text-3xl font-bold">Experiencia y niveles</h1><p className="mt-3 text-sm text-neutral-400">Concede experiencia tras combates, misiones o eventos. Las estadísticas de los jugadores crecen automáticamente; cada nivel añade tres elecciones de habilidades. Los monstruos pueden progresar y su nivel también se puede definir al invocarlos.</p></header>
-  {error&&<p role="alert" className="rounded-lg border border-red-800 p-3 text-red-300">{error}</p>}{aviso&&<p role="status" className="rounded-lg border border-emerald-800 p-3 text-emerald-300">{aviso}</p>}
-  <div className="flex flex-wrap justify-between gap-3"><p className="text-sm text-neutral-400">{seres.length} seres registrados · niveles del 1 al 100</p><Link href="/dm/forja" className="text-sm text-amber-300">Crear especies y habilidades en el Yunque</Link></div>
-  {cargando?<p>Cargando progresión…</p>:!seres.length?<p className="rounded-xl border border-neutral-800 p-5">No hay seres registrados. Crea un personaje o monstruo en el Yunque.</p>:<div className="grid gap-4 sm:grid-cols-2">{seres.map(s=>{
-   const key=s.tipo+":"+s.id,proximo=experienciaParaNivel(s.nivel+1),tope=s.tipo==="creacion"?(s.maximo||100):100;
-   return <article key={key} className="rounded-xl border border-neutral-800 bg-neutral-950 p-5"><div className="mb-3 flex items-start justify-between gap-2"><div><p className="text-xs uppercase tracking-wider text-amber-400">{s.tipo==="jugador"?"Reencarnado":s.malla?"Monstruo / malla":"Creación única"}</p><h2 className="text-xl font-semibold">{s.nombre}</h2></div><span className="rounded bg-amber-950 px-3 py-1 text-amber-200">Nv. {s.nivel}</span></div>
-    <p className="text-sm text-neutral-400">{s.exp_total.toLocaleString("es-DO")} XP acumulados {s.nivel<Math.min(100,tope)?"· Próximo nivel: "+proximo.toLocaleString("es-DO"):"· Nivel máximo"}</p>
-    {s.tipo==="jugador"&&!!s.elecciones_pendientes&&<p className="mt-2 text-sm text-cyan-300"><Sparkles size={14} className="inline"/> {s.elecciones_pendientes} habilidades por elegir</p>}
-    {s.malla&&<p className="mt-2 text-xs text-neutral-500">Al entrar al combate puedes fijar un nivel entre 1 y {tope}.</p>}
-    <div className="mt-4 flex gap-2"><input aria-label={"XP para "+s.nombre} type="number" min={1} max={1000000} step={1} placeholder="XP a otorgar" value={cantidades[key]||""} onChange={e=>setCantidades(p=>({...p,[key]:e.target.value}))} className="min-w-0 flex-1 rounded-lg border border-neutral-700 bg-black px-3 py-2 text-sm"/><button disabled={ocupado} onClick={()=>void otorgar(s)} className="inline-flex items-center gap-2 rounded-lg border border-amber-700 px-3 py-2 text-sm text-amber-100 disabled:opacity-50"><TrendingUp size={16}/>Dar XP</button></div>
-   </article>;})}</div>}
-  <p className="flex gap-2 text-xs text-neutral-500"><BookOpen size={16}/>La progresión es una regla mecánica configurable en código; los rangos F–KUROI siguen calculándose por el poder real, no por el nivel.</p>
- </div></main>;
+ return <main className="arbol-page"><Link className="arbol-back" href="/dm/combate"><ArrowLeft size={15}/>Volver al combate</Link><header className="arbol-heading"><div><span className="arbol-eyebrow">KUROI / PROGRESIÓN</span><h1>Experiencia y niveles</h1><p>Cada nivel ganado concede 3 puntos al árbol individual de ese personaje. Prepara sus habilidades y estadísticas antes de conceder experiencia.</p></div><Link className="xp-tree-link" href="/dm/arbol"><GitBranch size={18}/>Editar árboles</Link></header>
+ {error&&<p role="alert" className="arbol-error">{error}</p>}{aviso&&<p role="status" className="arbol-notice">{aviso}</p>}
+ {cargando?<p className="arbol-empty">Cargando progresión…</p>:<div className="xp-grid">{seres.map(s=>{const key=s.tipo+':'+s.id,tope=s.tipo==='creacion'?(s.maximo||100):100;return <article key={key} className="xp-card"><span className="arbol-eyebrow">{s.tipo==='jugador'?`PERSONAJE #${s.id}`:s.malla?'MONSTRUO / MALLA':'CREACIÓN'}</span><h2>{s.nombre}<small>Nv. {s.nivel}</small></h2>{s.user_id&&<p className="xp-owner">{cuentas[s.user_id]||'Jugador'}</p>}<p>{s.exp_total.toLocaleString('es-DO')} XP acumulados{s.nivel<Math.min(100,tope)?` · Próximo nivel: ${experienciaParaNivel(s.nivel+1).toLocaleString('es-DO')} XP`:' · Nivel máximo'}</p>{s.tipo==='jugador'&&<><p className="xp-points"><Sparkles size={16}/>{s.puntos_habilidad||0} puntos disponibles</p><Link className="xp-tree-link" href={`/dm/arbol?personaje=${s.id}`}><GitBranch size={16}/>Preparar árbol de {s.nombre}</Link></>}{s.malla&&<p>Al entrar al combate puedes fijar un nivel entre 1 y {tope}.</p>}
+ <form className="xp-form" onSubmit={e=>{e.preventDefault();void otorgar(s,Number(cantidades[key]));}}><input required aria-label={`XP para ${s.nombre}`} type="number" min="1" max="1000000" step="1" placeholder="XP a otorgar" disabled={ocupado} value={cantidades[key]||''} onChange={e=>setCantidades(p=>({...p,[key]:e.target.value}))}/><button disabled={ocupado} className="arbol-primary"><TrendingUp size={16}/>Dar XP</button></form></article>;})}</div>}
+ <dialog ref={dialogo} className="xp-dialog" onCancel={()=>setAlerta(null)} aria-labelledby="xp-aviso-titulo">{alerta&&<><TriangleAlert size={28}/><h2 id="xp-aviso-titulo">Faltan habilidades en el árbol de {alerta.ser.nombre}</h2><p>Esta experiencia lo llevará del nivel {alerta.prev.nivel_anterior} al {alerta.prev.nivel} y añadirá {alerta.prev.puntos_anadidos} puntos.</p><ul>{alerta.prev.avisos.map(a=><li key={a.nivel}>Nivel {a.nivel}: no hay habilidades nuevas preparadas para este personaje.</li>)}</ul><p>Los puntos se conservarán aunque decidas continuar. Puedes preparar sus ramas primero.</p><div><button autoFocus disabled={ocupado} onClick={()=>setAlerta(null)}>Volver sin conceder XP</button><Link className="xp-tree-link" href={`/dm/arbol?personaje=${alerta.ser.id}`}><GitBranch size={16}/>Preparar su árbol</Link><button className="arbol-primary" disabled={ocupado} onClick={()=>void otorgar(alerta.ser,alerta.valor,true)}>Conceder XP de todos modos</button></div></>}</dialog>
+ </main>;
 }
