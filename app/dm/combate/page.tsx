@@ -82,6 +82,9 @@ type Preparado = {
   nivel?: number;
   stats: Record<string, number>;
   configuracion: Combatiente["configuracion"];
+  vida_actual?: number;
+  ph_actual?: number;
+  fatiga_actual?: number;
   requiere_configuracion?: boolean;
 };
 type Guardado = { id: string; nombre: string; version: number; datos: Combate };

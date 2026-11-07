@@ -6,10 +6,11 @@ import {Swords,Users,ShoppingBag,Sparkles,Dices,Home,LogOut} from 'lucide-react'
 import IconoYugen from './IconoYugen';
 import NavegacionMovil from './NavegacionMovil';
 import {supabase} from '../lib/supabase';
-const rutas=new Set(['/ficha','/ficha/personajes','/ficha/personaje','/ficha/equipamiento','/ficha/inventario','/ficha/habilidades','/ficha/alma','/ficha/tienda','/ficha/tienda-almas','/ficha/combate','/ficha/tiradas']);
+const rutas=new Set(['/ficha','/ficha/personajes','/ficha/personaje','/ficha/equipamiento','/ficha/inventario','/ficha/habilidades','/ficha/alma','/ficha/tienda','/ficha/tienda-almas','/ficha/combate','/ficha/tiradas','/ficha/experiencia']);
 export default function AccesoReencarnado({children}:{children:ReactNode}){
  const ruta=usePathname(),router=useRouter();const[perfil,setPerfil]=useState<{mente_colmena:boolean}|null>(null);
  useEffect(()=>{let vivo=true;async function cargar(){const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace('/login');return;}const {data,error}=await supabase.from('perfiles').select('rol,estado,mente_colmena').eq('id',user.id).single();if(!vivo)return;if(error||!data||data.estado!=='aprobado'){router.replace('/login');return;}if(data.rol==='KUROI'){router.replace('/dm');return;}setPerfil(data);}void cargar();const t=setInterval(()=>void cargar(),15000);return()=>{vivo=false;clearInterval(t);};},[router]);
+ useEffect(()=>{if(!perfil||!['/ficha/personaje','/ficha/equipamiento','/ficha/inventario','/ficha/habilidades','/ficha/experiencia'].includes(ruta))return;let activo=true;const revisar=async()=>{const id=localStorage.getItem('personaje_activo_id');if(!id){router.replace('/ficha/personajes');return;}const {data,error}=await supabase.from('personajes').select('id').eq('id',id).eq('estado_vida','vivo').eq('estado_aprobacion','aprobado').maybeSingle();if(activo&&!error&&!data){localStorage.removeItem('personaje_activo_id');router.replace('/ficha/personajes');}};void revisar();const t=setInterval(()=>void revisar(),10000);return()=>{activo=false;clearInterval(t);};},[perfil,ruta,router]);
  const permitido=rutas.has(ruta)&&!(ruta==='/ficha/tienda-almas'&&!perfil?.mente_colmena);
  useEffect(()=>{if(perfil&&!permitido)router.replace('/ficha');},[perfil,permitido,router]);
  if(!perfil||!permitido)return <p className="p-6 text-neutral-400">Cargando tu Nexo…</p>;

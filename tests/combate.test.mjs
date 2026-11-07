@@ -20,3 +20,14 @@ test('la pasiva racial de Escamas prevalece sobre la versión antigua equipada',
  assert.equal(c.estadisticas(x).armadura,20,'no se suman los 5 ARM permanentes de la versión antigua');
  assert.equal(c.reglas(x).filter(r=>r.nombre==='Escamas de Dragón').length,1);
 });
+
+test('un jugador conserva heridas, PH consumidos y fatiga al preparar el siguiente encuentro',()=>{
+ const p={...personaje(),personaje_id:'42',vida_actual:7,ph_actual:1,fatiga_actual:3,stats:{vida:30,ph:5,fatiga:8},configuracion:{tipo_creacion:'personaje'}};
+ const m=c.agregar(c.nuevoCombate(),p,'jugador',()=>10).miembros[0];
+ assert.equal(m.vida,7);assert.equal(m.ph,1);assert.equal(m.fatiga,3);assert.equal(m.stats.vida,30);
+});
+test('recursos persistidos en cero no se sustituyen por máximos',()=>{
+ const p={...personaje(),personaje_id:'42',vida_actual:0,ph_actual:0,fatiga_actual:0,stats:{vida:30,ph:5,fatiga:8},configuracion:{tipo_creacion:'personaje'}};
+ const m=c.agregar(c.nuevoCombate(),p,'jugador',()=>10).miembros[0];
+ assert.equal(m.vida,0);assert.equal(m.ph,0);
+});
