@@ -26,6 +26,7 @@ import { supabase } from "../../../lib/supabase";
 import {escalarMalla,type RangoNivel} from "../../../lib/progresion";
 import {
   nuevoCombate,
+  posicionesTablero, dimensionesTablero, casillasAlcanzables, movimientoRestante, desplazar,
   agregar,
   mover,
   retirar,
@@ -53,6 +54,7 @@ import { formula } from "../../../lib/creacion";
 import AnimacionDados, {
   type TiradaVisual,
 } from "../../../components/AnimacionDados";
+import {TableroCombate,BarraCombate} from "../../../components/TableroCombate";
 import RetratoCombate from "../../../components/RetratoCombate";
 import { retratosCombate } from "../../../lib/retratos-combate";
 import {describirEfecto,describirRegla,ayudaGuardia} from "../../../lib/descripciones";
@@ -60,6 +62,7 @@ import ContenidoAyuda from "../../../components/ContenidoAyuda";
 import "./combate.css";
 import "./diseno.css";
 type Personaje = {
+  imagen_url?:string;
   configuracion_monstruo?:ConfiguracionMonstruo|null;
   id: string;
   nombre: string;
@@ -83,6 +86,7 @@ type Preparado = {
 };
 type Guardado = { id: string; nombre: string; version: number; datos: Combate };
 export default function CampoCombate() {
+  const [modoMovimiento,setModoMovimiento]=useState(false);
   const [invocar,setInvocar]=useState<Fuente|null>(null);
   const [catalogo, setCatalogo] = useState<Personaje[]>([]),
     [partidas, setPartidas] = useState<Guardado[]>([]),
@@ -171,6 +175,7 @@ export default function CampoCombate() {
       };
       const next =
         c.fase === "preparacion" ? iniciar(c, rng) : siguiente(c, rng);
+      next.evento_visual={id:crypto.randomUUID(),nombre:"Inicio del turno",dados};
       await guardar(next);
       setForzar(false);
       setResumen("");
@@ -262,6 +267,7 @@ export default function CampoCombate() {
         },
         forzar,
       );
+      next.evento_visual={id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado};
       await guardar(next);
       if (dados.length)
         setRoll({ id: crypto.randomUUID(), nombre: actor.nombre, dados });
@@ -313,7 +319,7 @@ export default function CampoCombate() {
       const [p, b, j] = await Promise.all([
         supabase
           .from("forja_maestra")
-          .select("id,nombre,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel,configuracion_monstruo")
+          .select("id,nombre,imagen_url,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel,configuracion_monstruo")
           .eq("tipo_creacion", "personaje")
           .eq("estado", "aprobado")
           .order("nombre"),
@@ -368,6 +374,7 @@ export default function CampoCombate() {
     }
   }
   async function guardar(next: Combate) {
+    next = {...next, miembros: next.miembros.map(m=>({...m, configuracion:{...m.configuracion, imagen_url:retratos[claveRetrato(m)] || m.configuracion.imagen_url || catalogo.find(p=>p.id===m.forja_id)?.imagen_url}}))};
     const r = await supabase.rpc("combate_guardar", {
       p_id: id,
       p_nombre: nombre,
@@ -429,6 +436,7 @@ export default function CampoCombate() {
             });
       if (r.error) throw Error(r.error.message);
       let f = r.data as Preparado;
+      if(plantilla.imagen_url)f={...f,configuracion:{...f.configuracion,imagen_url:plantilla.imagen_url}};
       if(plantilla.es_grupo&&plantilla.stats_rango&&Object.keys(plantilla.stats_rango).length){
         const escaladas=escalarMalla(plantilla.stats_rango,nivel,plantilla.nivel_maximo||20);
         const bonos=f.configuracion.bonos_equipamiento||{};
@@ -499,6 +507,7 @@ export default function CampoCombate() {
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
       : "";
+  useEffect(()=>{setModoMovimiento(false);},[c.actual]);
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
     const atajo = (event: KeyboardEvent) => {
@@ -511,7 +520,7 @@ export default function CampoCombate() {
       const e = a.efecto;
       if (e && (actor.ph < e.coste_ph || (!forzar && (e.coste_fatiga || 0) > 0 && (actor.agotado || actor.fatiga + (e.coste_fatiga || 0) > (estadisticas(actor).fatiga || 0))))) return;
       event.preventDefault();
-      setAccion(a.id);
+      setAccion(a.id);setModoMovimiento(false);
     };
     window.addEventListener("keydown", atajo);
     return () => window.removeEventListener("keydown", atajo);
@@ -729,7 +738,7 @@ export default function CampoCombate() {
   }
   return (
     <main className="battle-theme">
-      {roll && (
+      {roll && c.fase !== "en_curso" && (
         <AnimacionDados
           key={JSON.stringify(roll)}
           nombre={roll.nombre}
@@ -1010,6 +1019,8 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
+          {c.miembros.length>0&&<TableroCombate key={`${id}:${c.actual}`} fichas={c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:retratos[claveRetrato(m)]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[m.id]}))} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={actor?casillasAlcanzables(c,actor.id):{}} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
+          <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (
               <section
@@ -1040,124 +1051,8 @@ export default function CampoCombate() {
               </section>
             ))}
           </div>
-          <>{c.fase === "en_curso" && <section className="battle-action">
-            <div className="battle-section-title">
-              <Swords size={15} />
-              <h2>{actor ? `Turno de ${actor.nombre}` : "Selecciona un participante"}</h2>
-              {c.fase==='en_curso'&&actor?.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} className="battle-button" disabled={ocupado||actor.accion_usada} onClick={()=>setInvocar(h)}>Invocar · {h.nombre}</button>)}
-              <span className="battle-action-status">{actor ? actor.accion_usada ? "ACCIÓN UTILIZADA" : "1 ACCIÓN DISPONIBLE" : ""}</span>
-            </div>
-            {actor && <div className="battle-actor-resources"><Shield size={15} /> ARM {estadisticas(actor).armadura || 0}<Zap size={15} /> PH {actor.ph}/{estadisticas(actor).ph || 0}<Flame size={15} /> Fatiga {actor.fatiga}/{estadisticas(actor).fatiga || 0}</div>}
-            
-            {actor&&<button className="battle-button" disabled={ocupado} onClick={()=>void abrirEquipoActual()}>Inventario y equipo</button>}
-            <div
-              className="battle-action-tiles"
-              role="group"
-              aria-label="Acciones del personaje"
-            >
-              {opciones.filter(() => !!actor).map((a, indice) => {
-                const e = a.efecto,
-                  espera = a.regla ? Math.max(0,(actor?.motor?.proximos[a.regla]||0)-(actor?.turnos||0)) : actor?.cooldowns[a.id] || 0;
-                const Icono = !e
-                  ? Shield
-                  : elementoDe(e) === "fuego"
-                    ? Flame
-                    : e.efecto === "curacion"
-                    ? Heart
-                    : e.efecto === "recuperar_ph"
-                      ? Zap
-                      : e.efecto === "crear_arma"
-                        ? Hammer
-                        : e.efecto === "estado"
-                          ? Sparkles
-                          : e.efecto === "reducir_fatiga"
-                            ? Flame
-                            : Swords;
-                const reglaActiva = a.regla && actor ? reglasMotor(actor).find(r=>r.clave===a.regla)?.regla : undefined;
-                const sinUsos = !!(reglaActiva?.usos && actor && (actor.motor?.usos[a.regla!]||0)>=reglaActiva.usos);
-                const ayuda = reglaActiva ? describirRegla(reglaActiva) : e ? describirEfecto(e,a.nombre) : ayudaGuardia;
-                if(e && !reglaActiva) ayuda.detalles.push("Consume tu acción.");
-                if(!reglaActiva && a.enfriamiento) ayuda.detalles.push(`Debes esperar ${a.enfriamiento} turnos antes de volver a usarla.`);
-                const motivo = sinUsos ? "Sin usos restantes." : espera
-                  ? `En enfriamiento: ${espera} turnos.`
-                  : e && actor && actor.ph < e.coste_ph
-                    ? "PH insuficientes."
-                    : e &&
-                        actor &&
-                        (e.coste_fatiga || 0) > 0 &&
-                        (actor.agotado ||
-                          actor.fatiga + (e.coste_fatiga || 0) >
-                            (estadisticas(actor).fatiga || 0)) &&
-                        !forzar
-                      ? "No tienes resistencia suficiente. Activa «Forzar natural» para usarla a costa de tu vida."
-                      : "";
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    className={`battle-action-tile ${elegida === a.id ? "selected" : ""}`}
-                    aria-pressed={elegida === a.id}
-                    aria-disabled={
-                      ocupado || !actor || actor.accion_usada || !!motivo
-                    }
-                    aria-describedby={`ayuda-${a.id}`}
-                    onClick={() => {
-                      if (!ocupado && actor && !actor.accion_usada && !motivo)
-                        setAccion(a.id);
-                    }}
-                  >
-                    <Icono size={22} />
-                    {indice < 4 && <kbd className="battle-shortcut">{"QWER"[indice]}</kbd>}
-                    <strong>{a.nombre}</strong>
-                    <small>{a.regla ? "Regla activa" : e ? formula(e) : "+2 ARM"}</small>
-                    {e && !!(e.coste_ph || e.coste_fatiga) && <small className="battle-cost">{e.coste_ph ? `${e.coste_ph} PH` : "Sin PH"} · {e.coste_fatiga || 0} Fatiga{espera ? ` · Espera ${espera}` : ""}</small>}
-                    {motivo && <small className="battle-disabled-reason">{motivo}</small>}
-                    <span id={`ayuda-${a.id}`} className="battle-tooltip" role="tooltip">
-                      <ContenidoAyuda ayuda={ayuda}/>{motivo && <span className="help-warning">{motivo}</span>}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {!!efecto?.coste_fatiga && <label className="battle-force">
-              <input
-                type="checkbox"
-                checked={forzar}
-                onChange={(e) => setForzar(e.target.checked)}
-              />{" "}
-              Forzar natural con agotamiento: sufres 1d4 antes de actuar.
-            </label>}
-            <div className="battle-action-grid">
-              <div className="battle-target-choice"><span className="battle-target-preview"><Crosshair size={16}/>{elegida === "guardia" || efecto?.efecto === "crear_arma" ? actor?.nombre : c.miembros.find(m=>m.id===destino)?.nombre || "Pulsa la tarjeta de un objetivo"}</span><small>Elige una acción y selecciona a quién va dirigida pulsando su tarjeta o su nombre.</small></div>
-              <button
-                className="battle-primary"
-                disabled={
-                  ocupado ||
-                  !actor ||
-                  actor.accion_usada ||
-                  (!destino && elegida !== "guardia" && efecto?.efecto !== "crear_arma") ||
-                  c.fase !== "en_curso"
-                }
-                onClick={() => void resolver()}
-              >
-                <Swords size={17} /> Lanzar y resolver
-              </button>
-              {c.fase === "en_curso" && <button className="battle-button" disabled={ocupado} onClick={() => void avanzar()}>{actor?.accion_usada ? "Siguiente turno" : "Pasar turno"}</button>}
-            </div>
-            {resumen && (
-              <p className="battle-result" role="status" key={resumen}>
-                {resumen}
-              </p>
-            )}
-            {efecto && (
-              <p>
-                {efecto.efecto === "crear_arma"
-                  ? `Crea ${efecto.arma_nombre}: ${formula(efecto)} durante ${efecto.duracion} turnos propios.`
-                  : `${formula(efecto)} · ${efecto.efecto}`}{" "}
-                Coste {efecto.coste_ph} PH / {efecto.coste_fatiga || 0} Fatiga.
-              </p>
-            )}
-          </section>}
+          </details>
+          <>{c.fase==='en_curso'&&actor&&<BarraCombate actor={{...actor,stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:retratos[claveRetrato(actor)]||actor.configuracion.imagen_url}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setModoMovimiento(false);}} onResolver={()=>void resolver()} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} objetivo={c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={ocupado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={ocupado||actor.accion_usada} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
           {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select

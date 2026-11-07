@@ -1,0 +1,54 @@
+"use client";
+import {useState} from 'react';
+import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight} from 'lucide-react';
+import RetratoCombate from './RetratoCombate';
+import Dado3D from './Dado3D';
+import {describirEfecto,describirRegla} from '../lib/descripciones';
+import type {Accion, Posicion} from '../lib/combate';
+import type {TiradaVisual} from './AnimacionDados';
+import '../app/ficha/jugador.css';
+import './tablero-combate.css';
+
+export type FichaTablero={id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion};
+export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover}:{fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void}){
+ const [destino,setDestino]=useState<Posicion|null>(null);
+ const coste=destino?alcanzables[`${destino.x},${destino.y}`]:undefined;
+ const fichaObjetivo=fichas.find(f=>f.id===objetivo);
+ const porCasilla=new Map(fichas.map(f=>[`${f.posicion.x},${f.posicion.y}`,f]));
+ return <section className="tactical-field" aria-label="Tablero de combate">
+  <header className="tactical-field-header"><span><Crosshair size={16}/>{moviendo?'Elige una casilla iluminada':'Toca un retrato para elegir objetivo'}</span><small>Aliados <i className="tactical-dot ally"/> Enemigos <i className="tactical-dot enemy"/></small></header>
+  <div className="tactical-scroll"><div className="tactical-board" style={{gridTemplateColumns:`repeat(${columnas}, minmax(48px, 1fr))`}}>
+   {Array.from({length:columnas*filas},(_,i)=>{const p={x:i%columnas,y:Math.floor(i/columnas)},k=`${p.x},${p.y}`,f=porCasilla.get(k),disponible=moviendo&&!!alcanzables[k],elegida=!!destino&&destino.x===p.x&&destino.y===p.y;
+    return <button type="button" key={k} disabled={ocupado||(!f&&!disponible)} aria-pressed={f?objetivo===f.id:elegida} aria-label={f?`${f.nombre}, ${f.bando==='jugador'?'aliado':'enemigo'}${f.vida!==undefined?`, vida ${f.vida}/${f.max_vida}`:''}${f.id===actual?', turno actual':''}`:`Casilla ${p.x+1}, ${p.y+1}${disponible?`, ${alcanzables[k]} pasos`:''}`} className={`tactical-cell ${disponible?'reachable':''} ${elegida&&disponible?'destination':''} ${f?`occupied ${f.bando==='jugador'?'ally':'enemy'} ${f.id===actual?'current':''} ${objetivo===f.id?'target':''} ${f.vida===0?'down':''}`:''}`} onClick={()=>{if(f){onObjetivo(f.id);setDestino(null);}else if(disponible)setDestino(p);}}>
+    {f?<><RetratoCombate nombre={f.nombre} src={f.imagen_url}/><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span style={{width:`${Math.max(0,Math.min(100,100*f.vida/Math.max(1,f.max_vida||1)))}%`}}/></span>}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.length} ✦</span>}</>:disponible?<span>{elegida?'✓':alcanzables[k]}</span>:<span className="tactical-coordinate">{p.x+1}·{p.y+1}</span>}
+    </button>;
+   })}
+  </div></div>
+  {fichaObjetivo&&<div className="tactical-target-info"><strong>{fichaObjetivo.nombre}</strong><span>{fichaObjetivo.vida!==undefined?`Vida ${fichaObjetivo.vida}/${fichaObjetivo.max_vida}`:""}</span><span>{fichaObjetivo.estados?.join(" · ")||"Sin estados activos"}</span></div>}
+  {moviendo&&<div className="tactical-move-confirm" role="status"><span>{coste?`Mover ${coste} casillas. Conservas tu acción.`:'Selecciona un destino. Movimiento horizontal y vertical.'}</span><button disabled={ocupado||!coste} onClick={()=>{if(destino&&coste){onMover(destino);setDestino(null);}}}>Confirmar movimiento <ChevronRight size={15}/></button></div>}
+ </section>;
+}
+export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string};
+export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras}:{actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;onResolver:()=>void;onPasar:()=>void;onInventario:()=>void;objetivo?:string;puede:boolean;ocupado:boolean;moviendo:boolean;onMovimiento:()=>void;movimiento:number;forzar:boolean;onForzar:(v:boolean)=>void;dados?:TiradaVisual[];resultado?:string;extras?:React.ReactNode}){
+ const elegida=acciones.find(a=>a.id===seleccion),propio=seleccion==='guardia'||elegida?.efecto.efecto==='crear_arma';
+ const ayuda=elegida?.regla_detalle?describirRegla(elegida.regla_detalle):elegida?describirEfecto(elegida.efecto,elegida.nombre):null;
+ const [categoria,setCategoria]=useState('todas');
+ const motivo=elegida?.bloqueada||((elegida?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(elegida?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!elegida?.regla)?'Fatiga insuficiente.':elegida?.enfriamiento?`Espera ${elegida.enfriamiento} turnos`:elegida&&actor.ph<elegida.efecto.coste_ph?'PH insuficientes':'');
+ return <section className="tactical-hud" aria-label="Acciones del turno">
+  <div className="tactical-die" aria-live="polite"><Dado3D caras={dados[0]?.caras||20} valor={dados[0]?.valor} animar={!!dados.length} key={JSON.stringify(dados)}/><div><strong>{resultado||'DADOS'}</strong><span>{dados.length?dados.map(d=>`d${d.caras}: ${d.valor}`).join(' · '):'Las tiradas aparecen aquí'}</span></div></div>
+  <div className="tactical-dock">
+   <div className="tactical-actor"><RetratoCombate nombre={actor.nombre} src={actor.imagen_url}/><div><strong>{actor.nombre}</strong><span className="tactical-life">♥ {actor.vida}/{actor.max_vida}</span><small>PH {actor.ph} · Fatiga {actor.fatiga}</small></div><span className={`tactical-action-pip ${actor.accion_usada?'spent':''}`} title={actor.accion_usada?'Acción utilizada':'Una acción disponible'}>◆</span></div>
+   <div className="tactical-controls">
+    <div className="tactical-tabs"><button aria-pressed={categoria==='todas'} onClick={()=>setCategoria('todas')}>Todas</button><button aria-pressed={categoria==='habilidades'} onClick={()=>setCategoria('habilidades')}>Habilidades</button><span>{!puede?'Espera tu turno':actor.accion_usada?'Acción utilizada':'1 acción disponible'}</span></div>
+    <div className="tactical-slots" role="group" aria-label="Barra de acciones">
+     <button className={moviendo?'chosen':''} disabled={!puede||ocupado||movimiento<=0} aria-pressed={moviendo} onClick={onMovimiento}><Footprints/><strong>Mover</strong><small>{movimiento} casillas</small></button>
+     {acciones.filter(a=>categoria==='todas'||a.id!=='ataque').map((a,i)=><button key={a.id} disabled={!puede||ocupado||actor.accion_usada||(a.enfriamiento>0||!!a.bloqueada)} aria-pressed={!moviendo&&seleccion===a.id} className={!moviendo&&seleccion===a.id?'chosen':''} onClick={()=>onSeleccion(a.id)}><span className="tactical-key">{i+1}</span>{a.efecto.efecto==='dano'?<Swords/>:<Sparkles/>}<strong>{a.nombre}</strong><small>{a.enfriamiento?`${a.enfriamiento} turnos`:a.efecto.coste_ph?`${a.efecto.coste_ph} PH`:a.efecto.coste_fatiga?`${a.efecto.coste_fatiga} Fatiga`:'1 acción'}</small></button>)}
+     <button disabled={!puede||ocupado||actor.accion_usada} className={!moviendo&&seleccion==='guardia'?'chosen':''} aria-pressed={!moviendo&&seleccion==='guardia'} onClick={()=>onSeleccion('guardia')}><Shield/><strong>Guardia</strong><small>+2 ARM</small></button>
+     <button disabled={ocupado} onClick={onInventario}><Backpack/><strong>Inventario</strong><small>Equipo y objetos</small></button>{extras}
+    </div>
+   </div>
+   <button className="tactical-end" disabled={!puede||ocupado} onClick={onPasar}><ChevronRight/><strong>Terminar turno</strong></button>
+  </div>
+  {!moviendo&&<div className="tactical-description"><div><strong>{seleccion==='guardia'?'Guardia':elegida?.nombre||'Elige una acción'}</strong><p>{seleccion==='guardia'?'Te proteges y obtienes +2 ARM hasta tu siguiente turno.':ayuda?.resumen}</p>{ayuda&&<details><summary>Detalles</summary>{ayuda.detalles.map((d,i)=><p key={i}>{d}</p>)}</details>}{!!elegida?.efecto.coste_fatiga&&<label><input type="checkbox" checked={forzar} onChange={e=>onForzar(e.target.checked)}/> Forzar natural al agotarte: sufres 1d4.</label>}</div><div><span><Crosshair size={14}/> {propio?actor.nombre:objetivo||'Elige un objetivo en el tablero'}</span>{motivo&&<small>{motivo}</small>}<button disabled={!puede||ocupado||actor.accion_usada||!seleccion||(!propio&&!objetivo)||!!motivo} onClick={onResolver}>Confirmar acción</button></div></div>}
+ </section>;
+}

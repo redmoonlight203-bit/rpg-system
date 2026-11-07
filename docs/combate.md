@@ -76,3 +76,16 @@ Seleccionar el nombre del objetivo **no ejecuta** la habilidad. Después de eleg
 Los retratos son opcionales: sin imagen o si falla su carga, se muestran iniciales. En **Equipo, pasivas y configuración** se puede introducir una URL http/https o una ruta pública como `/personajes/axel.webp`. Esas preferencias se recuerdan solo en ese navegador y se comparten entre copias del mismo personaje. Para definir imágenes comunes a todos los navegadores, completar `lib/retratos-combate.ts` con claves `jugador:<id>` o `forja:<id>`. No se modifica la ficha ni se requiere migración de base de datos.
 
 El registro se coloca a la derecha en escritorio y debajo en pantallas estrechas. Los retratos no son necesarios para usar ninguna acción.
+
+
+## Tablero táctico y barra inferior
+
+El GM y el jugador usan el mismo tablero de casillas con retratos (o iniciales), vida, estados y marcador de turno. Toca una ficha para seleccionar un objetivo; elige una acción abajo, lee su explicación y confirma. La barra conserva Guardia, inventario y habilidades, y el GM conserva invocaciones, participantes y ajustes en el panel desplegable.
+
+Las tiradas aparecen sobre la barra en PC y en la esquina derecha de la barra en pantallas pequeñas. En móvil el tablero se desplaza con el dedo y las acciones se recorren horizontalmente.
+
+Mover muestra casillas alcanzables y requiere seleccionar y confirmar destino. El atributo `movimiento` define el presupuesto por turno; si no existe se usan 6 casillas (máximo 24). Cada paso horizontal o vertical cuesta una casilla. No se atraviesan participantes, incluidos caídos. Mover no consume la acción y puede hacerse antes o después de atacar. La distancia gastada, las posiciones y el historial se guardan en el encuentro y se validan también en la función del jugador con revisión optimista.
+
+Los encuentros anteriores reciben posiciones iniciales automáticamente. Los retratos del GM se incorporan al próximo guardado para compartirlos con jugadores. No requiere migración SQL: los campos adicionales viven en `combates_yugen.datos`.
+
+Esta fase no incluye creación de mapas, obstáculos de terreno ni reglas de alcance/áreas por casillas. Los ataques mantienen los objetivos admitidos por el motor actual; el movimiento aún no limita su alcance. Publicar los cambios requiere actualizar `combate-jugador` con su `motor.js` compartido además del frontend.

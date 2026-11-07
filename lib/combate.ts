@@ -38,6 +38,7 @@ export type Fuente = {
   reglas_pasivas?: ReglaPasiva[];
 };
 export type Config = {
+  imagen_url?: string;
   raza?: string;
   linaje_raza?: string[];
   tipo_creacion?: string;
@@ -53,7 +54,10 @@ export type Config = {
   reserva?: Fuente[];
   consumidos?: string[];
 };
+export type Posicion = { x: number; y: number };
 export type Combatiente = {
+  posicion?: Posicion;
+  movimiento?: { turno: number; gastado: number };
   id: string;
   forja_id: string | null;
   nombre: string;
@@ -100,6 +104,7 @@ export type Combatiente = {
   }[];
 };
 export type Combate = {
+  evento_visual?: { id:string; nombre:string; dados:{caras:number;valor:number}[]; resultado?:string };
   fase: "preparacion" | "en_curso" | "finalizado";
   ronda: number;
   actual: string | null;
@@ -111,6 +116,8 @@ export type Combate = {
   progreso_confirmado?: boolean;
 };
 export type Accion = {
+  regla_detalle?: Regla;
+  bloqueada?: string;
   id: string;
   nombre: string;
   efecto: Efecto;
@@ -664,7 +671,7 @@ export function acciones(m: Combatiente) {
         enfriamiento: 0,
       });
   for (const h of m.motor?.habilidades || []) lista.push({id:`motor-hab:${h.id}`,nombre:h.accion.nombre,efecto:h.accion,enfriamiento:0});
-  for (const {clave, regla} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
+  for (const {clave, regla} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,regla_detalle:regla,bloqueada:regla.usos>0&&(m.motor?.usos[clave]||0)>=regla.usos?'Sin usos restantes.':undefined,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
   return lista.filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo);
 }
 function actuarInterno(
@@ -1205,4 +1212,61 @@ export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,p
   const criatura=n.miembros[n.miembros.length-1];criatura.invocacion={invocador:actorId,habilidad:habilidad.id!,restantes:duracion};
   log(n,`${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);return n;
  });
+}
+
+
+/** Tablero inicial sin editor de mapas. Las posiciones se guardan en el encuentro. */
+export function dimensionesTablero(c: Pick<Combate, 'miembros'>) {
+  return { columnas: 12, filas: Math.max(8, Math.ceil(c.miembros.length / 8) + 2) };
+}
+export function posicionesTablero(c: Pick<Combate, 'miembros'>): Record<string, Posicion> {
+  const {columnas, filas} = dimensionesTablero(c), resultado: Record<string, Posicion> = {}, ocupadas = new Set<string>();
+  const valida = (p: Posicion) => Number.isInteger(p.x) && Number.isInteger(p.y) && p.x >= 0 && p.y >= 0 && p.x < columnas && p.y < filas;
+  for (const m of c.miembros) if (m.posicion && valida(m.posicion) && !ocupadas.has(`${m.posicion.x},${m.posicion.y}`)) {
+    resultado[m.id] = {...m.posicion}; ocupadas.add(`${m.posicion.x},${m.posicion.y}`);
+  }
+  for (const m of c.miembros) if (!resultado[m.id]) {
+    const columnasBando = m.bando === 'jugador' ? [1,2,3,4,0,5,6,7,8,9,10,11] : [10,9,8,7,11,6,5,4,3,2,1,0];
+    for (const x of columnasBando) {
+      for (let y = 1; y <= filas; y++) { const fila = y % filas;
+        if (!ocupadas.has(`${x},${fila}`)) {resultado[m.id] = {x,y:fila}; ocupadas.add(`${x},${fila}`); break;}
+      }
+      if (resultado[m.id]) break;
+    }
+  }
+  return resultado;
+}
+export function movimientoRestante(m: Combatiente) {
+  const limite = Math.max(0, Math.min(24, Math.floor(estadisticas(m).movimiento ?? 6)));
+  return Math.max(0, limite - (m.movimiento?.turno === m.turnos ? m.movimiento.gastado : 0));
+}
+/** Distancias ortogonales: nadie atraviesa una casilla ocupada, incluidos caídos. */
+export function casillasAlcanzables(c: Combate, actorId: string): Record<string, number> {
+  const m = c.miembros.find(m => m.id === actorId); if (!m) return {};
+  const posiciones = posicionesTablero(c), inicio = posiciones[actorId], {columnas,filas} = dimensionesTablero(c);
+  const ocupadas = new Set(Object.entries(posiciones).filter(([id]) => id !== actorId).map(([,p]) => `${p.x},${p.y}`));
+  const distancias: Record<string,number> = {[`${inicio.x},${inicio.y}`]:0}, cola = [inicio], limite = movimientoRestante(m);
+  for (let i=0; i<cola.length; i++) {
+    const p=cola[i], d=distancias[`${p.x},${p.y}`]; if(d>=limite)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const x=p.x+dx,y=p.y+dy,k=`${x},${y}`;
+      if(x<0||y<0||x>=columnas||y>=filas||ocupadas.has(k)||k in distancias)continue;
+      distancias[k]=d+1;cola.push({x,y});
+    }
+  }
+  delete distancias[`${inicio.x},${inicio.y}`]; return distancias;
+}
+export function desplazar(c: Combate, actorId: string, destino: Posicion): Combate {
+  return registrar(c,()=>{
+    const actor=c.miembros.find(m=>m.id===actorId);
+    if(c.fase!=='en_curso'||c.actual!==actorId||!actor||actor.vida<=0)throw Error('Solo puedes moverte durante tu turno.');
+    if(!destino||!Number.isInteger(destino.x)||!Number.isInteger(destino.y))throw Error('Casilla inválida.');
+    const coste=casillasAlcanzables(c,actorId)[`${destino.x},${destino.y}`];
+    if(!coste)throw Error('Casilla ocupada o fuera de tu movimiento disponible.');
+    const n=copia(c), posiciones=posicionesTablero(c);
+    for(const m of n.miembros)m.posicion=posiciones[m.id];
+    const m=n.miembros.find(m=>m.id===actorId)!;m.posicion={...destino};
+    m.movimiento={turno:m.turnos,gastado:(m.movimiento?.turno===m.turnos?m.movimiento.gastado:0)+coste};
+    log(n,`${m.nombre} se mueve ${coste} casillas. Movimiento restante: ${movimientoRestante(m)}.`);return n;
+  });
 }
