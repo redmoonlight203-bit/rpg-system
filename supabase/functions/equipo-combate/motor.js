@@ -24,7 +24,7 @@ function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
     const stats = { ...original, ...etapa.stats };
     const forma = def.tipo === 'forma';
     const activa = {
-        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id,
+        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined,
         stats_originales: original, vida_original: actor.vida,
         vida_forma: forma ? maxVidaForma(stats) : actor.vida,
         turnos_restantes: def.duracion_turnos && def.duracion_turnos > 0 ? def.duracion_turnos : null
@@ -41,7 +41,7 @@ function cambiarEtapaTransformacion(actor, def, etapaId) {
     // El avance de etapa no regenera HP. En forma, la vida restante se limita
     // al nuevo máximo; en poder, la vida real permanece intacta.
     const vida = activa.tipo === 'forma' ? Math.min(actor.vida, maxVidaForma(stats)) : actor.vida;
-    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, vida_forma: vida } };
+    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vida_forma: vida } };
 }
 function terminarTransformacion(actor) {
     const activa = actor.transformacion;
