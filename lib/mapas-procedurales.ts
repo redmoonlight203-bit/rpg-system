@@ -1,7 +1,14 @@
+import { azarEstable, validarMapa } from './mapas-topologia';
+export { azarEstable, validarMapa } from './mapas-topologia';
 import type { MapaCombate, Terreno } from './combate';
-export type PerfilMapa = 'taberna' | 'casa' | 'bosque' | 'pueblo' | 'mazmorra';
+import { generarExterior } from './generador-exteriores';
+import type { FamiliaPieza } from './tileset-yugen';
+export type PerfilMapa = 'taberna' | 'casa' | 'bosque' | 'pueblo' | 'mazmorra' | 'ruinas';
 export type RolTile = 'suelo' | 'muro' | 'dificil' | 'cobertura' | 'peligro';
 export type RegionAtlas = {
+    nombre?: string;
+    familia?: FamiliaPieza;
+    conexiones?: number;
     id: string;
     x: number;
     y: number;
@@ -10,6 +17,7 @@ export type RegionAtlas = {
     rol: RolTile;
 };
 export type AtlasMapa = {
+    id?: string;
     url: string;
     ancho: number;
     alto: number;
@@ -22,16 +30,34 @@ export type AtlasMapa = {
 };
 export type ProcedenciaMapa = {
     schemaVersion: 1;
-    generatorVersion: '1.0.0';
+    generatorVersion: '1.0.0' | '2.0.0';
     semilla: string;
     perfil: PerfilMapa;
     densidad: number;
     protegidas: string[];
     atlas?: AtlasMapa;
+    superficies?: Record<string, SuperficieMapa>;
+    objetos?: ObjetoMapa[];
+    accesos?: {
+        x: number;
+        y: number;
+        nombre: string;
+    }[];
+    estiloCamino?: 'tierra' | 'piedra';
+    colorTecho?: 'gris' | 'rojo';
+};
+export type SuperficieMapa = 'hierba' | 'tierra' | 'barro' | 'grava' | 'adoquin' | 'camino_tierra' | 'camino_piedra';
+export type ObjetoMapa = {
+    id: string;
+    regionId: string;
+    x: number;
+    y: number;
+    ancho: number;
+    alto: number;
+    capa: 'objetos' | 'techos';
+    rotacion?: number;
 };
 export const coloresMapa: Record<RolTile, string> = { suelo: '#34352a', muro: '#77767e', dificil: '#485b31', cobertura: '#926235', peligro: '#a64138' };
-export function azarEstable(semilla: string) { let s = 2166136261; for (let i = 0; i < semilla.length; i++)
-    s = Math.imul(s ^ semilla.charCodeAt(i), 16777619); return () => { s += 0x6D2B79F5; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 export function cortarAtlas(ancho: number, alto: number, celda: number, margen = 0, separacion = 0): RegionAtlas[] {
     if (![ancho, alto, celda, margen, separacion].every(Number.isInteger) || ancho < 1 || alto < 1 || ancho > 4096 || alto > 4096 || celda < 8 || celda > 512 || margen < 0 || separacion < 0)
         throw Error('Revisa dimensiones, margen y tamaño de celda (8–512 px).');
@@ -44,31 +70,11 @@ export function cortarAtlas(ancho: number, alto: number, celda: number, margen =
         }
     return resultado;
 }
-/** All traversable cells must belong to the entrance component. Linear in cell count. */
-export function validarMapa(m: MapaCombate): string[] {
-    const libres: string[] = [];
-    for (let y = 0; y < m.filas; y++)
-        for (let x = 0; x < m.columnas; x++)
-            if (m.celdas[`${x},${y}`] !== 'muro')
-                libres.push(`${x},${y}`);
-    if (!libres.length)
-        return ['El mapa no tiene casillas transitables.'];
-    const visitadas = new Set([libres[0]]), cola = [libres[0]];
-    for (let i = 0; i < cola.length; i++) {
-        const [x, y] = cola[i].split(',').map(Number);
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-            const nx = x + dx, ny = y + dy, k = `${nx},${ny}`;
-            if (nx >= 0 && ny >= 0 && nx < m.columnas && ny < m.filas && m.celdas[k] !== 'muro' && !visitadas.has(k)) {
-                visitadas.add(k);
-                cola.push(k);
-            }
-        }
-    }
-    return visitadas.size === libres.length ? [] : [`${libres.length - visitadas.size} casillas quedan aisladas. Abre un paso antes de aplicar.`];
-}
 export function generarMapa(base: MapaCombate, op: ProcedenciaMapa): MapaCombate {
-    if (!Number.isInteger(base.columnas) || !Number.isInteger(base.filas) || base.columnas < 8 || base.columnas > 24 || base.filas < 8 || base.filas > 24 || !Number.isFinite(op.densidad) || op.densidad < 0 || op.densidad > 1 || !['taberna', 'casa', 'bosque', 'pueblo', 'mazmorra'].includes(op.perfil) || op.semilla.length > 120)
+    if (!Number.isInteger(base.columnas) || !Number.isInteger(base.filas) || base.columnas < 8 || base.columnas > 24 || base.filas < 8 || base.filas > 24 || !Number.isFinite(op.densidad) || op.densidad < 0 || op.densidad > 1 || !['taberna', 'casa', 'bosque', 'pueblo', 'mazmorra', 'ruinas'].includes(op.perfil) || op.semilla.length > 120)
         throw Error('Configuración de generación inválida.');
+    if (op.generatorVersion === '2.0.0')
+        return generarExterior(base, op);
     const azar = azarEstable(`${op.generatorVersion}:${op.semilla}:${op.perfil}`), celdas: Record<string, Terreno> = {}, w = base.columnas, h = base.filas, cy = Math.floor(h / 2), cx = Math.floor(w / 2);
     for (let y = 0; y < h; y++)
         for (let x = 0; x < w; x++) {
