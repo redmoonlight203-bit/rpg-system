@@ -27,7 +27,7 @@ function ImagenDiferida({clip,src}:{clip:ClipVFX;src:string}){
 export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVisual;columnas:number;filas:number}){
  const [clips,setClips]=useState<ClipVFX[]>([]),propio=useRef<string|undefined>(undefined);
  useEffect(()=>{
-  if(!evento||(reproducidos.has(evento.id)&&propio.current!==evento.id)||!evento.creado_en||Date.now()-evento.creado_en>10000){setClips([]);return;}
+  if(!evento||(reproducidos.has(evento.id)&&propio.current!==evento.id)||!evento.creado_en||Date.now()-(evento.recibido_en||evento.creado_en)>10000){setClips([]);return;}
   const plan=planificarVFX(evento);if(!plan.length){setClips([]);return;}
   propio.current=evento.id;reproducidos.add(evento.id);if(reproducidos.size>250)reproducidos.delete(reproducidos.values().next().value!);
   setClips(plan);

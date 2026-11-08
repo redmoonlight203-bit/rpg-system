@@ -1,4 +1,5 @@
 "use client";
+import {cambiosCombate,recibirEvento} from "../../../lib/combate-transferencia";
 import EditorMapaCombate from "../../../components/EditorMapaCombate";
 import {ConfigurarCiclo,ResumenEncuentro} from "../../../components/CicloEncuentro";
 import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
@@ -43,7 +44,6 @@ import {
   reglasMotor,
   dadoSeguro,
   elementoDe,
-  deshacer,
   finalizar,
   descansar,
   configurarParticipante,
@@ -113,7 +113,7 @@ export default function CampoCombate() {
   const bloqueo = useRef(false);
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
   const [editorEquipo,setEditorEquipo]=useState<{actor:string;contexto:ContextoEquipo}|null>(null);
-  async function refrescarEncuentro(){const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(r.error)throw Error(r.error.message);if(r.data){setC(r.data.datos as Combate);setVersion(r.data.version);}}
+  async function refrescarEncuentro(){const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:null});if(r.error)throw Error(r.error.message);if(r.data){setC(recibirEvento(r.data.datos as Combate));setVersion(r.data.version);}}
   async function abrirEquipoActual(participante:Combatiente|undefined=actor){if(!participante)return;await ejecutar(async()=>{if(c.fase==='preparacion'&&!participante.personaje_id){const r=await supabase.from('forja_maestra').select('id,nombre').eq('tipo_creacion','objeto').eq('estado','aprobado').order('nombre');if(r.error)throw Error(r.error.message);setObjetosMochila(r.data||[]);}const contexto=await consultarEquipo({combate_id:id,actor_id:participante.id,consultar:true});setEditorEquipo({actor:participante.id,contexto});});}
   async function agregarObjetoMochila(objetoId:string){
     if(!editorEquipo||c.fase!=='preparacion')throw Error('Prepara la mochila antes de iniciar el combate.');
@@ -128,11 +128,11 @@ export default function CampoCombate() {
   useSincronizacionCombate(async()=>{
     if(bloqueo.current)return false;
     const solicitud={id,version};
-    const r=await supabase.rpc('combate_consultar_revision',{p_id:id,p_version:version});
+    const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:version});
     if(r.error)throw Error(r.error.message);
     if(bloqueo.current)return false;
     if(revisionRemota.current.id!==solicitud.id)return;
-    if(r.data&&!r.data.sin_cambios&&r.data.version>revisionRemota.current.version){setC(r.data.datos as Combate);setVersion(r.data.version);}
+    if(r.data&&!r.data.sin_cambios&&r.data.version>revisionRemota.current.version){setC(recibirEvento(r.data.datos as Combate));setVersion(r.data.version);}
   },id,true);
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);
@@ -206,7 +206,7 @@ export default function CampoCombate() {
   }
   async function deshacerUltimo() {
     await ejecutar(async () => {
-      await guardar(deshacer(c));
+      await guardar(c,true);
       setRoll(null);
       setFlotante(null);
       setResumen("Última operación deshecha.");
@@ -298,7 +298,7 @@ export default function CampoCombate() {
     await ejecutar(async()=>{
       const r=await supabase.rpc('combate_confirmar_progreso',{p_id:id,p_version:version});
       if(r.error)throw Error(r.error.message);
-      setC(r.data.datos as Combate);setVersion(r.data.version);
+      setC(recibirEvento(r.data.datos as Combate));setVersion(r.data.version);
       setResumen('Progreso permanente aplicado a las fichas de jugadores. Este encuentro queda cerrado.');
     });
   }
@@ -322,7 +322,7 @@ export default function CampoCombate() {
   async function abrir(p: Guardado) {
     await ejecutar(async()=>{
       // La lista contiene solo nombres. Al abrir siempre se obtiene la revisión actual.
-      const r=await supabase.rpc('combate_consultar_revision',{p_id:p.id,p_version:null});
+      const r=await supabase.rpc('combate_consultar_ligero',{p_id:p.id,p_version:null});
       if(r.error)throw Error(r.error.message);
       if(!r.data?.datos)throw Error('El encuentro ya no está disponible.');
       setPendiente(null);setRoll(null);setFlotante(null);setResumen('');
@@ -390,18 +390,19 @@ export default function CampoCombate() {
       setOcupado(false);
     }
   }
-  async function guardar(next: Combate) {
+  async function guardar(next: Combate, deshacer=false) {
     if(!next.evento_visual||next.evento_visual.id===c.evento_visual?.id)next=registrarCambiosVida(c,next);
     next = {...next, miembros: next.miembros.map(m=>({...m, configuracion:{...m.configuracion, imagen_url:retratos[claveRetrato(m)] || m.configuracion.imagen_url || catalogo.find(p=>p.id===m.forja_id)?.imagen_url}}))};
-    const r = await supabase.rpc("combate_guardar", {
+    const r = await supabase.rpc("combate_guardar_ligero", {
       p_id: id,
       p_nombre: nombre,
-      p_datos: next,
+      p_cambios: cambiosCombate(version===0?undefined:c,next),
+      p_deshacer: deshacer,
       p_version: version,
     });
     if (r.error) throw Error(r.error.message);
     if (!r.data?.version) throw Error("No se confirmó el guardado.");
-    setC(next);
+    setC(recibirEvento({...((r.data.datos||next) as Combate),historial:[],pasos_deshacer:r.data.pasos_deshacer}));
     setVersion(r.data.version);
     setPartidas((prev) =>
       [
@@ -887,7 +888,7 @@ export default function CampoCombate() {
         </button>
         <button
           className="battle-button"
-          disabled={ocupado || c.fase==='finalizado' || !!c.progreso_confirmado || !c.historial?.length}
+          disabled={ocupado || c.fase==='finalizado' || !!c.progreso_confirmado || !(c.pasos_deshacer??c.historial?.length)}
           onClick={() => void deshacerUltimo()}
         >
           Deshacer última operación

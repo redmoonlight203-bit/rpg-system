@@ -578,8 +578,8 @@ function siguienteInterno(c, rng) {
     return n;
 }
 function registrar(c, fn, rng = dadoSeguro) {
-    const previo = copia(c);
-    delete previo.historial;
+    const { historial: _historial, ...sinHistorial } = c;
+    const previo = copia(sinHistorial);
     let n = fn();
     if (c.fase === 'en_curso') {
         for (const m of n.miembros) {

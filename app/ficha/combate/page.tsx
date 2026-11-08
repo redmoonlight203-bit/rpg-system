@@ -1,4 +1,5 @@
 "use client";
+import {recibirEvento} from "../../../lib/combate-transferencia";
 import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -16,6 +17,7 @@ export default function CombateJugador(){
  const bloqueo=useRef(false),consulta=useRef(0),estadoRef=useRef<Estado|null>(null);
  function aplicar(e:Estado){
   if(estadoRef.current?.id===e.id&&estadoRef.current.actor.id===e.actor.id&&estadoRef.current.version>e.version)return;
+  if(estadoRef.current&&estadoRef.current.evento_visual?.id!==e.evento_visual?.id)e=recibirEvento(e);
   estadoRef.current=e;setEstado(e);setObjetivo(old=>e.objetivos.some(x=>x.id===old)?old:'');
   if(e.propios)setEncuentros(old=>old.map(x=>x.id===e.id?{...x,fase:e.fase,personajes:e.propios!}:x));
  }
