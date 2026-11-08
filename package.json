@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:combate": "node scripts/preparar-motor-edge.mjs && node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
