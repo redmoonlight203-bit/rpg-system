@@ -1153,9 +1153,11 @@ function efectosMotor(efectos, ctx, origen) {
                 case 'curar':
                     t.vida = Math.min(maxVida(t), t.vida + Math.max(0, v()));
                     break;
-                case 'ph':
-                    t.ph += v();
+                case 'ph': {
+                    const limite = Math.max(0, estadisticas(t).ph || 0);
+                    t.ph = Math.max(0, Math.min(limite, phDisponibles(t) + v()));
                     break;
+                }
                 case 'fatiga': {
                     const n = v();
                     if (n > 0 || !t.agotado)
