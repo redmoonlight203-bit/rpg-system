@@ -1,3 +1,4 @@
+import type { DefinicionTransformacion } from "./transformaciones";
 import { linaje, type CategoriaBase } from "./estadisticas";
 export type TipoCreacion =
   "personaje" | "habilidad" | "objeto" | "titulo" | "pasiva" | "otro";
@@ -55,6 +56,7 @@ export type AlcanceHabilidad = {
   derribo?: 'siempre'|'fallo_salvacion';
 };
 export type Efecto = {
+  transformacion?: DefinicionTransformacion;
   tablero?: AlcanceHabilidad;
   tabla_armas?: { caras: number; resultados: ArmaResultado[] };
 
@@ -77,7 +79,8 @@ export type Efecto = {
     | "recuperar_ph"
     | "reducir_fatiga"
     | "estado"
-    | "crear_arma";
+    | "crear_arma"
+    | "transformacion";
   cantidad: number;
   caras: number;
   modificador: number;
@@ -97,6 +100,7 @@ export const EFECTOS_NOMBRE: Record<Efecto["efecto"], string> = {
   reducir_fatiga: "Reducir Fatiga",
   estado: "Estado",
   crear_arma: "Crear arma temporal",
+  transformacion: "Transformación",
 };
 export type FuenteCreacion = {
   id: string;
@@ -161,6 +165,11 @@ export function formula(
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
+    if(e.efecto==="transformacion"){
+      const d=e.transformacion;
+      if(!d||!d.id||!d.nombre||!["forma","poder"].includes(d.tipo)||!Array.isArray(d.etapas)||d.etapas.length<1||d.etapas.length>12||d.etapas.some(v=>!v.id||!v.nombre||!v.stats||!Object.keys(v.stats).length||Object.values(v.stats).some(n=>!Number.isFinite(n)||n<0)))return "Configura una transformación válida con etapas y estadísticas.";
+      if(d.tipo==="forma"&&d.etapas.some(v=>!((v.stats.hp??v.stats.vida)>0)))return "Cada forma necesita HP propios.";
+    }
     const t=e.tablero;
     if(t!==undefined){
       if(!t||typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['enemigos','aliados','todos','yo'].includes(t.afecta))return 'Configura alcance de 0 a 60 y tamaño de 1 a 12 casillas (individual: 0).';
@@ -226,6 +235,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
         "reducir_fatiga",
         "estado",
         "crear_arma",
+        "transformacion",
       ].includes(e.efecto)
     )
       return "Selecciona un efecto válido.";
