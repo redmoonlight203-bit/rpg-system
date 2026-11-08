@@ -2,6 +2,8 @@
 import {useEffect,useRef,useState} from 'react';
 import type {EventoVisual} from '../lib/combate';
 import {buscarVFX,planificarVFX,type ClipVFX} from '../lib/vfx';
+import {ColaVisual} from '../lib/cola-visual';
+import {precargarVFX} from '../lib/precarga-vfx';
 import './vfx.css';
 
 const reproducidos=new Set<string>();
@@ -25,17 +27,18 @@ function ImagenDiferida({clip,src}:{clip:ClipVFX;src:string}){
  return visible?<img src={src} alt="" style={{transform:`rotate(${clip.giro||0}deg)`}}/>:null;
 }
 export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVisual;columnas:number;filas:number}){
- const [clips,setClips]=useState<ClipVFX[]>([]),propio=useRef<string|undefined>(undefined);
+ const [lote,setLote]=useState<{id:string;clips:ClipVFX[]}>(),propio=useRef<string|undefined>(undefined);
+ const cola=useRef<ColaVisual<{id:string;clips:ClipVFX[]}>>(undefined);
+ useEffect(()=>{cola.current=new ColaVisual<{id:string;clips:ClipVFX[]}>(setLote,l=>Math.max(...l.clips.map(c=>c.inicio+c.duracion))+80);return()=>{cola.current?.cerrar();cola.current=undefined;};},[]);
  useEffect(()=>{
-  if(!evento||(reproducidos.has(evento.id)&&propio.current!==evento.id)||!evento.creado_en||Date.now()-(evento.recibido_en||evento.creado_en)>10000){setClips([]);return;}
-  const plan=planificarVFX(evento);if(!plan.length){setClips([]);return;}
+  if(!evento||(reproducidos.has(evento.id)&&propio.current!==evento.id)||!evento.creado_en||Date.now()-(evento.recibido_en||evento.creado_en)>10000)return;
+  const clips=planificarVFX(evento).slice(0,24).map(c=>({...c,inicio:Math.min(c.inicio,800),duracion:Math.min(c.duracion,1800)}));if(!clips.length)return;
   propio.current=evento.id;reproducidos.add(evento.id);if(reproducidos.size>250)reproducidos.delete(reproducidos.values().next().value!);
-  setClips(plan);
-  const timer=setTimeout(()=>setClips([]),Math.max(...plan.map(c=>c.inicio+c.duracion))+80);
-  return()=>clearTimeout(timer);
+  precargarVFX(clips.map(c=>c.animacion));cola.current?.agregar({id:evento.id,clips});
  },[evento?.id]);
- return <div className="vfx-layer" aria-hidden="true">{clips.map(c=><Sprite key={evento?.id+':'+c.id} clip={c} columnas={columnas} filas={filas}/>)}</div>;
+ return <div className="vfx-layer" aria-hidden="true">{lote?.clips.map(c=><Sprite key={lote.id+':'+c.id} clip={c} columnas={columnas} filas={filas}/>)}</div>;
 }
+
 export function AuraTransformacion({id,escala=1.5}:{id?:string;escala?:number}){
  const a=buscarVFX(id);if(!a)return null;
  const margen=(1-Math.max(.5,Math.min(4,escala)))*50;
