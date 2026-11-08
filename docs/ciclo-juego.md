@@ -20,7 +20,7 @@ El documento maestro del 7 de noviembre guía este cambio. La exploración del m
 
 Las nuevas tablas tienen RLS y las operaciones de recompensa se autorizan en funciones privadas, expuestas con envoltorios `SECURITY INVOKER`. Los encuentros y fuentes usan bloqueos transaccionales; sus claves únicas impiden repetir EXP o saqueo. Una aprobación congela el resultado. El historial del jugador muestra su EXP y los avisos de nivel/entrega sin exponer instantáneas privadas de enemigos.
 
-Las tres migraciones son necesarias junto con los endpoints `combate-jugador`, `equipo-combate` y `arena-yugen`, todos con el mismo `motor.js` generado. Las fuentes Noto se incluyen localmente, con licencia OFL, para que compilar no dependa de Google Fonts.
+Las cuatro migraciones son necesarias junto con los endpoints `combate-jugador`, `equipo-combate` y `arena-yugen`, todos con el mismo `motor.js` generado. Las fuentes Noto se incluyen localmente, con licencia OFL, para que compilar no dependa de Google Fonts.
 
 ## Validación
 
