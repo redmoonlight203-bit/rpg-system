@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
 function tablero(){
  const hooks=[],efectos=[];let cursor=0;
@@ -10,7 +11,7 @@ function tablero(){
  const react={useState:inicial=>{const n=cursor++;hooks[n]??={valor:inicial};return [hooks[n].valor,v=>hooks[n].valor=typeof v==='function'?v(hooks[n].valor):v];},useMemo:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps))hooks[n]={deps,valor:fn()};return hooks[n].valor;},useEffect:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps)){hooks[n]={deps};efectos.push(fn);}}};
  const cuentas={alcance:0,area:0},exports={};
  const jsx=(type,props,key)=>({type,props,key});
- const require=nombre=>nombre==='react'?react:nombre==='react/jsx-runtime'?{jsx,jsxs:jsx}:nombre==='../lib/combate'?{...motor,alcanceDesde:(...a)=>{cuentas.alcance++;return motor.alcanceDesde(...a);},areaDesde:(...a)=>{cuentas.area++;return motor.areaDesde(...a);}}:nombre==='../lib/descripciones'?{describirEfecto:()=>({resumen:'',detalles:[]}),describirRegla:()=>({resumen:'',detalles:[]})}:nombre==='lucide-react'?new Proxy({},{get:(_,k)=>k}):()=>null;
+ const require=nombre=>nombre==='react'?react:nombre==='react/jsx-runtime'?{jsx,jsxs:jsx}:nombre==='../lib/movimiento-visual'?cargarDependencia('movimiento-visual'):nombre==='../lib/combate'?{...motor,alcanceDesde:(...a)=>{cuentas.alcance++;return motor.alcanceDesde(...a);},areaDesde:(...a)=>{cuentas.area++;return motor.areaDesde(...a);}}:nombre==='../lib/descripciones'?{describirEfecto:()=>({resumen:'',detalles:[]}),describirRegla:()=>({resumen:'',detalles:[]})}:nombre==='lucide-react'?new Proxy({},{get:(_,k)=>k}):()=>null;
  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../components/TableroCombate.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require,setTimeout:()=>1,clearTimeout:()=>{}});
  return {cuentas,render:props=>{cursor=0;const vista=exports.TableroCombate(props);efectos.splice(0).forEach(fn=>fn());return vista;}};
 }
@@ -44,4 +45,14 @@ test('editar los muros actualiza el alcance visible sin conservar casillas bloqu
  rival=nodos(v).find(n=>n.type==='button'&&n.props['aria-label']?.startsWith('b, enemigo'));
  assert.equal(rival.props.className.includes('spell-range'),false);assert.equal(h.cuentas.alcance,2);
  assert.ok(nodos(v).some(n=>n.type==='button'&&n.props.title==='muro'));
+});
+
+test('doble clic mueve solo a una casilla libre y alcanzable; un clic solo selecciona',()=>{
+ const h=tablero(),movidos=[],p={...base(),moviendo:true,alcanzables:{'2,1':1},onMover:p=>movidos.push(p)};
+ const vista=h.render(p),casilla=nodos(vista).find(n=>n.type==='button'&&n.props['aria-label']?.startsWith('Casilla 3, 2'));
+ casilla.props.onClick();assert.equal(movidos.length,0);
+ casilla.props.onDoubleClick();assert.equal(movidos.length,1);assert.equal(movidos[0].x,2);
+ const enemigo=nodos(vista).find(n=>n.type==='button'&&n.props['aria-label']?.startsWith('b, enemigo'));
+ enemigo.props.onDoubleClick();assert.equal(movidos.length,1);
+ const ocupado=h.render({...p,ocupado:true});nodos(ocupado).find(n=>n.type==='button'&&n.props['aria-label']?.startsWith('Casilla 3, 2')).props.onDoubleClick();assert.equal(movidos.length,1);
 });

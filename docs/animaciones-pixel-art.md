@@ -50,3 +50,9 @@ Se mantienen los avisos de uso recibidos junto a los archivos correspondientes. 
 ## Verificación
 
 `npm run test:combate` incluye integridad de los 167 recursos, secuencias de proyectiles, salto/teletransporte/atracción, posiciones confirmadas, rechazo de acciones y ciclo de transformación. `npm run build` verifica TypeScript y la compilación completa.
+
+## Movimiento de fichas y respuesta a golpes
+
+En modo Mover, un doble clic en una casilla libre y alcanzable envía el desplazamiento. Un clic selecciona el destino y conserva el botón de confirmación para móvil y teclado. Las fichas animan el movimiento confirmado por el servidor, por pasos ortogonales y evitando muros y ocupantes; prefieren el menor coste de terreno. Si no se encuentra una ruta visual, se muestra el destino confirmado sin inventar un trayecto. Los saltos trazan un arco y los teletransportes aparecen en destino.
+
+Los cambios negativos de vida activan un destello blanco breve sobre cada objetivo. En la vista del jugador, recibir daño añade un flash blanco suave y el borde de la pantalla se vuelve progresivamente rojo por debajo del 50 % de vida. Las fichas también indican el peligro con un borde rojo. La curación reduce estos indicadores. Los eventos antiguos no producen destellos y la preferencia de movimiento reducido desactiva desplazamientos y flashes, conservando los indicadores estáticos de vida. Las animaciones no bloquean la entrada ni generan nuevas solicitudes al servidor.

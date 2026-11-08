@@ -3,6 +3,8 @@ import {useEffect,useMemo,useState} from 'react';
 import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight} from 'lucide-react';
 import EfectosCombate,{AuraTransformacion} from './EfectosCombate';
 import type {AnimacionEtapa} from '../lib/vfx';
+import FichaAnimada from './FichaAnimada';
+import {intensidadHerida} from '../lib/movimiento-visual';
 import RetratoCombate from './RetratoCombate';
 import Dado3D from './Dado3D';
 import {describirEfecto,describirRegla} from '../lib/descripciones';
@@ -14,10 +16,10 @@ import './tablero-combate.css';
 
 const eventosMostrados=new Set<string>();
 export type FichaTablero={vfx?:AnimacionEtapa;id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion};
-export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,mapa}:{fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;mapa?:MapaCombate}){
+export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,mapa,perspectiva}:{fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;mapa?:MapaCombate;perspectiva?:string}){
  const [cambios,setCambios]=useState<CambioVida[]>([]);
  useEffect(()=>{
-  if(!evento?.id)return;
+  if(!evento?.id||!evento.creado_en||Date.now()-(evento.recibido_en||evento.creado_en)>10000){setCambios([]);return;}
   if(!eventosMostrados.has(evento.id)){
    eventosMostrados.add(evento.id);if(eventosMostrados.size>200)eventosMostrados.delete(eventosMostrados.values().next().value!);
    setCambios(evento.cambios_vida||[]);
@@ -37,19 +39,23 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const casillas=useMemo(()=>Array.from({length:columnas*filas},(_,i)=>({x:i%columnas,y:Math.floor(i/columnas)})),[columnas,filas]);
  // Al cambiar de actor o habilidad no conservamos un destino de la selección anterior.
  useEffect(()=>{setDestino(null);setHover(null);},[lanzador,habilidad?.id,moviendo]);
- return <section className={`tactical-field area-${t?.color||'azul'}`} aria-label="Tablero de combate">
-  <header className="tactical-field-header"><span><Crosshair size={16}/>{moviendo?'Elige una casilla iluminada':t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}`:'Toca un retrato para elegir objetivo'}</span><small>Aliados <i className="tactical-dot ally"/> Enemigos <i className="tactical-dot enemy"/></small></header>
+ const propio=fichas.find(f=>f.id===perspectiva),herida=intensidadHerida(propio?.vida,propio?.max_vida);
+ const golpePropio=cambios.some(c=>c.id===perspectiva&&c.delta<0);
+ return <section style={{'--herida':herida} as React.CSSProperties} className={`tactical-field area-${t?.color||'azul'}`} aria-label="Tablero de combate">
+  {perspectiva&&<div className="tactical-danger-border" aria-hidden="true"/>}
+  {golpePropio&&<span key={evento?.id} className="tactical-player-hit" aria-hidden="true"/>}
+  <header className="tactical-field-header"><span><Crosshair size={16}/>{moviendo?'Doble clic en una casilla iluminada para moverte':t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}`:'Toca un retrato para elegir objetivo'}</span><small>Aliados <i className="tactical-dot ally"/> Enemigos <i className="tactical-dot enemy"/></small></header>
   {t&&<div className="tactical-area-summary" role="status"><strong>{habilidad?.nombre}</strong><span>{punto?`${area.length} casillas · ${victimas.length} objetivos: ${victimas.map(f=>f.nombre).join(', ')||'ninguno'}`:'Toca una casilla blanca para centrar el efecto.'}</span>{centro&&<button onClick={()=>onApuntar?.(centro)}>Centro: {centro.x+1}, {centro.y+1}</button>}</div>}
   <div className="tactical-scroll"><div onMouseLeave={()=>setHover(null)} className="tactical-board" style={{gridTemplateColumns:`repeat(${columnas}, minmax(48px, 1fr))`}}>
    {casillas.map(p=>{const k=`${p.x},${p.y}`,f=porCasilla.get(k),disponible=moviendo&&!!alcanzables[k],enRango=blancas.has(k),enArea=afectadas.has(k),elegida=!!destino&&destino.x===p.x&&destino.y===p.y,esCentro=centro?.x===p.x&&centro?.y===p.y;
-    return <button type="button" key={k} disabled={ocupado||(!f&&!disponible&&!(t&&enRango&&puedeApuntar))} aria-pressed={t?esCentro:f?objetivo===f.id:elegida} title={mapa?.celdas[k]} aria-label={f?`${f.nombre}, ${f.bando==='jugador'?'aliado':'enemigo'}${f.vida!==undefined?`, vida ${f.vida}/${f.max_vida}`:''}${f.id===actual?', turno actual':''}${t?enRango?', dentro del alcance':', fuera de alcance':''}`:`Casilla ${p.x+1}, ${p.y+1}${disponible?`, ${alcanzables[k]} pasos`:enRango?', dentro del alcance':''}`} className={`tactical-cell terrain-${mapa?.celdas[k]||'libre'} ${evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y?'animation-'+(evento.animacion||'impacto'):''} ${enRango?'spell-range':''} ${enArea?'spell-area':''} ${esCentro?'spell-center':''} ${f?.id===lanzador&&t?'spell-origin':''} ${disponible?'reachable':''} ${elegida&&disponible?'destination':''} ${f?`occupied ${f.bando==='jugador'?'ally':'enemy'} ${f.id===actual?'current':''} ${!t&&objetivo===f.id?'target':''} ${f.vida===0?'down':''}`:''}`} onMouseEnter={()=>{if(!centro)setHover(t&&enRango?p:null);}} onFocus={()=>{if(t&&enRango&&!centro)setHover(p);}} onClick={()=>{
+    return <button type="button" key={k} disabled={ocupado||(!f&&!disponible&&!(t&&enRango&&puedeApuntar))} aria-pressed={t?esCentro:f?objetivo===f.id:elegida} title={mapa?.celdas[k]} aria-label={f?`${f.nombre}, ${f.bando==='jugador'?'aliado':'enemigo'}${f.vida!==undefined?`, vida ${f.vida}/${f.max_vida}`:''}${f.id===actual?', turno actual':''}${t?enRango?', dentro del alcance':', fuera de alcance':''}`:`Casilla ${p.x+1}, ${p.y+1}${disponible?`, ${alcanzables[k]} pasos`:enRango?', dentro del alcance':''}`} className={`tactical-cell terrain-${mapa?.celdas[k]||'libre'} ${evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y?'animation-'+(evento.animacion||'impacto'):''} ${enRango?'spell-range':''} ${enArea?'spell-area':''} ${esCentro?'spell-center':''} ${f?.id===lanzador&&t?'spell-origin':''} ${disponible?'reachable':''} ${elegida&&disponible?'destination':''} ${f?`occupied ${f.bando==='jugador'?'ally':'enemy'} ${f.id===actual?'current':''} ${!t&&objetivo===f.id?'target':''} ${f.vida===0?'down':''}`:''}`} onMouseEnter={()=>{if(!centro)setHover(t&&enRango?p:null);}} onFocus={()=>{if(t&&enRango&&!centro)setHover(p);}} onDoubleClick={()=>{if(moviendo&&disponible&&!f&&!ocupado){onMover(p);setDestino(null);}}} onClick={()=>{
       if(moviendo){if(f)onObjetivo(f.id);else if(disponible)setDestino(p);}
       else if(t){if(enRango&&puedeApuntar)onApuntar?.(p,f?.id);}
       else if(f)onObjetivo(f.id);
     }}>
     {evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y&&evento.animacion!=='ninguna'&&!pixelArt&&<span key={'spell:'+evento.id} aria-hidden="true" className={`confirmed-spell spell-${evento.animacion||'impacto'}`}/>}
     {f&&cambios.filter(c=>c.id===f.id).map(c=><span key={`${evento?.id}:${f.id}`} aria-hidden="true" className={`tactical-life-float ${c.delta<0?'damage':'healing'}`}>{c.delta>0?'+':'−'}{Number(Math.abs(c.delta).toFixed(2))}</span>)}
-    {f?<>{f.vida!==0&&<AuraTransformacion id={f.vfx?.aura} escala={f.vfx?.escala}/>}<RetratoCombate nombre={f.nombre} src={f.imagen_url}/><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span style={{width:`${Math.max(0,Math.min(100,100*f.vida/Math.max(1,f.max_vida||1)))}%`}}/></span>}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.some(e=>e.includes('Derribado'))?'↘':`${f.estados.length} ✦`}</span>}</>:disponible?<span>{elegida?'✓':alcanzables[k]}</span>:esCentro?<Crosshair size={18}/>:<span className="tactical-coordinate">{mapa?.celdas[k]==='muro'?'■':mapa?.celdas[k]==='peligro'?'⚠':`${p.x+1}·${p.y+1}`}</span>}
+    {f?<FichaAnimada key={f.id} ficha={f} fichas={fichas} evento={evento} columnas={columnas} filas={filas} mapa={mapa}>{f.vida!==0&&<AuraTransformacion id={f.vfx?.aura} escala={f.vfx?.escala}/>}<RetratoCombate nombre={f.nombre} src={f.imagen_url}/><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span style={{width:`${Math.max(0,Math.min(100,100*f.vida/Math.max(1,f.max_vida||1)))}%`}}/></span>}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.some(e=>e.includes('Derribado'))?'↘':`${f.estados.length} ✦`}</span>}{cambios.some(c=>c.id===f.id&&c.delta<0)&&<span key={evento?.id} className="tactical-hit-flash" aria-hidden="true"/>}<span className="tactical-token-danger" style={{opacity:intensidadHerida(f.vida,f.max_vida)}} aria-hidden="true"/></FichaAnimada>:disponible?<span>{elegida?'✓':alcanzables[k]}</span>:esCentro?<Crosshair size={18}/>:<span className="tactical-coordinate">{mapa?.celdas[k]==='muro'?'■':mapa?.celdas[k]==='peligro'?'⚠':`${p.x+1}·${p.y+1}`}</span>}
     </button>;
    })}
   <EfectosCombate evento={evento} columnas={columnas} filas={filas}/>
@@ -58,7 +64,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
 
   {fichaObjetivo&&!t&&<div className="tactical-target-info"><strong>{fichaObjetivo.nombre}</strong><span>{fichaObjetivo.vida!==undefined?`Vida ${fichaObjetivo.vida}/${fichaObjetivo.max_vida}`:""}</span><span>{fichaObjetivo.estados?.join(" · ")||"Sin estados activos"}</span></div>}
   <span className="sr-only" role="status">{cambios.map(c=>`${fichas.find(f=>f.id===c.id)?.nombre||'Participante'}: ${c.delta>0?'+':'−'}${Math.abs(c.delta)} de vida`).join('. ')}</span>
-  {moviendo&&<div className="tactical-move-confirm" role="status"><span>{coste?`Mover ${coste} casillas. Conservas tu acción.`:'Selecciona un destino. Movimiento horizontal y vertical.'}</span><button disabled={ocupado||!coste} onClick={()=>{if(destino&&coste){onMover(destino);setDestino(null);}}}>Confirmar movimiento <ChevronRight size={15}/></button></div>}
+  {moviendo&&<div className="tactical-move-confirm" role="status"><span>{coste?`Mover ${coste} casillas. Conservas tu acción.`:'Doble clic para moverte; en móvil, selecciona y confirma.'}</span><button disabled={ocupado||!coste} onClick={()=>{if(destino&&coste){onMover(destino);setDestino(null);}}}>Confirmar movimiento <ChevronRight size={15}/></button></div>}
  </section>;
 }
 export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string};
