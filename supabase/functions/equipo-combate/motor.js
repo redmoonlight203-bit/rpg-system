@@ -851,7 +851,7 @@ function destinoAtaqueMovil(c,a,t,m) {
    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
     const v={x:p.x+dx,y:p.y+dy},k=v.x+','+v.y;
     const nuevo=coste+(c.mapa?.celdas[k]==='dificil'?2:1);
-    if(!libres(v)||nuevo>m.casillas||(distancias.has(k)&&distancias.get(k)!<=nuevo))continue;
+    if(!libres(v)||nuevo>m.casillas||(distancias.has(k)&&distancias.get(k)<=nuevo))continue;
     distancias.set(k,nuevo);pendientes.push({p:v,coste:nuevo});
    }
   }
