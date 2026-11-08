@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useRef,useState} from "react";
 import {prepararPortada,validarPortada} from "../lib/imagenes-creacion";
 import type {Efecto} from "../lib/creacion";
 import type {DefinicionTransformacion, EtapaTransformacion, TipoTransformacion} from "../lib/transformaciones";
@@ -35,6 +35,10 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
   const [error,setError]=useState("");
   const [procesandoImagen,setProcesandoImagen]=useState(false);
   const [errorImagen,setErrorImagen]=useState("");
+  const etapaVigente=useRef(etapa);
+  const cambiarEtapaVigente=useRef(onChange);
+  etapaVigente.current=etapa;
+  cambiarEtapaVigente.current=onChange;
   const valorDe=(clave:string)=>clave==="vida"?(etapa.stats.vida??etapa.stats.hp):etapa.stats[clave];
   const cambiarValor=(clave:string,valor?:number)=>{
     const stats={...etapa.stats};
@@ -79,7 +83,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
           <input type="file" accept="image/png,image/jpeg,image/webp" disabled={procesandoImagen} className={campo+" text-sm"} onChange={async e=>{
             const input=e.currentTarget,archivo=input.files?.[0];if(!archivo)return;
             setProcesandoImagen(true);setErrorImagen("");
-            try {const imagen=await prepararPortada(archivo);onChange({...etapa,imagen_url:imagen});}
+            try {const imagen=await prepararPortada(archivo);cambiarEtapaVigente.current({...etapaVigente.current,imagen_url:imagen});}
             catch(error){setErrorImagen(error instanceof Error?error.message:"No se pudo procesar la imagen.");}
             finally{input.value="";setProcesandoImagen(false);}
           }}/>
