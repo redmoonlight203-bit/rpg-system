@@ -1,5 +1,5 @@
 // GENERADO por scripts/preparar-motor-edge.mjs. No editar directamente.
-const { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado } = (() => {
+const { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion } = (() => {
 function maxVidaForma(stats) {
     return Math.max(1, Math.trunc(stats.vida ?? stats.hp ?? 1));
 }
@@ -17,6 +17,7 @@ function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
     if (actor.transformaciones_usadas?.includes(def.id))
         throw Error('Esta transformación ya se utilizó en la partida.');
     const etapa = comprobarEtapa(def, etapaId);
+    if (etapa.descontrolada) throw Error('La etapa descontrolada solo se activa mediante la posesión.');
     const coste = Math.max(0, def.coste_ph ?? 0);
     if (actor.ph < coste)
         throw Error('PH insuficiente.');
@@ -37,11 +38,30 @@ function cambiarEtapaTransformacion(actor, def, etapaId) {
     if (!activa || activa.definicion_id !== def.id)
         throw Error('Esta transformación no está activa.');
     const etapa = comprobarEtapa(def, etapaId);
+    if (etapa.descontrolada) throw Error('La posesión no puede activarse manualmente.');
     const stats = { ...activa.stats_originales, ...etapa.stats };
     // El avance de etapa no regenera HP. En forma, la vida restante se limita
     // al nuevo máximo; en poder, la vida real permanece intacta.
     const vida = activa.tipo === 'forma' ? Math.min(actor.vida, maxVidaForma(stats)) : actor.vida;
     return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vida_forma: vida } };
+}
+function forzarPosesion(actor,def,etapaId) {
+ const etapa=comprobarEtapa(def,etapaId);
+ if(!etapa.descontrolada)throw Error('La etapa elegida no es descontrolada.');
+ const originales={...(actor.transformacion?.stats_originales||actor.stats)};
+ const stats={...originales,...etapa.stats};
+ if(etapa.vida_maxima_posesion!==undefined)stats.vida=etapa.vida_maxima_posesion;
+ const max=Math.max(1,Math.trunc(stats.vida??stats.hp??1));
+ const curacion=Math.max(0,Math.trunc(etapa.curacion_entrada||0));
+ const vida=Math.max(1,Math.min(max,actor.vida+curacion));
+ const activa={
+   definicion_id:def.id,tipo:'poder',etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,
+   descontrolada:true,vida_maxima_alterada:true,
+   stats_originales:originales,vida_original:actor.transformacion?.vida_original??actor.vida,
+   vida_forma:vida,turnos_restantes:null
+ };
+ const usadas=new Set([...(actor.transformaciones_usadas||[]),def.id]);
+ return {...actor,stats,vida,transformacion:activa,transformaciones_usadas:[...usadas]};
 }
 function terminarTransformacion(actor) {
     const activa = actor.transformacion;
@@ -69,7 +89,7 @@ function avanzarTurnoTransformacion(actor) {
     return { ...actor, transformacion: { ...activa, turnos_restantes: activa.turnos_restantes - 1 } };
 }
 
-return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado };
+return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
 export function validarRequisitos(r) {
     if (r === undefined)
@@ -206,7 +226,7 @@ export function estadisticas(m) {
     return s;
 }
 export function maxVida(m) {
-    const s = m.transformacion?.tipo === 'poder' ? m.transformacion.stats_originales : estadisticas(m);
+    const s = m.transformacion?.tipo === 'poder' && !m.transformacion.vida_maxima_alterada ? m.transformacion.stats_originales : estadisticas(m);
     return Math.max(1, s.vida ?? s.hp ?? 1);
 }
 /** Nunca permite gastar PH que excedan la capacidad real o un recurso inválido. */
@@ -692,7 +712,7 @@ function basico() {
 }
 export function acciones(m) {
     const lista = [];
-    if (m.transformacion)
+    if (m.transformacion && !m.transformacion.descontrolada)
         lista.push({ id: 'volver_forma', nombre: 'Volver a la forma original', efecto: { ...basico(), efecto: 'transformacion' }, enfriamiento: 0 });
     if (m.arma)
         lista.push({
@@ -744,7 +764,7 @@ export function acciones(m) {
         const d = a.efecto.transformacion;
         if (d && m.transformacion?.definicion_id === d.id) {
             const i = d.etapas.findIndex(e => e.id === m.transformacion?.etapa_id);
-            return { ...a, nombre: i < d.etapas.length - 1 ? 'Avanzar a ' + d.etapas[i + 1].nombre : a.nombre, efecto: { ...a.efecto, coste_ph: 0, coste_fatiga: 0 }, bloqueada: i === d.etapas.length - 1 ? 'Ya está en la última etapa.' : undefined };
+            return { ...a, nombre: i < d.etapas.length - 1 ? 'Avanzar a ' + d.etapas[i + 1].nombre : a.nombre, efecto: { ...a.efecto, coste_ph: 0, coste_fatiga: 0 }, bloqueada: i === d.etapas.length - 1 ? 'Ya está en la última etapa.' : d.etapas[i + 1]?.descontrolada ? 'Esta fase requiere fallar la salvación de posesión.' : undefined };
         }
         if (d && (m.transformacion || m.transformaciones_usadas?.includes(d.id)))
             return { ...a, bloqueada: m.transformacion ? 'Otra transformación está activa.' : 'Ya utilizada en este encuentro.' };
@@ -1112,9 +1132,18 @@ export function retirar(c, id) {
     return n;
 }
 function motor(m) { return m.motor ||= { modificadores: [], habilidades: [], usos: {}, proximos: {}, progreso: [] }; }
-export function reglasMotor(m) {
+export function definicionEnCombate(m) {
+ const activacion=(m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).find(e=>e.transformacion?.id===m.transformacion?.definicion_id);
+ return activacion?.transformacion;
+}
+function pasivasEtapaActiva(m) {
+ const d=definicionEnCombate(m);
+ return d?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.reglas||[];
+}
+function reglasMotor(m) {
     const fuentes = [
         { id: 'propio', reglas: m.configuracion.reglas || [] },
+        ...(m.transformacion ? [{id:`etapa:${m.transformacion.definicion_id}:${m.transformacion.etapa_id}`, reglas:pasivasEtapaActiva(m)}] : []),
         ...pasivasAplicables(m).map((p, i) => ({ id: `pasiva:${p.id || i}`, reglas: p.reglas_motor || [] })),
         ...(m.configuracion.habilidades || []).filter(p => !requisitosFuente(m, p).length).map((p, i) => ({ id: `hab:${p.id || i}`, reglas: p.reglas || [] })),
         ...Object.entries(piezas(m)).filter(([, p]) => !requisitosFuente(m, p).length).map(([slot, p]) => ({ id: `equipo:${p.id || slot}`, reglas: p.reglas || [] })),
