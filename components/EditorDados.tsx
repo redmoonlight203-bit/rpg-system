@@ -6,6 +6,7 @@ import {EditorTransformacion} from './EditorTransformacion';
 import {dadoSeguro,elementoDe} from '../lib/combate';
 import {describirEfecto} from '../lib/descripciones';
 import {type Efecto,type FuenteCreacion,ELEMENTOS,formula,nuevoEfecto,validarEfectos} from '../lib/creacion';
+import SelectorVFX from './SelectorVFX';
 import EditorAlcance from './EditorAlcance';
 import {TablaArmas} from './TablaArmas';
 import {PasoYunque,ResumenYunque} from './AyudaYunque';
@@ -69,6 +70,7 @@ export function EditorDados({value,onChange,disabled=false,armas=[]}:{value:Efec
       {(['dano','crear_arma'].includes(e.efecto)&&!e.tabla_armas)&&<div className="grid gap-3 sm:grid-cols-2"><label>Elemento<select className={campo} value={elementoDe(e)} onChange={v=>patch({elemento:v.target.value as Efecto['elemento']})}>{ELEMENTOS.map(v=><option key={v} value={v}>{v==='ninguno'?'Sin elemento':v.replaceAll('_',' ')}</option>)}</select><span className="block yunque-ayuda mt-1">Un ataque elemental añade 1d4 y activa las reglas de ese elemento.</span></label><label>Tipo de daño<input className={campo} value={e.tipo_dano} onChange={v=>patch({tipo_dano:v.target.value})} placeholder="Cortante, perforante…"/></label></div>}
       {(e.efecto==='estado'||e.efecto==='crear_arma'||e.efecto==='transformacion'||e.duracion>0)&&<Numero nombre="Cuántos turnos dura" min={e.efecto==='crear_arma'?1:0} value={e.duracion} onChange={duracion=>patch({duracion})} ayuda={e.efecto==='crear_arma'?'Cuenta turnos propios completos posteriores a la creación. Al desaparecer, vuelve el equipo anterior.':e.efecto==='estado'?'0 = sin caducidad por turnos. Algunos estados terminan por su propia regla.':'0 = hasta finalizar el encuentro; las etapas no reinician la duración.'}/>}
      </PasoYunque>
+     <SelectorVFX valor={e.vfx} onChange={vfx=>patch({vfx})}/>
      {e.efecto!=='crear_arma'&&e.efecto!=='transformacion'&&<EditorAlcance efecto={e} onChange={patch}/>}
      <PasoYunque numero="3" titulo="Qué cuesta usarla" ayuda="PH son puntos de habilidad que se gastan. La Fatiga aumenta al usar habilidades naturales.">
       <div className="grid gap-3 sm:grid-cols-3"><label>Tipo de habilidad<select className={campo} value={e.naturaleza||'automatica'} onChange={v=>patch({naturaleza:v.target.value as Efecto['naturaleza'],...(v.target.value==='magica'?{coste_ph:Math.max(1,e.coste_ph)}:v.target.value==='natural'?{coste_ph:0,coste_fatiga:Math.max(1,e.coste_fatiga||0)}:v.target.value==='fisica'?{coste_ph:0,coste_fatiga:0}:{})})}><option value="automatica">Según sus costes</option><option value="fisica">Física</option><option value="magica">Mágica: gasta PH</option><option value="natural">Natural: genera Fatiga</option></select></label><Numero nombre="PH que gasta" min={0} value={e.coste_ph} onChange={coste_ph=>patch({coste_ph})}/><Numero nombre="Fatiga que genera" min={0} value={e.coste_fatiga||0} onChange={coste_fatiga=>patch({coste_fatiga})}/></div>

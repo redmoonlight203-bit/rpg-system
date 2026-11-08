@@ -1,3 +1,4 @@
+import type {AnimacionEtapa} from "./vfx";
 /**
  * Motor de transformaciones YUGEN.
  * Cada transformación es una activación por partida; sus etapas son transiciones
@@ -6,6 +7,7 @@
 import type {Regla} from './reglas';
 export type TipoTransformacion = 'forma' | 'poder';
 export type EtapaTransformacion = {
+  vfx?:AnimacionEtapa;
   id:string;
   nombre:string;
   stats:Record<string,number>;
@@ -32,6 +34,7 @@ export type DefinicionTransformacion = {
   posesion?:{umbral_pct:number;cd:number;etapa_id:string};
 };
 export type TransformacionActiva = {
+  vfx?:AnimacionEtapa;
   creado_turno?:number;
   definicion_id:string;
   tipo:TipoTransformacion;
@@ -73,7 +76,7 @@ export function activarTransformacion<T extends EstadoTransformable>(actor:T,def
   const stats={...original,...etapa.stats};
   const forma=def.tipo==='forma';
   const activa:TransformacionActiva={
-    definicion_id:def.id,tipo:def.tipo,etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,
+    definicion_id:def.id,tipo:def.tipo,etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,
     stats_originales:original,vida_original:actor.vida,
     vida_forma:forma?maxVidaForma(stats):actor.vida,
     turnos_restantes:def.duracion_turnos&&def.duracion_turnos>0?def.duracion_turnos:null
@@ -90,7 +93,7 @@ export function cambiarEtapaTransformacion<T extends EstadoTransformable>(actor:
   // El avance de etapa no regenera HP. En forma, la vida restante se limita
   // al nuevo máximo; en poder, la vida real permanece intacta.
   const vida=activa.tipo==='forma'?Math.min(actor.vida,maxVidaForma(stats)):actor.vida;
-  return {...actor,stats,vida,transformacion:{...activa,etapa_id:etapaId,imagen_etapa:etapa.imagen_url||undefined,vida_forma:vida}};
+  return {...actor,stats,vida,transformacion:{...activa,etapa_id:etapaId,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,vida_forma:vida}};
 }
 /** Activación automática y forzada por una salvación fallida; ignora el límite
  * de uso manual y los costes, pero no hace que el jugador pierda su ficha base. */
@@ -104,7 +107,7 @@ export function forzarPosesion<T extends EstadoTransformable>(actor:T,def:Defini
  const curacion=Math.max(0,Math.trunc(etapa.curacion_entrada||0));
  const vida=Math.max(1,Math.min(max,actor.vida+curacion));
  const activa:TransformacionActiva={
-   definicion_id:def.id,tipo:'poder',etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,
+   definicion_id:def.id,tipo:'poder',etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,
    descontrolada:true,vida_maxima_alterada:true,
    stats_originales:originales,vida_original:actor.transformacion?.vida_original??actor.vida,
    vida_forma:vida,turnos_restantes:null

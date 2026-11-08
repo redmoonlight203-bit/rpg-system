@@ -1,3 +1,4 @@
+import type {ConfiguracionVFX} from "./vfx";
 import type { DefinicionTransformacion } from "./transformaciones";
 import {validarPortada} from "./imagenes-creacion";
 import {validarReglas} from "./reglas";
@@ -60,6 +61,7 @@ export type AlcanceHabilidad = {
   derribo?: 'siempre'|'fallo_salvacion';
 };
 export type Efecto = {
+  vfx?: ConfiguracionVFX;
   animacion?: "proyectil"|"destello"|"aura"|"impacto"|"trayectoria"|"desplazamiento"|"ninguna";
   transformacion?: DefinicionTransformacion;
   tablero?: AlcanceHabilidad;
@@ -167,9 +169,19 @@ export function formula(
 ): string {
   return `${e.cantidad ? `${e.cantidad}d${e.caras}` : "0"}${e.modificador ? `${e.modificador > 0 ? "+" : ""}${e.modificador}` : ""}`;
 }
+/** Validación estructural independiente del catálogo visual, también para datos antiguos. */
+function validarAnimacion(v:unknown):string|null {
+ if(v===undefined)return null;
+ if(!v||typeof v!=='object'||Array.isArray(v))return 'Configuración de animación inválida.';
+ const c=v as Record<string,unknown>;
+ for(const k of ['lanzamiento','recorrido','impacto','entrada','aura'])if(c[k]!==undefined&&(typeof c[k]!=='string'||!/^[a-z0-9_-]{1,100}$/.test(c[k] as string)))return 'Referencia de animación inválida.';
+ if(c.escala!==undefined&&(typeof c.escala!=='number'||!Number.isFinite(c.escala)||c.escala<0.5||c.escala>4))return 'Tamaño visual inválido (0.5–4 casillas).';
+ return null;
+}
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
+    const errorVFX=validarAnimacion(e.vfx);if(errorVFX)return errorVFX;
     if(e.efecto==="transformacion"){
       const d=e.transformacion;
       if(!d||!d.id||!d.nombre||!["forma","poder"].includes(d.tipo)||!Array.isArray(d.etapas)||d.etapas.length<1||d.etapas.length>12||d.etapas.some(v=>!v.id||!v.nombre||!v.stats||!Object.keys(v.stats).length||Object.keys(v.stats).some(k=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k))||Object.values(v.stats).some(n=>!Number.isFinite(n)||n<0||n>1000000)))return "Configura una transformación válida con etapas y estadísticas.";
@@ -178,6 +190,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       if(d.etapas.some(v=>v.habilidades!==undefined&&(!Array.isArray(v.habilidades)||v.habilidades.some(id=>typeof id!=='string'||!id))))return 'Selecciona poderes de etapa válidos.';
       if(d.tipo==="forma"&&d.etapas.some(v=>!((v.stats.hp??v.stats.vida)>0)))return "Cada forma necesita HP propios.";
       for(const etapa of d.etapas){
+        const errorVFX=validarAnimacion(etapa.vfx);if(errorVFX)return errorVFX;
         if(etapa.reglas!==undefined){if(!Array.isArray(etapa.reglas))return 'Las pasivas de etapa deben ser reglas válidas.';const error=validarReglas(etapa.reglas);if(error)return `${etapa.nombre}: ${error}`;}
         if(etapa.descontrolada!==undefined&&typeof etapa.descontrolada!=='boolean')return 'Control de etapa inválido.';
         if(etapa.curacion_entrada!==undefined&&(!Number.isInteger(etapa.curacion_entrada)||etapa.curacion_entrada<0||etapa.curacion_entrada>1000000))return 'Curación de posesión inválida.';

@@ -514,7 +514,7 @@ export default function CampoCombate() {
       : "";
   const fichasTablero=useMemo(()=>{
     const posiciones=posicionesTablero(c);
-    return c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[m.personaje_id?`jugador:${m.personaje_id}`:`forja:${m.forja_id||m.id}`]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
+    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[m.personaje_id?`jugador:${m.personaje_id}`:`forja:${m.forja_id||m.id}`]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
   },[c,retratos]);
   const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
   useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
