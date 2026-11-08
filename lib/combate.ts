@@ -1024,17 +1024,30 @@ function actuarInterno(
     t = n.miembros.find((m) => m.id === objetivoId);
   const tactica=e.tablero;
   if(tactica){const fallo=validarTactica(e);if(fallo)throw Error(fallo);}
-  const posiciones=posicionesTablero(n), punto=centro || (t?posiciones[t.id]:undefined);
-  let objetivos= t?[t]:[];
+  const posiciones=posicionesTablero(n), origen=posiciones[a.id];
+  const apuntado=tactica?.origen_area==='lanzador'?origen:centro || (t?posiciones[t.id]:undefined);
+  const dimensiones=dimensionesTablero(n);
+  const requiereAreaMovil=tactica?.origen_area==='aterrizaje'||tactica?.origen_area==='recorrido';
+  const plan=requiereAreaMovil&&tactica?.movimiento_lanzador&&apuntado?planearAtaqueDeArea(n,a,apuntado,tactica.movimiento_lanzador):undefined;
+  const punto=tactica?.origen_area==='aterrizaje'&&plan?plan.destino:apuntado;
+  let objetivos=t?[t]:[];
   if(tactica){
-    if(!punto||!alcanceDesde(posiciones[a.id],tactica,dimensionesTablero(n)).some(p=>p.x===punto.x&&p.y===punto.y))throw Error('El destino está fuera del alcance de la habilidad.');
-    if(!lineaVisible(posiciones[a.id],punto,n.mapa))throw Error('Un muro bloquea la trayectoria.');
-    const area=areaDesde(posiciones[a.id],punto,tactica,dimensionesTablero(n));
-    objetivos=n.miembros.filter(m=>(m.vida>0||e.efecto==='curacion'&&situacionCombatiente(m)!=='muerto')&&objetivoDelArea(a,m,e)&&area.some(p=>p.x===posiciones[m.id].x&&p.y===posiciones[m.id].y));
+    if(!apuntado||!alcanceDesde(origen,tactica,dimensiones).some(p=>p.x===apuntado.x&&p.y===apuntado.y))throw Error('El destino está fuera del alcance de la habilidad.');
+    if(!lineaVisible(origen,apuntado,n.mapa))throw Error('Un muro bloquea la trayectoria.');
+    if(!punto||requiereAreaMovil&&!plan)throw Error('No hay un destino válido para el movimiento ofensivo.');
+    const area=tactica.origen_area==='recorrido'&&plan
+      ?areaDeRecorrido(plan.trayecto,tactica.movimiento_lanzador?.ancho||0,dimensiones)
+      :areaDesde(origen,punto,tactica,dimensiones);
+    objetivos=n.miembros.filter(m=>{
+      const p=m.id===a.id&&plan?plan.destino:posiciones[m.id];
+      return (m.vida>0||e.efecto==='curacion'&&situacionCombatiente(m)!=='muerto')
+        &&objetivoDelArea(a,m,e)&&area.some(v=>v.x===p.x&&v.y===p.y);
+    });
     if(!objetivos.length)throw Error('No hay objetivos válidos en el área.');
-    // Snapshot de posiciones y objetivos: los desplazamientos no cambian a quién alcanza el lanzamiento.
     for(const m of n.miembros)m.posicion=posiciones[m.id];
-    objetivos.sort((u,v)=>(e.efecto==='dano'&&tactica.forma!=='individual'?Number(u.id===a.id)-Number(v.id===a.id):0)||distanciaCasillas(posiciones[u.id],punto)-distanciaCasillas(posiciones[v.id],punto)||u.id.localeCompare(v.id));
+    objetivos.sort((u,v)=>tactica.origen_area==='recorrido'
+      ?distanciaCasillas(posiciones[u.id],origen)-distanciaCasillas(posiciones[v.id],origen)||u.id.localeCompare(v.id)
+      :(e.efecto==='dano'&&tactica.forma!=='individual'?Number(u.id===a.id)-Number(v.id===a.id):0)||distanciaCasillas(posiciones[u.id],punto)-distanciaCasillas(posiciones[v.id],punto)||u.id.localeCompare(v.id));
   }
   if(typeof coste!=='number'||!Number.isFinite(coste)||coste<0)throw Error('Coste de PH inválido.');
   if (phDisponibles(a) < coste) throw Error("PH insuficientes.");
@@ -1062,13 +1075,13 @@ function actuarInterno(
   }
   log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
   if(tactica?.movimiento_lanzador){
-    if(!t||!combatienteActivo(t))throw Error('Elige un objetivo vivo para el dash o salto.');
-    const destino=destinoAtaqueMovil(n,a,t,tactica.movimiento_lanzador);
-    const origen=posicionesTablero(n)[a.id];
-    for(const miembro of n.miembros)miembro.posicion=posiciones[miembro.id];
+    const destino=plan?.destino||(t&&combatienteActivo(t)?destinoAtaqueMovil(n,a,t,tactica.movimiento_lanzador):undefined);
+    if(!destino)throw Error('Elige un destino válido para el movimiento ofensivo.');
+    const previo=posicionesTablero(n)[a.id];
     a.posicion={...destino};
-    const recorrido=distanciaCasillas(origen,destino);
+    const recorrido=distanciaCasillas(previo,destino);
     if(recorrido){log(n,`${a.nombre}: ${tactica.movimiento_lanzador.tipo} ${recorrido} casillas hasta (${destino.x+1}, ${destino.y+1}) antes de golpear.`);aplicarTerreno(n,a,rng);}
+    if(a.vida<=0)return n;
   }
 
   if (e.efecto === "crear_arma") {
@@ -1096,7 +1109,7 @@ function actuarInterno(
     if(a.vida<=0)break;
     resolverEfecto(n,a,objetivo,e,act,rng,punto);
   }
-  if(tactica)log(n,`${act.nombre}: centro (${punto!.x+1}, ${punto!.y+1}), ${objetivos.length} objetivos afectados.`);
+  if(tactica&&punto)log(n,`${act.nombre}: ${tactica.origen_area==='recorrido'?'recorrido':'centro'} (${punto.x+1}, ${punto.y+1}), ${objetivos.length} objetivos afectados.`);
   return n;
 }
 function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accion,rng:RNG,centro?:Posicion){
