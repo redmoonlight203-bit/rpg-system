@@ -850,7 +850,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
         if (!lineaVisible(posiciones[a.id], punto, n.mapa))
             throw Error('Un muro bloquea la trayectoria.');
         const area = areaDesde(posiciones[a.id], punto, tactica, dimensionesTablero(n));
-        objetivos = n.miembros.filter(m => m.vida > 0 && objetivoDelArea(a, m, e) && area.some(p => p.x === posiciones[m.id].x && p.y === posiciones[m.id].y));
+        objetivos = n.miembros.filter(m => (m.vida > 0 || e.efecto === 'curacion' && situacionCombatiente(m) !== 'muerto') && objetivoDelArea(a, m, e) && area.some(p => p.x === posiciones[m.id].x && p.y === posiciones[m.id].y));
         if (!objetivos.length)
             throw Error('No hay objetivos válidos en el área.');
         // Snapshot de posiciones y objetivos: los desplazamientos no cambian a quién alcanza el lanzamiento.
