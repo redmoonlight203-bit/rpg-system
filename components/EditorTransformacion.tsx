@@ -2,6 +2,7 @@
 
 import {useRef,useState} from "react";
 import {prepararPortada,validarPortada} from "../lib/imagenes-creacion";
+import {EditorReglas} from "./EditorReglas";
 import type {Efecto} from "../lib/creacion";
 import type {DefinicionTransformacion, EtapaTransformacion, TipoTransformacion} from "../lib/transformaciones";
 
@@ -141,6 +142,28 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
         </div>
       </div>
 
+      <div className="space-y-3 rounded-lg border border-rose-800/60 p-3">
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" checked={!!etapa.descontrolada} onChange={e=>onChange({...etapa,descontrolada:e.target.checked})}/>
+          Etapa descontrolada: el jugador pierde el control
+        </label>
+        {etapa.descontrolada&&<>
+          <p className="text-xs text-neutral-400">El motor activará esta fase solo al fallar la salvación de posesión; nunca pulsando «avanzar de etapa». Atacará automáticamente a cualquier criatura cercana, incluso aliados.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm">Vida máxima durante la posesión
+              <input type="number" min={1} max={1000000} className={campo} value={etapa.vida_maxima_posesion??40} onChange={e=>onChange({...etapa,vida_maxima_posesion:Number(e.target.value)})}/>
+            </label>
+            <label className="text-sm">HP que cura al manifestarse
+              <input type="number" min={0} max={1000000} className={campo} value={etapa.curacion_entrada??15} onChange={e=>onChange({...etapa,curacion_entrada:Number(e.target.value)})}/>
+            </label>
+          </div>
+        </>}
+      </div>
+      <details className="rounded-lg border border-violet-900/50 p-3">
+       <summary className="cursor-pointer font-semibold">Pasivas exclusivas de esta etapa ({etapa.reglas?.length||0})</summary>
+       <p className="my-2 text-xs text-neutral-400">Estas reglas solo se ejecutan mientras esta etapa esté activa. Se editan visualmente y no requieren JSON.</p>
+       <EditorReglas value={etapa.reglas||[]} onChange={reglas=>onChange({...etapa,reglas})}/>
+      </details>
       <fieldset className="space-y-2 rounded-lg border border-neutral-700 p-3">
         <legend className="px-2 font-semibold">Poderes exclusivos de esta etapa</legend>
         {poderes.length? poderes.map(accion=>
@@ -192,6 +215,29 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
           onEliminar={()=>onChange({...d,etapas:d.etapas.filter(e=>e.id!==etapa.id)})}/>
       )}
       <button type="button" className={boton+" w-full"} disabled={d.etapas.length>=12} onClick={agregar}>+ Añadir etapa (copiar atributos de la anterior)</button>
+      <div className="space-y-3 rounded-xl border border-rose-800/70 bg-rose-950/10 p-3">
+       <label className="flex items-center gap-2 font-semibold">
+        <input type="checkbox" checked={!!d.posesion} onChange={e=>onChange({...d,posesion:e.target.checked?{umbral_pct:25,cd:12,etapa_id:d.etapas.find(et=>et.descontrolada)?.id||d.etapas[d.etapas.length-1].id}:undefined})}/>
+        Posesión involuntaria cuando su vida está baja
+       </label>
+       {d.posesion&&<>
+        <p className="text-xs text-neutral-400">Al comenzar cada turno por debajo del porcentaje elegido, el personaje tira una salvación. Si falla, el motor activa inmediatamente la fase descontrolada y deja de aceptar órdenes del jugador.</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+         <label className="text-sm">Vida crítica (%)
+          <input className={campo} type="number" min={1} max={99} value={d.posesion.umbral_pct} onChange={e=>onChange({...d,posesion:{...d.posesion!,umbral_pct:Number(e.target.value)}})}/>
+         </label>
+         <label className="text-sm">Dificultad de salvación (CD)
+          <input className={campo} type="number" min={1} max={100} value={d.posesion.cd} onChange={e=>onChange({...d,posesion:{...d.posesion!,cd:Number(e.target.value)}})}/>
+         </label>
+         <label className="text-sm">Etapa que toma el control
+          <select className={campo} value={d.posesion.etapa_id} onChange={e=>onChange({...d,posesion:{...d.posesion!,etapa_id:e.target.value}})}>
+           {d.etapas.map(et=><option key={et.id} value={et.id}>{et.nombre}{et.descontrolada?' · descontrolada':''}</option>)}
+          </select>
+         </label>
+        </div>
+        {!d.etapas.some(et=>et.id===d.posesion!.etapa_id&&et.descontrolada)&&<p className="text-xs text-amber-300">Activa «Etapa descontrolada» en la etapa seleccionada para guardar.</p>}
+       </>}
+      </div>
       <p className="text-xs text-neutral-400">Máximo 12 etapas. Cada una tiene sus propios atributos y poderes; los cambios en una etapa no modifican las demás.</p>
     </div>
   );
