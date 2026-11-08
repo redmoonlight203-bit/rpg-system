@@ -1,4 +1,4 @@
-import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,type TransformacionActiva} from "./transformaciones";
+import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
@@ -250,7 +250,7 @@ export function estadisticas(m: Combatiente) {
   return s;
 }
 export function maxVida(m: Combatiente) {
-  const s = m.transformacion?.tipo==='poder'?m.transformacion.stats_originales:estadisticas(m);
+  const s = m.transformacion?.tipo==='poder'&&!m.transformacion.vida_maxima_alterada?m.transformacion.stats_originales:estadisticas(m);
   return Math.max(1, s.vida ?? s.hp ?? 1);
 }
 /** Nunca permite gastar PH que excedan la capacidad real o un recurso inválido. */
@@ -509,6 +509,21 @@ function area(
 function entrar(c: Combate, m: Combatiente, rng: RNG) {
   aplicarTerreno(c,m,rng);
   m.turnos++;
+  // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
+  // en estado normal. No consume acción ni PH y respeta el resultado del dado.
+  if(m.vida>0&&!m.transformacion?.descontrolada){
+    const activaciones=(m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).filter(e=>!!e.transformacion?.posesion);
+    for(const e of activaciones){
+      const d=e.transformacion!,p=d.posesion!;
+      if(m.transformacion&&m.transformacion.definicion_id!==d.id)continue;
+      if(m.vida*100>maxVida(m)*p.umbral_pct)continue;
+      if(!salvacion(c,m,p.cd,'salvacion',rng)){
+        Object.assign(m,forzarPosesion(m,d,p.etapa_id));
+        log(c,`${m.nombre} pierde el control: se manifiesta ${d.etapas.find(et=>et.id===p.etapa_id)?.nombre||d.nombre}.`);
+      }else log(c,`${m.nombre} resiste la posesión por este turno.`);
+      break;
+    }
+  }
   m.accion_usada = false;
   m.uso_fatiga = false;
   m.estados = m.estados.filter((e) => !e.inicio);
@@ -740,7 +755,7 @@ function basico(): Efecto {
 }
 export function acciones(m: Combatiente) {
   const lista: Accion[] = [];
-  if(m.transformacion)lista.push({id:'volver_forma',nombre:'Volver a la forma original',efecto:{...basico(),efecto:'transformacion'},enfriamiento:0});
+  if(m.transformacion&&!m.transformacion.descontrolada)lista.push({id:'volver_forma',nombre:'Volver a la forma original',efecto:{...basico(),efecto:'transformacion'},enfriamiento:0});
   if (m.arma)
     lista.push({
       id: "ataque",
@@ -787,7 +802,7 @@ export function acciones(m: Combatiente) {
   const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
   return lista.filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
    const d=a.efecto.transformacion;
-   if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':undefined};}
+   if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':d.etapas[i+1]?.descontrolada?'Esta fase requiere fallar la salvación de posesión.':undefined};}
    if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
    return {...a,efecto:conAlcance(a.efecto,a.nombre)};
   });
@@ -840,12 +855,14 @@ function actuarInterno(
   rng: RNG,
   forzar: boolean,
   centro?: Posicion,
+  autonomo = false,
 ) {
   const n = copia(c),
     a = n.miembros.find((m) => m.id === actorId);
   delete n.resultado;
   if (n.fase !== "en_curso" || n.actual !== actorId || !a || !combatienteActivo(a))
     throw Error("Solo puede actuar el personaje de turno.");
+  if(a.transformacion?.descontrolada&&!autonomo)throw Error('La criatura está fuera de control: su turno es automático.');
   if (a.accion_usada) throw Error("Ya utilizó su acción.");
   if (accionId.startsWith('regla:')) {
     const clave = accionId.slice(6), entrada = reglasMotor(a).find(r=>r.clave===clave);
@@ -873,7 +890,7 @@ function actuarInterno(
     const d=act.efecto.transformacion;
     if(!d)throw Error("Transformación sin configurar.");
     if(!a.transformacion){const fatiga=act.efecto.coste_fatiga||0;if(fatiga&&(a.agotado||a.fatiga+fatiga>(estadisticas(a).fatiga||0)))throw Error("Fatiga insuficiente para transformarse.");a.fatiga+=fatiga;a.uso_fatiga=fatiga>0;}
-    if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");Object.assign(a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id));log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
+    if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");if(d.etapas[indice+1].descontrolada)throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');Object.assign(a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id));log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
     else{if(a.transformaciones_usadas?.includes(d.id))throw Error("Transformación ya utilizada en esta partida.");if(phDisponibles(a)<(act.efecto.coste_ph||0))throw Error("PH insuficientes.");Object.assign(a,activarTransformacion(a,{...d,coste_ph:act.efecto.coste_ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos}));log(n,`${a.nombre} activa ${d.nombre}.`);}
     if(a.transformacion&&!a.transformacion.creado_turno)a.transformacion.creado_turno=a.turnos;
     if(!a.transformacion)throw Error('No se pudo activar la forma.');
@@ -1216,9 +1233,19 @@ export type EstadoMotor = {
  progreso: {id:string;atributo:string;delta:number;regla:string}[];
 };
 function motor(m:Combatiente):EstadoMotor {return m.motor ||= {modificadores:[],habilidades:[],usos:{},proximos:{},progreso:[]};}
+function definicionEnCombate(m:Combatiente) {
+ const activacion=(m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).find(e=>e.transformacion?.id===m.transformacion?.definicion_id);
+ return activacion?.transformacion;
+}
+function pasivasEtapaActiva(m:Combatiente) {
+ const d=definicionEnCombate(m);
+ return d?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.reglas||[];
+}
+
 export function reglasMotor(m:Combatiente) {
  const fuentes = [
   {id:'propio',reglas:m.configuracion.reglas||[]},
+  ...(m.transformacion?[{id:`etapa:${m.transformacion.definicion_id}:${m.transformacion.etapa_id}`,reglas:pasivasEtapaActiva(m)}]:[]),
   ...pasivasAplicables(m).map((p,i)=>({id:`pasiva:${p.id||i}`,reglas:p.reglas_motor||[]})),
   ...(m.configuracion.habilidades||[]).filter(p=>!requisitosFuente(m,p).length).map((p,i)=>({id:`hab:${p.id||i}`,reglas:p.reglas||[]})),
   ...Object.entries(piezas(m)).filter(([,p])=>!requisitosFuente(m,p).length).map(([slot,p])=>({id:`equipo:${p.id||slot}`,reglas:p.reglas||[]})),
@@ -1538,6 +1565,7 @@ export function areaDesde(origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{
 export function objetivoDelArea(a:{id:string;bando:string},t:{id:string;bando:string},e:Efecto){
  const area=e.tablero;if(!area)return false;
  if(e.efecto==='dano'&&area.forma!=='individual'&&a.id===t.id)return true;
+ if((a as Combatiente).transformacion?.descontrolada&&e.efecto==='dano')return a.id!==t.id;
  return area.afecta==='todos'||area.afecta==='yo'&&a.id===t.id||area.afecta==='aliados'&&a.bando===t.bando||area.afecta==='enemigos'&&a.bando!==t.bando;
 }
 function secundariosTablero(c:Combate,a:Combatiente,t:Combatiente,e:Efecto,centro:Posicion|undefined,supera:boolean){
