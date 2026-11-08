@@ -18,7 +18,8 @@ Los proyectos editables y los archivos auxiliares de Kitsuwick contienen los mis
 
 - Al lanzar / salir: efecto en el origen del lanzador.
 - Proyectil / estela: viaja entre las posiciones confirmadas. Los saltos trazan un arco; el teletransporte omite el recorrido.
-- Al impactar / llegar: efecto en el destino. Si hay atracción o empuje, se usa el destino real de cada personaje desplazado.
+- Al golpear / llegar al destino: en ataques, el impacto aparece en la casilla atacada o centro seleccionado, incluso cuando el lanzador se mueve o el objetivo es empujado. En movimientos sin blanco externo, aparece en la llegada real de cada desplazado.
+- La salida se reproduce únicamente sobre el lanzador; atraer o empujar enemigos no genera lanzamientos adicionales sobre ellos.
 - Si no hay movimiento de personajes, la secuencia es lanzamiento → proyectil → impacto sobre el centro seleccionado.
 
 La estela representa los extremos del desplazamiento; no representa la ruta de navegación alrededor de obstáculos. El movimiento y las colisiones los resuelve el motor antes de emitir el evento. Las animaciones no retrasan acciones ni cambian tiradas.

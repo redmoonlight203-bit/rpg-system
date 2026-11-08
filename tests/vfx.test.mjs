@@ -26,15 +26,31 @@ test('un proyectil enlaza lanzamiento, recorrido e impacto sin alterar posicione
 });
 test('teletransporte omite trayecto, salto dibuja arco y atracción anima posiciones reales',()=>{
  const movimiento={id:'a',desde:{x:1,y:1},hasta:{x:4,y:2},tipo:'teletransporte'};
- let p=planificarVFX({...evento,movimientos:[movimiento]});assert.ok(!p.some(c=>c.id.startsWith('estela')));assert.equal(p.find(c=>c.id==='llegada-a').hasta.x,4);
- p=planificarVFX({...evento,movimientos:[{...movimiento,tipo:'salto'}]});assert.equal(p.find(c=>c.id==='estela-a').salto,true);
- p=planificarVFX({...evento,movimientos:[{...movimiento,tipo:'forzado'},{...movimiento,id:'b',hasta:{x:5,y:3},tipo:'forzado'}]});assert.equal(p.filter(c=>c.id.startsWith('llegada')).length,2);
+ let p=planificarVFX({...evento,hasta:undefined,movimientos:[movimiento]});assert.ok(!p.some(c=>c.id.startsWith('estela')));assert.equal(p.find(c=>c.id==='llegada-a').hasta.x,4);
+ p=planificarVFX({...evento,hasta:undefined,movimientos:[{...movimiento,tipo:'salto'}]});assert.equal(p.find(c=>c.id==='estela-a').salto,true);
+ p=planificarVFX({...evento,hasta:undefined,movimientos:[{...movimiento,tipo:'forzado'},{...movimiento,id:'b',hasta:{x:5,y:3},tipo:'forzado'}]});assert.equal(p.filter(c=>c.id.startsWith('llegada')).length,2);
+});
+test('Paso errante: dash, salto y teletransporte golpean la casilla atacada',()=>{
+ for(const tipo of ['dash','salto','teletransporte']){
+  const movimiento={id:'orin',desde:evento.desde,hasta:{x:5,y:1},tipo};
+  const p=planificarVFX({...evento,movimientos:[movimiento]});
+  const impacto=p.find(c=>c.id==='impacto');
+  assert.deepEqual(impacto.hasta,evento.hasta);
+  assert.ok(!p.some(c=>c.id.startsWith('llegada')));
+  assert.equal(impacto.inicio,Math.min(350,p[0].duracion)+(tipo==='teletransporte'?200:600));
+  if(tipo!=='teletransporte')assert.deepEqual(p.find(c=>c.id==='estela-orin').hasta,movimiento.hasta);
+ }
+});
+test('empujar conserva el impacto en la casilla atacada sin relanzar desde la víctima',()=>{
+ const p=planificarVFX({...evento,movimientos:[{id:'enemigo',desde:evento.hasta,hasta:{x:8,y:1},tipo:'forzado'}]});
+ assert.deepEqual(p.find(c=>c.id==='impacto').hasta,evento.hasta);
+ assert.equal(p.filter(c=>c.id.startsWith('salida')).length,1);
 });
 const ataque={id:'salto',nombre:'Salto',efecto:'dano',cantidad:0,caras:6,modificador:1,tipo_dano:'fisico',estado:'',duracion:0,coste_ph:0,vfx,tablero:{alcance:6,forma:'individual',tamano:0,afecta:'enemigos',movimiento_lanzador:{tipo:'salto',casillas:5,alcance_golpe:1}}};
 function campo(efecto=ataque){let c=motor.nuevoCombate();c=motor.agregar(c,{id:'a',posicion:{x:1,y:1},nombre:'A',forja_id:null,stats:{vida:30,ph:10,fatiga:10},configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre:'Prueba',stats:{},efectos:[efecto]}]}},'jugador',()=>20);c=motor.agregar(c,{id:'b',posicion:{x:5,y:1},nombre:'B',forja_id:null,stats:{vida:40,ph:0},configuracion:{tipo_creacion:'personaje'}},'enemigo',()=>1);c=motor.iniciar(c,()=>10);c.regla='directo';return c;}
 test('motor emite salto confirmado; acción rechazada no produce efectos ni mutaciones',()=>{
  const c=campo(),original=JSON.stringify(c),n=motor.actuar(c,'a','hab:h:salto','b',()=>20);
- assert.equal(n.evento_visual.vfx.impacto,vfx.impacto);assert.ok(n.evento_visual.creado_en);
+ assert.deepEqual(planificarVFX(n.evento_visual).find(c=>c.id==='impacto').hasta,{x:5,y:1});assert.equal(n.evento_visual.vfx.impacto,vfx.impacto);assert.ok(n.evento_visual.creado_en);
  const m=n.evento_visual.movimientos.find(m=>m.id==='a');assert.equal(m.tipo,'salto');assert.equal(m.desde.x,1);assert.deepEqual(m.hasta,motor.posicionesTablero(n).a);
  assert.throws(()=>motor.actuar(c,'b','ataque','a'));assert.equal(JSON.stringify(c),original);
 });

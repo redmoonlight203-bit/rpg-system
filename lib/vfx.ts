@@ -34,12 +34,18 @@ export function planificarVFX(evento:EventoVisual):ClipVFX[]{
  agregar('salida',v?.lanzamiento,evento.desde);
  const movimientos=evento.movimientos||[];
  if(movimientos.length){
+  const mismoPunto=(a:Posicion|undefined,b:Posicion|undefined)=>!!a&&!!b&&a.x===b.x&&a.y===b.y;
+  // Un ataque móvil termina junto al blanco: su casilla de llegada no es la del golpe.
+  const golpe=!!evento.hasta&&!mismoPunto(evento.hasta,evento.desde);
+  let finMovimiento=espera;
   for(const m of movimientos){
    const teleport=m.tipo==='teletransporte';
-   if(m.id!==movimientos[0].id)agregar('salida-'+m.id,v?.lanzamiento,m.desde);
+   const fin=espera+(teleport?200:600);
+   finMovimiento=Math.max(finMovimiento,fin);
    if(!teleport)agregar('estela-'+m.id,v?.recorrido,m.desde,m.hasta,espera,600,Math.atan2(m.hasta.y-m.desde.y,m.hasta.x-m.desde.x)*180/Math.PI,m.tipo==='salto');
-   agregar('llegada-'+m.id,v?.impacto,m.hasta,m.hasta,espera+(teleport?200:600));
+   if(!golpe)agregar('llegada-'+m.id,v?.impacto,m.hasta,m.hasta,fin);
   }
+  if(golpe)agregar('impacto',v?.impacto,evento.hasta,evento.hasta,finMovimiento);
  }else{
   const viaje=!!buscarVFX(v?.recorrido)&&!!evento.desde&&!!evento.hasta;
   if(viaje)agregar('proyectil',v?.recorrido,evento.desde,evento.hasta,espera,600,Math.atan2(evento.hasta!.y-evento.desde!.y,evento.hasta!.x-evento.desde!.x)*180/Math.PI);
