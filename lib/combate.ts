@@ -1,3 +1,4 @@
+import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad } from "./creacion";
@@ -119,7 +120,9 @@ export type Combatiente = {
   }[];
 };
 export type CambioVida = {id:string;delta:number};
-export type EventoVisual = {id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];desde?:Posicion;hasta?:Posicion};
+export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"forzado"};
+export type AparicionVisual = {id:string;animacion:string;posicion:Posicion;escala?:number};
+export type EventoVisual = {creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];desde?:Posicion;hasta?:Posicion};
 export type Combate = {
   fuentes_botin?: {id:string;nombre:string;tabla_botin_id:string}[];
   mapa?: MapaCombate;
@@ -1246,8 +1249,15 @@ export function actuar(
 ) {
   const n=registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro),rng);
   const actor=c.miembros.find(m=>m.id===actorId),efecto=actor?acciones(actor).find(a=>a.id===accionId)?.efecto:undefined;
+  return animarAccion(c,n,actorId,efecto,accionId,objetivoId,centro);
+}
+function animarAccion(c:Combate,n:Combate,actorId:string,efecto:Efecto|undefined,accionId:string,objetivoId:string,centro?:Posicion):Combate {
   const pos=posicionesTablero(c);
-  n.evento_visual={...n.evento_visual,id:n.evento_visual?.id||crypto.randomUUID(),nombre:efecto?.nombre||accionId,dados:n.evento_visual?.dados||[],animacion:efecto?.animacion||'impacto',desde:pos[actorId],hasta:centro||pos[objetivoId]||pos[actorId]};
+  const propio=efecto?.efecto==='transformacion'||efecto?.tablero?.afecta==='yo'||accionId==='volver_forma';
+  const hasta=propio?pos[actorId]:centro||pos[objetivoId]||pos[actorId];
+  const area=efecto?.tablero&&hasta?areaDesde(pos[actorId],hasta,efecto.tablero,dimensionesTablero(c)):undefined;
+  n.evento_visual={...n.evento_visual,id:n.evento_visual?.id||crypto.randomUUID(),nombre:efecto?.nombre||accionId,dados:n.evento_visual?.dados||[],animacion:efecto?.animacion||'impacto',vfx:efecto?.vfx,desde:pos[actorId],hasta,area,
+    movimientos:n.evento_visual?.movimientos?.map(m=>({...m,tipo:m.id===actorId?efecto?.tablero?.movimiento_lanzador?.tipo||m.tipo:m.tipo}))};
   return n;
 }
 export function mover(c: Combate, id: string, bando: Bando) {
@@ -1476,7 +1486,7 @@ export function accionesObjeto(m:Combatiente,p:Fuente):{id:string;nombre:string;
  return [...(p.efectos||[]).filter(e=>!e.requisito_forma||(estadisticas(m)[e.requisito_forma.atributo]||0)>=e.requisito_forma.minimo).map(e=>({id:e.id,nombre:e.nombre,coste_ph:e.coste_ph||0,coste_fatiga:e.coste_fatiga||0})),...(p.reglas||[]).filter(r=>r.evento==='usar').map(r=>({id:'regla:'+r.id,nombre:r.nombre,coste_ph:r.coste_ph,coste_fatiga:r.coste_fatiga}))].map(a=>({...a,bloqueada:phDisponibles(m)<a.coste_ph?'PH insuficientes.':a.coste_fatiga>0&&(m.agotado||m.fatiga+a.coste_fatiga>(estadisticas(m).fatiga||0))?'Fatiga insuficiente.':undefined}));
 }
 export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:string,objetivoId:string,rng:RNG=dadoSeguro):Combate{
- return registrar(c,()=>{
+ const n=registrar(c,()=>{
   const n=copia(c),m=n.miembros.find(x=>x.id===actorId);
   if(!m||n.fase!=='en_curso'||n.actual!==m.id||m.accion_usada||m.vida<=0)throw Error('Usar un objeto requiere tu turno y una acción disponible.');
   const p=m.configuracion.reserva?.find(p=>p.id===objetoId);
@@ -1499,6 +1509,8 @@ export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:str
   }else log(resultado,`${actor.nombre} usa ${p.nombre}.`);
   return resultado;
  });
+ const efecto=c.miembros.find(m=>m.id===actorId)?.configuracion.reserva?.find(p=>p.id===objetoId)?.efectos?.find(e=>e.id===efectoId);
+ return animarAccion(c,n,actorId,efecto,efectoId,objetivoId);
 }
 
 /** Invocar es una acción atómica: el llamador valida la propuesta antes de pagar. */
@@ -1660,7 +1672,17 @@ export function cambiosVida(antes:Pick<Combate,'miembros'>,despues:Pick<Combate,
  });
 }
 export function registrarCambiosVida(antes:Combate,despues:Combate):Combate{
- return {...despues,evento_visual:{id:crypto.randomUUID(),nombre:despues.miembros.find(m=>m.id===despues.actual)?.nombre||'Combate',dados:[],resultado:despues.resultado,cambios_vida:cambiosVida(antes,despues)}};
+ const previas=posicionesTablero(antes),actuales=posicionesTablero(despues);
+ const movimientos:MovimientoVisual[]=despues.miembros.flatMap(m=>{
+  const desde=previas[m.id],hasta=actuales[m.id];
+  return desde&&hasta&&(desde.x!==hasta.x||desde.y!==hasta.y)?[{id:m.id,desde,hasta,tipo:'forzado' as const}]:[];
+ });
+ const transformaciones:AparicionVisual[]=despues.miembros.flatMap(m=>{
+  const previa=antes.miembros.find(x=>x.id===m.id)?.transformacion,actual=m.transformacion;
+  return actual?.vfx?.entrada&&(previa?.etapa_id!==actual.etapa_id||previa?.definicion_id!==actual.definicion_id)&&actuales[m.id]?
+   [{id:m.id,animacion:actual.vfx.entrada,posicion:actuales[m.id],escala:actual.vfx.escala}]:[];
+ });
+ return {...despues,evento_visual:{id:crypto.randomUUID(),creado_en:Date.now(),nombre:despues.miembros.find(m=>m.id===despues.actual)?.nombre||'Combate',dados:[],resultado:despues.resultado,cambios_vida:cambiosVida(antes,despues),movimientos,transformaciones}};
 }
 
 /** Obstáculos y terrenos del encuentro; los identificadores no representan navegación mundial. */

@@ -5,6 +5,7 @@ import {useRef,useState} from "react";
 import {prepararPortada,validarPortada} from "../lib/imagenes-creacion";
 import {EditorReglas} from "./EditorReglas";
 import type {Efecto} from "../lib/creacion";
+import SelectorVFX from './SelectorVFX';
 import type {DefinicionTransformacion, EtapaTransformacion, TipoTransformacion} from "../lib/transformaciones";
 
 const campo = "mt-1 w-full rounded-lg border border-neutral-700 bg-black p-2 text-neutral-100";
@@ -97,6 +98,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
         {(errorImagen||(etapa.imagen_url&&validarPortada(etapa.imagen_url)))&&<p role="alert" className="text-xs text-red-300">{errorImagen||validarPortada(etapa.imagen_url||"")}</p>}
       </fieldset>
 
+      <SelectorVFX transformacion valor={etapa.vfx} onChange={vfx=>onChange({...etapa,vfx})}/>
       <div className="space-y-2">
         <h4 className="font-semibold">Estadísticas de esta etapa</h4>
         <p className="text-xs text-neutral-400">

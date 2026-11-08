@@ -1,0 +1,13 @@
+KITSUWICK FX VOL. 1 - ARTWORK USE AND CREDITS
+Artwork by NogitsuneGurl. Created in Kitsuwick.
+
+You may use this artwork in personal and commercial finished projects.
+Edits and recolors are welcome. Credit to NogitsuneGurl is appreciated but
+not required: https://nogitsunegurl.itch.io/
+
+Do not resell or redistribute these files as a standalone asset pack,
+modified or unmodified, or claim the original artwork as your own.
+Keep any included source licenses and notices with their respective files.
+
+These are visual assets. Your project supplies gameplay and behavior.
+Engine reference files retain their included software notices.

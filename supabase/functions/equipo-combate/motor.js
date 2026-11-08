@@ -17,7 +17,8 @@ function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
     if (actor.transformaciones_usadas?.includes(def.id))
         throw Error('Esta transformación ya se utilizó en la partida.');
     const etapa = comprobarEtapa(def, etapaId);
-    if (etapa.descontrolada) throw Error('La etapa descontrolada solo se activa mediante la posesión.');
+    if (etapa.descontrolada)
+        throw Error('La etapa descontrolada solo se activa mediante la posesión.');
     const coste = Math.max(0, def.coste_ph ?? 0);
     if (actor.ph < coste)
         throw Error('PH insuficiente.');
@@ -25,7 +26,7 @@ function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
     const stats = { ...original, ...etapa.stats };
     const forma = def.tipo === 'forma';
     const activa = {
-        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined,
+        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx,
         stats_originales: original, vida_original: actor.vida,
         vida_forma: forma ? maxVidaForma(stats) : actor.vida,
         turnos_restantes: def.duracion_turnos && def.duracion_turnos > 0 ? def.duracion_turnos : null
@@ -38,30 +39,35 @@ function cambiarEtapaTransformacion(actor, def, etapaId) {
     if (!activa || activa.definicion_id !== def.id)
         throw Error('Esta transformación no está activa.');
     const etapa = comprobarEtapa(def, etapaId);
-    if (etapa.descontrolada) throw Error('La posesión no puede activarse manualmente.');
+    if (etapa.descontrolada)
+        throw Error('La posesión no puede activarse manualmente.');
     const stats = { ...activa.stats_originales, ...etapa.stats };
     // El avance de etapa no regenera HP. En forma, la vida restante se limita
     // al nuevo máximo; en poder, la vida real permanece intacta.
     const vida = activa.tipo === 'forma' ? Math.min(actor.vida, maxVidaForma(stats)) : actor.vida;
-    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vida_forma: vida } };
+    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, vida_forma: vida } };
 }
-function forzarPosesion(actor,def,etapaId) {
- const etapa=comprobarEtapa(def,etapaId);
- if(!etapa.descontrolada)throw Error('La etapa elegida no es descontrolada.');
- const originales={...(actor.transformacion?.stats_originales||actor.stats)};
- const stats={...originales,...etapa.stats};
- if(etapa.vida_maxima_posesion!==undefined)stats.vida=etapa.vida_maxima_posesion;
- const max=Math.max(1,Math.trunc(stats.vida??stats.hp??1));
- const curacion=Math.max(0,Math.trunc(etapa.curacion_entrada||0));
- const vida=Math.max(1,Math.min(max,actor.vida+curacion));
- const activa={
-   definicion_id:def.id,tipo:'poder',etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,
-   descontrolada:true,vida_maxima_alterada:true,
-   stats_originales:originales,vida_original:actor.transformacion?.vida_original??actor.vida,
-   vida_forma:vida,turnos_restantes:null
- };
- const usadas=new Set([...(actor.transformaciones_usadas||[]),def.id]);
- return {...actor,stats,vida,transformacion:activa,transformaciones_usadas:[...usadas]};
+/** Activación automática y forzada por una salvación fallida; ignora el límite
+ * de uso manual y los costes, pero no hace que el jugador pierda su ficha base. */
+function forzarPosesion(actor, def, etapaId) {
+    const etapa = comprobarEtapa(def, etapaId);
+    if (!etapa.descontrolada)
+        throw Error('La etapa elegida no es descontrolada.');
+    const originales = { ...(actor.transformacion?.stats_originales || actor.stats) };
+    const stats = { ...originales, ...etapa.stats };
+    if (etapa.vida_maxima_posesion !== undefined)
+        stats.vida = etapa.vida_maxima_posesion;
+    const max = Math.max(1, Math.trunc(stats.vida ?? stats.hp ?? 1));
+    const curacion = Math.max(0, Math.trunc(etapa.curacion_entrada || 0));
+    const vida = Math.max(1, Math.min(max, actor.vida + curacion));
+    const activa = {
+        definicion_id: def.id, tipo: 'poder', etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx,
+        descontrolada: true, vida_maxima_alterada: true,
+        stats_originales: originales, vida_original: actor.transformacion?.vida_original ?? actor.vida,
+        vida_forma: vida, turnos_restantes: null
+    };
+    const usadas = new Set([...(actor.transformaciones_usadas || []), def.id]);
+    return { ...actor, stats, vida, transformacion: activa, transformaciones_usadas: [...usadas] };
 }
 function terminarTransformacion(actor) {
     const activa = actor.transformacion;
@@ -436,21 +442,25 @@ function area(c, a, t, e, total, rng) {
 function entrar(c, m, rng) {
     aplicarTerreno(c, m, rng);
     m.turnos++;
-  // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
-  // en estado normal. No consume acción ni PH y respeta el resultado del dado.
-  if(m.vida>0&&!m.transformacion?.descontrolada){
-    const activaciones=(m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).filter(e=>!!e.transformacion?.posesion);
-    for(const e of activaciones){
-      const d=e.transformacion,p=d.posesion;
-      if(m.transformacion&&m.transformacion.definicion_id!==d.id)continue;
-      if(m.vida*100>maxVida(m)*p.umbral_pct)continue;
-      if(!salvacion(c,m,p.cd,'salvacion',rng)){
-        Object.assign(m,forzarPosesion(m,d,p.etapa_id));
-        log(c,`${m.nombre} pierde el control: se manifiesta ${d.etapas.find(et=>et.id===p.etapa_id)?.nombre||d.nombre}.`);
-      }else log(c,`${m.nombre} resiste la posesión por este turno.`);
-      break;
+    // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
+    // en estado normal. No consume acción ni PH y respeta el resultado del dado.
+    if (m.vida > 0 && !m.transformacion?.descontrolada) {
+        const activaciones = (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).filter(e => !!e.transformacion?.posesion);
+        for (const e of activaciones) {
+            const d = e.transformacion, p = d.posesion;
+            if (m.transformacion && m.transformacion.definicion_id !== d.id)
+                continue;
+            if (m.vida * 100 > maxVida(m) * p.umbral_pct)
+                continue;
+            if (!salvacion(c, m, p.cd, 'salvacion', rng)) {
+                Object.assign(m, forzarPosesion(m, d, p.etapa_id));
+                log(c, `${m.nombre} pierde el control: se manifiesta ${d.etapas.find(et => et.id === p.etapa_id)?.nombre || d.nombre}.`);
+            }
+            else
+                log(c, `${m.nombre} resiste la posesión por este turno.`);
+            break;
+        }
     }
-  }
     m.accion_usada = false;
     m.uso_fatiga = false;
     m.estados = m.estados.filter((e) => !e.inicio);
@@ -486,7 +496,8 @@ function entrar(c, m, rng) {
     normalizar(m);
     c.actual = m.id;
     log(c, `Ronda ${c.ronda} · Turno de ${m.nombre}.`);
-    if(m.transformacion?.descontrolada&&!m.accion_usada)resolverTurnoDescontrolado(c,m.id,rng);
+    if (m.transformacion?.descontrolada && !m.accion_usada)
+        resolverTurnoDescontrolado(c, m.id, rng);
 }
 function iniciarInterno(c, rng) {
     if (c.fase !== "preparacion")
@@ -787,94 +798,125 @@ export function acciones(m) {
         return { ...a, efecto: conAlcance(a.efecto, a.nombre) };
     });
 }
-function resolverTurnoDescontrolado(c,actorId,rng){
- let actor=c.miembros.find(m=>m.id===actorId);
- if(!actor||!actor.transformacion?.descontrolada||!combatienteActivo(actor)||actor.accion_usada)return;
- const otros=()=>c.miembros.filter(m=>m.id!==actorId&&combatienteActivo(m)).sort((u,v)=>{
-  const p=posicionesTablero(c),origen=p[actorId];
-  return distanciaCasillas(origen,p[u.id])-distanciaCasillas(origen,p[v.id])||u.id.localeCompare(v.id);
- });
- const intentarAtacar=()=>{
-  const posibilidades=acciones(actor).filter(ac=>ac.efecto.efecto==='dano'&&!ac.bloqueada&&(actor.cooldowns[ac.id]||0)<=0&&phDisponibles(actor)>=(ac.efecto.coste_ph||0)&&!((ac.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.fatiga+(ac.efecto.coste_fatiga||0)>(estadisticas(actor).fatiga||0))))
-    .sort((u,v)=>Number(v.id.startsWith('hab:'))-Number(u.id.startsWith('hab:'))||(v.efecto.cantidad||0)*(v.efecto.caras||0)-(u.efecto.cantidad||0)*(u.efecto.caras||0));
-  for(const t of otros())for(const ac of posibilidades){
-   const p=posicionesTablero(c),area=ac.efecto.tablero;
-   if(!area||distanciaCasillas(p[actorId],p[t.id])>area.alcance||!lineaVisible(p[actorId],p[t.id],c.mapa))continue;
-   try{
-    if(area.movimiento_lanzador)destinoAtaqueMovil(c,actor,t,area.movimiento_lanzador);
-    const n=actuarInterno(c,actorId,ac.id,t.id,rng,false,undefined,true);
-    Object.assign(c,n);
-    log(c,`${actor.nombre} poseído ataca sin distinguir aliados de enemigos: ${t.nombre}.`);
-    return true;
-   }catch{continue;}
-  }
-  return false;
- };
- if(intentarAtacar())return;
- // Si no llega con ninguna habilidad, se aproxima al personaje más cercano
- // utilizando las mismas reglas de movimiento y terreno que el resto.
- const objetivo=otros()[0];
- if(objetivo){
-  const p=posicionesTablero(c),origen=p[actorId],blanco=p[objetivo.id];
-  const candidatos=casillasAlcanzables(c,actorId);
-  const mejor=Object.entries(candidatos).map(([clave,coste])=>{
-    const [x,y]=clave.split(',').map(Number),p={x,y};
-    return {p,coste,d:distanciaCasillas(p,blanco)};
-  }).filter(x=>x.d<distanciaCasillas(origen,blanco))
-    .sort((a,b)=>a.d-b.d||a.coste-b.coste||a.p.y-b.p.y||a.p.x-b.p.x)[0];
-  if(mejor){
-   for(const miembro of c.miembros)miembro.posicion=p[miembro.id];
-   actor.posicion={...mejor.p};
-   actor.movimiento={turno:actor.turnos,gastado:(actor.movimiento?.turno===actor.turnos?actor.movimiento.gastado:0)+mejor.coste};
-   aplicarTerreno(c,actor,rng);
-   log(c,`${actor.nombre} avanza automáticamente hacia ${objetivo.nombre}.`);
-   if(actor.vida>0&&intentarAtacar())return;
-  }
- }
- actor=c.miembros.find(m=>m.id===actorId);
- if(actor){actor.accion_usada=true;log(c,`${actor.nombre} descontrolado no encuentra un objetivo al que golpear este turno.`);}
+/** Encuentra una casilla libre desde la que un ataque con dash/salto/teletransporte alcance al blanco.
+ * El dash recorre un camino ortogonal sin atravesar muros ni criaturas; los saltos
+ * ignoran criaturas intermedias pero no muros, y el teletransporte solo valida la llegada.
+ * El movimiento es parte de la acción y nunca consume los puntos de movimiento normal.
+ */
+/** IA simple y determinista para la criatura poseída. Nunca cambia su bando:
+ * puede atacar aliados y enemigos indistintamente sin regalar la victoria al
+ * bando original. El servidor ejecuta la acción, no el cliente del jugador. */
+function resolverTurnoDescontrolado(c, actorId, rng) {
+    let actor = c.miembros.find(m => m.id === actorId);
+    if (!actor || !actor.transformacion?.descontrolada || !combatienteActivo(actor) || actor.accion_usada)
+        return;
+    const otros = () => c.miembros.filter(m => m.id !== actorId && combatienteActivo(m)).sort((u, v) => {
+        const p = posicionesTablero(c), origen = p[actorId];
+        return distanciaCasillas(origen, p[u.id]) - distanciaCasillas(origen, p[v.id]) || u.id.localeCompare(v.id);
+    });
+    const intentarAtacar = () => {
+        const posibilidades = acciones(actor).filter(ac => ac.efecto.efecto === 'dano' && !ac.bloqueada && (actor.cooldowns[ac.id] || 0) <= 0 && phDisponibles(actor) >= (ac.efecto.coste_ph || 0) && !((ac.efecto.coste_fatiga || 0) > 0 && (actor.agotado || actor.fatiga + (ac.efecto.coste_fatiga || 0) > (estadisticas(actor).fatiga || 0))))
+            .sort((u, v) => Number(v.id.startsWith('hab:')) - Number(u.id.startsWith('hab:')) || (v.efecto.cantidad || 0) * (v.efecto.caras || 0) - (u.efecto.cantidad || 0) * (u.efecto.caras || 0));
+        for (const t of otros())
+            for (const ac of posibilidades) {
+                const p = posicionesTablero(c), area = ac.efecto.tablero;
+                if (!area || distanciaCasillas(p[actorId], p[t.id]) > area.alcance || !lineaVisible(p[actorId], p[t.id], c.mapa))
+                    continue;
+                try {
+                    if (area.movimiento_lanzador)
+                        destinoAtaqueMovil(c, actor, t, area.movimiento_lanzador);
+                    const n = actuarInterno(c, actorId, ac.id, t.id, rng, false, undefined, true);
+                    Object.assign(c, n);
+                    log(c, `${actor.nombre} poseído ataca sin distinguir aliados de enemigos: ${t.nombre}.`);
+                    return true;
+                }
+                catch {
+                    continue;
+                }
+            }
+        return false;
+    };
+    if (intentarAtacar())
+        return;
+    // Si no llega con ninguna habilidad, se aproxima al personaje más cercano
+    // utilizando las mismas reglas de movimiento y terreno que el resto.
+    const objetivo = otros()[0];
+    if (objetivo) {
+        const p = posicionesTablero(c), origen = p[actorId], blanco = p[objetivo.id];
+        const candidatos = casillasAlcanzables(c, actorId);
+        const mejor = Object.entries(candidatos).map(([clave, coste]) => {
+            const [x, y] = clave.split(',').map(Number), p = { x, y };
+            return { p, coste, d: distanciaCasillas(p, blanco) };
+        }).filter(x => x.d < distanciaCasillas(origen, blanco))
+            .sort((a, b) => a.d - b.d || a.coste - b.coste || a.p.y - b.p.y || a.p.x - b.p.x)[0];
+        if (mejor) {
+            for (const miembro of c.miembros)
+                miembro.posicion = p[miembro.id];
+            actor.posicion = { ...mejor.p };
+            actor.movimiento = { turno: actor.turnos, gastado: (actor.movimiento?.turno === actor.turnos ? actor.movimiento.gastado : 0) + mejor.coste };
+            aplicarTerreno(c, actor, rng);
+            log(c, `${actor.nombre} avanza automáticamente hacia ${objetivo.nombre}.`);
+            if (actor.vida > 0 && intentarAtacar())
+                return;
+        }
+    }
+    actor = c.miembros.find(m => m.id === actorId);
+    if (actor) {
+        actor.accion_usada = true;
+        log(c, `${actor.nombre} descontrolado no encuentra un objetivo al que golpear este turno.`);
+    }
 }
-function destinoAtaqueMovil(c,a,t,m) {
- const posiciones=posicionesTablero(c),origen=posiciones[a.id],blanco=posiciones[t.id],dim=dimensionesTablero(c);
- if(!origen||!blanco)throw Error('La posición del atacante o del objetivo no existe.');
- if(distanciaCasillas(origen,blanco)<=m.alcance_golpe)return {...origen};
- const ocupadas=new Set(Object.entries(posiciones).filter(([id])=>id!==a.id).map(([,p])=>p.x+','+p.y));
- const libres=(p)=>p.x>=0&&p.y>=0&&p.x<dim.columnas&&p.y<dim.filas&&!ocupadas.has(p.x+','+p.y)&&c.mapa?.celdas[p.x+','+p.y]!=='muro';
- const distancias=new Map([[origen.x+','+origen.y,0]]);
- if(m.tipo==='dash'){
-  // BFS de costes: terreno difícil cuesta dos casillas.
-  const pendientes=[{p:origen,coste:0}];
-  while(pendientes.length){
-   pendientes.sort((x,y)=>x.coste-y.coste);
-   const {p,coste}=pendientes.shift();
-   if(coste!==distancias.get(p.x+','+p.y))continue;
-   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-    const v={x:p.x+dx,y:p.y+dy},k=v.x+','+v.y;
-    const nuevo=coste+(c.mapa?.celdas[k]==='dificil'?2:1);
-    if(!libres(v)||nuevo>m.casillas||(distancias.has(k)&&distancias.get(k)<=nuevo))continue;
-    distancias.set(k,nuevo);pendientes.push({p:v,coste:nuevo});
-   }
-  }
- }
- const candidatos=[];
- for(let dy=-m.alcance_golpe;dy<=m.alcance_golpe;dy++)for(let dx=-m.alcance_golpe;dx<=m.alcance_golpe;dx++){
-  const p={x:blanco.x+dx,y:blanco.y+dy};
-  if(!libres(p)||distanciaCasillas(p,blanco)>m.alcance_golpe)continue;
-  const distancia=distanciaCasillas(origen,p);
-  const coste=m.tipo==='dash'?distancias.get(p.x+','+p.y):distancia;
-  if(coste===undefined||coste>m.casillas||m.tipo==='salto'&&!lineaVisible(origen,p,c.mapa))continue;
-  candidatos.push({p,coste});
- }
- candidatos.sort((u,v)=>u.coste-v.coste||distanciaCasillas(u.p,blanco)-distanciaCasillas(v.p,blanco)||u.p.y-v.p.y||u.p.x-v.p.x);
- if(!candidatos.length)throw Error('No hay una casilla libre y alcanzable para ejecutar el movimiento del ataque.');
- return candidatos[0].p;
+function destinoAtaqueMovil(c, a, t, m) {
+    const posiciones = posicionesTablero(c), origen = posiciones[a.id], blanco = posiciones[t.id], dim = dimensionesTablero(c);
+    if (!origen || !blanco)
+        throw Error('La posición del atacante o del objetivo no existe.');
+    if (distanciaCasillas(origen, blanco) <= m.alcance_golpe)
+        return { ...origen };
+    const ocupadas = new Set(Object.entries(posiciones).filter(([id]) => id !== a.id).map(([, p]) => p.x + ',' + p.y));
+    const libres = (p) => p.x >= 0 && p.y >= 0 && p.x < dim.columnas && p.y < dim.filas && !ocupadas.has(p.x + ',' + p.y) && c.mapa?.celdas[p.x + ',' + p.y] !== 'muro';
+    const distancias = new Map([[origen.x + ',' + origen.y, 0]]);
+    if (m.tipo === 'dash') {
+        // BFS de costes: terreno difícil cuesta dos casillas.
+        const pendientes = [{ p: origen, coste: 0 }];
+        while (pendientes.length) {
+            pendientes.sort((x, y) => x.coste - y.coste);
+            const { p, coste } = pendientes.shift();
+            if (coste !== distancias.get(p.x + ',' + p.y))
+                continue;
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const v = { x: p.x + dx, y: p.y + dy }, k = v.x + ',' + v.y;
+                const nuevo = coste + (c.mapa?.celdas[k] === 'dificil' ? 2 : 1);
+                if (!libres(v) || nuevo > m.casillas || (distancias.has(k) && distancias.get(k) <= nuevo))
+                    continue;
+                distancias.set(k, nuevo);
+                pendientes.push({ p: v, coste: nuevo });
+            }
+        }
+    }
+    const candidatos = [];
+    for (let dy = -m.alcance_golpe; dy <= m.alcance_golpe; dy++)
+        for (let dx = -m.alcance_golpe; dx <= m.alcance_golpe; dx++) {
+            const p = { x: blanco.x + dx, y: blanco.y + dy };
+            if (!libres(p) || distanciaCasillas(p, blanco) > m.alcance_golpe)
+                continue;
+            const distancia = distanciaCasillas(origen, p);
+            const coste = m.tipo === 'dash' ? distancias.get(p.x + ',' + p.y) : distancia;
+            if (coste === undefined || coste > m.casillas || m.tipo === 'salto' && !lineaVisible(origen, p, c.mapa))
+                continue;
+            candidatos.push({ p, coste });
+        }
+    candidatos.sort((u, v) => u.coste - v.coste || distanciaCasillas(u.p, blanco) - distanciaCasillas(v.p, blanco) || u.p.y - v.p.y || u.p.x - v.p.x);
+    if (!candidatos.length)
+        throw Error('No hay una casilla libre y alcanzable para ejecutar el movimiento del ataque.');
+    return candidatos[0].p;
 }
 function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, autonomo = false) {
     const n = copia(c), a = n.miembros.find((m) => m.id === actorId);
     delete n.resultado;
     if (n.fase !== "en_curso" || n.actual !== actorId || !a || !combatienteActivo(a))
         throw Error("Solo puede actuar el personaje de turno.");
-    if(a.transformacion?.descontrolada&&!autonomo)throw Error('La criatura está fuera de control: su turno es automático.');
+    if (a.transformacion?.descontrolada && !autonomo)
+        throw Error('La criatura está fuera de control: su turno es automático.');
     if (a.accion_usada)
         throw Error("Ya utilizó su acción.");
     if (accionId.startsWith('regla:')) {
@@ -930,7 +972,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             const indice = d.etapas.findIndex(x => x.id === a.transformacion?.etapa_id);
             if (indice < 0 || indice === d.etapas.length - 1)
                 throw Error("No hay otra etapa.");
-            if(d.etapas[indice+1].descontrolada)throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');
+            if (d.etapas[indice + 1].descontrolada)
+                throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');
             Object.assign(a, cambiarEtapaTransformacion(a, d, d.etapas[indice + 1].id));
             log(n, `${a.nombre} avanza a ${d.etapas[indice + 1].nombre}.`);
         }
@@ -1005,14 +1048,19 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         }
     }
     log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
-    if(tactica?.movimiento_lanzador){
-      if(!t||!combatienteActivo(t))throw Error('Elige un objetivo vivo para el dash o salto.');
-      const destino=destinoAtaqueMovil(n,a,t,tactica.movimiento_lanzador);
-      const origen=posicionesTablero(n)[a.id];
-      for(const miembro of n.miembros)miembro.posicion=posiciones[miembro.id];
-      a.posicion={...destino};
-      const recorrido=distanciaCasillas(origen,destino);
-      if(recorrido){log(n,`${a.nombre}: ${tactica.movimiento_lanzador.tipo} ${recorrido} casillas hasta (${destino.x+1}, ${destino.y+1}) antes de golpear.`);aplicarTerreno(n,a,rng);}
+    if (tactica?.movimiento_lanzador) {
+        if (!t || !combatienteActivo(t))
+            throw Error('Elige un objetivo vivo para el dash o salto.');
+        const destino = destinoAtaqueMovil(n, a, t, tactica.movimiento_lanzador);
+        const origen = posicionesTablero(n)[a.id];
+        for (const miembro of n.miembros)
+            miembro.posicion = posiciones[miembro.id];
+        a.posicion = { ...destino };
+        const recorrido = distanciaCasillas(origen, destino);
+        if (recorrido) {
+            log(n, `${a.nombre}: ${tactica.movimiento_lanzador.tipo} ${recorrido} casillas hasta (${destino.x + 1}, ${destino.y + 1}) antes de golpear.`);
+            aplicarTerreno(n, a, rng);
+        }
     }
     if (e.efecto === "crear_arma") {
         if (e.tabla_armas) {
@@ -1217,8 +1265,15 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
 export function actuar(c, actorId, accionId, objetivoId, rng = dadoSeguro, forzar = false, centro) {
     const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro), rng);
     const actor = c.miembros.find(m => m.id === actorId), efecto = actor ? acciones(actor).find(a => a.id === accionId)?.efecto : undefined;
+    return animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro);
+}
+function animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro) {
     const pos = posicionesTablero(c);
-    n.evento_visual = { ...n.evento_visual, id: n.evento_visual?.id || crypto.randomUUID(), nombre: efecto?.nombre || accionId, dados: n.evento_visual?.dados || [], animacion: efecto?.animacion || 'impacto', desde: pos[actorId], hasta: centro || pos[objetivoId] || pos[actorId] };
+    const propio = efecto?.efecto === 'transformacion' || efecto?.tablero?.afecta === 'yo' || accionId === 'volver_forma';
+    const hasta = propio ? pos[actorId] : centro || pos[objetivoId] || pos[actorId];
+    const area = efecto?.tablero && hasta ? areaDesde(pos[actorId], hasta, efecto.tablero, dimensionesTablero(c)) : undefined;
+    n.evento_visual = { ...n.evento_visual, id: n.evento_visual?.id || crypto.randomUUID(), nombre: efecto?.nombre || accionId, dados: n.evento_visual?.dados || [], animacion: efecto?.animacion || 'impacto', vfx: efecto?.vfx, desde: pos[actorId], hasta, area,
+        movimientos: n.evento_visual?.movimientos?.map(m => ({ ...m, tipo: m.id === actorId ? efecto?.tablero?.movimiento_lanzador?.tipo || m.tipo : m.tipo })) };
     return n;
 }
 export function mover(c, id, bando) {
@@ -1241,18 +1296,18 @@ export function retirar(c, id) {
     return n;
 }
 function motor(m) { return m.motor ||= { modificadores: [], habilidades: [], usos: {}, proximos: {}, progreso: [] }; }
-export function definicionEnCombate(m) {
- const activacion=(m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).find(e=>e.transformacion?.id===m.transformacion?.definicion_id);
- return activacion?.transformacion;
+function definicionEnCombate(m) {
+    const activacion = (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).find(e => e.transformacion?.id === m.transformacion?.definicion_id);
+    return activacion?.transformacion;
 }
 function pasivasEtapaActiva(m) {
- const d=definicionEnCombate(m);
- return d?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.reglas||[];
+    const d = definicionEnCombate(m);
+    return d?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.reglas || [];
 }
-function reglasMotor(m) {
+export function reglasMotor(m) {
     const fuentes = [
         { id: 'propio', reglas: m.configuracion.reglas || [] },
-        ...(m.transformacion ? [{id:`etapa:${m.transformacion.definicion_id}:${m.transformacion.etapa_id}`, reglas:pasivasEtapaActiva(m)}] : []),
+        ...(m.transformacion ? [{ id: `etapa:${m.transformacion.definicion_id}:${m.transformacion.etapa_id}`, reglas: pasivasEtapaActiva(m) }] : []),
         ...pasivasAplicables(m).map((p, i) => ({ id: `pasiva:${p.id || i}`, reglas: p.reglas_motor || [] })),
         ...(m.configuracion.habilidades || []).filter(p => !requisitosFuente(m, p).length).map((p, i) => ({ id: `hab:${p.id || i}`, reglas: p.reglas || [] })),
         ...Object.entries(piezas(m)).filter(([, p]) => !requisitosFuente(m, p).length).map(([slot, p]) => ({ id: `equipo:${p.id || slot}`, reglas: p.reglas || [] })),
@@ -1551,7 +1606,7 @@ export function accionesObjeto(m, p) {
     return [...(p.efectos || []).filter(e => !e.requisito_forma || (estadisticas(m)[e.requisito_forma.atributo] || 0) >= e.requisito_forma.minimo).map(e => ({ id: e.id, nombre: e.nombre, coste_ph: e.coste_ph || 0, coste_fatiga: e.coste_fatiga || 0 })), ...(p.reglas || []).filter(r => r.evento === 'usar').map(r => ({ id: 'regla:' + r.id, nombre: r.nombre, coste_ph: r.coste_ph, coste_fatiga: r.coste_fatiga }))].map(a => ({ ...a, bloqueada: phDisponibles(m) < a.coste_ph ? 'PH insuficientes.' : a.coste_fatiga > 0 && (m.agotado || m.fatiga + a.coste_fatiga > (estadisticas(m).fatiga || 0)) ? 'Fatiga insuficiente.' : undefined }));
 }
 export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dadoSeguro) {
-    return registrar(c, () => {
+    const n = registrar(c, () => {
         const n = copia(c), m = n.miembros.find(x => x.id === actorId);
         if (!m || n.fase !== 'en_curso' || n.actual !== m.id || m.accion_usada || m.vida <= 0)
             throw Error('Usar un objeto requiere tu turno y una acción disponible.');
@@ -1581,6 +1636,8 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
             log(resultado, `${actor.nombre} usa ${p.nombre}.`);
         return resultado;
     });
+    const efecto = c.miembros.find(m => m.id === actorId)?.configuracion.reserva?.find(p => p.id === objetoId)?.efectos?.find(e => e.id === efectoId);
+    return animarAccion(c, n, actorId, efecto, efectoId, objetivoId);
 }
 /** Invocar es una acción atómica: el llamador valida la propuesta antes de pagar. */
 export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion, maxActivas = 1, rng = dadoSeguro) {
@@ -1707,7 +1764,8 @@ export function validarTactica(e) {
     if (typeof t !== 'object' || !Number.isInteger(t.alcance) || t.alcance < 0 || t.alcance > 60 || !Number.isInteger(t.tamano) || t.tamano < 0 || t.tamano > 12 || t.forma !== 'individual' && t.tamano < 1 || !['individual', 'circulo', 'cuadrado', 'linea', 'cono', 'cruz'].includes(t.forma) || !['enemigos', 'aliados', 'todos', 'yo'].includes(t.afecta) || e.efecto === 'crear_arma')
         return 'Configuración de tablero inválida.';
     const avance = t.movimiento_lanzador;
-    if(avance&&(!['dash','salto','teletransporte'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||t.forma!=='individual'||e.efecto!=='dano'))return 'Configura correctamente el dash, salto o teletransporte ofensivo.';
+    if (avance && (!['dash', 'salto', 'teletransporte'].includes(avance.tipo) || !Number.isInteger(avance.casillas) || avance.casillas < 1 || avance.casillas > 30 || !Number.isInteger(avance.alcance_golpe) || avance.alcance_golpe < 0 || avance.alcance_golpe > 20 || t.forma !== 'individual' || e.efecto !== 'dano'))
+        return 'Configura correctamente el dash, salto o teletransporte ofensivo.';
     const d = t.desplazamiento;
     if (d && (!['atraer', 'empujar'].includes(d.tipo) || !Number.isInteger(d.casillas) || d.casillas < 1 || d.casillas > 12 || !['siempre', 'fallo_salvacion'].includes(d.cuando)))
         return 'Desplazamiento inválido.';
@@ -1746,7 +1804,8 @@ export function objetivoDelArea(a, t, e) {
         return false;
     if (e.efecto === 'dano' && area.forma !== 'individual' && a.id === t.id)
         return true;
-    if(a.transformacion?.descontrolada&&e.efecto==='dano')return a.id!==t.id;
+    if (a.transformacion?.descontrolada && e.efecto === 'dano')
+        return a.id !== t.id;
     return area.afecta === 'todos' || area.afecta === 'yo' && a.id === t.id || area.afecta === 'aliados' && a.bando === t.bando || area.afecta === 'enemigos' && a.bando !== t.bando;
 }
 function secundariosTablero(c, a, t, e, centro, supera) {
@@ -1813,7 +1872,17 @@ export function cambiosVida(antes, despues) {
     });
 }
 export function registrarCambiosVida(antes, despues) {
-    return { ...despues, evento_visual: { id: crypto.randomUUID(), nombre: despues.miembros.find(m => m.id === despues.actual)?.nombre || 'Combate', dados: [], resultado: despues.resultado, cambios_vida: cambiosVida(antes, despues) } };
+    const previas = posicionesTablero(antes), actuales = posicionesTablero(despues);
+    const movimientos = despues.miembros.flatMap(m => {
+        const desde = previas[m.id], hasta = actuales[m.id];
+        return desde && hasta && (desde.x !== hasta.x || desde.y !== hasta.y) ? [{ id: m.id, desde, hasta, tipo: 'forzado' }] : [];
+    });
+    const transformaciones = despues.miembros.flatMap(m => {
+        const previa = antes.miembros.find(x => x.id === m.id)?.transformacion, actual = m.transformacion;
+        return actual?.vfx?.entrada && (previa?.etapa_id !== actual.etapa_id || previa?.definicion_id !== actual.definicion_id) && actuales[m.id] ?
+            [{ id: m.id, animacion: actual.vfx.entrada, posicion: actuales[m.id], escala: actual.vfx.escala }] : [];
+    });
+    return { ...despues, evento_visual: { id: crypto.randomUUID(), creado_en: Date.now(), nombre: despues.miembros.find(m => m.id === despues.actual)?.nombre || 'Combate', dados: [], resultado: despues.resultado, cambios_vida: cambiosVida(antes, despues), movimientos, transformaciones } };
 }
 /** Obstáculos y terrenos del encuentro; los identificadores no representan navegación mundial. */
 export function configurarMapa(c, mapa) {
