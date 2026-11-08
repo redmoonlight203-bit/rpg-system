@@ -9,6 +9,8 @@ export type EtapaTransformacion = {
   nombre:string;
   stats:Record<string,number>;
   habilidades?:string[];
+  /** Retrato opcional de esta etapa (URL o imagen optimizada). */
+  imagen_url?:string;
 };
 export type DefinicionTransformacion = {
   id:string;
@@ -23,6 +25,8 @@ export type TransformacionActiva = {
   definicion_id:string;
   tipo:TipoTransformacion;
   etapa_id:string;
+  /** Retrato temporal, nunca sustituye el original del personaje. */
+  imagen_etapa?:string;
   stats_originales:Record<string,number>;
   vida_original:number;
   vida_forma:number;
@@ -54,7 +58,7 @@ export function activarTransformacion<T extends EstadoTransformable>(actor:T,def
   const stats={...original,...etapa.stats};
   const forma=def.tipo==='forma';
   const activa:TransformacionActiva={
-    definicion_id:def.id,tipo:def.tipo,etapa_id:etapa.id,
+    definicion_id:def.id,tipo:def.tipo,etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,
     stats_originales:original,vida_original:actor.vida,
     vida_forma:forma?maxVidaForma(stats):actor.vida,
     turnos_restantes:def.duracion_turnos&&def.duracion_turnos>0?def.duracion_turnos:null
@@ -70,7 +74,7 @@ export function cambiarEtapaTransformacion<T extends EstadoTransformable>(actor:
   // El avance de etapa no regenera HP. En forma, la vida restante se limita
   // al nuevo máximo; en poder, la vida real permanece intacta.
   const vida=activa.tipo==='forma'?Math.min(actor.vida,maxVidaForma(stats)):actor.vida;
-  return {...actor,stats,vida,transformacion:{...activa,etapa_id:etapaId,vida_forma:vida}};
+  return {...actor,stats,vida,transformacion:{...activa,etapa_id:etapaId,imagen_etapa:etapa.imagen_url||undefined,vida_forma:vida}};
 }
 export function terminarTransformacion<T extends EstadoTransformable>(actor:T):T {
   const activa=actor.transformacion;
