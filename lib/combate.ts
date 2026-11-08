@@ -1177,7 +1177,7 @@ function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
     case 'perder_accion':t.accion_usada=true;log(ctx.c,`${t.nombre} pierde su acción del turno.`);break;
     case 'mensaje':log(ctx.c,`${t.nombre}: ${e.nombre||'Efecto activado'}`);break;
     case 'curar':t.vida=Math.min(maxVida(t),t.vida+Math.max(0,v()));break;
-    case 'ph':t.ph+=v();break;
+    case 'ph':{const limite=Math.max(0,estadisticas(t).ph||0);t.ph=Math.max(0,Math.min(limite,phDisponibles(t)+v()));break;}
     case 'fatiga':{const n=v();if(n>0||!t.agotado)t.fatiga+=n;if(t.fatiga>=(estadisticas(t).fatiga||0)&&t.fatiga>0)t.agotado=true;break;}
     case 'dano':{
      const antes=t.vida,perdido=Math.min(antes,Math.max(0,v()));Object.assign(t,danarTransformado(t,perdido).actor);log(ctx.c,`${t.nombre}: ${perdido} daño directo por regla (sin impacto ni ARM).`);
