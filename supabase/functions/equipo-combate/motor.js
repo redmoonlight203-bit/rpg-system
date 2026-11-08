@@ -823,7 +823,7 @@ function resolverTurnoDescontrolado(c, actorId, rng) {
                 if (!area || (area.origen_area==='lanzador'?distanciaCasillas(p[actorId],p[t.id])>area.tamano:distanciaCasillas(p[actorId],p[t.id])>area.alcance) || !lineaVisible(p[actorId], p[t.id], c.mapa))
                     continue;
                 try {
-                    if (area.movimiento_lanzador)
+                    if (area.movimiento_lanzador&&!['aterrizaje','recorrido'].includes(area.origen_area||''))
                         destinoAtaqueMovil(c, actor, t, area.movimiento_lanzador);
                     const n = actuarInterno(c, actorId, ac.id, t.id, rng, false, undefined, true);
                     Object.assign(c, n);
@@ -1078,7 +1078,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     if(!lineaVisible(origen,apuntado,n.mapa))throw Error('Un muro bloquea la trayectoria.');
     if(!punto||requiereAreaMovil&&!plan)throw Error('No hay un destino válido para el movimiento ofensivo.');
     const area=tactica.origen_area==='recorrido'&&plan
-      ?areaDeRecorrido(plan.trayecto,tactica.movimiento_lanzador?.ancho||0,dimensiones)
+      ?[...areaDeRecorrido(plan.trayecto,tactica.movimiento_lanzador?.ancho||0,dimensiones),...(distanciaCasillas(plan.trayecto[plan.trayecto.length-1],apuntado)<=(tactica.movimiento_lanzador?.alcance_golpe||0)?[apuntado]:[])]
       :areaDesde(origen,punto,tactica,dimensiones);
     objetivos=n.miembros.filter(m=>{
       const p=m.id===a.id&&plan?plan.destino:posiciones[m.id];
