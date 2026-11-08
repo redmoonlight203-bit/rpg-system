@@ -23,6 +23,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/ficha/tienda", label: "Tienda", icon: ShoppingBag },
   ];
   const extras = gm ? [
+    { href: "/dm/recompensas", label: "Botín, logros y títulos", icon: Sparkles },
     { href: "/dm/reglas", label: "Estadísticas y reglas", icon: Sliders },
     { href: "/dm/party", label: "Parties de jugadores", icon: Users },
     { href: "/dm/experiencia", label: "Experiencia", icon: TrendingUp },
@@ -30,6 +31,8 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/dm/tienda-almas", label: "Tienda de almas", icon: Users },
     { href: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
   ] : [
+    { href: "/ficha/arena", label: "Arena de entrenamiento", icon: Swords },
+    { href: "/ficha/logros", label: "Logros, títulos e historial", icon: Sparkles },
     { href: "/ficha/tiradas", label: "Mesa de dados", icon: Dices },
     { href: "/ficha/party", label: "Mi party", icon: Users },
     { href: "/ficha/experiencia", label: "Árbol de habilidades", icon: TrendingUp },

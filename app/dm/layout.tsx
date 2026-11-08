@@ -16,6 +16,7 @@ const principales = [
   { path: "/dm/arbol", label: "Árboles de habilidades", detail: "Ramas y puntos por personaje", icon: TrendingUp },
 ];
 const gestion = [
+  { path: "/dm/recompensas", label: "Botín, logros y títulos", icon: TrendingUp },
   { path: "/dm/party", label: "Parties de jugadores", icon: Users },
   { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },
   { path: "/dm/mercado", label: "Tiendas", icon: ShoppingBag },

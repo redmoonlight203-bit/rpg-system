@@ -150,7 +150,7 @@ export default function Estadisticas() {
   return <main className="st-theme min-h-full bg-black p-4 text-neutral-200 sm:p-8">
     <div className="mx-auto max-w-6xl space-y-7">
       <header className="flex flex-wrap items-end justify-between gap-5 border-b border-neutral-800 pb-6">
-        <div><p className="mb-2 text-xs uppercase tracking-widest text-emerald-500">Configuración de Yugen</p><h1 className="text-3xl font-bold">Estadísticas y reglas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400">Da identidad a las razas y define los atributos de tu mundo. Las subcategorías heredan las bases de su categoría y añaden sus propias reglas.</p></div>
+        <div><p className="mb-2 text-xs uppercase tracking-widest text-emerald-500">Configuración de Yugen</p><Link className="inline-block text-amber-300 underline mb-3" href="/dm/recompensas">Configurar bandas de saqueo y recompensas</Link><h1 className="text-3xl font-bold">Estadísticas y reglas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400">Da identidad a las razas y define los atributos de tu mundo. Las subcategorías heredan las bases de su categoría y añaden sus propias reglas.</p></div>
         <Link href="/dm/forja" className={boton}>Ir a la Forja <ArrowRight size={16}/></Link>
       </header>
       {!cargando && !herenciaDisponible && <p role="status" className="text-sm leading-6 text-amber-300">Para activar categorías y subcategorías, ejecuta la migración 20261030_categorias_heredadas.sql en Supabase. Mientras tanto puedes seguir editando categorías y atributos existentes.</p>}

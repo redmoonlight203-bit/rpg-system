@@ -57,6 +57,7 @@ export type AlcanceHabilidad = {
   derribo?: 'siempre'|'fallo_salvacion';
 };
 export type Efecto = {
+  animacion?: "proyectil"|"destello"|"aura"|"impacto"|"trayectoria"|"desplazamiento"|"ninguna";
   transformacion?: DefinicionTransformacion;
   tablero?: AlcanceHabilidad;
   tabla_armas?: { caras: number; resultados: ArmaResultado[] };
