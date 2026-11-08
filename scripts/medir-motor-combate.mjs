@@ -1,0 +1,9 @@
+// Métricas reproducibles SOLO del motor en Node, sin red, SQL, React ni GPU.
+import {writeFileSync,mkdirSync} from 'node:fs';import {performance} from 'node:perf_hooks';import assert from 'node:assert/strict';
+import * as c from '../supabase/functions/equipo-combate/motor.js';
+function campo(){let b=c.nuevoCombate();b.mapa={id:'qa',version:1,nombre:'QA',columnas:24,filas:8,celdas:{}};for(const [id,x,bando] of [['a',1,'jugador'],['b',2,'enemigo']])b=c.agregar(b,{id,nombre:id,posicion:{x,y:1},stats:{vida:10000,ph:10,movimiento:20},configuracion:{tipo_creacion:'personaje'}},bando,()=>id==='a'?20:1);b=c.iniciar(b,()=>10);b.actual='a';b.regla='directo';return b;}
+const resultados=[];
+function medir(nombre,veces,fn){const muestras=[];for(let i=0;i<veces;i++){const antes=performance.now();fn();muestras.push(performance.now()-antes);}muestras.sort((a,b)=>a-b);resultados.push({escenario:nombre,muestras:veces,p50_ms:muestras[Math.ceil(veces*.5)-1],p95_ms:muestras[Math.ceil(veces*.95)-1],max_ms:muestras.at(-1)});}
+for(const distancia of [1,5,10]){const b=campo();b.miembros[1].posicion={x:20,y:6};medir('mover_'+distancia+'_casillas',50,()=>{const n=c.desplazar(b,'a',{x:1+distancia,y:1});assert.equal(n.miembros[0].posicion.x,1+distancia);assert.equal(n.miembros[0].accion_usada,false);});}
+let b=campo();medir('100_ataques_alternados_motor',100,()=>{const actor=b.actual,objetivo=actor==='a'?'b':'a';b=c.actuar(b,actor,'ataque',objetivo,()=>20);b=c.siguiente(b,()=>10);});
+const salida={alcance:'Sintético: motor Node. No mide navegador, dos clientes conectados, SQL, móvil ni red.',node:process.version,resultados};mkdirSync(new URL('../docs/metricas/',import.meta.url),{recursive:true});writeFileSync(new URL('../docs/metricas/combate-motor-sintetico.json',import.meta.url),JSON.stringify(salida,null,2)+'\n');console.log(JSON.stringify(salida,null,2));

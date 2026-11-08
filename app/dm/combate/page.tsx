@@ -1,4 +1,9 @@
 "use client";
+import MetricasCombate from "../../../components/MetricasCombate";
+import EstadoAccionCombate from "../../../components/EstadoAccionCombate";
+import {useAccionSegura} from "../../../lib/useAccionSegura";
+import {errorDeServidor} from "../../../lib/accion-segura";
+import {registrarMetrica} from "../../../lib/metricas-combate";
 import {cambiosCombate,recibirEvento} from "../../../lib/combate-transferencia";
 import EditorMapaCombate from "../../../components/EditorMapaCombate";
 import {ConfigurarCiclo,ResumenEncuentro} from "../../../components/CicloEncuentro";
@@ -90,6 +95,7 @@ type Preparado = {
   fatiga_actual?: number;
   requiere_configuracion?: boolean;
 };
+type RespuestaAccion={id:string;version:number;datos?:Combate;pasos_deshacer?:number;repetida?:boolean;sql_ms?:number};
 type Guardado = { id: string; nombre: string; version: number };
 export default function CampoCombate() {
   const [centro,setCentro]=useState<import("../../../lib/combate").Posicion|null>(null);
@@ -110,7 +116,21 @@ export default function CampoCombate() {
   const [variantesSeleccionadas,setVariantesSeleccionadas]=useState<Record<string,string>>({});
   const [cantidadesSeleccionadas,setCantidadesSeleccionadas]=useState<Record<string,number>>({});
   const [nivelesSeleccionados,setNivelesSeleccionados] = useState<Record<string,number>>({});
-  const bloqueo = useRef(false);
+  const bloqueo = useRef(false),ejecucion=useRef(0);
+  const [conexion,setConexion]=useState('conectando');
+  async function recuperarAccionGM():Promise<RespuestaAccion>{
+    const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:null}).abortSignal(AbortSignal.timeout(10000));
+    if(r.error)throw errorDeServidor(r.error);if(!r.data)throw Error('El encuentro ya no está disponible.');
+    return {...r.data,pasos_deshacer:r.data.datos?.pasos_deshacer};
+  }
+  const segura=useAccionSegura<RespuestaAccion>({clave:'gm:'+id,
+    enviar:async comando=>{const {action_id,...args}=comando;const r=await supabase.rpc('combate_guardar_accion',{...args,p_action_id:action_id}).abortSignal(AbortSignal.timeout(15000));if(r.error)throw errorDeServidor(r.error);if(r.data?.repetida)return recuperarAccionGM();if(typeof r.data?.sql_ms==='number')registrarMetrica('sql.commit',r.data.sql_ms);return r.data;},
+    consultar:async action_id=>{const r=await supabase.rpc('combate_accion_estado',{p_id:id,p_action_id:action_id}).abortSignal(AbortSignal.timeout(10000));if(r.error)throw errorDeServidor(r.error);return r.data;},
+    recuperar:recuperarAccionGM,
+    onRecuperado:r=>{if(revisionRemota.current.id!==id||r.version<revisionRemota.current.version||!r.datos)return;revisionRemota.current={id,version:r.version};setC(recibirEvento({...r.datos,historial:[],pasos_deshacer:r.pasos_deshacer}));setVersion(r.version);setError('');++ejecucion.current;bloqueo.current=false;setOcupado(false);}
+  });
+  const bloqueado=ocupado||segura.pendiente;
+
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
   const [editorEquipo,setEditorEquipo]=useState<{actor:string;contexto:ContextoEquipo}|null>(null);
   async function refrescarEncuentro(){const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:null});if(r.error)throw Error(r.error.message);if(r.data){setC(recibirEvento(r.data.datos as Combate));setVersion(r.data.version);}}
@@ -125,15 +145,15 @@ export default function CampoCombate() {
   }
   const revisionRemota=useRef({id,version});
   revisionRemota.current={id,version};
-  useSincronizacionCombate(async()=>{
+  useSincronizacionCombate(async(recuperar=false)=>{
     if(bloqueo.current)return false;
     const solicitud={id,version};
-    const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:version});
+    const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:recuperar?null:version}).abortSignal(AbortSignal.timeout(10000));
     if(r.error)throw Error(r.error.message);
     if(bloqueo.current)return false;
     if(revisionRemota.current.id!==solicitud.id)return;
     if(r.data&&!r.data.sin_cambios&&r.data.version>revisionRemota.current.version){setC(recibirEvento(r.data.datos as Combate));setVersion(r.data.version);}
-  },id,true);
+  },id,true,setConexion);
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
@@ -378,30 +398,31 @@ export default function CampoCombate() {
   }, []);
   async function ejecutar(fn: () => void | Promise<void>) {
     if (bloqueo.current) return;
+    const turnoEjecucion=++ejecucion.current;
     bloqueo.current = true;
     setOcupado(true);
     setError("");
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+      if(turnoEjecucion===ejecucion.current)setError(e instanceof Error ? e.message : "No se pudo guardar.");
     } finally {
-      bloqueo.current = false;
-      setOcupado(false);
+      if(turnoEjecucion===ejecucion.current){bloqueo.current = false;setOcupado(false);}
     }
   }
   async function guardar(next: Combate, deshacer=false) {
     if(!next.evento_visual||next.evento_visual.id===c.evento_visual?.id)next=registrarCambiosVida(c,next);
     next = {...next, miembros: next.miembros.map(m=>({...m, configuracion:{...m.configuracion, imagen_url:retratos[claveRetrato(m)] || m.configuracion.imagen_url || catalogo.find(p=>p.id===m.forja_id)?.imagen_url}}))};
-    const r = await supabase.rpc("combate_guardar_ligero", {
+    const r = {data:await segura.ejecutar({
       p_id: id,
       p_nombre: nombre,
       p_cambios: cambiosCombate(version===0?undefined:c,next),
       p_deshacer: deshacer,
       p_version: version,
-    });
-    if (r.error) throw Error(r.error.message);
+    },deshacer?"deshacer":next.evento_visual?.movimientos?.length?"movimiento":"acción")};
+    if(revisionRemota.current.id!==id||r.data.version<revisionRemota.current.version)return;
     if (!r.data?.version) throw Error("No se confirmó el guardado.");
+    revisionRemota.current={id,version:r.data.version};
     setC(recibirEvento({...((r.data.datos||next) as Combate),historial:[],pasos_deshacer:r.data.pasos_deshacer}));
     setVersion(r.data.version);
     setPartidas((prev) =>
@@ -560,7 +581,7 @@ export default function CampoCombate() {
           {c.fase === "preparacion" && (
             <button
               className="battle-remove"
-              disabled={ocupado}
+              disabled={bloqueado}
               title="Retirar del combate sin borrar su ficha"
               aria-label={`Retirar ${m.nombre}`}
               onClick={() => void quitar(m)}
@@ -593,7 +614,7 @@ export default function CampoCombate() {
         <span className="battle-owner-tag">{c.actual === m.id ? "En turno" : m.bando === "jugador" ? "Aliado" : "Adversario"}</span>
         </div></div>
         {actor && destino === m.id && <span className="battle-state target"><Crosshair size={12} /> Objetivo</span>}
-        <button className="battle-button battle-inventory-open" disabled={ocupado} onClick={()=>void abrirEquipoActual(m)}>Inventario y equipo</button>
+        <button className="battle-button battle-inventory-open" disabled={bloqueado} onClick={()=>void abrirEquipoActual(m)}>Inventario y equipo</button>
         {m.personaje_id && (
           <span className="battle-owner-tag">Personaje de jugador</span>
         )}
@@ -660,7 +681,7 @@ export default function CampoCombate() {
                 type="number"
                 min="-1000"
                 max="1000"
-                disabled={ocupado}
+                disabled={bloqueado}
                 key={`${m.id}:${m.stats.salvacion || 0}`}
                 defaultValue={m.stats.salvacion || 0}
                 onBlur={(e) => {
@@ -678,7 +699,7 @@ export default function CampoCombate() {
             <label>
               Cercanía
               <select
-                disabled={ocupado}
+                disabled={bloqueado}
                 value={m.grupo_cercania || ""}
                 onChange={(e) =>
                   void ejecutar(() =>
@@ -701,7 +722,7 @@ export default function CampoCombate() {
             <label>
               <input
                 type="checkbox"
-                disabled={ocupado}
+                disabled={bloqueado}
                 checked={m.corrupto || false}
                 onChange={(e) =>
                   void ejecutar(() =>
@@ -803,14 +824,14 @@ export default function CampoCombate() {
             {error && <p role="alert">{error}</p>}
             <button
               autoFocus
-              disabled={ocupado}
+              disabled={bloqueado}
               className="battle-primary"
               onClick={() => void confirmarAlta()}
             >
               Añadir al campo
             </button>
             <button
-              disabled={ocupado}
+              disabled={bloqueado}
               className="battle-button"
               onClick={() => setPendiente(null)}
             >
@@ -839,13 +860,13 @@ export default function CampoCombate() {
       <div className="battle-toolbar">
         <input
           aria-label="Nombre del encuentro"
-          disabled={ocupado}
+          disabled={bloqueado}
           value={nombre}
           maxLength={120}
           onChange={(e) => setNombre(e.target.value)}
         />
         <select
-          disabled={ocupado}
+          disabled={bloqueado}
           aria-label="Encuentros guardados"
           value={partidas.some((p) => p.id === id) ? id : ""}
           onChange={(e) => {
@@ -860,26 +881,26 @@ export default function CampoCombate() {
             </option>
           ))}
         </select>
-        <button disabled={ocupado} className="battle-button" onClick={nuevo}>
+        <button disabled={bloqueado} className="battle-button" onClick={nuevo}>
           <Plus size={13} />
           Nuevo
         </button>
         <button
-          disabled={ocupado}
+          disabled={bloqueado}
           className="battle-button"
           onClick={() => void ejecutar(() => guardar(c))}
         >
           <Save size={15} />{ocupado ? "Guardando…" : "Guardar"}
         </button>
         <button
-          disabled={ocupado}
+          disabled={bloqueado}
           className="battle-button"
           onClick={() => void cargar()}
         >
           Recargar lista
         </button>
         <button
-          disabled={ocupado || version === 0}
+          disabled={bloqueado || version === 0}
           className="battle-button battle-delete-encounter"
           onClick={() => void borrarEncuentro()}
         >
@@ -888,7 +909,7 @@ export default function CampoCombate() {
         </button>
         <button
           className="battle-button"
-          disabled={ocupado || c.fase==='finalizado' || !!c.progreso_confirmado || !(c.pasos_deshacer??c.historial?.length)}
+          disabled={bloqueado || c.fase==='finalizado' || !!c.progreso_confirmado || !(c.pasos_deshacer??c.historial?.length)}
           onClick={() => void deshacerUltimo()}
         >
           Deshacer última operación
@@ -896,7 +917,7 @@ export default function CampoCombate() {
         {c.fase === "en_curso" && (
           <button
             className="battle-button"
-            disabled={ocupado}
+            disabled={bloqueado}
             onClick={() => {
               if (window.confirm("¿Terminar este combate?"))
                 void ejecutar(() => guardar(finalizar(c)));
@@ -908,19 +929,21 @@ export default function CampoCombate() {
         {c.fase !== "en_curso" && (
           <button
             className="battle-button"
-            disabled={ocupado || !c.miembros.length}
+            disabled={bloqueado || !c.miembros.length}
             onClick={() => void ejecutar(() => guardar(descansar(c)))}
           >
             Descanso fuera de combate
           </button>
         )}
       </div>
-      <EditorMapaCombate combate={c} ocupado={ocupado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
-      <ConfigurarCiclo combate={c} ocupado={ocupado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
-      {c.fase==='finalizado'&&<ResumenEncuentro onRecargar={refrescarEncuentro} id={id} version={version} combate={c} ocupado={ocupado}/>}
-      {c.politica?.modo!=='entrenamiento'&&c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">El crecimiento de reglas se confirma junto con las recompensas. También puedes aplicarlo aquí; después el resultado queda cerrado para revisiones. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={ocupado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
+      <EditorMapaCombate combate={c} ocupado={bloqueado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
+      <ConfigurarCiclo combate={c} ocupado={bloqueado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
+      {c.fase==='finalizado'&&<ResumenEncuentro onRecargar={refrescarEncuentro} id={id} version={version} combate={c} ocupado={bloqueado}/>}
+      {c.politica?.modo!=='entrenamiento'&&c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">El crecimiento de reglas se confirma junto con las recompensas. También puedes aplicarlo aquí; después el resultado queda cerrado para revisiones. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={bloqueado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
       {invocar&&actor&&<InvocarCombate combate={c} actorId={actor.id} habilidad={invocar} onCerrar={()=>setInvocar(null)} onConfirmar={async next=>{await guardar(next);}}/>}
       {editorEquipo&&<EditorEquipoCombate key={`${editorEquipo.actor}:${editorEquipo.contexto.version}`} catalogo={c.fase==='preparacion'&&!c.miembros.find(m=>m.id===editorEquipo.actor)?.personaje_id?objetosMochila:undefined} onAgregar={agregarObjetoMochila} contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}
+      <MetricasCombate/>
+      <EstadoAccionCombate estado={segura.estado} revisando={segura.revisando} onComprobar={segura.comprobar} onReintentar={segura.reintentar} conexion={conexion}/>
       {error && (
         <p className="battle-error" role="alert">
           {error}
@@ -981,13 +1004,13 @@ export default function CampoCombate() {
                   {!!p.configuracion_monstruo?.variantes?.length&&<div className="space-y-2 text-xs"><label>Variante<select aria-label={`Variante de ${p.nombre}`} className="w-full rounded border border-neutral-700 bg-black p-2" value={variantesSeleccionadas[p.id]||'aleatorio'} onChange={e=>setVariantesSeleccionadas({...variantesSeleccionadas,[p.id]:e.target.value})}><option value="aleatorio">Sortear variante por aparición</option><option value="una_de_cada">Una de cada variante</option>{p.configuracion_monstruo.variantes.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}</select></label>{variantesSeleccionadas[p.id]!=='una_de_cada'&&<label>Cantidad<input type="number" min={1} max={20} value={cantidadesSeleccionadas[p.id]||1} onChange={e=>setCantidadesSeleccionadas({...cantidadesSeleccionadas,[p.id]:Math.max(1,Math.min(20,Math.floor(Number(e.target.value)||1)))})} className="ml-2 w-16 rounded bg-black p-1"/></label>}</div>}
                   <div className="battle-source-actions">
                     <button
-                      disabled={ocupado || c.fase !== "preparacion"}
+                      disabled={bloqueado || c.fase !== "preparacion"}
                       onClick={() => void incorporar(p.id, "jugador", p.origen)}
                     >
                       J · Jugador
                     </button>
                     <button
-                      disabled={ocupado || c.fase !== "preparacion"}
+                      disabled={bloqueado || c.fase !== "preparacion"}
                       onClick={() => void incorporar(p.id, "enemigo", p.origen)}
                     >
                       E · Enemigo
@@ -1033,7 +1056,7 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
-          {c.miembros.length>0&&<TableroCombate mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
+          {c.miembros.length>0&&<TableroCombate mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (
@@ -1048,7 +1071,7 @@ export default function CampoCombate() {
                   <span className="battle-team-dot" />
                   <h2>Bando {b}</h2>
                   <span>{c.miembros.filter((m) => m.bando === b).length}</span>
-                  {c.fase === "preparacion" && <button className="battle-button battle-add" disabled={ocupado} onClick={abrirBiblioteca}><Plus size={14} /> Añadir</button>}
+                  {c.fase === "preparacion" && <button className="battle-button battle-add" disabled={bloqueado} onClick={abrirBiblioteca}><Plus size={14} /> Añadir</button>}
                 </div>
                 {c.miembros.some((m) => m.bando === b) ? (
                   <div className="battle-team-grid">
@@ -1059,18 +1082,18 @@ export default function CampoCombate() {
                     <Users size={28} />
                     <p>Arrastra un personaje aquí</p>
                     <span>Se calcularán equipo, pasivas e iniciativa.</span>
-                    <button className="battle-button" disabled={ocupado || c.fase !== "preparacion"} onClick={abrirBiblioteca}>Elegir personaje</button>
+                    <button className="battle-button" disabled={bloqueado || c.fase !== "preparacion"} onClick={abrirBiblioteca}>Elegir personaje</button>
                   </div>
                 )}
               </section>
             ))}
           </div>
           </details>
-          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:actor.transformacion?.imagen_etapa||retratos[claveRetrato(actor)]||actor.configuracion.imagen_url}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={()=>void resolver()} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={ocupado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={ocupado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
+          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:actor.transformacion?.imagen_etapa||retratos[claveRetrato(actor)]||actor.configuracion.imagen_url}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={()=>void resolver()} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
           {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select
-                disabled={ocupado || c.fase !== "preparacion"}
+                disabled={bloqueado || c.fase !== "preparacion"}
                 value={c.regla}
                 onChange={(e) =>
                   void ejecutar(() =>
