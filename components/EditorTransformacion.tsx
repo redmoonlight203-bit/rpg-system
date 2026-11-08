@@ -96,7 +96,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
             </tbody>
           </table>
         </div>
-        {tipo==="forma"&&!(valorDe("vida")>0)&&<p className="text-sm text-amber-300">Para una forma necesitas definir Vida máxima con un valor mayor que 0.</p>}
+        {tipo==="forma"&&!((valorDe("vida")??0)>0)&&<p className="text-sm text-amber-300">Para una forma necesitas definir Vida máxima con un valor mayor que 0.</p>}
         {tipo==="poder"&&<p className="text-xs text-neutral-400">Las transformaciones de poder conservan los HP actuales y el máximo de vida del cuerpo original.</p>}
         <div className="rounded-lg border border-dashed border-neutral-700 p-3">
           <label className="block text-sm">Añadir otro atributo de Estadísticas y reglas</label>
