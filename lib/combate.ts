@@ -64,7 +64,7 @@ export type Config = {
   consumidos?: string[];
 };
 export type Terreno = "muro"|"dificil"|"cobertura"|"peligro";
-export type MapaCombate = {id:string;version:1;nombre:string;columnas:number;filas:number;celdas:Record<string,Terreno>};
+export type MapaCombate = {id:string;version:1;nombre:string;columnas:number;filas:number;celdas:Record<string,Terreno>;procedural?:import('./mapas-procedurales').ProcedenciaMapa};
 export type Posicion = { x: number; y: number };
 export type Combatiente = {
   situacion?: Situacion;
