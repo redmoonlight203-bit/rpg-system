@@ -1,6 +1,7 @@
 "use client";
 
 import {useState} from "react";
+import {prepararPortada,validarPortada} from "../lib/imagenes-creacion";
 import type {Efecto} from "../lib/creacion";
 import type {DefinicionTransformacion, EtapaTransformacion, TipoTransformacion} from "../lib/transformaciones";
 
@@ -32,6 +33,8 @@ type PropEtapa = {
 function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:PropEtapa) {
   const [nuevoAtributo,setNuevoAtributo]=useState("");
   const [error,setError]=useState("");
+  const [procesandoImagen,setProcesandoImagen]=useState(false);
+  const [errorImagen,setErrorImagen]=useState("");
   const valorDe=(clave:string)=>clave==="vida"?(etapa.stats.vida??etapa.stats.hp):etapa.stats[clave];
   const cambiarValor=(clave:string,valor?:number)=>{
     const stats={...etapa.stats};
@@ -61,6 +64,32 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
       <label className="block text-sm">Nombre de la etapa
         <input className={campo} value={etapa.nombre} maxLength={120} onChange={e=>onChange({...etapa,nombre:e.target.value})} placeholder="Ej.: Manifestación parcial"/>
       </label>
+
+      <fieldset className="space-y-3 rounded-lg border border-violet-900/70 bg-neutral-900/50 p-3">
+        <legend className="px-1 font-semibold text-violet-200">Apariencia durante esta etapa</legend>
+        <p className="text-xs text-neutral-400">Esta imagen reemplaza temporalmente el retrato del personaje al transformarse. Cada etapa puede tener una distinta. Al regresar a su forma original, reaparece su retrato normal.</p>
+        {etapa.imagen_url&& !validarPortada(etapa.imagen_url)?
+          <div className="flex items-start gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={etapa.imagen_url} alt={"Vista previa: "+etapa.nombre} className="h-28 w-24 shrink-0 rounded-lg border border-neutral-700 object-cover" referrerPolicy="no-referrer"/>
+            <div className="flex flex-1 flex-col gap-2"><p className="text-xs text-neutral-300">Retrato propio de {etapa.nombre}.</p><button type="button" className={boton+" self-start"} onClick={()=>onChange({...etapa,imagen_url:undefined})}>Quitar imagen de esta etapa</button></div>
+          </div>:
+          <p className="rounded-lg border border-dashed border-neutral-700 px-3 py-5 text-center text-sm text-neutral-400">Sin imagen propia: se mostrará el retrato original.</p>}
+        <label className="block text-sm">Subir imagen desde tu dispositivo (PNG, JPG o WebP)
+          <input type="file" accept="image/png,image/jpeg,image/webp" disabled={procesandoImagen} className={campo+" text-sm"} onChange={async e=>{
+            const input=e.currentTarget,archivo=input.files?.[0];if(!archivo)return;
+            setProcesandoImagen(true);setErrorImagen("");
+            try {const imagen=await prepararPortada(archivo);onChange({...etapa,imagen_url:imagen});}
+            catch(error){setErrorImagen(error instanceof Error?error.message:"No se pudo procesar la imagen.");}
+            finally{input.value="";setProcesandoImagen(false);}
+          }}/>
+        </label>
+        {procesandoImagen&&<p role="status" className="text-xs text-violet-200">Preparando imagen para guardarla...</p>}
+        <label className="block text-sm">O usar una URL pública
+          <input className={campo} type="url" value={etapa.imagen_url?.startsWith("data:")?"":etapa.imagen_url||""} placeholder="https://ejemplo.com/transformacion.webp" onChange={e=>{setErrorImagen("");onChange({...etapa,imagen_url:e.target.value||undefined});}}/>
+        </label>
+        {(errorImagen||(etapa.imagen_url&&validarPortada(etapa.imagen_url)))&&<p role="alert" className="text-xs text-red-300">{errorImagen||validarPortada(etapa.imagen_url||"")}</p>}
+      </fieldset>
 
       <div className="space-y-2">
         <h4 className="font-semibold">Estadísticas de esta etapa</h4>
