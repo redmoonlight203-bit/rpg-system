@@ -57,7 +57,9 @@ export type AlcanceHabilidad = {
   color?: 'azul'|'rojo'|'verde'|'dorado'|'violeta';
   desplazamiento?: {tipo:'atraer'|'empujar';casillas:number;cuando:'siempre'|'fallo_salvacion'};
   /** Mueve al lanzador al ejecutar el ataque, sin gastar el movimiento normal. */
-  movimiento_lanzador?: {tipo:'dash'|'salto'|'teletransporte';casillas:number;alcance_golpe:number};
+  movimiento_lanzador?: {tipo:'dash'|'salto'|'teletransporte'|'carrera';casillas:number;alcance_golpe:number;ancho?:number};
+  /** Objetivo: centro elegido; lanzador: rugido/aura; aterrizaje: impacto tras salto; recorrido: carrera que golpea a su paso. */
+  origen_area?: 'objetivo'|'lanzador'|'aterrizaje'|'recorrido';
   derribo?: 'siempre'|'fallo_salvacion';
 };
 export type Efecto = {
@@ -204,7 +206,12 @@ export function validarEfectos(efectos: Efecto[]): string | null {
     const t=e.tablero;
     if(t!==undefined){
       const avance=t.movimiento_lanzador;
-      if(avance&&(!['dash','salto','teletransporte'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||t.forma!=='individual'||e.efecto!=='dano'))return 'El dash, salto o teletransporte ofensivo requiere ataque de un objetivo, casillas válidas y alcance de golpe.';
+      if(t.origen_area&&!['objetivo','lanzador','aterrizaje','recorrido'].includes(t.origen_area))return 'Origen del efecto inválido.';
+      if(t.origen_area==='lanzador'&&t.alcance!==0)return 'Los rugidos y auras necesitan alcance de lanzamiento 0.';
+      if(avance&&(!['dash','salto','teletransporte','carrera'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||(avance.ancho!==undefined&&(!Number.isInteger(avance.ancho)||avance.ancho<0||avance.ancho>2))||e.efecto!=='dano'||(t.forma!=='individual'&&!['aterrizaje','recorrido'].includes(t.origen_area||''))))return 'Configura el movimiento, sus casillas y el área de impacto.';
+      if(t.origen_area==='aterrizaje'&&(!avance||avance.tipo==='carrera'))return 'Un impacto de aterrizaje necesita un salto, dash o teletransporte.';
+      if(t.origen_area==='recorrido'&&(!avance||avance.tipo!=='carrera'))return 'Un ataque de recorrido necesita una carrera.';
+      if(avance?.tipo==='carrera'&&t.origen_area!=='recorrido')return 'Una carrera debe dañar las casillas del recorrido.';
       if(!t||typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['enemigos','aliados','todos','yo'].includes(t.afecta))return 'Configura alcance de 0 a 60 y tamaño de 1 a 12 casillas (individual: 0).';
       if(t.color&&!['azul','rojo','verde','dorado','violeta'].includes(t.color))return 'Color de área inválido.';
       if(e.efecto==='crear_arma')return 'Crear un arma no utiliza un área en el tablero.';
