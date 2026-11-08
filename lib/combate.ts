@@ -902,6 +902,69 @@ function destinoAtaqueMovil(c:Combate,a:Combatiente,t:Combatiente,m:{tipo:'dash'
  if(!candidatos.length)throw Error('No hay una casilla libre y alcanzable para ejecutar el movimiento del ataque.');
  return candidatos[0].p;
 }
+
+/** Calcula una embestida de recorrido o un aterrizaje en una casilla libre antes de gastar la acción. */
+function planearAtaqueDeArea(c:Combate,a:Combatiente,punto:Posicion,m:NonNullable<AlcanceHabilidad['movimiento_lanzador']>):{destino:Posicion;trayecto:Posicion[]}{
+ const posiciones=posicionesTablero(c),origen=posiciones[a.id],dim=dimensionesTablero(c);
+ if(!origen)throw Error('El atacante no tiene posición.');
+ const clave=(p:Posicion)=>p.x+','+p.y;
+ const ocupados=new Set(Object.entries(posiciones).filter(([id])=>id!==a.id).map(([,p])=>clave(p)));
+ const suelo=(p:Posicion)=>p.x>=0&&p.y>=0&&p.x<dim.columnas&&p.y<dim.filas&&c.mapa?.celdas[clave(p)]!=='muro';
+ const libre=(p:Posicion)=>suelo(p)&&!ocupados.has(clave(p));
+ if(m.tipo==='carrera'){
+  const dx=punto.x-origen.x,dy=punto.y-origen.y,pasos=Math.max(Math.abs(dx),Math.abs(dy));
+  if(!pasos)throw Error('Elige hacia dónde correr.');
+  const trayecto:Posicion[]=[];let anterior=origen,coste=0,destino=origen;
+  for(let i=1;i<=pasos;i++){
+   const p={x:Math.round(origen.x+dx*i/pasos),y:Math.round(origen.y+dy*i/pasos)};
+   if(!suelo(p)||!lineaVisible(anterior,p,c.mapa))break;
+   const nuevo=coste+distanciaCasillas(anterior,p);
+   if(nuevo>m.casillas)break;
+   trayecto.push(p);coste=nuevo;anterior=p;
+   if(libre(p))destino=p;
+  }
+  if(!trayecto.length)throw Error('Un muro bloquea la carrera.');
+  if(distanciaCasillas(anterior,punto)>m.alcance_golpe)throw Error('La carrera no llega al objetivo.');
+  return {destino:{...destino},trayecto};
+ }
+ const distancias=new Map<string,number>([[clave(origen),0]]);
+ if(m.tipo==='dash'){
+  const pendientes=[{p:origen,coste:0}];
+  while(pendientes.length){
+   pendientes.sort((u,v)=>u.coste-v.coste);
+   const {p,coste}=pendientes.shift()!;
+   if(coste!==distancias.get(clave(p)))continue;
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const v={x:p.x+dx,y:p.y+dy},k=clave(v);
+    const nuevo=coste+(c.mapa?.celdas[k]==='dificil'?2:1);
+    if(!libre(v)||nuevo>m.casillas||(distancias.has(k)&&distancias.get(k)!<=nuevo))continue;
+    distancias.set(k,nuevo);pendientes.push({p:v,coste:nuevo});
+   }
+  }
+ }
+ const opciones:{p:Posicion;coste:number}[]=[];
+ for(let y=Math.max(0,origen.y-m.casillas);y<=Math.min(dim.filas-1,origen.y+m.casillas);y++)
+ for(let x=Math.max(0,origen.x-m.casillas);x<=Math.min(dim.columnas-1,origen.x+m.casillas);x++){
+  const p={x,y};if(!libre(p))continue;
+  const costo=m.tipo==='dash'?distancias.get(clave(p)):distanciaCasillas(origen,p);
+  if(costo===undefined||costo>m.casillas||m.tipo==='salto'&&!lineaVisible(origen,p,c.mapa))continue;
+  opciones.push({p,coste:costo});
+ }
+ opciones.sort((u,v)=>distanciaCasillas(u.p,punto)-distanciaCasillas(v.p,punto)||u.coste-v.coste||u.p.y-v.p.y||u.p.x-v.p.x);
+ const elegido=opciones[0];
+ if(!elegido||distanciaCasillas(elegido.p,punto)>1)throw Error('No hay una casilla libre y alcanzable para aterrizar.');
+ return {destino:{...elegido.p},trayecto:[{...elegido.p}]};
+}
+function areaDeRecorrido(trayecto:Posicion[],ancho:number,dim:{columnas:number;filas:number}):Posicion[]{
+ const vistas=new Set<string>(),resultado:Posicion[]=[];
+ for(const base of trayecto)for(let dx=-ancho;dx<=ancho;dx++)for(let dy=-ancho;dy<=ancho;dy++){
+  if(Math.abs(dx)+Math.abs(dy)>ancho)continue;
+  const p={x:base.x+dx,y:base.y+dy},k=p.x+','+p.y;
+  if(p.x<0||p.y<0||p.x>=dim.columnas||p.y>=dim.filas||vistas.has(k))continue;
+  vistas.add(k);resultado.push(p);
+ }
+ return resultado;
+}
 function actuarInterno(
   c: Combate,
   actorId: string,
@@ -1601,7 +1664,12 @@ export function validarTactica(e:Efecto):string|null {
  const t=e.tablero;if(!t)return null;
  if(typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!['enemigos','aliados','todos','yo'].includes(t.afecta)||e.efecto==='crear_arma')return 'Configuración de tablero inválida.';
  const avance=t.movimiento_lanzador;
- if(avance&&(!['dash','salto','teletransporte'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||t.forma!=='individual'||e.efecto!=='dano'))return 'Configura correctamente el dash, salto o teletransporte ofensivo.';
+ if(t.origen_area&&!['objetivo','lanzador','aterrizaje','recorrido'].includes(t.origen_area))return 'Origen del efecto inválido.';
+ if(t.origen_area==='lanzador'&&t.alcance!==0)return 'Los rugidos y auras deben tener alcance 0.';
+ if(avance&&(!['dash','salto','teletransporte','carrera'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||(avance.ancho!==undefined&&(!Number.isInteger(avance.ancho)||avance.ancho<0||avance.ancho>2))||(t.forma!=='individual'&&!['aterrizaje','recorrido'].includes(t.origen_area||''))||e.efecto!=='dano'))return 'Configura correctamente salto, carrera o ataque móvil.';
+ if(t.origen_area==='aterrizaje'&&(!avance||avance.tipo==='carrera'))return 'El impacto de aterrizaje necesita movimiento del atacante.';
+ if(t.origen_area==='recorrido'&&(!avance||avance.tipo!=='carrera'))return 'El daño de recorrido necesita una carrera.';
+ if(avance?.tipo==='carrera'&&t.origen_area!=='recorrido')return 'Las carreras deben atacar el recorrido.';
  const d=t.desplazamiento;
  if(d&&(!['atraer','empujar'].includes(d.tipo)||!Number.isInteger(d.casillas)||d.casillas<1||d.casillas>12||!['siempre','fallo_salvacion'].includes(d.cuando)))return 'Desplazamiento inválido.';
  if(t.derribo&&!['siempre','fallo_salvacion'].includes(t.derribo))return 'Derribo inválido.';
@@ -1628,6 +1696,7 @@ export function areaDesde(origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{
 }
 export function objetivoDelArea(a:{id:string;bando:string},t:{id:string;bando:string},e:Efecto){
  const area=e.tablero;if(!area)return false;
+ if(area.origen_area==='recorrido'&&a.id===t.id)return false;
  if(e.efecto==='dano'&&area.forma!=='individual'&&a.id===t.id)return true;
  if((a as Combatiente).transformacion?.descontrolada&&e.efecto==='dano')return a.id!==t.id;
  return area.afecta==='todos'||area.afecta==='yo'&&a.id===t.id||area.afecta==='aliados'&&a.bando===t.bando||area.afecta==='enemigos'&&a.bando!==t.bando;
