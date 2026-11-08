@@ -930,7 +930,7 @@ function planearAtaqueDeArea(c,a,punto,m){
    if(libre(p))destino=p;
   }
   if(!trayecto.length)throw Error('Un muro bloquea la carrera.');
-  if(distanciaCasillas(anterior,punto)>m.alcance_golpe)throw Error('La carrera no llega al objetivo.');
+  if(!trayecto.some(p=>p.x===punto.x&&p.y===punto.y)&&distanciaCasillas(anterior,punto)>m.alcance_golpe)throw Error('La carrera no llega al objetivo.');
   return {destino:{...destino},trayecto};
  }
  const distancias=new Map([[clave(origen),0]]);
