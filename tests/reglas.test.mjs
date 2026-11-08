@@ -60,3 +60,10 @@ test('validación rechaza reglas desconocidas, NaN, duplicados y ramas profundas
  const rule=r.receta('crecimiento')[0];assert.ok(r.validarReglas([rule,rule]));
  let cond={tipo:'siempre'};for(let i=0;i<10;i++)cond={tipo:'no',condicion:cond};assert.ok(r.validarReglas([{...rule,condicion:cond}]));
 });
+
+test('recuperar PH mediante reglas nunca supera su maximo ni baja de cero',()=>{
+ let b=campo([regla([{tipo:'ph',destino:'yo',valor:5}],{evento:'inicio_turno'})]);a(b).ph=19;
+ b=c.siguiente(c.siguiente(b));assert.equal(a(b).ph,20);
+ let c2=campo([regla([{tipo:'ph',destino:'yo',valor:-40}],{evento:'inicio_turno'})]);
+ c2=c.siguiente(c.siguiente(c2));assert.equal(a(c2).ph,0);
+});
