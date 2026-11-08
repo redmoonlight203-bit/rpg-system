@@ -1435,7 +1435,8 @@ function emitirMotor(c, evento, yo, actor, objetivo, rng, efecto, cantidad = 0, 
 }
 function ejecutarRegla(c, yo, clave, r, actor, objetivo, rng, efecto, cantidad = 0, manual = false, estadoTerminado) {
     const ctx = { alcanceManual: manual ? conAlcance({ ...basico(), efecto: 'estado', nombre: r.nombre, coste_ph: r.coste_ph }).tablero?.alcance : undefined, c, yo, actor, objetivo, rng, efecto, cantidad, profundidad: 0, fuente: clave.startsWith('equipo:') ? clave.split(':').slice(0, 2).join(':') : undefined, estado_terminado: estadoTerminado }, m = motor(yo);
-    const error = typeof r.coste_ph !== 'number' || !Number.isFinite(r.coste_ph) || r.coste_ph < 0 ? 'Coste de PH inválido.' : !condicionMotor(r.condicion, ctx) ? 'No se cumplen las condiciones.' : r.usos > 0 && (m.usos[clave] || 0) >= r.usos ? 'Sin usos restantes.' : (m.proximos[clave] || 0) > yo.turnos ? 'Regla en enfriamiento.' : phDisponibles(yo) < r.coste_ph ? 'PH insuficientes.' : r.coste_fatiga > 0 && (yo.agotado || yo.fatiga + r.coste_fatiga > (estadisticas(yo).fatiga || 0)) ? 'Fatiga insuficiente.' : '';
+    const cantidadEnTurno=m.usos_turno?.[clave]?.turno===yo.turnos?m.usos_turno[clave].cantidad:0;
+    const error = (r.limite_por_turno||0)>0&&cantidadEnTurno>=(r.limite_por_turno||0)?'Límite de usos por turno alcanzado.':typeof r.coste_ph !== 'number' || !Number.isFinite(r.coste_ph) || r.coste_ph < 0 ? 'Coste de PH inválido.' : !condicionMotor(r.condicion, ctx) ? 'No se cumplen las condiciones.' : r.usos > 0 && (m.usos[clave] || 0) >= r.usos ? 'Sin usos restantes.' : (m.proximos[clave] || 0) > yo.turnos ? 'Regla en enfriamiento.' : phDisponibles(yo) < r.coste_ph ? 'PH insuficientes.' : r.coste_fatiga > 0 && (yo.agotado || yo.fatiga + r.coste_fatiga > (estadisticas(yo).fatiga || 0)) ? 'Fatiga insuficiente.' : '';
     if (error) {
         if (manual)
             throw Error(error);
@@ -1449,6 +1450,7 @@ function ejecutarRegla(c, yo, clave, r, actor, objetivo, rng, efecto, cantidad =
             yo.agotado = true;
     }
     m.usos[clave] = (m.usos[clave] || 0) + 1;
+    if((r.limite_por_turno||0)>0){m.usos_turno||={};m.usos_turno[clave]={turno:yo.turnos,cantidad:cantidadEnTurno+1};}
     m.proximos[clave] = yo.turnos + r.enfriamiento + 1;
     // Sin enfriamiento, distintas muertes durante un mismo turno sí cuentan.
     if (!r.enfriamiento)
