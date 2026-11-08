@@ -820,7 +820,7 @@ function resolverTurnoDescontrolado(c, actorId, rng) {
         for (const t of otros())
             for (const ac of posibilidades) {
                 const p = posicionesTablero(c), area = ac.efecto.tablero;
-                if (!area || distanciaCasillas(p[actorId], p[t.id]) > area.alcance || !lineaVisible(p[actorId], p[t.id], c.mapa))
+                if (!area || (area.origen_area==='lanzador'?distanciaCasillas(p[actorId],p[t.id])>area.tamano:distanciaCasillas(p[actorId],p[t.id])>area.alcance) || !lineaVisible(p[actorId], p[t.id], c.mapa))
                     continue;
                 try {
                     if (area.movimiento_lanzador)
@@ -909,6 +909,67 @@ function destinoAtaqueMovil(c, a, t, m) {
     if (!candidatos.length)
         throw Error('No hay una casilla libre y alcanzable para ejecutar el movimiento del ataque.');
     return candidatos[0].p;
+}
+function planearAtaqueDeArea(c,a,punto,m){
+ const posiciones=posicionesTablero(c),origen=posiciones[a.id],dim=dimensionesTablero(c);
+ if(!origen)throw Error('El atacante no tiene posición.');
+ const clave=(p)=>p.x+','+p.y;
+ const ocupados=new Set(Object.entries(posiciones).filter(([id])=>id!==a.id).map(([,p])=>clave(p)));
+ const suelo=(p)=>p.x>=0&&p.y>=0&&p.x<dim.columnas&&p.y<dim.filas&&c.mapa?.celdas[clave(p)]!=='muro';
+ const libre=(p)=>suelo(p)&&!ocupados.has(clave(p));
+ if(m.tipo==='carrera'){
+  const dx=punto.x-origen.x,dy=punto.y-origen.y,pasos=Math.max(Math.abs(dx),Math.abs(dy));
+  if(!pasos)throw Error('Elige hacia dónde correr.');
+  const trayecto=[];let anterior=origen,coste=0,destino=origen;
+  for(let i=1;i<=pasos;i++){
+   const p={x:Math.round(origen.x+dx*i/pasos),y:Math.round(origen.y+dy*i/pasos)};
+   if(!suelo(p)||!lineaVisible(anterior,p,c.mapa))break;
+   const nuevo=coste+distanciaCasillas(anterior,p);
+   if(nuevo>m.casillas)break;
+   trayecto.push(p);coste=nuevo;anterior=p;
+   if(libre(p))destino=p;
+  }
+  if(!trayecto.length)throw Error('Un muro bloquea la carrera.');
+  if(distanciaCasillas(anterior,punto)>m.alcance_golpe)throw Error('La carrera no llega al objetivo.');
+  return {destino:{...destino},trayecto};
+ }
+ const distancias=new Map([[clave(origen),0]]);
+ if(m.tipo==='dash'){
+  const pendientes=[{p:origen,coste:0}];
+  while(pendientes.length){
+   pendientes.sort((u,v)=>u.coste-v.coste);
+   const {p,coste}=pendientes.shift();
+   if(coste!==distancias.get(clave(p)))continue;
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const v={x:p.x+dx,y:p.y+dy},k=clave(v);
+    const nuevo=coste+(c.mapa?.celdas[k]==='dificil'?2:1);
+    if(!libre(v)||nuevo>m.casillas||(distancias.has(k)&&distancias.get(k)<=nuevo))continue;
+    distancias.set(k,nuevo);pendientes.push({p:v,coste:nuevo});
+   }
+  }
+ }
+ const opciones=[];
+ for(let y=Math.max(0,origen.y-m.casillas);y<=Math.min(dim.filas-1,origen.y+m.casillas);y++)
+ for(let x=Math.max(0,origen.x-m.casillas);x<=Math.min(dim.columnas-1,origen.x+m.casillas);x++){
+  const p={x,y};if(!libre(p))continue;
+  const costo=m.tipo==='dash'?distancias.get(clave(p)):distanciaCasillas(origen,p);
+  if(costo===undefined||costo>m.casillas||m.tipo==='salto'&&!lineaVisible(origen,p,c.mapa))continue;
+  opciones.push({p,coste:costo});
+ }
+ opciones.sort((u,v)=>distanciaCasillas(u.p,punto)-distanciaCasillas(v.p,punto)||u.coste-v.coste||u.p.y-v.p.y||u.p.x-v.p.x);
+ const elegido=opciones[0];
+ if(!elegido||distanciaCasillas(elegido.p,punto)>1)throw Error('No hay una casilla libre y alcanzable para aterrizar.');
+ return {destino:{...elegido.p},trayecto:[{...elegido.p}]};
+}
+function areaDeRecorrido(trayecto,ancho,dim){
+ const vistas=new Set(),resultado=[];
+ for(const base of trayecto)for(let dx=-ancho;dx<=ancho;dx++)for(let dy=-ancho;dy<=ancho;dy++){
+  if(Math.abs(dx)+Math.abs(dy)>ancho)continue;
+  const p={x:base.x+dx,y:base.y+dy},k=p.x+','+p.y;
+  if(p.x<0||p.y<0||p.x>=dim.columnas||p.y>=dim.filas||vistas.has(k))continue;
+  vistas.add(k);resultado.push(p);
+ }
+ return resultado;
 }
 function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, autonomo = false) {
     const n = copia(c), a = n.miembros.find((m) => m.id === actorId);
@@ -1005,22 +1066,31 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         if (fallo)
             throw Error(fallo);
     }
-    const posiciones = posicionesTablero(n), punto = centro || (t ? posiciones[t.id] : undefined);
-    let objetivos = t ? [t] : [];
-    if (tactica) {
-        if (!punto || !alcanceDesde(posiciones[a.id], tactica, dimensionesTablero(n)).some(p => p.x === punto.x && p.y === punto.y))
-            throw Error('El destino está fuera del alcance de la habilidad.');
-        if (!lineaVisible(posiciones[a.id], punto, n.mapa))
-            throw Error('Un muro bloquea la trayectoria.');
-        const area = areaDesde(posiciones[a.id], punto, tactica, dimensionesTablero(n));
-        objetivos = n.miembros.filter(m => (m.vida > 0 || e.efecto === 'curacion' && situacionCombatiente(m) !== 'muerto') && objetivoDelArea(a, m, e) && area.some(p => p.x === posiciones[m.id].x && p.y === posiciones[m.id].y));
-        if (!objetivos.length)
-            throw Error('No hay objetivos válidos en el área.');
-        // Snapshot de posiciones y objetivos: los desplazamientos no cambian a quién alcanza el lanzamiento.
-        for (const m of n.miembros)
-            m.posicion = posiciones[m.id];
-        objetivos.sort((u, v) => (e.efecto === 'dano' && tactica.forma !== 'individual' ? Number(u.id === a.id) - Number(v.id === a.id) : 0) || distanciaCasillas(posiciones[u.id], punto) - distanciaCasillas(posiciones[v.id], punto) || u.id.localeCompare(v.id));
-    }
+  const posiciones=posicionesTablero(n), origen=posiciones[a.id];
+  const apuntado=tactica?.origen_area==='lanzador'?origen:centro || (t?posiciones[t.id]:undefined);
+  const dimensiones=dimensionesTablero(n);
+  const requiereAreaMovil=tactica?.origen_area==='aterrizaje'||tactica?.origen_area==='recorrido';
+  const plan=requiereAreaMovil&&tactica?.movimiento_lanzador&&apuntado?planearAtaqueDeArea(n,a,apuntado,tactica.movimiento_lanzador):undefined;
+  const punto=tactica?.origen_area==='aterrizaje'&&plan?plan.destino:apuntado;
+  let objetivos=t?[t]:[];
+  if(tactica){
+    if(!apuntado||!alcanceDesde(origen,tactica,dimensiones).some(p=>p.x===apuntado.x&&p.y===apuntado.y))throw Error('El destino está fuera del alcance de la habilidad.');
+    if(!lineaVisible(origen,apuntado,n.mapa))throw Error('Un muro bloquea la trayectoria.');
+    if(!punto||requiereAreaMovil&&!plan)throw Error('No hay un destino válido para el movimiento ofensivo.');
+    const area=tactica.origen_area==='recorrido'&&plan
+      ?areaDeRecorrido(plan.trayecto,tactica.movimiento_lanzador?.ancho||0,dimensiones)
+      :areaDesde(origen,punto,tactica,dimensiones);
+    objetivos=n.miembros.filter(m=>{
+      const p=m.id===a.id&&plan?plan.destino:posiciones[m.id];
+      return (m.vida>0||e.efecto==='curacion'&&situacionCombatiente(m)!=='muerto')
+        &&objetivoDelArea(a,m,e)&&area.some(v=>v.x===p.x&&v.y===p.y);
+    });
+    if(!objetivos.length)throw Error('No hay objetivos válidos en el área.');
+    for(const m of n.miembros)m.posicion=posiciones[m.id];
+    objetivos.sort((u,v)=>tactica.origen_area==='recorrido'
+      ?distanciaCasillas(posiciones[u.id],origen)-distanciaCasillas(posiciones[v.id],origen)||u.id.localeCompare(v.id)
+      :(e.efecto==='dano'&&tactica.forma!=='individual'?Number(u.id===a.id)-Number(v.id===a.id):0)||distanciaCasillas(posiciones[u.id],punto)-distanciaCasillas(posiciones[v.id],punto)||u.id.localeCompare(v.id));
+  }
     if (typeof coste !== 'number' || !Number.isFinite(coste) || coste < 0)
         throw Error('Coste de PH inválido.');
     if (phDisponibles(a) < coste)
@@ -1048,20 +1118,16 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         }
     }
     log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
-    if (tactica?.movimiento_lanzador) {
-        if (!t || !combatienteActivo(t))
-            throw Error('Elige un objetivo vivo para el dash o salto.');
-        const destino = destinoAtaqueMovil(n, a, t, tactica.movimiento_lanzador);
-        const origen = posicionesTablero(n)[a.id];
-        for (const miembro of n.miembros)
-            miembro.posicion = posiciones[miembro.id];
-        a.posicion = { ...destino };
-        const recorrido = distanciaCasillas(origen, destino);
-        if (recorrido) {
-            log(n, `${a.nombre}: ${tactica.movimiento_lanzador.tipo} ${recorrido} casillas hasta (${destino.x + 1}, ${destino.y + 1}) antes de golpear.`);
-            aplicarTerreno(n, a, rng);
-        }
-    }
+  if(tactica?.movimiento_lanzador){
+    const destino=plan?.destino||(t&&combatienteActivo(t)?destinoAtaqueMovil(n,a,t,tactica.movimiento_lanzador):undefined);
+    if(!destino)throw Error('Elige un destino válido para el movimiento ofensivo.');
+    const previo=posicionesTablero(n)[a.id];
+    a.posicion={...destino};
+    const recorrido=distanciaCasillas(previo,destino);
+    if(recorrido){log(n,`${a.nombre}: ${tactica.movimiento_lanzador.tipo} ${recorrido} casillas hasta (${destino.x+1}, ${destino.y+1}) antes de golpear.`);aplicarTerreno(n,a,rng);}
+    if(a.vida<=0)return n;
+  }
+
     if (e.efecto === "crear_arma") {
         if (e.tabla_armas) {
             const tabla = e.tabla_armas;
@@ -1090,8 +1156,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             break;
         resolverEfecto(n, a, objetivo, e, act, rng, punto);
     }
-    if (tactica)
-        log(n, `${act.nombre}: centro (${punto.x + 1}, ${punto.y + 1}), ${objetivos.length} objetivos afectados.`);
+  if(tactica&&punto)log(n,`${act.nombre}: ${tactica.origen_area==='recorrido'?'recorrido':'centro'} (${punto.x+1}, ${punto.y+1}), ${objetivos.length} objetivos afectados.`);
     return n;
 }
 function resolverEfecto(n, a, t, e, act, rng, centro) {
@@ -1763,9 +1828,13 @@ export function validarTactica(e) {
         return null;
     if (typeof t !== 'object' || !Number.isInteger(t.alcance) || t.alcance < 0 || t.alcance > 60 || !Number.isInteger(t.tamano) || t.tamano < 0 || t.tamano > 12 || t.forma !== 'individual' && t.tamano < 1 || !['individual', 'circulo', 'cuadrado', 'linea', 'cono', 'cruz'].includes(t.forma) || !['enemigos', 'aliados', 'todos', 'yo'].includes(t.afecta) || e.efecto === 'crear_arma')
         return 'Configuración de tablero inválida.';
-    const avance = t.movimiento_lanzador;
-    if (avance && (!['dash', 'salto', 'teletransporte'].includes(avance.tipo) || !Number.isInteger(avance.casillas) || avance.casillas < 1 || avance.casillas > 30 || !Number.isInteger(avance.alcance_golpe) || avance.alcance_golpe < 0 || avance.alcance_golpe > 20 || t.forma !== 'individual' || e.efecto !== 'dano'))
-        return 'Configura correctamente el dash, salto o teletransporte ofensivo.';
+ const avance=t.movimiento_lanzador;
+ if(t.origen_area&&!['objetivo','lanzador','aterrizaje','recorrido'].includes(t.origen_area))return 'Origen del efecto inválido.';
+ if(t.origen_area==='lanzador'&&t.alcance!==0)return 'Los rugidos y auras deben tener alcance 0.';
+ if(avance&&(!['dash','salto','teletransporte','carrera'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||(avance.ancho!==undefined&&(!Number.isInteger(avance.ancho)||avance.ancho<0||avance.ancho>2))||(t.forma!=='individual'&&!['aterrizaje','recorrido'].includes(t.origen_area||''))||e.efecto!=='dano'))return 'Configura correctamente salto, carrera o ataque móvil.';
+ if(t.origen_area==='aterrizaje'&&(!avance||avance.tipo==='carrera'))return 'El impacto de aterrizaje necesita movimiento del atacante.';
+ if(t.origen_area==='recorrido'&&(!avance||avance.tipo!=='carrera'))return 'El daño de recorrido necesita una carrera.';
+ if(avance?.tipo==='carrera'&&t.origen_area!=='recorrido')return 'Las carreras deben atacar el recorrido.';
     const d = t.desplazamiento;
     if (d && (!['atraer', 'empujar'].includes(d.tipo) || !Number.isInteger(d.casillas) || d.casillas < 1 || d.casillas > 12 || !['siempre', 'fallo_salvacion'].includes(d.cuando)))
         return 'Desplazamiento inválido.';
@@ -1802,6 +1871,8 @@ export function objetivoDelArea(a, t, e) {
     const area = e.tablero;
     if (!area)
         return false;
+    if(e.efecto==='dano'&&a.id===t.id&&area.afecta_lanzador===false)return false;
+    if(area.origen_area==='recorrido'&&a.id===t.id)return false;
     if (e.efecto === 'dano' && area.forma !== 'individual' && a.id === t.id)
         return true;
     if (a.transformacion?.descontrolada && e.efecto === 'dano')
