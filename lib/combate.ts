@@ -565,6 +565,7 @@ function entrar(c: Combate, m: Combatiente, rng: RNG) {
   normalizar(m);
   c.actual = m.id;
   log(c, `Ronda ${c.ronda} · Turno de ${m.nombre}.`);
+  if(m.transformacion?.descontrolada&&!m.accion_usada)resolverTurnoDescontrolado(c,m.id,rng);
 }
 function iniciarInterno(c: Combate, rng: RNG) {
   if (c.fase !== "preparacion") throw Error("El combate ya empezó.");
@@ -812,6 +813,56 @@ export function acciones(m: Combatiente) {
  * ignoran criaturas intermedias pero no muros, y el teletransporte solo valida la llegada.
  * El movimiento es parte de la acción y nunca consume los puntos de movimiento normal.
  */
+/** IA simple y determinista para la criatura poseída. Nunca cambia su bando:
+ * puede atacar aliados y enemigos indistintamente sin regalar la victoria al
+ * bando original. El servidor ejecuta la acción, no el cliente del jugador. */
+function resolverTurnoDescontrolado(c:Combate,actorId:string,rng:RNG){
+ let actor=c.miembros.find(m=>m.id===actorId);
+ if(!actor||!actor.transformacion?.descontrolada||!combatienteActivo(actor)||actor.accion_usada)return;
+ const otros=()=>c.miembros.filter(m=>m.id!==actorId&&combatienteActivo(m)).sort((u,v)=>{
+  const p=posicionesTablero(c),origen=p[actorId];
+  return distanciaCasillas(origen,p[u.id])-distanciaCasillas(origen,p[v.id])||u.id.localeCompare(v.id);
+ });
+ const intentarAtacar=()=>{
+  const posibilidades=acciones(actor!).filter(ac=>ac.efecto.efecto==='dano'&&!ac.bloqueada&&(actor!.cooldowns[ac.id]||0)<=0&&phDisponibles(actor!)>=(ac.efecto.coste_ph||0)&&!((ac.efecto.coste_fatiga||0)>0&&(actor!.agotado||actor!.fatiga+(ac.efecto.coste_fatiga||0)>(estadisticas(actor!).fatiga||0))))
+    .sort((u,v)=>Number(v.id.startsWith('hab:'))-Number(u.id.startsWith('hab:'))||(v.efecto.cantidad||0)*(v.efecto.caras||0)-(u.efecto.cantidad||0)*(u.efecto.caras||0));
+  for(const t of otros())for(const ac of posibilidades){
+   const p=posicionesTablero(c),area=ac.efecto.tablero;
+   if(!area||distanciaCasillas(p[actorId],p[t.id])>area.alcance||!lineaVisible(p[actorId],p[t.id],c.mapa))continue;
+   try{
+    if(area.movimiento_lanzador)destinoAtaqueMovil(c,actor!,t,area.movimiento_lanzador);
+    const n=actuarInterno(c,actorId,ac.id,t.id,rng,false,undefined,true);
+    Object.assign(c,n);
+    log(c,`${actor!.nombre} poseído ataca sin distinguir aliados de enemigos: ${t.nombre}.`);
+    return true;
+   }catch{continue;}
+  }
+  return false;
+ };
+ if(intentarAtacar())return;
+ // Si no llega con ninguna habilidad, se aproxima al personaje más cercano
+ // utilizando las mismas reglas de movimiento y terreno que el resto.
+ const objetivo=otros()[0];
+ if(objetivo){
+  const p=posicionesTablero(c),origen=p[actorId],blanco=p[objetivo.id];
+  const candidatos=casillasAlcanzables(c,actorId);
+  const mejor=Object.entries(candidatos).map(([clave,coste])=>{
+    const [x,y]=clave.split(',').map(Number),p={x,y};
+    return {p,coste,d:distanciaCasillas(p,blanco)};
+  }).filter(x=>x.d<distanciaCasillas(origen,blanco))
+    .sort((a,b)=>a.d-b.d||a.coste-b.coste||a.p.y-b.p.y||a.p.x-b.p.x)[0];
+  if(mejor){
+   for(const miembro of c.miembros)miembro.posicion=p[miembro.id];
+   actor!.posicion={...mejor.p};
+   actor!.movimiento={turno:actor!.turnos,gastado:(actor!.movimiento?.turno===actor!.turnos?actor!.movimiento.gastado:0)+mejor.coste};
+   aplicarTerreno(c,actor!,rng);
+   log(c,`${actor!.nombre} avanza automáticamente hacia ${objetivo.nombre}.`);
+   if(actor!.vida>0&&intentarAtacar())return;
+  }
+ }
+ actor=c.miembros.find(m=>m.id===actorId);
+ if(actor){actor.accion_usada=true;log(c,`${actor.nombre} descontrolado no encuentra un objetivo al que golpear este turno.`);}
+}
 function destinoAtaqueMovil(c:Combate,a:Combatiente,t:Combatiente,m:{tipo:'dash'|'salto'|'teletransporte';casillas:number;alcance_golpe:number}):Posicion {
  const posiciones=posicionesTablero(c),origen=posiciones[a.id],blanco=posiciones[t.id],dim=dimensionesTablero(c);
  if(!origen||!blanco)throw Error('La posición del atacante o del objetivo no existe.');
