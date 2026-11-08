@@ -60,6 +60,8 @@ export type AlcanceHabilidad = {
   movimiento_lanzador?: {tipo:'dash'|'salto'|'teletransporte'|'carrera';casillas:number;alcance_golpe:number;ancho?:number};
   /** Objetivo: centro elegido; lanzador: rugido/aura; aterrizaje: impacto tras salto; recorrido: carrera que golpea a su paso. */
   origen_area?: 'objetivo'|'lanzador'|'aterrizaje'|'recorrido';
+  /** false excluye al lanzador del daño de área (p.ej. su propio rugido). */
+  afecta_lanzador?: boolean;
   derribo?: 'siempre'|'fallo_salvacion';
 };
 export type Efecto = {
@@ -207,6 +209,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
     if(t!==undefined){
       const avance=t.movimiento_lanzador;
       if(t.origen_area&&!['objetivo','lanzador','aterrizaje','recorrido'].includes(t.origen_area))return 'Origen del efecto inválido.';
+      if(t.afecta_lanzador!==undefined&&typeof t.afecta_lanzador!=='boolean')return 'Configura correctamente si el área alcanza al lanzador.';
       if(t.origen_area==='lanzador'&&t.alcance!==0)return 'Los rugidos y auras necesitan alcance de lanzamiento 0.';
       if(avance&&(!['dash','salto','teletransporte','carrera'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||(avance.ancho!==undefined&&(!Number.isInteger(avance.ancho)||avance.ancho<0||avance.ancho>2))||e.efecto!=='dano'||(t.forma!=='individual'&&!['aterrizaje','recorrido'].includes(t.origen_area||''))))return 'Configura el movimiento, sus casillas y el área de impacto.';
       if(t.origen_area==='aterrizaje'&&(!avance||avance.tipo==='carrera'))return 'Un impacto de aterrizaje necesita un salto, dash o teletransporte.';
