@@ -14,6 +14,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
   case 'recuperar_ph':resumen='Recupera puntos de habilidad del objetivo.';break;
   case 'reducir_fatiga':resumen='Reduce la Fatiga del objetivo. Si está agotado, aún necesita descansar.';break;
   case 'estado':resumen=`Aplica ${e.estado||'un estado'} al objetivo.`;break;
+  case 'transformacion':resumen=e.transformacion?.tipo==='forma'?'Adopta una forma con vida independiente; al caer vuelve a su vida anterior.':'Desata una transformación de poder; conserva su vida real y puede morir.';break;
   case 'crear_arma':resumen=e.tabla_armas?`Lanza 1d${e.tabla_armas.caras} y crea el arma asignada al resultado.`:`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
  }
  const detalles:string[]=[];
@@ -26,7 +27,8 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  }
 
  if(e.tabla_armas)detalles.push(...e.tabla_armas.resultados.map(r=>`${r.cara}: ${r.nombre || 'Sin asignar'} (${formula(r)}).`));
- if(e.efecto!=='estado'&&!e.tabla_armas)detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
+ if(e.efecto!=='estado'&&e.efecto!=='transformacion'&&!e.tabla_armas)detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
+ if(e.efecto==='transformacion'&&e.transformacion){detalles.push(`Etapas: ${e.transformacion.etapas.map(x=>x.nombre).join(' → ')}.`);detalles.push('Solo puede activarse una vez por partida; avanzar de etapa no gasta otra activación.');}
  if(e.efecto==='estado'){
   if(['veneno','quemadura','regeneracion'].includes(e.estado_tipo||''))detalles.push(`${e.estado_tipo==='regeneracion'?'Recupera':'Sufre'} ${formula(e)} ${e.estado_tipo==='regeneracion'?'de vida':'de daño'} al inicio de cada turno.`);
   if(e.estado_tipo==='aturdido')detalles.push('Pierde su próxima acción y el aturdimiento se retira.');
