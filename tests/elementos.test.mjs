@@ -41,6 +41,7 @@ function campo(efecto = e()) {
       b,
       {
         id,
+        posicion: {x:id==='a'?1:id==='b'?2:3,y:1},
         forja_id: null,
         nombre: id,
         stats: { vida: 100, armadura: 20, ph: 20, fatiga: 7 },

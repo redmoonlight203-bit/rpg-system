@@ -32,6 +32,8 @@ export function faltantesRequisitos(r, razas, stats) {
 function baseRequisitos(m) { return Object.fromEntries(Object.entries(m.stats).map(([k, v]) => [k, v - (m.configuracion.bonos_equipamiento?.[k] || 0)])); }
 function requisitosFuente(m, f) { return faltantesRequisitos(f.requisitos_uso, [m.configuracion.raza || '', ...(m.configuracion.linaje_raza || [])], baseRequisitos(m)); }
 export function dadoSeguro(caras) {
+    if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
+        throw Error("El dado requiere caras enteras entre 2 y 4294967296.");
     const a = new Uint32Array(1), limite = Math.floor(4294967296 / caras) * caras;
     do {
         crypto.getRandomValues(a);
@@ -173,8 +175,9 @@ export function agregar(c, f, bando, rng = dadoSeguro) {
     for (const [k, v] of Object.entries(m.configuracion.bonos_equipamiento || {}))
         if (!(k in m.stats))
             m.stats[k] = v;
-    m.vida = maxVida(m);
-    m.ph = Math.max(0, estadisticas(m).ph || 0);
+    m.vida = f.vida_actual == null ? maxVida(m) : Math.max(0, Math.min(maxVida(m), f.vida_actual));
+    m.ph = f.ph_actual == null ? Math.max(0, estadisticas(m).ph || 0) : Math.max(0, Math.min(estadisticas(m).ph || 0, f.ph_actual));
+    m.fatiga = Math.max(0, f.fatiga_actual ?? 0);
     m.corrupto = !!m.stats.corrupto;
     m.grupo_cercania = "";
     m.dado_iniciativa = rng(20);
@@ -484,6 +487,20 @@ export function configurarParticipante(c, id, patch) {
         return n;
     });
 }
+/** Legacy attacks receive finite reach even inside saved encounter snapshots. Explicit ranges win. */
+export function conAlcance(e, contexto = '') {
+    if (e.tablero || !['dano', 'estado'].includes(e.efecto))
+        return e;
+    const texto = `${contexto} ${e.nombre || ''} ${e.arma_nombre || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    let alcance = 1;
+    if (/\b(arco|ballesta|flecha|disparo)\b/.test(texto))
+        alcance = 8;
+    else if (/\b(lanza|alabarda|pica)\b/.test(texto))
+        alcance = 2;
+    else if (!/desarmado|puno|punetazo|patada|mordisco|golpe|filo|espada|daga|martillo|hacha|mazo|corte/.test(texto) && (e.naturaleza === 'magica' || (e.coste_ph || 0) > 0 || /fuego|hielo|frio|plasma|energia|electri|arcano|magico/.test((e.tipo_dano || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()) || /proyectil|rayo|bola de|llamas|cadenas/.test(texto)))
+        alcance = 6;
+    return { ...e, tablero: { alcance, forma: 'individual', tamano: 0, afecta: 'todos' } };
+}
 function basico() {
     return {
         id: "basico",
@@ -543,7 +560,7 @@ export function acciones(m) {
     for (const { clave, regla } of reglasMotor(m))
         if (regla.evento === 'usar')
             lista.push({ id: `regla:${clave}`, nombre: regla.nombre, regla_detalle: regla, bloqueada: regla.usos > 0 && (m.motor?.usos[clave] || 0) >= regla.usos ? 'Sin usos restantes.' : undefined, efecto: { ...basico(), efecto: 'estado', estado: regla.nombre, cantidad: 0, coste_ph: regla.coste_ph, coste_fatiga: regla.coste_fatiga }, enfriamiento: regla.enfriamiento, regla: clave });
-    return lista.filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo);
+    return lista.filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => ({ ...a, efecto: conAlcance(a.efecto, a.nombre) }));
 }
 function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
     const n = copia(c), a = n.miembros.find((m) => m.id === actorId);
@@ -557,6 +574,12 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
         if (!entrada || entrada.regla.evento !== 'usar')
             throw Error('La regla activa no existe.');
         const t = n.miembros.find(m => m.id === objetivoId) || a;
+        if (phDisponibles(a) < entrada.regla.coste_ph)
+            throw Error('PH insuficientes.');
+        const alcance = acciones(a).find(v => v.id === accionId)?.efecto.tablero;
+        const posiciones = posicionesTablero(n);
+        if (alcance && distanciaCasillas(posiciones[a.id], posiciones[t.id]) > alcance.alcance)
+            throw Error('El destino está fuera del alcance de la habilidad.');
         ejecutarRegla(n, a, entrada.clave, entrada.regla, a, t, rng, undefined, 0, true);
         a.accion_usada = true;
         return n;
@@ -905,7 +928,7 @@ function emitirMotor(c, evento, yo, actor, objetivo, rng, efecto, cantidad = 0, 
     }
 }
 function ejecutarRegla(c, yo, clave, r, actor, objetivo, rng, efecto, cantidad = 0, manual = false, estadoTerminado) {
-    const ctx = { c, yo, actor, objetivo, rng, efecto, cantidad, profundidad: 0, fuente: clave.startsWith('equipo:') ? clave.split(':').slice(0, 2).join(':') : undefined, estado_terminado: estadoTerminado }, m = motor(yo);
+    const ctx = { alcanceManual: manual ? conAlcance({ ...basico(), efecto: 'estado', nombre: r.nombre, coste_ph: r.coste_ph }).tablero?.alcance : undefined, c, yo, actor, objetivo, rng, efecto, cantidad, profundidad: 0, fuente: clave.startsWith('equipo:') ? clave.split(':').slice(0, 2).join(':') : undefined, estado_terminado: estadoTerminado }, m = motor(yo);
     const error = typeof r.coste_ph !== 'number' || !Number.isFinite(r.coste_ph) || r.coste_ph < 0 ? 'Coste de PH inválido.' : !condicionMotor(r.condicion, ctx) ? 'No se cumplen las condiciones.' : r.usos > 0 && (m.usos[clave] || 0) >= r.usos ? 'Sin usos restantes.' : (m.proximos[clave] || 0) > yo.turnos ? 'Regla en enfriamiento.' : phDisponibles(yo) < r.coste_ph ? 'PH insuficientes.' : r.coste_fatiga > 0 && (yo.agotado || yo.fatiga + r.coste_fatiga > (estadisticas(yo).fatiga || 0)) ? 'Fatiga insuficiente.' : '';
     if (error) {
         if (manual)
@@ -933,6 +956,11 @@ function efectosMotor(efectos, ctx, origen) {
     for (const [indice, e] of efectos.entries()) {
         const destinos = ['aliados', 'enemigos', 'todos'].includes(e.destino) ? ctx.c.miembros.filter(m => m.vida > 0 && (e.destino === 'todos' || (e.destino === 'aliados' ? m.bando === ctx.yo.bando : m.bando !== ctx.yo.bando))) : [sujetoMotor(ctx, e.destino)];
         for (const t of destinos) {
+            if (ctx.alcanceManual !== undefined && t.id !== ctx.yo.id && ['dano', 'estado', 'perder_accion'].includes(e.tipo)) {
+                const p = posicionesTablero(ctx.c);
+                if (distanciaCasillas(p[ctx.yo.id], p[t.id]) > ctx.alcanceManual)
+                    continue;
+            }
             const v = () => valorMotor(e.valor, ctx), m = motor(t), clave = e.clave || `${origen}:${indice}`;
             switch (e.tipo) {
                 case 'salvacion':

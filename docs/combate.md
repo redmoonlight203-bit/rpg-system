@@ -113,3 +113,9 @@ El recurso PH utilizable se limita a los PH actuales y al máximo efectivo. Un m
 Los cambios de vida se calculan sobre el resultado real de cada operación, después de armadura, salvaciones y topes de curación. Se comparten en el evento visual: números rojos negativos para daño y verdes positivos para curación, sobre cada retrato. Un fallo no muestra daño; mover después no repite el evento. También incluye los estados al inicio del turno y la reversión de vida al deshacer.
 
 La plantilla de Aurio Magno tenía Phoenix equipada; `supabase/seeds/reparar_equipo_aurio.sql` retira únicamente esa referencia. El equipo de las plantillas de PNJ y las copias del inventario de jugadores son independientes. Las consultas de inventario verifican la identidad del participante solicitado.
+
+### Alcances de acciones antiguas
+
+Los ataques sin `tablero` reciben alcance finito desde el motor compartido, incluso cuando provienen de equipo, habilidades concedidas, objetos del inventario o snapshots de encuentros anteriores. El alcance explícito siempre prevalece. Valores automáticos: cuerpo a cuerpo 1 casilla, lanza 2, arco 8 y magia a distancia 6. Se usa la distancia horizontal y vertical del tablero. Las reglas activas también limitan el daño a destinatarios dentro de alcance; las reacciones automáticas conservan su lógica.
+
+La migración de alcances completa las acciones antiguas del catálogo y sus copias sin reemplazar las áreas ya configuradas. Añade tres objetos ordinarios y editables: Lanza normal (2 casillas, 1d6), Arco normal (8 casillas, 1d6) y Bastón normal (proyectil de 6 casillas, 1d6 y 1 PH; golpe de 1 casilla, 1d4 sin PH). No los entrega automáticamente a jugadores.

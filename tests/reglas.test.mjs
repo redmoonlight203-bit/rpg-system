@@ -7,7 +7,7 @@ function cargar(path){const exports={};vm.runInNewContext(ts.transpileModule(rea
 const c=cargar('../lib/combate.ts'),r=cargar('../lib/reglas.ts');
 const fija=(n)=>(()=>n);
 function campo(reglas,patch={}){
- let b=c.nuevoCombate();for(const [id,bando,ini] of [['a','jugador',18],['b','enemigo',5]])b=c.agregar(b,{id,forja_id:null,nombre:id,stats:{vida:20,armadura:0,ph:20,fatiga:10,dano:0,...patch},configuracion:{tipo_creacion:'personaje',reglas:id==='a'?reglas:[]}},bando,fija(ini));
+ let b=c.nuevoCombate();for(const [id,bando,ini] of [['a','jugador',18],['b','enemigo',5]])b=c.agregar(b,{id,posicion:{x:id==='a'?1:2,y:1},forja_id:null,nombre:id,stats:{vida:20,armadura:0,ph:20,fatiga:10,dano:0,...patch},configuracion:{tipo_creacion:'personaje',reglas:id==='a'?reglas:[]}},bando,fija(ini));
  b.regla='directo';return c.iniciar(b,fija(15));
 }
 const a=b=>b.miembros[0], enemigo=b=>b.miembros[1];
@@ -20,7 +20,7 @@ test('matar aumenta vida máxima sin curar; deshacer revierte el progreso',()=>{
  const antes=c.deshacer(b);assert.equal(c.maxVida(a(antes)),20);assert.equal(a(antes).motor,undefined);
  b=c.finalizar(b);assert.equal(c.maxVida(a(b)),21);
 });
-test('una víctima caída no otorga progreso de nuevo',()=>{let b=campo(r.receta('crecimiento'));enemigo(b).vida=1;b=c.actuar(b,'a','ataque','b',fija(6));b=c.siguiente(b,fija(15));b=c.actuar(b,'a','ataque','b',fija(6));assert.equal(c.maxVida(a(b)),21);});
+test('una víctima caída no otorga progreso de nuevo',()=>{let b=campo(r.receta('crecimiento'));enemigo(b).vida=1;b=c.actuar(b,'a','ataque','b',fija(6));b=c.siguiente(b,fija(15));assert.throws(()=>c.actuar(b,'a','ataque','b',fija(6)),/No hay objetivos válidos/);assert.equal(c.maxVida(a(b)),21);});
 test('furia altera stats; falla salvación y pierde acción, superar la conserva',()=>{
  let b=activar(campo(r.receta('furia')),'Desatar furia');assert.equal(c.maxVida(a(b)),35);assert.equal(c.estadisticas(a(b)).dano,8);
  b=c.siguiente(b,fija(1));b=c.siguiente(b,fija(1));assert.equal(a(b).accion_usada,true);
