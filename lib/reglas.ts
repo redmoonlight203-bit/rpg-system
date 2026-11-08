@@ -38,10 +38,10 @@ export type EfectoRegla = {
 };
 export type Regla = {
  id: string; nombre: string; descripcion?: string; evento: EventoRegla; condicion: CondicionRegla; efectos: EfectoRegla[];
- coste_ph: number; coste_fatiga: number; enfriamiento: number; usos: number; prioridad: number;
+ coste_ph: number; coste_fatiga: number; enfriamiento: number; usos: number; prioridad: number; limite_por_turno?:number;
 };
 export function nuevaRegla(): Regla {
- return {id:crypto.randomUUID(),nombre:'Nueva regla',evento:'usar',condicion:{tipo:'siempre'},efectos:[],coste_ph:0,coste_fatiga:0,enfriamiento:0,usos:0,prioridad:0};
+ return {id:crypto.randomUUID(),nombre:'Nueva regla',evento:'usar',condicion:{tipo:'siempre'},efectos:[],coste_ph:0,coste_fatiga:0,enfriamiento:0,usos:0,limite_por_turno:0,prioridad:0};
 }
 export const EFECTOS_REGLA = { atributo:'Modificar atributo', transformar:'Transformar', estado:'Aplicar estado', quitar_estado:'Quitar estado / forma', dano:'Infligir daño directo', curar:'Curar', ph:'Modificar PH actual', fatiga:'Modificar Fatiga actual', perder_accion:'Perder acción del turno', salvacion:'Tirada de salvación', condicional:'Si / entonces / si no', habilidad:'Conceder acción temporal', mensaje:'Registrar mensaje' } as const;
 export const DESTINOS = {yo:'Portador',actor:'Autor del evento',objetivo:'Objetivo del evento',aliados:'Aliados vivos (incluye portador)',enemigos:'Enemigos vivos',todos:'Todos los vivos'} as const;
@@ -86,7 +86,7 @@ export function validarReglas(input: unknown): string | null {
   for(const v of input as unknown[]){const r=objeto(v);if(typeof r.id!=='string'||!r.id||ids.has(r.id))fallo('Identificador de regla ausente o repetido.');ids.add(r.id);
    if(r.descripcion!==undefined&&(typeof r.descripcion!=='string'||r.descripcion.length>2000))fallo('Descripción: máximo 2000 caracteres.');
    if(typeof r.nombre!=='string'||!r.nombre.trim()||r.nombre.length>120||!Object.hasOwn(EVENTOS,String(r.evento)))fallo('Nombre o evento inválido.');
-   for(const k of ['coste_ph','coste_fatiga','enfriamiento','usos'])if(!entero(r[k]))fallo('Costes, usos y enfriamiento inválidos.');if(!entero(r.prioridad,-1000,1000))fallo('Prioridad inválida.');
+   for(const k of ['coste_ph','coste_fatiga','enfriamiento','usos'])if(!entero(r[k]))fallo('Costes, usos y enfriamiento inválidos.');if(r.limite_por_turno!==undefined&&!entero(r.limite_por_turno,0,20))fallo('Límite por turno: de 0 a 20.');if(!entero(r.prioridad,-1000,1000))fallo('Prioridad inválida.');
    condicion(r.condicion);efectos(r.efectos);if(!(r.efectos as unknown[]).length)fallo('Añade al menos un efecto.');
   }return null;
  }catch(e){return e instanceof Error?e.message:'Reglas inválidas.';}
