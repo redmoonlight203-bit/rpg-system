@@ -122,9 +122,9 @@ export default function FichaPersonaje() {
   ];
   return (
     <main className="pj-page">
-      <Link className="pj-button" href="/ficha/personajes">
+      <Link className="pj-button" href={p?.es_companero?"/ficha/party":"/ficha/personajes"}>
         <ArrowLeft size={14} />
-        Mis personajes
+        {p?.es_companero?"Mi party":"Mis personajes"}
       </Link>
       {error ? (
         <p className="pj-notice pj-error" role="alert">

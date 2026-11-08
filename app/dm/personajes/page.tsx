@@ -1,7 +1,7 @@
 "use client";
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Users, Heart, Skull, Check, Search, Moon, Shield } from "lucide-react";
+import { Users, Heart, Skull, Check, Search, Moon, Shield, RotateCcw, Hammer } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import {
   definiciones,
@@ -28,6 +28,9 @@ type Tumba = {
   user_id: string;
   fallecido_at: string;
   combate_id: string | null;
+  resucitado_at: string | null;
+  destino: "dueno" | "creacion" | null;
+  creacion_id: string | null;
   snapshot: {
     personaje: Personaje;
     inventario: Item[];
@@ -61,6 +64,9 @@ export default function GestionPersonajes() {
     [items, setItems] = useState<Item[]>([]),
     [cura, setCura] = useState(1);
   const [baul, setBaul] = useState<Cuenta | null>(null);
+  const [resurreccion, setResurreccion] = useState<{tumba:Tumba;prevision:{puede_devolver:boolean;motivo:string|null;dueno:string|null;mente_colmena:boolean;puede_creacion:boolean}}|null>(null);
+  const dialogoRevivir=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{if(resurreccion)dialogoRevivir.current?.showModal();else dialogoRevivir.current?.close();},[resurreccion]);
   const bloqueo = useRef(false);
   const cargar = useCallback(async () => {
     try {
@@ -125,6 +131,13 @@ export default function GestionPersonajes() {
       bloqueo.current = false;
       setOcupado(false);
     }
+  }
+  async function prepararResurreccion(t:Tumba){
+    await ejecutar(async()=>{const r=await supabase.rpc('cementerio_prever',{p_tumba:t.id});if(r.error)throw Error(r.error.message);setResurreccion({tumba:t,prevision:r.data});});
+  }
+  async function revivir(destino:'dueno'|'creacion'){
+    if(!resurreccion)return;const t=resurreccion.tumba;
+    await ejecutar(async()=>{const r=await supabase.rpc('cementerio_revivir',{p_tumba:t.id,p_destino:destino});setResurreccion(null);if(r.error)throw Error(r.error.message);setTumba(null);setSeleccion(null);setAviso(destino==='dueno'?`${t.nombre} volvió a su dueño con vida y PH recuperados y sin fatiga.`:`${t.nombre} ya tiene una tarjeta de personaje en La Creación.`);});
   }
   async function inspeccionar(p: Personaje) {
     setSeleccion(structuredClone(p));
@@ -439,6 +452,8 @@ export default function GestionPersonajes() {
                       <p>
                         {t.snapshot.inventario.length} pertenencias conservadas
                       </p>
+                      {t.resucitado_at&&<p className="pj-resurrection-status">{t.destino==='dueno'?'Devuelto a su dueño':'Recuperado en La Creación'} · {new Date(t.resucitado_at).toLocaleString('es-DO')}</p>}
+                      <button disabled={ocupado||!!t.resucitado_at} onClick={()=>void prepararResurreccion(t)}><RotateCcw size={15}/>{t.resucitado_at?'Ya resucitado':'Revivir personaje'}</button>
                       <button
                         onClick={() => {
                           setTumba(t);
@@ -741,6 +756,12 @@ export default function GestionPersonajes() {
           )}
         </>
       )}
+      <dialog ref={dialogoRevivir} className="pj-revive-dialog" onCancel={()=>setResurreccion(null)} aria-labelledby="titulo-revivir">
+        {resurreccion&&<><span className="pj-eyebrow">KUROI / RESURRECCIÓN</span><h2 id="titulo-revivir">Revivir a {resurreccion.tumba.nombre}</h2><p>Elige dónde regresará. Cada recuerdo puede resucitarse una sola vez; una nueva muerte tendrá su propio registro.</p>
+        <section><Hammer size={23}/><h3>Como tarjeta en La Creación</h3><p>Crea una tarjeta independiente con sus estadísticas, nivel y pertenencias no ligadas al alma. El recuerdo permanece en el cementerio.</p><button disabled={ocupado||!resurreccion.prevision.puede_creacion} onClick={()=>void revivir('creacion')}>Crear tarjeta del personaje</button></section>
+        <section><Heart size={23}/><h3>Devolver a su dueño</h3><p>{resurreccion.prevision.dueno||'Cuenta no disponible'}{resurreccion.prevision.mente_colmena?' · Mente colmena':''}</p><p>Regresa con su ficha y progreso. El dueño necesita Mente colmena o no tener otro personaje ni solicitud ocupando su espacio.</p>{resurreccion.prevision.motivo&&<p className="pj-notice pj-error" role="status">{resurreccion.prevision.motivo}</p>}<button disabled={ocupado||!resurreccion.prevision.puede_devolver} onClick={()=>void revivir('dueno')}>Revivir y devolver al dueño</button></section>
+        <p>Las pertenencias del alma permanecen en el baúl. No se duplican ni se retiran objetos entregados a otros personajes.</p><button autoFocus disabled={ocupado} onClick={()=>setResurreccion(null)}>Cancelar</button></>}
+      </dialog>
     </main>
   );
 }

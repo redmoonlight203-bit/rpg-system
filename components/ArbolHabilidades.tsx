@@ -19,7 +19,7 @@ export default function ArbolHabilidades({gm=false}:{gm?:boolean}){
  const bloqueo=useRef(false),peticion=useRef(0),eleccionActual=useRef(id);eleccionActual.current=id;
  useEffect(()=>{let vivo=true;async function iniciar(){try{
   const {data:{user},error:e}=await supabase.auth.getUser();if(e||!user)throw Error('Inicia sesión.');
-  let q=supabase.from('personajes').select('id,nombre,user_id,raza,nivel,exp_total,puntos_habilidad,atributos,estado_vida,estado_aprobacion').eq('estado_vida','vivo').eq('estado_aprobacion','aprobado').order('nombre');if(!gm)q=q.eq('user_id',user.id);
+  let q=supabase.from('personajes').select('id,nombre,user_id,raza,nivel,exp_total,puntos_habilidad,atributos,estado_vida,estado_aprobacion').eq('estado_vida','vivo').eq('estado_aprobacion','aprobado').or('es_companero.eq.false,party_activo.eq.true').order('nombre');if(!gm)q=q.eq('user_id',user.id);
   const r=await q;if(r.error)throw r.error;if(!vivo)return;setPersonajes(r.data||[]);
   const preferido=gm?new URLSearchParams(window.location.search).get('personaje'):localStorage.getItem('personaje_activo_id');
   setId(String(r.data?.find(p=>String(p.id)===preferido)?.id||r.data?.[0]?.id||''));

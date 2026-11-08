@@ -23,3 +23,5 @@
  .y-die-remove{width:44px;height:44px;min-height:44px!important;right:-12px;top:-12px}
  .y-dice-pool{gap:22px;padding-block:22px}
 }
+
+.y-player-sidebar{overflow-y:auto}.y-player-brand,.y-player-footer{flex-shrink:0}

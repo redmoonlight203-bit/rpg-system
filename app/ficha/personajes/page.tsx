@@ -52,6 +52,7 @@ export default function PersonajesJugador() {
           .from("personajes")
           .select("*")
           .eq("user_id", user.id)
+          .eq("es_companero", false)
           .neq("estado_vida", "muerto")
           .order("created_at", { ascending: false }),
         supabase.from("categorias_forja").select("*").order("nombre"),
