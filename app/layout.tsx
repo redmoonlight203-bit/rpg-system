@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "./mobile.css";
 
-const sansKr = Noto_Sans_KR({
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
+const sansKr = localFont({
+  src: "../public/fonts/NotoSansKR-latin.ttf",
+  weight: "100 900",
   variable: "--font-sans-kr",
   display: "swap",
 });
 
-const serifKr = Noto_Serif_KR({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+const serifKr = localFont({
+  src: "../public/fonts/NotoSerifKR-latin.ttf",
+  weight: "200 900",
   variable: "--font-serif-kr",
   display: "swap",
 });

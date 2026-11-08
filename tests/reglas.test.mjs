@@ -8,7 +8,7 @@ function cargar(path){const exports={};vm.runInNewContext(ts.transpileModule(rea
 const c=cargar('../lib/combate.ts'),r=cargar('../lib/reglas.ts');
 const fija=(n)=>(()=>n);
 function campo(reglas,patch={}){
- let b=c.nuevoCombate();for(const [id,bando,ini] of [['a','jugador',18],['b','enemigo',5]])b=c.agregar(b,{id,posicion:{x:id==='a'?1:2,y:1},forja_id:null,nombre:id,stats:{vida:20,armadura:0,ph:20,fatiga:10,dano:0,...patch},configuracion:{tipo_creacion:'personaje',reglas:id==='a'?reglas:[]}},bando,fija(ini));
+ let b=c.nuevoCombate();b.politica.automatico=false;for(const [id,bando,ini] of [['a','jugador',18],['b','enemigo',5]])b=c.agregar(b,{id,posicion:{x:id==='a'?1:2,y:1},forja_id:null,nombre:id,stats:{vida:20,armadura:0,ph:20,fatiga:10,dano:0,...patch},configuracion:{tipo_creacion:'personaje',reglas:id==='a'?reglas:[]}},bando,fija(ini));
  b.regla='directo';return c.iniciar(b,fija(15));
 }
 const a=b=>b.miembros[0], enemigo=b=>b.miembros[1];

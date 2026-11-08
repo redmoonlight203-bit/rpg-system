@@ -21,7 +21,7 @@ Deno.serve(async(req)=>{
   if(body.actor_id!=null&&(typeof body.actor_id!=='string'||body.actor_id.length>100))throw Error('Participante inválido.');
   const rpc=async(nombre,args)=>{const r=await fetch(`${url}/rest/v1/rpc/${nombre}`,{method:'POST',headers:{Authorization:`Bearer ${key}`,apikey:key,'Content-Type':'application/json'},body:JSON.stringify(args)});const data=await r.json();if(!r.ok)throw Error(data.message||'No se pudo actualizar el equipo.');return data;};
   const args={p_usuario:user.id,p_personaje:body.personaje_id??null,p_combate:body.combate_id??null,p_actor:body.actor_id??null};
-  const contexto=async()=>{const ctx=await rpc('equipo_contexto_servidor',args);if(ctx.actor)ctx.fuentes=[...new Map([...ctx.fuentes,...Object.values(ctx.actor.configuracion.equipamiento||{})].filter(p=>p.id).map(p=>[p.id,p])).values()];return ctx;};
+  const contexto=async()=>{const ctx=await rpc('equipo_contexto_servidor',args);if(ctx.combate?.politica?.modo==='entrenamiento')ctx.fuentes=ctx.actor.configuracion.reserva||[];if(ctx.actor)ctx.fuentes=[...new Map([...ctx.fuentes,...Object.values(ctx.actor.configuracion.equipamiento||{})].filter(p=>p.id).map(p=>[p.id,p])).values()];return ctx;};
   let ctx=await contexto();
   if(body.actor_id!=null&&ctx.actor?.id!==body.actor_id)throw Error('El inventario no corresponde al participante seleccionado.');
   if(body.personaje_id!=null&&String(ctx.personaje_id)!==String(body.personaje_id))throw Error('El inventario no corresponde al personaje seleccionado.');

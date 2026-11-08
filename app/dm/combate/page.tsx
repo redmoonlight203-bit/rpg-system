@@ -1,4 +1,6 @@
 "use client";
+import EditorMapaCombate from "../../../components/EditorMapaCombate";
+import {ConfigurarCiclo,ResumenEncuentro} from "../../../components/CicloEncuentro";
 import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -131,7 +133,7 @@ export default function CampoCombate() {
     if(bloqueo.current)return false;
     if(revisionRemota.current.id!==solicitud.id)return;
     if(r.data&&!r.data.sin_cambios&&r.data.version>revisionRemota.current.version){setC(r.data.datos as Combate);setVersion(r.data.version);}
-  },id,['preparacion','en_curso'].includes(c.fase));
+  },id,true);
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
@@ -882,7 +884,7 @@ export default function CampoCombate() {
         </button>
         <button
           className="battle-button"
-          disabled={ocupado || !!c.progreso_confirmado || !c.historial?.length}
+          disabled={ocupado || c.fase==='finalizado' || !!c.progreso_confirmado || !c.historial?.length}
           onClick={() => void deshacerUltimo()}
         >
           Deshacer última operación
@@ -909,7 +911,10 @@ export default function CampoCombate() {
           </button>
         )}
       </div>
-      {c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">Hasta confirmarlo, los cambios viven en este encuentro y puedes deshacerlos. Al aplicarlos se actualizan las fichas reales una sola vez y el encuentro queda cerrado. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={ocupado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
+      <EditorMapaCombate combate={c} ocupado={ocupado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
+      <ConfigurarCiclo combate={c} ocupado={ocupado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
+      {c.fase==='finalizado'&&<ResumenEncuentro onRecargar={refrescarEncuentro} id={id} version={version} combate={c} ocupado={ocupado}/>}
+      {c.politica?.modo!=='entrenamiento'&&c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">El crecimiento de reglas se confirma junto con las recompensas. También puedes aplicarlo aquí; después el resultado queda cerrado para revisiones. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={ocupado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
       {invocar&&actor&&<InvocarCombate combate={c} actorId={actor.id} habilidad={invocar} onCerrar={()=>setInvocar(null)} onConfirmar={async next=>{await guardar(next);}}/>}
       {editorEquipo&&<EditorEquipoCombate key={`${editorEquipo.actor}:${editorEquipo.contexto.version}`} catalogo={c.fase==='preparacion'&&!c.miembros.find(m=>m.id===editorEquipo.actor)?.personaje_id?objetosMochila:undefined} onAgregar={agregarObjetoMochila} contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}
       {error && (
@@ -1024,7 +1029,7 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
-          {c.miembros.length>0&&<TableroCombate key={`${id}:${c.actual}:${elegida}`} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[claveRetrato(m)]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[m.id]}))} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={actor?casillasAlcanzables(c,actor.id):{}} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
+          {c.miembros.length>0&&<TableroCombate mapa={c.mapa} key={`${id}:${c.actual}:${elegida}`} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[claveRetrato(m)]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[m.id]}))} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={actor?casillasAlcanzables(c,actor.id):{}} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (

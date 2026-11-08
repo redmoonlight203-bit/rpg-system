@@ -114,6 +114,7 @@ export function dadoSeguro(caras) {
 }
 const copia = (v) => JSON.parse(JSON.stringify(v));
 export const nuevoCombate = () => ({
+    politica: { modo: "oficial", automatico: true, limite_rondas: 0, exp_base: 0, exp_objetivo: 0, dificultad: 1, reparto: "replicar", premiar_retirados: false },
     fase: "preparacion",
     ronda: 1,
     actual: null,
@@ -413,6 +414,7 @@ function area(c, a, t, e, total, rng) {
     return recibir(c, a, t, e, total, [...antes, ...impacto], rng);
 }
 function entrar(c, m, rng) {
+    aplicarTerreno(c, m, rng);
     m.turnos++;
     m.accion_usada = false;
     m.uso_fatiga = false;
@@ -453,16 +455,15 @@ function entrar(c, m, rng) {
 function iniciarInterno(c, rng) {
     if (c.fase !== "preparacion")
         throw Error("El combate ya empezó.");
-    const n = copia(c), primero = orden(n).find((m) => m.vida > 0);
+    const n = copia(c), primero = orden(n).find(combatienteActivo);
     if (!primero)
         throw Error("Añade personajes en pie.");
     n.fase = "en_curso";
     for (const m of n.miembros)
         emitirMotor(n, 'inicio_combate', m, m, m, rng);
-    const vivo = orden(n).find(m => m.vida > 0);
+    const vivo = orden(n).find(combatienteActivo);
     if (!vivo) {
-        n.fase = 'finalizado';
-        limpiarFinal(n);
+        cerrarEncuentro(n, 'Sin combatientes activos', null);
         return n;
     }
     entrar(n, vivo, rng);
@@ -520,29 +521,45 @@ function siguienteInterno(c, rng) {
         const i = (Math.max(0, idx) + p) % lista.length;
         if (i === 0)
             n.ronda++;
-        if (lista[i].vida > 0) {
+        if (combatienteActivo(lista[i])) {
             entrar(n, lista[i], rng);
-            if (lista[i].vida > 0)
+            if (combatienteActivo(lista[i]))
                 return n;
         }
     }
-    n.fase = "finalizado";
-    n.actual = null;
-    limpiarFinal(n);
+    cerrarEncuentro(n, 'Sin combatientes activos', null);
     return n;
 }
-function registrar(c, fn) {
+function registrar(c, fn, rng = dadoSeguro) {
     const previo = copia(c);
     delete previo.historial;
-    const n = fn();
+    let n = fn();
+    if (c.fase === 'en_curso') {
+        for (const m of n.miembros) {
+            const anterior = c.miembros.find(x => x.id === m.id);
+            if (anterior && anterior.vida > 0 && m.vida <= 0 && !m.invocacion) {
+                const id = `derrota:${m.id}`;
+                if (!(n.eventos || []).some(e => e.id === id))
+                    (n.eventos ||= []).push({ id, tipo: 'enemigo_derrotado', actor: c.actual || undefined, objetivo: m.id, ronda: n.ronda });
+            }
+        }
+        const a = n.miembros.find(m => m.id === c.actual);
+        if (a)
+            a.contribucion = (a.contribucion || 0) + n.miembros.reduce((t, m) => { const antes = c.miembros.find(v => v.id === m.id); return t + (antes ? Math.max(0, m.bando !== a.bando ? antes.vida - m.vida : m.vida - antes.vida) : 0); }, 0);
+    }
+    evaluarCierre(n);
+    if (n.fase === 'en_curso' && n.actual && !n.miembros.some(m => m.id === n.actual && combatienteActivo(m))) {
+        n = siguienteInterno(n, rng);
+        evaluarCierre(n);
+    }
     n.historial = [...(c.historial || []), previo].slice(-10);
     return registrarCambiosVida(c, n);
 }
 export function iniciar(c, rng = dadoSeguro) {
-    return registrar(c, () => iniciarInterno(c, rng));
+    return registrar(c, () => iniciarInterno(c, rng), rng);
 }
 export function siguiente(c, rng = dadoSeguro) {
-    return registrar(c, () => siguienteInterno(c, rng));
+    return registrar(c, () => siguienteInterno(c, rng), rng);
 }
 export function deshacer(c) {
     const h = [...(c.historial || [])], previo = h.pop();
@@ -551,6 +568,54 @@ export function deshacer(c) {
     if (!previo)
         throw Error("No hay una acción anterior.");
     return registrarCambiosVida(c, { ...copia(previo), historial: h });
+}
+export function situacionCombatiente(m) { return m.situacion && m.situacion !== 'activo' ? m.situacion : m.vida <= 0 ? 'inconsciente' : 'activo'; }
+export function combatienteActivo(m) { return situacionCombatiente(m) === 'activo' && !m.neutral; }
+function cerrarEncuentro(n, motivo, ganador) {
+    if (n.cierre)
+        return;
+    const originales = copia(n.miembros);
+    n.fase = 'finalizado';
+    n.actual = null;
+    limpiarFinal(n);
+    if (motivo === 'Bando sin combatientes activos' || motivo === 'Sin combatientes activos') {
+        const activos = new Set(n.miembros.filter(combatienteActivo).map(m => m.bando));
+        ganador = activos.size === 1 ? activos.values().next().value ?? null : null;
+    }
+    n.cierre = { id: crypto.randomUUID(), motivo, ganador, ronda: n.ronda, participantes: originales.map(antes => { const m = n.miembros.find(m => m.id === antes.id) || antes; return { id: m.id, nombre: m.nombre, bando: m.bando, personaje_id: m.personaje_id, situacion: situacionCombatiente(m), invocado: !!antes.invocacion }; }) };
+    (n.eventos ||= []).push({ id: n.cierre.id, tipo: 'encuentro_finalizado', ronda: n.ronda });
+}
+function evaluarCierre(n) {
+    if (n.cierre || n.fase === 'preparacion')
+        return;
+    if (n.fase === 'finalizado') {
+        cerrarEncuentro(n, 'Sin combatientes activos', null);
+        return;
+    }
+    if (n.politica?.automatico === false)
+        return;
+    const bandos = new Set(n.miembros.filter(m => !m.neutral && !m.invocacion).map(m => m.bando));
+    if (bandos.size < 2)
+        return;
+    const activos = new Set(n.miembros.filter(combatienteActivo).map(m => m.bando));
+    if (activos.size <= 1)
+        cerrarEncuentro(n, 'Bando sin combatientes activos', activos.values().next().value ?? null);
+    else if (n.politica?.limite_rondas && n.ronda > n.politica.limite_rondas)
+        cerrarEncuentro(n, 'Límite de rondas', null);
+}
+export function resolverObjetivo(c, ganador, motivo = 'Objetivo cumplido') {
+    if (c.fase !== 'en_curso')
+        throw Error('Inicia el encuentro.');
+    return registrar(c, () => { const n = copia(c); cerrarEncuentro(n, motivo, ganador); return n; });
+}
+export function cambiarSituacion(c, id, situacion) {
+    if (c.fase !== 'en_curso')
+        throw Error('El encuentro no está en curso.');
+    if (!['activo', 'inconsciente', 'muerto', 'retirado', 'rendido', 'capturado'].includes(situacion))
+        throw Error('Situación inválida.');
+    return registrar(c, () => { const n = copia(c), m = n.miembros.find(m => m.id === id); if (!m)
+        throw Error('Participante no encontrado.'); m.situacion = situacion; if (situacion === 'muerto')
+        m.vida = 0; log(n, `${m.nombre}: ${situacion}.`); return n; });
 }
 function limpiarFinal(n) { n.miembros = n.miembros.filter(m => !m.invocacion); for (const m of n.miembros) {
     if (m.transformacion)
@@ -565,7 +630,8 @@ function limpiarFinal(n) { n.miembros = n.miembros.filter(m => !m.invocacion); f
     delete m.arma;
     normalizar(m);
 } log(n, 'Combate terminado: los estados temporales y armas efímeras desaparecen.'); }
-export function finalizar(c) { return registrar(c, () => { const n = copia(c); n.fase = 'finalizado'; n.actual = null; limpiarFinal(n); return n; }); }
+export function finalizar(c) { if (c.fase === 'finalizado')
+    return copia(c); return registrar(c, () => { const n = copia(c); cerrarEncuentro(n, 'Finalización manual del GM', null); return n; }); }
 export function descansar(c) {
     if (c.fase === "en_curso")
         throw Error("El descanso requiere terminar el combate.");
@@ -688,7 +754,7 @@ export function acciones(m) {
 function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
     const n = copia(c), a = n.miembros.find((m) => m.id === actorId);
     delete n.resultado;
-    if (n.fase !== "en_curso" || n.actual !== actorId || !a || a.vida <= 0)
+    if (n.fase !== "en_curso" || n.actual !== actorId || !a || !combatienteActivo(a))
         throw Error("Solo puede actuar el personaje de turno.");
     if (a.accion_usada)
         throw Error("Ya utilizó su acción.");
@@ -703,6 +769,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
         const posiciones = posicionesTablero(n);
         if (alcance && distanciaCasillas(posiciones[a.id], posiciones[t.id]) > alcance.alcance)
             throw Error('El destino está fuera del alcance de la habilidad.');
+        if (!lineaVisible(posiciones[a.id], posiciones[t.id], n.mapa))
+            throw Error('Un muro bloquea la trayectoria.');
         ejecutarRegla(n, a, entrada.clave, entrada.regla, a, t, rng, undefined, 0, true);
         a.accion_usada = true;
         return n;
@@ -779,8 +847,10 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
     if (tactica) {
         if (!punto || !alcanceDesde(posiciones[a.id], tactica, dimensionesTablero(n)).some(p => p.x === punto.x && p.y === punto.y))
             throw Error('El destino está fuera del alcance de la habilidad.');
+        if (!lineaVisible(posiciones[a.id], punto, n.mapa))
+            throw Error('Un muro bloquea la trayectoria.');
         const area = areaDesde(posiciones[a.id], punto, tactica, dimensionesTablero(n));
-        objetivos = n.miembros.filter(m => m.vida > 0 && objetivoDelArea(a, m, e) && area.some(p => p.x === posiciones[m.id].x && p.y === posiciones[m.id].y));
+        objetivos = n.miembros.filter(m => (m.vida > 0 || e.efecto === 'curacion' && situacionCombatiente(m) !== 'muerto') && objetivoDelArea(a, m, e) && area.some(p => p.x === posiciones[m.id].x && p.y === posiciones[m.id].y));
         if (!objetivos.length)
             throw Error('No hay objetivos válidos en el área.');
         // Snapshot de posiciones y objetivos: los desplazamientos no cambian a quién alcanza el lanzamiento.
@@ -897,7 +967,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         return n;
     }
     let arm = (estadisticas(t).armadura || 0) +
-        antes.reduce((v, r) => v + (r.bonos.armadura || 0), 0);
+        antes.reduce((v, r) => v + (r.bonos.armadura || 0), 0) + (n.mapa?.celdas[`${posicionesTablero(n)[t.id].x},${posicionesTablero(n)[t.id].y}`] === 'cobertura' && distanciaCasillas(posicionesTablero(n)[a.id], posicionesTablero(n)[t.id]) > 1 ? 2 : 0);
     if (tiene(t, "escarcha"))
         arm = Math.floor(arm / 2);
     arm = Math.max(0, arm -
@@ -1016,7 +1086,11 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     return n;
 }
 export function actuar(c, actorId, accionId, objetivoId, rng = dadoSeguro, forzar = false, centro) {
-    return registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro));
+    const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro), rng);
+    const actor = c.miembros.find(m => m.id === actorId), efecto = actor ? acciones(actor).find(a => a.id === accionId)?.efecto : undefined;
+    const pos = posicionesTablero(c);
+    n.evento_visual = { ...n.evento_visual, id: n.evento_visual?.id || crypto.randomUUID(), nombre: efecto?.nombre || accionId, dados: n.evento_visual?.dados || [], animacion: efecto?.animacion || 'impacto', desde: pos[actorId], hasta: centro || pos[objetivoId] || pos[actorId] };
+    return n;
 }
 export function mover(c, id, bando) {
     if (c.fase !== "preparacion")
@@ -1409,23 +1483,24 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
 }
 /** Tablero inicial sin editor de mapas. Las posiciones se guardan en el encuentro. */
 export function dimensionesTablero(c) {
-    return { columnas: 12, filas: Math.max(8, Math.ceil(c.miembros.length / 8) + 2) };
+    return c.mapa ? { columnas: c.mapa.columnas, filas: c.mapa.filas } : { columnas: 12, filas: Math.max(8, Math.ceil(c.miembros.length / 8) + 2) };
 }
 export function posicionesTablero(c) {
     const { columnas, filas } = dimensionesTablero(c), resultado = {}, ocupadas = new Set();
     const valida = (p) => Number.isInteger(p.x) && Number.isInteger(p.y) && p.x >= 0 && p.y >= 0 && p.x < columnas && p.y < filas;
     for (const m of c.miembros)
-        if (m.posicion && valida(m.posicion) && !ocupadas.has(`${m.posicion.x},${m.posicion.y}`)) {
+        if (m.posicion && valida(m.posicion) && !ocupadas.has(`${m.posicion.x},${m.posicion.y}`) && c.mapa?.celdas[`${m.posicion.x},${m.posicion.y}`] !== "muro") {
             resultado[m.id] = { ...m.posicion };
             ocupadas.add(`${m.posicion.x},${m.posicion.y}`);
         }
     for (const m of c.miembros)
         if (!resultado[m.id]) {
-            const columnasBando = m.bando === 'jugador' ? [1, 2, 3, 4, 0, 5, 6, 7, 8, 9, 10, 11] : [10, 9, 8, 7, 11, 6, 5, 4, 3, 2, 1, 0];
+            const xs = Array.from({ length: columnas }, (_, i) => (i + 1) % columnas);
+            const columnasBando = m.bando === 'jugador' ? xs : Array.from({ length: columnas }, (_, i) => (columnas - 2 - i + columnas) % columnas);
             for (const x of columnasBando) {
                 for (let y = 1; y <= filas; y++) {
                     const fila = y % filas;
-                    if (!ocupadas.has(`${x},${fila}`)) {
+                    if (!ocupadas.has(`${x},${fila}`) && c.mapa?.celdas[`${x},${fila}`] !== "muro") {
                         resultado[m.id] = { x, y: fila };
                         ocupadas.add(`${x},${fila}`);
                         break;
@@ -1455,9 +1530,10 @@ export function casillasAlcanzables(c, actorId) {
             continue;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const x = p.x + dx, y = p.y + dy, k = `${x},${y}`;
-            if (x < 0 || y < 0 || x >= columnas || y >= filas || ocupadas.has(k) || k in distancias)
+            const coste = c.mapa?.celdas[k] === 'dificil' ? 2 : 1;
+            if (x < 0 || y < 0 || x >= columnas || y >= filas || ocupadas.has(k) || c.mapa?.celdas[k] === 'muro' || d + coste > limite || (k in distancias && distancias[k] <= d + coste))
                 continue;
-            distancias[k] = d + 1;
+            distancias[k] = d + coste;
             cola.push({ x, y });
         }
     }
@@ -1467,7 +1543,7 @@ export function casillasAlcanzables(c, actorId) {
 export function desplazar(c, actorId, destino) {
     return registrar(c, () => {
         const actor = c.miembros.find(m => m.id === actorId);
-        if (c.fase !== 'en_curso' || c.actual !== actorId || !actor || actor.vida <= 0)
+        if (c.fase !== 'en_curso' || c.actual !== actorId || !actor || !combatienteActivo(actor))
             throw Error('Solo puedes moverte durante tu turno.');
         if (!destino || !Number.isInteger(destino.x) || !Number.isInteger(destino.y))
             throw Error('Casilla inválida.');
@@ -1480,6 +1556,7 @@ export function desplazar(c, actorId, destino) {
         const m = n.miembros.find(m => m.id === actorId);
         m.posicion = { ...destino };
         m.movimiento = { turno: m.turnos, gastado: (m.movimiento?.turno === m.turnos ? m.movimiento.gastado : 0) + coste };
+        aplicarTerreno(n, m);
         log(n, `${m.nombre} se mueve ${coste} casillas. Movimiento restante: ${movimientoRestante(m)}.`);
         return n;
     });
@@ -1555,12 +1632,14 @@ function secundariosTablero(c, a, t, e, centro, supera) {
                     break;
             }
             const pasos = Math.abs(dx) >= Math.abs(dy) ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }] : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
-            const siguiente = pasos.filter(v => v.x || v.y).map(v => ({ x: p.x + v.x, y: p.y + v.y })).find(v => v.x >= 0 && v.y >= 0 && v.x < dim.columnas && v.y < dim.filas && !ocupadas.has(`${v.x},${v.y}`));
+            const siguiente = pasos.filter(v => v.x || v.y).map(v => ({ x: p.x + v.x, y: p.y + v.y })).find(v => v.x >= 0 && v.y >= 0 && v.x < dim.columnas && v.y < dim.filas && !ocupadas.has(`${v.x},${v.y}`) && c.mapa?.celdas[`${v.x},${v.y}`] !== 'muro');
             if (!siguiente)
                 break;
             p = siguiente;
         }
         t.posicion = p;
+        if (distanciaCasillas(origen, p) > 0)
+            aplicarTerreno(c, t);
         log(c, `${t.nombre}: ${d.tipo === 'atraer' ? 'atraído' : 'empujado'} ${distanciaCasillas(origen, p)} casillas hasta (${p.x + 1}, ${p.y + 1}).`);
     }
     if (config.derribo && (config.derribo === 'siempre' || !supera)) {
@@ -1594,4 +1673,39 @@ export function cambiosVida(antes, despues) {
 }
 export function registrarCambiosVida(antes, despues) {
     return { ...despues, evento_visual: { id: crypto.randomUUID(), nombre: despues.miembros.find(m => m.id === despues.actual)?.nombre || 'Combate', dados: [], resultado: despues.resultado, cambios_vida: cambiosVida(antes, despues) } };
+}
+/** Obstáculos y terrenos del encuentro; los identificadores no representan navegación mundial. */
+export function configurarMapa(c, mapa) {
+    if (c.fase !== 'preparacion')
+        throw Error('El mapa se configura antes de iniciar.');
+    if (!Number.isInteger(mapa.columnas) || !Number.isInteger(mapa.filas) || mapa.columnas < 8 || mapa.columnas > 24 || mapa.filas < 8 || mapa.filas > 24)
+        throw Error('El mapa debe medir entre 8 y 24 casillas por lado.');
+    if (Object.entries(mapa.celdas).some(([k, t]) => { const [x, y] = k.split(',').map(Number); return !/^\d+,\d+$/.test(k) || x >= mapa.columnas || y >= mapa.filas || !['muro', 'dificil', 'cobertura', 'peligro'].includes(t); }))
+        throw Error('Terreno inválido.');
+    const n = copia(c);
+    n.mapa = copia(mapa);
+    const ps = posicionesTablero(n);
+    if (n.miembros.some(m => !ps[m.id]))
+        throw Error('No hay casillas libres para todos los participantes.');
+    for (const m of n.miembros)
+        m.posicion = ps[m.id];
+    return n;
+}
+export function lineaVisible(a, b, mapa) {
+    if (!mapa)
+        return true;
+    const pasos = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) * 4;
+    for (let i = 1; i <= pasos; i++) {
+        const x = Math.round(a.x + (b.x - a.x) * i / pasos), y = Math.round(a.y + (b.y - a.y) * i / pasos);
+        if (mapa.celdas[`${x},${y}`] === 'muro')
+            return false;
+    }
+    return true;
+}
+function aplicarTerreno(c, m, rng = dadoSeguro) {
+    const p = posicionesTablero(c)[m.id];
+    if (p && c.mapa?.celdas[`${p.x},${p.y}`] === 'peligro' && m.vida > 0) {
+        recibir(c, m, m, { ...basico(), efecto: 'dano' }, 2, [], rng);
+        log(c, `${m.nombre}: terreno peligroso, 2 de daño.`);
+    }
 }
