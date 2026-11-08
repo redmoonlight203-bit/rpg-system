@@ -120,7 +120,7 @@ export type Combatiente = {
   }[];
 };
 export type CambioVida = {id:string;delta:number};
-export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"forzado"};
+export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"carrera"|"forzado"};
 export type AparicionVisual = {id:string;animacion:string;posicion:Posicion;escala?:number};
 export type EventoVisual = {action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];desde?:Posicion;hasta?:Posicion};
 export type Combate = {
@@ -867,7 +867,8 @@ function resolverTurnoDescontrolado(c:Combate,actorId:string,rng:RNG){
  actor=c.miembros.find(m=>m.id===actorId);
  if(actor){actor.accion_usada=true;log(c,`${actor.nombre} descontrolado no encuentra un objetivo al que golpear este turno.`);}
 }
-function destinoAtaqueMovil(c:Combate,a:Combatiente,t:Combatiente,m:{tipo:'dash'|'salto'|'teletransporte';casillas:number;alcance_golpe:number}):Posicion {
+function destinoAtaqueMovil(c:Combate,a:Combatiente,t:Combatiente,m:NonNullable<AlcanceHabilidad['movimiento_lanzador']>):Posicion {
+ if(m.tipo==='carrera')throw Error('Una carrera debe utilizar el motor de trayectorias.');
  const posiciones=posicionesTablero(c),origen=posiciones[a.id],blanco=posiciones[t.id],dim=dimensionesTablero(c);
  if(!origen||!blanco)throw Error('La posición del atacante o del objetivo no existe.');
  if(distanciaCasillas(origen,blanco)<=m.alcance_golpe)return {...origen};
