@@ -1,3 +1,4 @@
+import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
@@ -56,6 +57,8 @@ export type Config = {
 };
 export type Posicion = { x: number; y: number };
 export type Combatiente = {
+  transformacion?: TransformacionActiva|null;
+  transformaciones_usadas?: string[];
   posicion?: Posicion;
   movimiento?: { turno: number; gastado: number };
   id: string;
@@ -455,8 +458,10 @@ function recibir(
     );
   }
   const perdido = Math.min(t.vida, Math.max(0, total));
-  t.vida -= perdido;
-  const cayo = perdido > 0 && t.vida <= 0;
+  const resultadoDano=danarTransformado(t,perdido);
+  Object.assign(t,resultadoDano.actor);
+  if(resultadoDano.forma_rota)log(c,`${t.nombre}: su forma se rompe y recupera su vida anterior.`);
+  const cayo = perdido > 0 && resultadoDano.muerto;
   log(c, `${t.nombre} recibe ${perdido} daño; vida ${t.vida}.`);
   if (perdido > 0) {
     activarReglas(c, a, t, alDano, rng);
@@ -545,6 +550,7 @@ function siguienteInterno(c: Combate, rng: RNG) {
     a = n.miembros.find((m) => m.id === n.actual);
   delete n.resultado;
   if (a) {
+    if(a.transformacion){const actualizado=avanzarTurnoTransformacion(a);Object.assign(a,actualizado);if(!a.transformacion)log(n,`${a.nombre}: termina su transformación.`);}
     emitirMotor(n, 'fin_turno', a, a, a, rng);
     caducarMotor(n,a,rng);
     if (
@@ -612,7 +618,7 @@ export function deshacer(c: Combate) {
   if (!previo) throw Error("No hay una acción anterior.");
   return registrarCambiosVida(c,{ ...copia(previo), historial: h });
 }
-function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);m.estados=[];if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
+function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){if(m.transformacion)Object.assign(m,terminarTransformacion(m));m.transformaciones_usadas=[];emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);m.estados=[];if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
 export function finalizar(c:Combate){return registrar(c,()=>{const n=copia(c);n.fase='finalizado';n.actual=null;limpiarFinal(n);return n;});}
 export function descansar(c: Combate) {
   if (c.fase === "en_curso")
@@ -751,6 +757,13 @@ function actuarInterno(
   const act = acciones(a).find((v) => v.id === accionId);
   if (!act) throw Error("La acción no existe.");
   if ((a.cooldowns[act.id] || 0) > 0) throw Error("Habilidad en enfriamiento.");
+  if(act.efecto.efecto==="transformacion"){
+    const d=act.efecto.transformacion;
+    if(!d)throw Error("Transformación sin configurar.");
+    if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");Object.assign(a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id));log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
+    else{if(a.transformaciones_usadas?.includes(d.id))throw Error("Transformación ya utilizada en esta partida.");if(phDisponibles(a)<(act.efecto.coste_ph||0))throw Error("PH insuficientes.");Object.assign(a,activarTransformacion(a,{...d,coste_ph:act.efecto.coste_ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos}));log(n,`${a.nombre} activa ${d.nombre}.`);}
+    a.accion_usada=true;normalizar(a);return n;
+  }
   let e = act.efecto;
   const
     s = estadisticas(a),
@@ -825,6 +838,7 @@ function actuarInterno(
 }
 function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accion,rng:RNG,centro?:Posicion){
   const s=estadisticas(a);
+  if (e.efecto === "transformacion")throw Error("Transformación solo puede ejecutarse sobre el usuario.");
   if (e.efecto !== "dano") {
     const supera = e.salvacion
       ? salvacion(n, t, e.salvacion.cd, e.salvacion.atributo, rng)
