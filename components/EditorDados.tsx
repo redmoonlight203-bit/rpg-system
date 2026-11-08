@@ -1,4 +1,6 @@
 "use client";
+import IconoYugen from './IconoYugen';
+import ListaArrastrable from './ListaArrastrable';
 import {useState} from 'react';
 import {EditorTransformacion} from './EditorTransformacion';
 import {dadoSeguro,elementoDe} from '../lib/combate';
@@ -43,9 +45,9 @@ export function EditorDados({value,onChange,disabled=false,armas=[]}:{value:Efec
  }
  return <section className="yunque-editor space-y-5">
   <header><p className="yunque-eyebrow">Acciones del personaje u objeto</p><h2>¿Qué ocurre al usarlo?</h2><p>Una acción se elige durante el turno y consume la acción del personaje. Empieza por el resultado que buscas.</p></header>
-  <fieldset disabled={disabled||value.length>=20} className="yunque-opciones" aria-label="Añadir una acción">{tipos.map(t=><button type="button" className="yunque-opcion" key={t.tipo} onClick={()=>agregar(t.tipo)}><strong>+ {t.nombre}</strong><span>{t.ayuda}</span></button>)}<button type="button" className="yunque-opcion" onClick={()=>agregar('dano',true)}><strong>+ Ataque con dash / embestida</strong><span>Se acerca al objetivo y lo golpea en una sola acción. Luego puedes convertirlo en salto o teletransporte.</span></button></fieldset>
+  <fieldset disabled={disabled||value.length>=20} className="yunque-opciones" aria-label="Añadir una acción">{tipos.map(t=><button type="button" className="yunque-opcion" key={t.tipo} onClick={()=>agregar(t.tipo)}><IconoYugen id={{transformacion:"alma",dano:"espada",curacion:"pocion",crear_arma:"yunque",estado:"fuego",recuperar_ph:"alma",reducir_fatiga:"escudo"}[t.tipo]||"yugen"} size={32}/><strong>+ {t.nombre}</strong><span>{t.ayuda}</span></button>)}<button type="button" className="yunque-opcion" onClick={()=>agregar('dano',true)}><IconoYugen id="espada" size={32}/><strong>+ Ataque con dash / embestida</strong><span>Se acerca al objetivo y lo golpea en una sola acción. También permite salto o teletransporte.</span></button></fieldset>
   {!value.length&&<p className="yunque-ayuda">Todavía no hay acciones. Los objetos que solo aportan atributos, como una armadura, pueden guardarse así.</p>}
-  {value.map((e,index)=>{
+  <ListaArrastrable items={value} onChange={onChange} nombre="acciones" disabled={disabled} render={(e,index)=>{
    const ayuda=describirEfecto({...e,descripcion:undefined});
    const error=validarEfectos([e]);
    const patch=(p:Partial<Efecto>)=>cambiar(e.id,p);
@@ -86,7 +88,7 @@ export function EditorDados({value,onChange,disabled=false,armas=[]}:{value:Efec
      {prueba?.id===e.id&&<p role="status" className="yunque-resumen">{prueba.texto}</p>}
     </fieldset>
    </details>;
-  })}
+  }}/>
   {value.length>=20&&<p className="yunque-aviso">Has llegado al máximo de 20 acciones.</p>}
  </section>;
 }

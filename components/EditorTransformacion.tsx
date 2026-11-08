@@ -1,5 +1,6 @@
 "use client";
 
+import ListaArrastrable from './ListaArrastrable';
 import {useRef,useState} from "react";
 import {prepararPortada,validarPortada} from "../lib/imagenes-creacion";
 import {EditorReglas} from "./EditorReglas";
@@ -209,11 +210,11 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
         </label>
         <p className="text-xs text-neutral-400">Forma: al agotar sus HP vuelve al cuerpo original. Poder: los HP no se restauran y puede morir. Solo una activación por encuentro; avanzar de etapa consume una acción, sin pagar de nuevo la activación.</p>
       </div>
-      {d.etapas.map((etapa,i)=>
+      <ListaArrastrable items={d.etapas} onChange={etapas=>onChange({...d,etapas})} nombre="etapas" render={(etapa,i)=>
         <EditorEtapa key={etapa.id} etapa={etapa} numero={i+1} tipo={d.tipo} acciones={acciones} total={d.etapas.length}
           onChange={siguiente=>actualizar(etapa.id,siguiente)}
           onEliminar={()=>onChange({...d,etapas:d.etapas.filter(e=>e.id!==etapa.id)})}/>
-      )}
+      }/>
       <button type="button" className={boton+" w-full"} disabled={d.etapas.length>=12} onClick={agregar}>+ Añadir etapa (copiar atributos de la anterior)</button>
       <div className="space-y-3 rounded-xl border border-rose-800/70 bg-rose-950/10 p-3">
        <label className="flex items-center gap-2 font-semibold">

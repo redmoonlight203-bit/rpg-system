@@ -1,4 +1,5 @@
 "use client";
+import ListaArrastrable from './ListaArrastrable';
 import {ResumenYunque} from "./AyudaYunque";
 import {validarPasivas, type ReglaPasiva } from "../lib/pasivas";
 const campo =
@@ -61,7 +62,7 @@ export function EditorPasivas({
       >
         + Ejemplo: Escamas de dragón
       </button>
-      {value.map((r) => (
+      <ListaArrastrable items={value} onChange={onChange} nombre="pasivas" render={(r) => (
         <details key={r.id} open={value.length===1} className="yunque-tarjeta"><summary>{r.nombre||"Nueva pasiva"}<small>{r.evento==="permanente"?"Beneficio mientras se cumpla su condición":"Reacción automática durante el combate"}</small></summary><div className="yunque-contenido">
           <label className="block">
             Nombre
@@ -277,7 +278,7 @@ export function EditorPasivas({
             Quitar regla
           </button>
         </div></details>
-      ))}
+      )}/>
     </section>
   );
 }

@@ -125,3 +125,4 @@
 .cg-action-help:focus-visible{outline:2px solid #dbb36b;outline-offset:3px}
 @media(hover:none){.cg-open:hover:not(:focus-visible) .cg-tooltip{display:none}}
 .cg-tooltip .help-summary,.cg-effect-tooltip .help-summary{overflow-wrap:anywhere;white-space:pre-line}
+.cg-alma-estado{display:inline-flex;border:1px solid #8a73b2;border-radius:20px;padding:3px 9px;font-size:10px;color:#d5c2f1;background:#36254566}

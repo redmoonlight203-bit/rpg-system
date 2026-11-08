@@ -96,8 +96,8 @@ export function ForjaOperacion({
     e.preventDefault();
     if (bloqueo.current) return;
     const n = Number(cantidad);
-    if (!Number.isInteger(n) || n < 1 || n > 50)
-      return setError("Usa una cantidad de 1 a 50.");
+    if (!Number.isInteger(n) || n < 1 || n > (item.ligado_al_alma?1:50))
+      return setError(item.ligado_al_alma?"Una creación ligada al alma tiene una única copia.":"Usa una cantidad de 1 a 50.");
     if (
       modo === "inventario" &&
       !(alAlma
@@ -218,13 +218,13 @@ export function ForjaOperacion({
           </label>
         )}
         <label className="block space-y-2 text-sm">
-          <span>Cantidad de copias</span>
+          <span>{item.ligado_al_alma?"Una única pertenencia del alma":"Cantidad de copias"}</span>
           <input
-            disabled={ocupado || !!negociacionId}
+            disabled={ocupado || !!negociacionId || !!item.ligado_al_alma}
             required
             type="number"
             min="1"
-            max="50"
+            max={item.ligado_al_alma?1:50}
             step="1"
             className={input}
             value={cantidad}
