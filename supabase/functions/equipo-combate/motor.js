@@ -1,4 +1,5 @@
 // GENERADO por scripts/preparar-motor-edge.mjs. No editar directamente.
+const { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado } = (() => {
 function maxVidaForma(stats) {
     return Math.max(1, Math.trunc(stats.vida ?? stats.hp ?? 1));
 }
@@ -67,6 +68,9 @@ function avanzarTurnoTransformacion(actor) {
         return terminarTransformacion(actor);
     return { ...actor, transformacion: { ...activa, turnos_restantes: activa.turnos_restantes - 1 } };
 }
+
+return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado };
+})();
 export function validarRequisitos(r) {
     if (r === undefined)
         return null;

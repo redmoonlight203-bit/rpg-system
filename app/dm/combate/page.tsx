@@ -1,5 +1,5 @@
 "use client";
-import {useTiempoReal} from "../../../lib/useTiempoReal";
+import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {elegirVariante,prepararVariante,type ConfiguracionMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
@@ -121,8 +121,17 @@ export default function CampoCombate() {
     (m.configuracion.reserva||=[]).push(r.data as Fuente);await guardar(next);
     const contexto=await consultarEquipo({combate_id:id,actor_id:m.id,consultar:true});setEditorEquipo({actor:m.id,contexto});
   }
-  useTiempoReal(async()=>{if(!['preparacion','en_curso'].includes(c.fase)||bloqueo.current)return;const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(!bloqueo.current&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}});
-  useEffect(()=>{if(!['preparacion','en_curso'].includes(c.fase))return;let vivo=true,leyendo=false;const t=setInterval(()=>{if(bloqueo.current||leyendo||document.hidden)return;leyendo=true;void(async()=>{try{const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(vivo&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}}catch{/* Se reintentará en la próxima consulta. */}finally{leyendo=false;}})();},3000);return()=>{vivo=false;clearInterval(t);};},[id,version,c.fase]);
+  const revisionRemota=useRef({id,version});
+  revisionRemota.current={id,version};
+  useSincronizacionCombate(async()=>{
+    if(bloqueo.current)return false;
+    const solicitud={id,version};
+    const r=await supabase.rpc('combate_consultar_revision',{p_id:id,p_version:version});
+    if(r.error)throw Error(r.error.message);
+    if(bloqueo.current)return false;
+    if(revisionRemota.current.id!==solicitud.id)return;
+    if(r.data&&!r.data.sin_cambios&&r.data.version>revisionRemota.current.version){setC(r.data.datos as Combate);setVersion(r.data.version);}
+  },id,['preparacion','en_curso'].includes(c.fase));
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);

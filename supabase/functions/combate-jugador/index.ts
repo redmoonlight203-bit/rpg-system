@@ -16,7 +16,8 @@ Deno.serve(async req=>{
   if(body.combate_id!=null&&(typeof body.combate_id!=='string'||!/^[0-9a-f-]{36}$/i.test(body.combate_id)))throw Error('Encuentro inválido.');
   if(body.combate_id&&(typeof body.actor_id!=='string'||body.actor_id.length>100))throw Error('Selecciona un participante.');
   const args={p_usuario:user.id,p_combate:body.combate_id||null,p_actor:body.actor_id||null};
-  let ctx=await rpc('jugador_contexto_servidor',args);
+  let ctx=await rpc('jugador_consultar_rapido_servidor',{...args,p_version:!body.operacion&&Number.isInteger(body.version)?body.version:null});
+  if(ctx.sin_cambios)return respuesta(ctx);
   if(!body.combate_id){if(body.operacion)throw Error('Selecciona un encuentro.');return respuesta({encuentros:ctx});}
   const dados=[];const rng=caras=>{const valor=dadoSeguro(caras);dados.push({caras,valor});return valor;};
   let resultado;
@@ -33,10 +34,10 @@ Deno.serve(async req=>{
     next=actuar(c,m.id,body.accion_id,body.objetivo_id,rng,body.forzar===true,body.centro);resultado=next.resultado;
    }else throw Error('Operación no permitida.');
    if(body.operacion!=='mover')next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:m.nombre,dados,resultado};
-   await rpc('jugador_confirmar_servidor',{...args,p_version:ctx.version,p_datos:next});
-   ctx=await rpc('jugador_contexto_servidor',args);
+   delete next.historial;
+   ctx=await rpc('jugador_confirmar_rapido_servidor',{...args,p_version:ctx.version,p_datos:next});
   }
-  const c=ctx.combate,m=ctx.actor;
-  return respuesta({id:ctx.id,nombre:ctx.nombre,version:ctx.version,fase:c.fase,ronda:c.ronda,actual:c.miembros.find(x=>x.id===c.actual)?.nombre||'',es_turno:c.fase==='en_curso'&&c.actual===m.id,evento_visual:c.evento_visual,actual_id:c.actual,tablero:dimensionesTablero(c),movimiento_restante:movimientoRestante(m),alcanzables:casillasAlcanzables(c,m.id),registro:c.registro.slice(0,12),actor:{derribado:m.estados.some(e=>e.tipo==='derribado'),agotado:m.agotado,imagen_url:m.configuracion.imagen_url,id:m.id,personaje_id:m.personaje_id,nombre:m.nombre,vida:m.vida,max_vida:maxVida(m),ph:phDisponibles(m),fatiga:m.fatiga,stats:estadisticas(m),accion_usada:m.accion_usada,estados:m.estados.map(e=>e.nombre)},acciones:acciones(m).map(a=>({...a,enfriamiento:a.regla?Math.max(0,(m.motor?.proximos[a.regla]||0)-m.turnos):m.cooldowns[a.id]||0})),objetivos:c.miembros.map(x=>({id:x.id,nombre:x.nombre,bando:x.bando,caido:x.vida<=0,vida:x.vida,max_vida:maxVida(x),imagen_url:x.configuracion.imagen_url,estados:x.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[x.id]})),dados,resultado});
+  const c=ctx.combate,m=ctx.actor,posiciones=posicionesTablero(c);
+  return respuesta({propios:ctx.propios,id:ctx.id,nombre:ctx.nombre,version:ctx.version,fase:c.fase,ronda:c.ronda,actual:c.miembros.find(x=>x.id===c.actual)?.nombre||'',es_turno:c.fase==='en_curso'&&c.actual===m.id,evento_visual:c.evento_visual,actual_id:c.actual,tablero:dimensionesTablero(c),movimiento_restante:movimientoRestante(m),alcanzables:casillasAlcanzables(c,m.id),registro:c.registro.slice(0,12),actor:{derribado:m.estados.some(e=>e.tipo==='derribado'),agotado:m.agotado,imagen_url:m.configuracion.imagen_url,id:m.id,personaje_id:m.personaje_id,nombre:m.nombre,vida:m.vida,max_vida:maxVida(m),ph:phDisponibles(m),fatiga:m.fatiga,stats:estadisticas(m),accion_usada:m.accion_usada,estados:m.estados.map(e=>e.nombre)},acciones:acciones(m).map(a=>({...a,enfriamiento:a.regla?Math.max(0,(m.motor?.proximos[a.regla]||0)-m.turnos):m.cooldowns[a.id]||0})),objetivos:c.miembros.map(x=>({id:x.id,nombre:x.nombre,bando:x.bando,caido:x.vida<=0,vida:x.vida,max_vida:maxVida(x),imagen_url:x.configuracion.imagen_url,estados:x.estados.map(e=>e.nombre),posicion:posiciones[x.id]})),dados,resultado});
  }catch(e){return respuesta({error:e.message||'No se pudo completar la acción.'},400);}
 });
