@@ -7,6 +7,7 @@ import type {AnimacionEtapa} from "./vfx";
 import type {Regla} from './reglas';
 export type TipoTransformacion = 'forma' | 'poder';
 export type EtapaTransformacion = {
+  descripcion?:string;
   vfx?:AnimacionEtapa;
   id:string;
   nombre:string;
