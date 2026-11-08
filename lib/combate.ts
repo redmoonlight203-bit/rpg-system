@@ -300,6 +300,24 @@ export function agregar(
   );
   return n;
 }
+/** Incorporate a prepared party as one change; existing members never reroll initiative. */
+export function agregarParty(c:Combate, fuentes:(Parameters<typeof agregar>[1]&{personaje_id?:string;requiere_configuracion?:boolean})[], bando:Bando, rng:RNG=dadoSeguro):Combate {
+  if(c.fase!=='preparacion')throw Error('Añade la party antes de iniciar el combate.');
+  if(!fuentes.length)throw Error('La party no tiene integrantes disponibles.');
+  const vistos=new Set<string>();
+  const nuevos=fuentes.filter(f=>{
+    if(!f.personaje_id||vistos.has(f.personaje_id))throw Error('La party contiene un personaje repetido o inválido.');
+    vistos.add(f.personaje_id);
+    const actual=c.miembros.find(m=>m.personaje_id===f.personaje_id);
+    if(actual&&actual.bando!==bando)throw Error(`${f.nombre} ya está en otro bando del encuentro.`);
+    if(f.requiere_configuracion||!(f.stats.vida>0||f.stats.hp>0))throw Error(`Configura la vida de ${f.nombre} en su ficha antes de añadir la party.`);
+    return !actual;
+  });
+  if(c.miembros.length+nuevos.length>100)throw Error('La party completa excede el máximo de cien participantes.');
+  let next=c;
+  for(const f of nuevos)next=agregar(next,copia({...f,nivel:f.nivel??f.stats.nivel??1}),bando,rng);
+  return next;
+}
 function orden(c: Combate) {
   return c.miembros
     .map((m, i) => ({ m, i }))

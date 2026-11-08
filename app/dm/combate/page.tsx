@@ -28,7 +28,7 @@ import {escalarMalla,type RangoNivel} from "../../../lib/progresion";
 import {
   nuevoCombate,
   posicionesTablero, dimensionesTablero, casillasAlcanzables, movimientoRestante, desplazar, levantarse, phDisponibles, registrarCambiosVida,
-  agregar,
+  agregar, agregarParty,
   mover,
   retirar,
   iniciar,
@@ -121,8 +121,8 @@ export default function CampoCombate() {
     (m.configuracion.reserva||=[]).push(r.data as Fuente);await guardar(next);
     const contexto=await consultarEquipo({combate_id:id,actor_id:m.id,consultar:true});setEditorEquipo({actor:m.id,contexto});
   }
-  useTiempoReal(async()=>{if(c.fase!=='en_curso'||bloqueo.current)return;const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(!bloqueo.current&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}});
-  useEffect(()=>{if(c.fase!=='en_curso')return;let vivo=true,leyendo=false;const t=setInterval(()=>{if(bloqueo.current||leyendo||document.hidden)return;leyendo=true;void(async()=>{try{const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(vivo&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}}catch{/* Se reintentará en la próxima consulta. */}finally{leyendo=false;}})();},3000);return()=>{vivo=false;clearInterval(t);};},[id,version,c.fase]);
+  useTiempoReal(async()=>{if(!['preparacion','en_curso'].includes(c.fase)||bloqueo.current)return;const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(!bloqueo.current&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}});
+  useEffect(()=>{if(!['preparacion','en_curso'].includes(c.fase))return;let vivo=true,leyendo=false;const t=setInterval(()=>{if(bloqueo.current||leyendo||document.hidden)return;leyendo=true;void(async()=>{try{const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(vivo&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}}catch{/* Se reintentará en la próxima consulta. */}finally{leyendo=false;}})();},3000);return()=>{vivo=false;clearInterval(t);};},[id,version,c.fase]);
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
@@ -425,24 +425,25 @@ export default function CampoCombate() {
         throw Error("Añade personajes durante la preparación.");
       if (!catalogo.some((p) => p.id === origenId && p.origen === origen))
         throw Error("Solo se admiten personajes del catálogo.");
-      if (c.miembros.length >= 100) throw Error("Máximo cien participantes.");
-      if (
-        origen === "jugador" &&
-        c.miembros.some((m) => m.personaje_id === origenId)
-      )
-        throw Error("Este jugador ya está en el campo.");
+      if(origen==='jugador'){
+        const r=await supabase.rpc('combate_preparar_party',{p_personaje:origenId});
+        if(r.error)throw Error(r.error.message);
+        const fuentes=r.data as Preparado[];
+        if(!Array.isArray(fuentes))throw Error('No se pudo preparar la party.');
+        const next=agregarParty(c,fuentes,bando);
+        if(next===c){setResumen('Todos los integrantes de esta party ya están en el campo.');return;}
+        await guardar(next);
+        const nuevos=next.miembros.filter(m=>!c.miembros.some(x=>x.id===m.id));
+        mostrarIniciativa(nuevos[0]);
+        setResumen(`Entran juntos: ${nuevos.map(m=>m.nombre).join(', ')}.`);
+        return;
+      }
+      if(c.miembros.length>=100)throw Error('Máximo cien participantes.');
       const plantilla=catalogo.find(p=>p.id===origenId&&p.origen===origen);
       if(!plantilla)throw Error("No se encontró la plantilla.");
-      const nivel=origen==="jugador"?(plantilla.nivel||1):Math.max(1,Math.min(plantilla.nivel_maximo||100,Math.floor(nivelSolicitado??nivelesSeleccionados[origenId]??plantilla.nivel??1)));
+      const nivel=Math.max(1,Math.min(plantilla.nivel_maximo||100,Math.floor(nivelSolicitado??nivelesSeleccionados[origenId]??plantilla.nivel??1)));
       if(!Number.isFinite(nivel))throw Error("Selecciona un nivel válido.");
-      const r =
-        origen === "jugador"
-          ? await supabase.rpc("combate_preparar_jugador", {
-              p_personaje: origenId,
-            })
-          : await supabase.rpc("combate_preparar_personaje", {
-              p_forja: origenId,
-            });
+      const r = await supabase.rpc('combate_preparar_personaje',{p_forja:origenId});
       if (r.error) throw Error(r.error.message);
       let f = r.data as Preparado;
       if(plantilla.imagen_url)f={...f,configuracion:{...f.configuracion,imagen_url:plantilla.imagen_url}};
@@ -453,20 +454,6 @@ export default function CampoCombate() {
         f={...f,nivel,stats:{...f.stats,...actualizadas,nivel},configuracion:{...f.configuracion,stats_base:{...(f.configuracion.stats_base||{}),...escaladas,nivel}}};
       }else{
         f={...f,nivel,stats:{...f.stats,nivel},configuracion:{...f.configuracion,stats_base:{...(f.configuracion.stats_base||{}),nivel}}};
-      }
-      if (origen === "jugador" && f.requiere_configuracion) {
-        setVitales({
-          vida: Math.max(1, f.stats.vida ?? f.stats.hp ?? 1),
-          armadura: f.stats.armadura || 0,
-          ph: f.stats.ph || 0,
-          fatiga: f.stats.fatiga || 0,
-          iniciativa: f.stats.iniciativa || 0,
-          bono_impacto: f.stats.bono_impacto || 0,
-          dano: f.stats.dano || 0,
-          salvacion: f.stats.salvacion || 0,
-        });
-        setPendiente({ f, bando });
-        return;
       }
       const config=plantilla.configuracion_monstruo;
       const seleccion=variantesSeleccionadas[origenId]||'aleatorio';
