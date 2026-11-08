@@ -1709,6 +1709,7 @@ export function areaDesde(origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{
 }
 export function objetivoDelArea(a:{id:string;bando:string},t:{id:string;bando:string},e:Efecto){
  const area=e.tablero;if(!area)return false;
+ if(e.efecto==='dano'&&a.id===t.id&&area.afecta_lanzador===false)return false;
  if(area.origen_area==='recorrido'&&a.id===t.id)return false;
  if(e.efecto==='dano'&&area.forma!=='individual'&&a.id===t.id)return true;
  if((a as Combatiente).transformacion?.descontrolada&&e.efecto==='dano')return a.id!==t.id;
