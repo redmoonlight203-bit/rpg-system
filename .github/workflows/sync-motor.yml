@@ -1,0 +1,36 @@
+name: Sincronizar motor Edge
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/combate.ts'
+      - 'lib/transformaciones.ts'
+      - 'scripts/preparar-motor-edge.mjs'
+      - '.github/workflows/sync-motor.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Generar motor Edge desde TypeScript
+        run: node scripts/preparar-motor-edge.mjs
+      - name: Guardar motor sincronizado
+        run: |
+          if ! git diff --quiet -- supabase/functions/equipo-combate/motor.js; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add supabase/functions/equipo-combate/motor.js
+            git commit -m 'build: regenerar motor Edge desde código TypeScript'
+            git push origin HEAD:main
+          fi
