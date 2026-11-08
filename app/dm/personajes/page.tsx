@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Users, Heart, Skull, Check, Search, Moon, Shield } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
@@ -105,7 +106,8 @@ export default function GestionPersonajes() {
       setCargando(false);
     }
   }, []);
-  useEffect(() => {
+  useTiempoReal(()=>{if(!ocupado)return cargar();});
+ useEffect(() => {
     void cargar();
   }, [cargar]);
   async function ejecutar(fn: () => Promise<void>) {

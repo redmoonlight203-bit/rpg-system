@@ -746,11 +746,11 @@ function actuarInterno(
   if(tactica){
     if(!punto||!alcanceDesde(posiciones[a.id],tactica,dimensionesTablero(n)).some(p=>p.x===punto.x&&p.y===punto.y))throw Error('El destino está fuera del alcance de la habilidad.');
     const area=areaDesde(posiciones[a.id],punto,tactica,dimensionesTablero(n));
-    objetivos=n.miembros.filter(m=>m.vida>0&&objetivoPermitido(a,m,tactica)&&area.some(p=>p.x===posiciones[m.id].x&&p.y===posiciones[m.id].y));
+    objetivos=n.miembros.filter(m=>m.vida>0&&objetivoDelArea(a,m,e)&&area.some(p=>p.x===posiciones[m.id].x&&p.y===posiciones[m.id].y));
     if(!objetivos.length)throw Error('No hay objetivos válidos en el área.');
     // Snapshot de posiciones y objetivos: los desplazamientos no cambian a quién alcanza el lanzamiento.
     for(const m of n.miembros)m.posicion=posiciones[m.id];
-    objetivos.sort((u,v)=>distanciaCasillas(posiciones[u.id],punto)-distanciaCasillas(posiciones[v.id],punto)||u.id.localeCompare(v.id));
+    objetivos.sort((u,v)=>(e.efecto==='dano'&&tactica.forma!=='individual'?Number(u.id===a.id)-Number(v.id===a.id):0)||distanciaCasillas(posiciones[u.id],punto)-distanciaCasillas(posiciones[v.id],punto)||u.id.localeCompare(v.id));
   }
   if(typeof coste!=='number'||!Number.isFinite(coste)||coste<0)throw Error('Coste de PH inválido.');
   if (phDisponibles(a) < coste) throw Error("PH insuficientes.");
@@ -1356,7 +1356,11 @@ export function areaDesde(origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{
  }
  return resultado;
 }
-function objetivoPermitido(a:Combatiente,t:Combatiente,e:AlcanceHabilidad){return e.afecta==='todos'||e.afecta==='yo'&&a.id===t.id||e.afecta==='aliados'&&a.bando===t.bando||e.afecta==='enemigos'&&a.bando!==t.bando;}
+export function objetivoDelArea(a:{id:string;bando:string},t:{id:string;bando:string},e:Efecto){
+ const area=e.tablero;if(!area)return false;
+ if(e.efecto==='dano'&&area.forma!=='individual'&&a.id===t.id)return true;
+ return area.afecta==='todos'||area.afecta==='yo'&&a.id===t.id||area.afecta==='aliados'&&a.bando===t.bando||area.afecta==='enemigos'&&a.bando!==t.bando;
+}
 function secundariosTablero(c:Combate,a:Combatiente,t:Combatiente,e:Efecto,centro:Posicion|undefined,supera:boolean){
  const config=e.tablero;if(!config||!centro||t.vida<=0)return;
  const d=config.desplazamiento;

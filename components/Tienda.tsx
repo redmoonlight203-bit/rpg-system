@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../lib/useTiempoReal";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -39,7 +40,8 @@ export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
   }catch(e){setOfertas([]);setPermitido(false);setError(e instanceof Error?e.message:(e as {message?:string}).message||"No se pudo cargar la tienda.");}
   finally{if(inicial)setCargando(false);}
  },[gm,almas]);
- useEffect(()=>{void cargar(true);const reloj=setInterval(()=>{if(!document.hidden)void cargar();},5000);const enfocar=()=>void cargar();window.addEventListener("focus",enfocar);return()=>{clearInterval(reloj);window.removeEventListener("focus",enfocar);};},[cargar]);
+ useTiempoReal(()=>{if(!bloqueo.current)return cargar();});
+ useEffect(()=>{void cargar(true);},[cargar]);
  function elegir(p:Plantilla){setElegida(p);setDescripcion(p.descripcion||"");setAviso("");setError("");}
  async function operar(accion:string,id?:string){
   if(bloqueo.current)return;bloqueo.current=true;setOcupado(true);setError("");setAviso("");

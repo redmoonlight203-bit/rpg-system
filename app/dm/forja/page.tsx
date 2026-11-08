@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../../../lib/useTiempoReal";
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {Hammer,Swords,Layers} from "lucide-react";
@@ -44,11 +45,12 @@ export default function Forja(){
  const [padre,setPadre]=useState<{b:Borrador;tipo:"objeto"|"titulo"|"habilidad"|"pasiva";slot?:string}|null>(null);
  const [revision,setRevision]=useState(0),[preparados,setPreparados]=useState(false),[verPeticiones,setVerPeticiones]=useState(false);
  const [operacion,setOperacion]=useState<{item:Creacion;modo:"inventario"|"batalla"}|null>(null);const bloqueo=useRef(false);
- async function cargar(){setCargando(true);setError("");try{
+ async function cargar(inicial=true){if(inicial)setCargando(true);setError("");try{
   const [c,a,f,p]=await Promise.all([supabase.from("categorias_forja").select("*").order("created_at"),supabase.from("config_estadisticas").select("*"),supabase.from("forja_maestra").select("*").order("created_at",{ascending:false}),supabase.from("creaciones_forja").select("id,nombre,descripcion,user_id").eq("estado","pendiente")]);
   const fallo=c.error||a.error||f.error||p.error;if(fallo)throw new Error(fallo.message);
   setCategorias(c.data||[]);setAtributos(a.data||[]);setCreaciones((f.data||[]) as Creacion[]);setPeticiones(p.data||[]);
  }catch(e){setError(e instanceof Error?e.message:"No se pudo cargar la Forja.");}finally{setCargando(false);}}
+ useTiempoReal(()=>cargar(false));
  useEffect(()=>{void cargar();},[]);
  const clasificaciones=subcategorias(categorias),activas=creaciones.filter(f=>f.estado==="aprobado");
  const opcionesClasificacion=clasificacionesPara(b.tipo,categorias).filter(c=>b.tipo!=="personaje"||esMonstruo(categorias,c.clave)===b.ramaMonstruo);

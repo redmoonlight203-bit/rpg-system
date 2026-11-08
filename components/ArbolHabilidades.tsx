@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../lib/useTiempoReal";
 import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
 import Link from 'next/link';
 import {GitBranch,Plus,Sparkles,Lock,Check,Trash2,Save,ArrowLeft,TrendingUp,RefreshCw} from 'lucide-react';
@@ -28,6 +29,7 @@ export default function ArbolHabilidades({gm=false}:{gm?:boolean}){
   const r=await supabase.rpc('arbol_leer',{p_personaje:Number(id)});if(r.error)throw r.error;
   if(num===peticion.current&&eleccionActual.current===id){setLectura(r.data as Lectura);setPersonajes(prev=>prev.map(p=>String(p.id)===id?(r.data as Lectura).personaje:p));}
  }catch(e){if(num===peticion.current&&eleccionActual.current===id)setError((e as Error).message);}},[id]);
+ useTiempoReal(cargar);
  useEffect(()=>{if(!id)return;void cargar();const canal=supabase.channel(`arbol-${gm?'gm':'pj'}-${id}`).on('postgres_changes',{event:'*',schema:'public',table:'arbol_nodos',filter:`personaje_id=eq.${id}`},()=>void cargar()).on('postgres_changes',{event:'UPDATE',schema:'public',table:'personajes',filter:`id=eq.${id}`},()=>void cargar()).subscribe(estado=>setSincronizado(estado==='SUBSCRIBED'));
   const refrescar=()=>{if(!document.hidden)void cargar();};const t=setInterval(refrescar,5000);window.addEventListener('focus',refrescar);return()=>{clearInterval(t);window.removeEventListener('focus',refrescar);void supabase.removeChannel(canal);};},[id,gm,cargar]);
  const nodos=lectura?.nodos||[],pj=lectura?.personaje,actual=nodos.find(n=>n.id===seleccion),mapa=useMemo(()=>distribuirArbol(lectura?.nodos||[]),[lectura]);

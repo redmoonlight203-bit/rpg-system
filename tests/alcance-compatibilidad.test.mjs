@@ -1,0 +1,6 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import * as c from '../supabase/functions/equipo-combate/motor.js';
+function campo(nombre,distancia){let b=c.nuevoCombate();for(const [id,bando,x] of [['a','jugador',0],['b','enemigo',distancia]]){b=c.agregar(b,{id,nombre:id,forja_id:null,stats:{vida:30,ph:10},configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre,stats:{},efectos:[{id:'e',nombre,efecto:'dano',cantidad:1,caras:6,modificador:0,coste_ph:0,duracion:0,estado:'',tipo_dano:'fisico'}]}]}},bando,()=>id==='a'?20:1);b.miembros.at(-1).posicion={x,y:0};}return c.iniciar(b,()=>10);}
+test('el ataque desarmado antiguo rechaza distancia y conserva acción y recursos',()=>{const b=campo('Puño',2),antes=JSON.stringify(b);assert.throws(()=>c.actuar(b,'a','ataque','b',()=>{throw Error('No debe tirar');}),/alcance/);assert.equal(JSON.stringify(b),antes);});
+test('se conservan alcance de lanza y arco del servidor publicado',()=>{for(const [nombre,distancia] of [['Lanza',2],['Arco',8]]){const b=campo(nombre,distancia),n=c.actuar(b,'a','hab:h:e','b',()=>20);assert.ok(n.miembros[1].vida<30);const fuera=campo(nombre,distancia+1);assert.throws(()=>c.actuar(fuera,'a','hab:h:e','b',()=>20),/alcance/);}});

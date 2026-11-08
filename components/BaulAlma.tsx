@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -102,13 +103,13 @@ export default function BaulAlma({
       setCargando(false);
     }
   }, [usuarioId]);
-  useEffect(() => {
+  useTiempoReal(()=>{if(!bloqueo.current)return cargar();});
+ useEffect(() => {
     setItems([]);
     setSeleccion("");
     setCargando(true);
     void cargar();
-    const t = setInterval(() => void cargar(), 15000);
-    return () => clearInterval(t);
+
   }, [cargar]);
   async function ejecutar(fn: () => Promise<void>) {
     if (bloqueo.current) return;

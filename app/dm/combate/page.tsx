@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {elegirVariante,prepararVariante,type ConfiguracionMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
@@ -120,6 +121,7 @@ export default function CampoCombate() {
     (m.configuracion.reserva||=[]).push(r.data as Fuente);await guardar(next);
     const contexto=await consultarEquipo({combate_id:id,actor_id:m.id,consultar:true});setEditorEquipo({actor:m.id,contexto});
   }
+  useTiempoReal(async()=>{if(c.fase!=='en_curso'||bloqueo.current)return;const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(!bloqueo.current&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}});
   useEffect(()=>{if(c.fase!=='en_curso')return;let vivo=true,leyendo=false;const t=setInterval(()=>{if(bloqueo.current||leyendo||document.hidden)return;leyendo=true;void(async()=>{try{const r=await supabase.from('combates_yugen').select('version,datos').eq('id',id).maybeSingle();if(vivo&&r.data&&r.data.version>version){setC(r.data.datos as Combate);setVersion(r.data.version);}}catch{/* Se reintentará en la próxima consulta. */}finally{leyendo=false;}})();},3000);return()=>{vivo=false;clearInterval(t);};},[id,version,c.fase]);
   const buscarRef = useRef<HTMLInputElement>(null);
   const [biblioteca, setBiblioteca] = useState(false);

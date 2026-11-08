@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../../../lib/useTiempoReal";
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {consultarCombateJugador} from '../../../lib/jugador';
@@ -14,7 +15,8 @@ export default function CombateJugador(){
  const[encuentros,setEncuentros]=useState<Encuentro[]>([]),[seleccion,setSeleccion]=useState<{combate_id:string;actor_id:string}|null>(null),[estado,setEstado]=useState<Estado|null>(null),[error,setError]=useState(''),[ocupado,setOcupado]=useState(false),[cargando,setCargando]=useState(true),[objetivo,setObjetivo]=useState(''),[accion,setAccion]=useState('ataque'),[moviendo,setMoviendo]=useState(false),[forzar,setForzar]=useState(false),[tirada,setTirada]=useState<{dados:TiradaVisual[];resultado?:string}|null>(null);
  const bloqueo=useRef(false),consulta=useRef(0);
  const cargar=useCallback(async()=>{if(bloqueo.current||document.hidden)return;const numero=++consulta.current;try{const lista=await consultarCombateJugador();if(numero!==consulta.current||bloqueo.current)return;setEncuentros(lista.encuentros);if(seleccion){const e:Estado=await consultarCombateJugador(seleccion);if(numero!==consulta.current||bloqueo.current)return;setEstado(e);setObjetivo(old=>e.objetivos.some(x=>x.id===old)?old:'');}setError('');}catch(e){if(numero===consulta.current){setEstado(null);setError(e instanceof Error?e.message:'No se pudo cargar.');}}finally{setCargando(false);}},[seleccion]);
- useEffect(()=>{void cargar();const t=setInterval(()=>void cargar(),3000);return()=>{++consulta.current;clearInterval(t);};},[cargar]);
+ useTiempoReal(cargar);
+ useEffect(()=>{void cargar();return()=>{++consulta.current;};},[cargar]);
  useEffect(()=>{setMoviendo(false);setForzar(false);setCentro(null);},[estado?.actual_id,seleccion?.actor_id]);
  async function ejecutar(operacion:string,accion_id?:string,destino?:Posicion){if(!seleccion||!estado||bloqueo.current)return;bloqueo.current=true;++consulta.current;setOcupado(true);setError('');try{const propia=accion_id==='guardia'||estado.acciones.find(a=>a.id===accion_id)?.efecto.efecto==='crear_arma';const next:Estado=await consultarCombateJugador({...seleccion,version:estado.version,operacion,accion_id,objetivo_id:propia?estado.actor.id:objetivo,forzar,destino,centro:centro||undefined});setEstado(next);if(next.dados.length||next.resultado)setTirada({dados:next.dados,resultado:next.resultado});}catch(e){setError(e instanceof Error?e.message:'No se pudo actuar.');}finally{bloqueo.current=false;setOcupado(false);}}
  const puede=!!estado?.es_turno&&estado.actor.vida>0;

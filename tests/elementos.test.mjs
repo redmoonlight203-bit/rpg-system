@@ -56,6 +56,7 @@ function campo(efecto = e()) {
       () => d,
     );
   b.regla = "directo";
+  b.miembros.forEach((m,i)=>m.posicion={x:i,y:0});
   return c.iniciar(b);
 }
 function rng(...valores) {

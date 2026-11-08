@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../lib/useTiempoReal";
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {supabase} from "../lib/supabase";
 import "./tienda.css";
@@ -15,7 +16,8 @@ export function Billetera({gm=false,cuentas=[]}:{gm?:boolean;cuentas?:Cuenta[]})
   const [s,h]=await Promise.all([supabase.from("saldos_usuario").select("moneda_id,cantidad").eq("user_id",id),supabase.from("movimientos_moneda").select("id,cantidad,moneda_id,motivo,created_at").eq("user_id",id).order("created_at",{ascending:false}).limit(15)]);
   if(s.error||h.error)throw s.error||h.error;setSaldos(s.data||[]);setHistorial(h.data||[]);
  }catch(e){setError((e as {message:string}).message);}},[gm,usuario]);
- useEffect(()=>{void cargar();const t=setInterval(()=>{if(!document.hidden)void cargar();},5000);return()=>clearInterval(t);},[cargar]);
+ useTiempoReal(cargar);
+ useEffect(()=>{void cargar();},[cargar]);
  async function ejecutar(e:FormEvent,accion:"crear"|"ajustar"){
   e.preventDefault();if(bloqueo.current)return;
   if(accion==="ajustar"&&(!Number.isSafeInteger(Number(cantidad))||Number(cantidad)===0)){setError("La cantidad debe ser un entero distinto de cero.");return;}

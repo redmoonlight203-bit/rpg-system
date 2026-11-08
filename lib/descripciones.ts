@@ -20,7 +20,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  if(e.tablero){const t=e.tablero;
   detalles.push(`Alcance: ${t.alcance} casillas desde el personaje.`);
   detalles.push(t.forma==='individual'?'Afecta una casilla.':t.forma==='cuadrado'?`Área: cuadrado de ${t.tamano} × ${t.tamano} casillas.`:t.forma==='linea'||t.forma==='cono'?`Área: ${t.forma} de ${t.tamano} casillas desde el lanzador.`:`Área: ${t.forma==='circulo'?'círculo':'cruz'} de radio ${t.tamano} casillas alrededor del centro.`);
-  detalles.push(`Objetivos: ${{enemigos:'solo enemigos',aliados:'aliados, incluido el lanzador',todos:'todos, incluidos aliados',yo:'solo el lanzador'}[t.afecta]}.`);
+  detalles.push(`Objetivos: ${{enemigos:'enemigos y el lanzador si está dentro del área',aliados:'aliados, incluido el lanzador',todos:'todos, incluidos aliados',yo:'solo el lanzador'}[t.afecta]}.`);
   if(t.desplazamiento)detalles.push(`${t.desplazamiento.tipo==='atraer'?'Atrae hacia':'Empuja lejos de'} el centro hasta ${t.desplazamiento.casillas} casillas${t.desplazamiento.cuando==='fallo_salvacion'?' si falla la salvación':''}; se detiene ante casillas ocupadas.`);
   if(t.derribo)detalles.push(`Deja al objetivo derribado${t.derribo==='fallo_salvacion'?' si falla la salvación':''}. Levantarse cuesta la mitad del movimiento máximo.`);
  }

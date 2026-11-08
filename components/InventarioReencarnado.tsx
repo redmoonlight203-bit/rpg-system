@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../lib/useTiempoReal";
 import {useEffect,useState,useCallback} from 'react';
 import Link from 'next/link';
 import {ArrowLeft,Package,Search,Sparkles} from 'lucide-react';
@@ -14,6 +15,7 @@ function simbolo(i:Item){const t=(i.nombre+' '+i.tipo).toLowerCase();return /fue
 export default function InventarioReencarnado({vista}:{vista:'alma'|'inventario'|'habilidades'}){
  const[items,setItems]=useState<Item[]>([]),[personajes,setPersonajes]=useState<Personaje[]>([]),[activo,setActivo]=useState(''),[error,setError]=useState(''),[cargando,setCargando]=useState(true),[ocupado,setOcupado]=useState(false),[seleccion,setSeleccion]=useState(''),[busqueda,setBusqueda]=useState('');
  const cargar=useCallback(async()=>{try{const {data:{user}}=await supabase.auth.getUser();if(!user)throw Error('Inicia sesión.');const [a,b]=await Promise.all([supabase.from('inventario_jugador').select('*').eq('user_id',user.id).order('created_at',{ascending:false}),supabase.from('personajes').select('id,nombre,estado_vida,estado_aprobacion').eq('user_id',user.id)]);if(a.error||b.error)throw Error(a.error?.message||b.error?.message);setItems(a.data||[]);setPersonajes(b.data||[]);setActivo(localStorage.getItem('personaje_activo_id')||'');}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar.');}finally{setCargando(false);}},[]);
+ useTiempoReal(()=>{if(!ocupado)return cargar();});
  useEffect(()=>{void cargar();},[cargar]);
  async function mover(item:Item,destino:number|null){if(ocupado)return;setOcupado(true);setError('');try{const {error}=await supabase.rpc('alma_transferir',{p_item:item.id,p_destino:destino,p_origen:item.personaje_id});if(error)throw Error(error.message);await cargar();setSeleccion('');}catch(e){setError(e instanceof Error?e.message:'No se pudo transferir.');}finally{setOcupado(false);}}
  const esHabilidad=(i:Item)=>['habilidad','pasiva'].includes(i.configuracion?.tipo_creacion||i.tipo.toLowerCase());

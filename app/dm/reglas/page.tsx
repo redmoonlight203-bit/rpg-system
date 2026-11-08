@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../../../lib/useTiempoReal";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -45,8 +46,8 @@ export default function Estadisticas() {
   const dialogo = useRef<HTMLDialogElement>(null);
   useEffect(() => { if (editor) dialogo.current?.showModal(); }, [editor]);
 
-  async function cargar() {
-    setCargando(true); setError("");
+  async function cargar(inicial=true) {
+    if(inicial)setCargando(true); setError("");
     try {
       const [cats, atributos] = await Promise.all([
         supabase.from("categorias_forja").select("*").order("created_at", { ascending: true }),
@@ -60,7 +61,8 @@ export default function Estadisticas() {
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudieron cargar los datos."); }
     finally { setCargando(false); }
   }
-  useEffect(() => { void cargar(); }, []);
+  useTiempoReal(()=>cargar(false));
+ useEffect(() => { void cargar(); }, []);
   const actual = categorias.find(c => c.clave === seleccion);
   const subcategorias = categorias.filter(c => c.parent_id === actual?.id);
   const deCategoria = atributosEfectivos(categorias, stats, seleccion);

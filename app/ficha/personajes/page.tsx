@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, User, ArrowLeft, Check, Heart } from "lucide-react";
@@ -87,10 +88,10 @@ export default function PersonajesJugador() {
       setCargando(false);
     }
   }, [router]);
-  useEffect(() => {
+  useTiempoReal(cargar);
+ useEffect(() => {
     void cargar();
-    const t = setInterval(() => void cargar(), 15000);
-    return () => clearInterval(t);
+
   }, [cargar]);
   const raza = categorias.find((c) => c.id === razaId),
     defs = definiciones(categorias, atributos, razaId),

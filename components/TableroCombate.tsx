@@ -4,7 +4,7 @@ import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight}
 import RetratoCombate from './RetratoCombate';
 import Dado3D from './Dado3D';
 import {describirEfecto,describirRegla} from '../lib/descripciones';
-import {alcanceDesde,areaDesde, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
+import {alcanceDesde,areaDesde,objetivoDelArea, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
 import type {Efecto} from '../lib/creacion';
 import type {TiradaVisual} from './AnimacionDados';
 import '../app/ficha/jugador.css';
@@ -26,7 +26,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const coste=destino?alcanzables[`${destino.x},${destino.y}`]:undefined,origen=fichas.find(f=>f.id===lanzador),t=!moviendo?habilidad?.tablero:undefined;
  const rango=t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}):[],blancas=new Set(rango.map(p=>`${p.x},${p.y}`));
  const punto=centro||hover,area=t&&origen&&punto?areaDesde(origen.posicion,punto,t,{columnas,filas}):[],afectadas=new Set(area.map(p=>`${p.x},${p.y}`));
- const victimas=origen&&t?fichas.filter(f=>f.vida!==0&&afectadas.has(`${f.posicion.x},${f.posicion.y}`)&&(t.afecta==='todos'||t.afecta==='yo'&&f.id===origen.id||t.afecta==='enemigos'&&f.bando!==origen.bando||t.afecta==='aliados'&&f.bando===origen.bando)):[];
+ const victimas=origen&&t?fichas.filter(f=>f.vida!==0&&afectadas.has(`${f.posicion.x},${f.posicion.y}`)&&objetivoDelArea(origen,f,habilidad!)):[];
  const fichaObjetivo=fichas.find(f=>f.id===objetivo),porCasilla=new Map(fichas.map(f=>[`${f.posicion.x},${f.posicion.y}`,f]));
  return <section className={`tactical-field area-${t?.color||'azul'}`} aria-label="Tablero de combate">
   <header className="tactical-field-header"><span><Crosshair size={16}/>{moviendo?'Elige una casilla iluminada':t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}`:'Toca un retrato para elegir objetivo'}</span><small>Aliados <i className="tactical-dot ally"/> Enemigos <i className="tactical-dot enemy"/></small></header>

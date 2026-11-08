@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -67,10 +68,10 @@ export default function FichaPersonaje() {
       setError(e instanceof Error ? e.message : "No se pudo cargar la ficha.");
     }
   }, [router]);
-  useEffect(() => {
+  useTiempoReal(cargar);
+ useEffect(() => {
     void cargar();
-    const t = setInterval(() => void cargar(), 10000);
-    return () => clearInterval(t);
+
   }, [cargar]);
   const raza = categorias.find(
       (c) => c.id === p?.categoria_id || c.clave === p?.raza,

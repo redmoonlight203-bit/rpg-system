@@ -1,4 +1,5 @@
 "use client";
+import {useTiempoReal} from "../lib/useTiempoReal";
 import { useCallback, useEffect, useState } from "react";
 import { EditorDados } from "./EditorDados";
 import { EditorPasivas } from "./EditorPasivas";
@@ -38,11 +39,12 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
  const [mensaje,setMensaje]=useState("");
  const [ocupado,setOcupado]=useState(false);
  const cargar=useCallback(async()=>{
-  const [n,v]=await Promise.all([supabase.from("naturalezas").select("*").order("nombre"),personajeId?supabase.from("personaje_naturalezas").select("*").eq("personaje_id",personajeId).order("adquirida_at"):Promise.resolve({data:[],error:null})]);
-  if(n.error||v.error){setError(n.error?.message||v.error?.message||"Error al cargar.");return;}
-  setNaturalezas((n.data||[]) as Naturaleza[]);setVinculos((v.data||[]) as Vinculo[]);
+  const [n,v,f]=await Promise.all([supabase.from("naturalezas").select("*").order("nombre"),personajeId?supabase.from("personaje_naturalezas").select("*").eq("personaje_id",personajeId).order("adquirida_at"):Promise.resolve({data:[],error:null}),supabase.from("forja_maestra").select("id,nombre,tipo_creacion").eq("estado","aprobado").in("tipo_creacion",["habilidad","pasiva"])]);
+  if(n.error||v.error||f.error){setError(n.error?.message||v.error?.message||f.error?.message||"Error al cargar.");return;}
+  setNaturalezas((n.data||[]) as Naturaleza[]);setVinculos((v.data||[]) as Vinculo[]);setCatalogo(f.data||[]);
  },[personajeId]);
- useEffect(()=>{void Promise.resolve().then(cargar);void supabase.from("forja_maestra").select("id,nombre,tipo_creacion").eq("estado","aprobado").in("tipo_creacion",["habilidad","pasiva"]).then(({data})=>setCatalogo(data||[]));},[cargar]);
+ useTiempoReal(cargar);
+ useEffect(()=>{void Promise.resolve().then(cargar);},[cargar]);
  async function ejecutar(fn:()=>Promise<void>){
   setOcupado(true);setError("");setMensaje("");
   try{await fn();await cargar();onCambio?.();}catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}finally{setOcupado(false);}
