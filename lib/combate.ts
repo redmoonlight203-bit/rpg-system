@@ -122,8 +122,9 @@ export type Combatiente = {
 export type CambioVida = {id:string;delta:number};
 export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"forzado"};
 export type AparicionVisual = {id:string;animacion:string;posicion:Posicion;escala?:number};
-export type EventoVisual = {creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];desde?:Posicion;hasta?:Posicion};
+export type EventoVisual = {recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];desde?:Posicion;hasta?:Posicion};
 export type Combate = {
+  pasos_deshacer?:number;
   fuentes_botin?: {id:string;nombre:string;tabla_botin_id:string}[];
   mapa?: MapaCombate;
   politica?: PoliticaEncuentro;
@@ -635,8 +636,8 @@ function siguienteInterno(c: Combate, rng: RNG) {
   return n;
 }
 function registrar(c: Combate, fn: () => Combate, rng:RNG=dadoSeguro) {
-  const previo = copia(c);
-  delete previo.historial;
+  const {historial:_historial,...sinHistorial}=c;
+  const previo = copia(sinHistorial) as Combate;
   let n = fn();
   if(c.fase==='en_curso'){
     for(const m of n.miembros){
