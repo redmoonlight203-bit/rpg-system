@@ -436,6 +436,21 @@ function area(c, a, t, e, total, rng) {
 function entrar(c, m, rng) {
     aplicarTerreno(c, m, rng);
     m.turnos++;
+  // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
+  // en estado normal. No consume acción ni PH y respeta el resultado del dado.
+  if(m.vida>0&&!m.transformacion?.descontrolada){
+    const activaciones=(m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).filter(e=>!!e.transformacion?.posesion);
+    for(const e of activaciones){
+      const d=e.transformacion,p=d.posesion;
+      if(m.transformacion&&m.transformacion.definicion_id!==d.id)continue;
+      if(m.vida*100>maxVida(m)*p.umbral_pct)continue;
+      if(!salvacion(c,m,p.cd,'salvacion',rng)){
+        Object.assign(m,forzarPosesion(m,d,p.etapa_id));
+        log(c,`${m.nombre} pierde el control: se manifiesta ${d.etapas.find(et=>et.id===p.etapa_id)?.nombre||d.nombre}.`);
+      }else log(c,`${m.nombre} resiste la posesión por este turno.`);
+      break;
+    }
+  }
     m.accion_usada = false;
     m.uso_fatiga = false;
     m.estados = m.estados.filter((e) => !e.inicio);
@@ -471,6 +486,7 @@ function entrar(c, m, rng) {
     normalizar(m);
     c.actual = m.id;
     log(c, `Ronda ${c.ronda} · Turno de ${m.nombre}.`);
+    if(m.transformacion?.descontrolada&&!m.accion_usada)resolverTurnoDescontrolado(c,m.id,rng);
 }
 function iniciarInterno(c, rng) {
     if (c.fase !== "preparacion")
@@ -771,11 +787,94 @@ export function acciones(m) {
         return { ...a, efecto: conAlcance(a.efecto, a.nombre) };
     });
 }
-function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
+function resolverTurnoDescontrolado(c,actorId,rng){
+ let actor=c.miembros.find(m=>m.id===actorId);
+ if(!actor||!actor.transformacion?.descontrolada||!combatienteActivo(actor)||actor.accion_usada)return;
+ const otros=()=>c.miembros.filter(m=>m.id!==actorId&&combatienteActivo(m)).sort((u,v)=>{
+  const p=posicionesTablero(c),origen=p[actorId];
+  return distanciaCasillas(origen,p[u.id])-distanciaCasillas(origen,p[v.id])||u.id.localeCompare(v.id);
+ });
+ const intentarAtacar=()=>{
+  const posibilidades=acciones(actor).filter(ac=>ac.efecto.efecto==='dano'&&!ac.bloqueada&&(actor.cooldowns[ac.id]||0)<=0&&phDisponibles(actor)>=(ac.efecto.coste_ph||0)&&!((ac.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.fatiga+(ac.efecto.coste_fatiga||0)>(estadisticas(actor).fatiga||0))))
+    .sort((u,v)=>Number(v.id.startsWith('hab:'))-Number(u.id.startsWith('hab:'))||(v.efecto.cantidad||0)*(v.efecto.caras||0)-(u.efecto.cantidad||0)*(u.efecto.caras||0));
+  for(const t of otros())for(const ac of posibilidades){
+   const p=posicionesTablero(c),area=ac.efecto.tablero;
+   if(!area||distanciaCasillas(p[actorId],p[t.id])>area.alcance||!lineaVisible(p[actorId],p[t.id],c.mapa))continue;
+   try{
+    if(area.movimiento_lanzador)destinoAtaqueMovil(c,actor,t,area.movimiento_lanzador);
+    const n=actuarInterno(c,actorId,ac.id,t.id,rng,false,undefined,true);
+    Object.assign(c,n);
+    log(c,`${actor.nombre} poseído ataca sin distinguir aliados de enemigos: ${t.nombre}.`);
+    return true;
+   }catch{continue;}
+  }
+  return false;
+ };
+ if(intentarAtacar())return;
+ // Si no llega con ninguna habilidad, se aproxima al personaje más cercano
+ // utilizando las mismas reglas de movimiento y terreno que el resto.
+ const objetivo=otros()[0];
+ if(objetivo){
+  const p=posicionesTablero(c),origen=p[actorId],blanco=p[objetivo.id];
+  const candidatos=casillasAlcanzables(c,actorId);
+  const mejor=Object.entries(candidatos).map(([clave,coste])=>{
+    const [x,y]=clave.split(',').map(Number),p={x,y};
+    return {p,coste,d:distanciaCasillas(p,blanco)};
+  }).filter(x=>x.d<distanciaCasillas(origen,blanco))
+    .sort((a,b)=>a.d-b.d||a.coste-b.coste||a.p.y-b.p.y||a.p.x-b.p.x)[0];
+  if(mejor){
+   for(const miembro of c.miembros)miembro.posicion=p[miembro.id];
+   actor.posicion={...mejor.p};
+   actor.movimiento={turno:actor.turnos,gastado:(actor.movimiento?.turno===actor.turnos?actor.movimiento.gastado:0)+mejor.coste};
+   aplicarTerreno(c,actor,rng);
+   log(c,`${actor.nombre} avanza automáticamente hacia ${objetivo.nombre}.`);
+   if(actor.vida>0&&intentarAtacar())return;
+  }
+ }
+ actor=c.miembros.find(m=>m.id===actorId);
+ if(actor){actor.accion_usada=true;log(c,`${actor.nombre} descontrolado no encuentra un objetivo al que golpear este turno.`);}
+}
+function destinoAtaqueMovil(c,a,t,m) {
+ const posiciones=posicionesTablero(c),origen=posiciones[a.id],blanco=posiciones[t.id],dim=dimensionesTablero(c);
+ if(!origen||!blanco)throw Error('La posición del atacante o del objetivo no existe.');
+ if(distanciaCasillas(origen,blanco)<=m.alcance_golpe)return {...origen};
+ const ocupadas=new Set(Object.entries(posiciones).filter(([id])=>id!==a.id).map(([,p])=>p.x+','+p.y));
+ const libres=(p)=>p.x>=0&&p.y>=0&&p.x<dim.columnas&&p.y<dim.filas&&!ocupadas.has(p.x+','+p.y)&&c.mapa?.celdas[p.x+','+p.y]!=='muro';
+ const distancias=new Map([[origen.x+','+origen.y,0]]);
+ if(m.tipo==='dash'){
+  // BFS de costes: terreno difícil cuesta dos casillas.
+  const pendientes=[{p:origen,coste:0}];
+  while(pendientes.length){
+   pendientes.sort((x,y)=>x.coste-y.coste);
+   const {p,coste}=pendientes.shift();
+   if(coste!==distancias.get(p.x+','+p.y))continue;
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const v={x:p.x+dx,y:p.y+dy},k=v.x+','+v.y;
+    const nuevo=coste+(c.mapa?.celdas[k]==='dificil'?2:1);
+    if(!libres(v)||nuevo>m.casillas||(distancias.has(k)&&distancias.get(k)!<=nuevo))continue;
+    distancias.set(k,nuevo);pendientes.push({p:v,coste:nuevo});
+   }
+  }
+ }
+ const candidatos=[];
+ for(let dy=-m.alcance_golpe;dy<=m.alcance_golpe;dy++)for(let dx=-m.alcance_golpe;dx<=m.alcance_golpe;dx++){
+  const p={x:blanco.x+dx,y:blanco.y+dy};
+  if(!libres(p)||distanciaCasillas(p,blanco)>m.alcance_golpe)continue;
+  const distancia=distanciaCasillas(origen,p);
+  const coste=m.tipo==='dash'?distancias.get(p.x+','+p.y):distancia;
+  if(coste===undefined||coste>m.casillas||m.tipo==='salto'&&!lineaVisible(origen,p,c.mapa))continue;
+  candidatos.push({p,coste});
+ }
+ candidatos.sort((u,v)=>u.coste-v.coste||distanciaCasillas(u.p,blanco)-distanciaCasillas(v.p,blanco)||u.p.y-v.p.y||u.p.x-v.p.x);
+ if(!candidatos.length)throw Error('No hay una casilla libre y alcanzable para ejecutar el movimiento del ataque.');
+ return candidatos[0].p;
+}
+function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, autonomo = false) {
     const n = copia(c), a = n.miembros.find((m) => m.id === actorId);
     delete n.resultado;
     if (n.fase !== "en_curso" || n.actual !== actorId || !a || !combatienteActivo(a))
         throw Error("Solo puede actuar el personaje de turno.");
+    if(a.transformacion?.descontrolada&&!autonomo)throw Error('La criatura está fuera de control: su turno es automático.');
     if (a.accion_usada)
         throw Error("Ya utilizó su acción.");
     if (accionId.startsWith('regla:')) {
@@ -831,6 +930,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
             const indice = d.etapas.findIndex(x => x.id === a.transformacion?.etapa_id);
             if (indice < 0 || indice === d.etapas.length - 1)
                 throw Error("No hay otra etapa.");
+            if(d.etapas[indice+1].descontrolada)throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');
             Object.assign(a, cambiarEtapaTransformacion(a, d, d.etapas[indice + 1].id));
             log(n, `${a.nombre} avanza a ${d.etapas[indice + 1].nombre}.`);
         }
