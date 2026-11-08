@@ -27,8 +27,9 @@ export function EditorDados({value,onChange,disabled=false,armas=[]}:{value:Efec
  const [prueba,setPrueba]=useState<{id:string;texto:string}|null>(null);
  const [abierta,setAbierta]=useState<string|null>(null);
  function cambiar(id:string,patch:Partial<Efecto>){onChange(value.map(e=>e.id===id?{...e,...patch}:e));setPrueba(null);}
- function agregar(tipo:Efecto['efecto']){
+ function agregar(tipo:Efecto['efecto'],embestida=false){
   const e={...nuevoEfecto(),efecto:tipo,nombre:tipos.find(t=>t.tipo===tipo)!.nombre,...(tipo==='estado'?{estado:'Nuevo estado',duracion:1}:{}),...(tipo==='crear_arma'?{arma_nombre:'Nueva arma',arma_slot:'mano_der' as const,duracion:3}:{})};
+  if(embestida){e.nombre='Embestida';e.animacion='desplazamiento';e.tablero={alcance:5,forma:'individual',tamano:0,afecta:'enemigos',color:'rojo',movimiento_lanzador:{tipo:'dash',casillas:4,alcance_golpe:1}};}
   if(tipo==='transformacion')e.transformacion={id:e.id,nombre:e.nombre,tipo:'forma',etapas:[{id:'etapa_1',nombre:'Primera etapa',stats:{vida:20}}]};
   onChange([...value,e]);setAbierta(e.id);setPrueba(null);
  }
@@ -42,7 +43,7 @@ export function EditorDados({value,onChange,disabled=false,armas=[]}:{value:Efec
  }
  return <section className="yunque-editor space-y-5">
   <header><p className="yunque-eyebrow">Acciones del personaje u objeto</p><h2>¿Qué ocurre al usarlo?</h2><p>Una acción se elige durante el turno y consume la acción del personaje. Empieza por el resultado que buscas.</p></header>
-  <fieldset disabled={disabled||value.length>=20} className="yunque-opciones" aria-label="Añadir una acción">{tipos.map(t=><button type="button" className="yunque-opcion" key={t.tipo} onClick={()=>agregar(t.tipo)}><strong>+ {t.nombre}</strong><span>{t.ayuda}</span></button>)}</fieldset>
+  <fieldset disabled={disabled||value.length>=20} className="yunque-opciones" aria-label="Añadir una acción">{tipos.map(t=><button type="button" className="yunque-opcion" key={t.tipo} onClick={()=>agregar(t.tipo)}><strong>+ {t.nombre}</strong><span>{t.ayuda}</span></button>)}<button type="button" className="yunque-opcion" onClick={()=>agregar('dano',true)}><strong>+ Ataque con dash / embestida</strong><span>Se acerca al objetivo y lo golpea en una sola acción. Luego puedes convertirlo en salto o teletransporte.</span></button></fieldset>
   {!value.length&&<p className="yunque-ayuda">Todavía no hay acciones. Los objetos que solo aportan atributos, como una armadura, pueden guardarse así.</p>}
   {value.map((e,index)=>{
    const ayuda=describirEfecto({...e,descripcion:undefined});
