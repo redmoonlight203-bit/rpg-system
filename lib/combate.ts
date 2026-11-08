@@ -924,7 +924,7 @@ function planearAtaqueDeArea(c:Combate,a:Combatiente,punto:Posicion,m:NonNullabl
    if(libre(p))destino=p;
   }
   if(!trayecto.length)throw Error('Un muro bloquea la carrera.');
-  if(distanciaCasillas(anterior,punto)>m.alcance_golpe)throw Error('La carrera no llega al objetivo.');
+  if(!trayecto.some(p=>p.x===punto.x&&p.y===punto.y)&&distanciaCasillas(anterior,punto)>m.alcance_golpe)throw Error('La carrera no llega al objetivo.');
   return {destino:{...destino},trayecto};
  }
  const distancias=new Map<string,number>([[clave(origen),0]]);
