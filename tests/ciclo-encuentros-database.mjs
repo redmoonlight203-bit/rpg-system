@@ -29,7 +29,7 @@ create function public.combate_confirmar_progreso(uuid,integer) returns jsonb la
 create function private.arbol_dar_experiencia(p_personaje bigint,p_cantidad int,p_confirmar boolean) returns jsonb language plpgsql as $$declare p public.personajes%rowtype;n int;begin select * into p from public.personajes where id=p_personaje for update;n:=p.nivel;while n<100 and p.exp_total+p_cantidad>=50*n*(n+1) loop n:=n+1;end loop;update public.personajes set exp_total=exp_total+p_cantidad,nivel=n,puntos_habilidad=puntos_habilidad+(n-p.nivel)*3 where id=p.id;return jsonb_build_object('nivel',n,'puntos_anadidos',(n-p.nivel)*3);end$$;
 grant usage on schema public,private,auth to authenticated;grant select on personajes,perfiles to authenticated;
 `);
-for(const path of ['20261108144114_ciclo_encuentros_recompensas.sql','20261108144126_logros_titulos_eventos.sql','20261108144129_arena_entrenamiento_aislada.sql'])await db.exec(readFileSync(new URL('../supabase/migrations/'+path,import.meta.url),'utf8'));
+for(const path of ['20261108144114_ciclo_encuentros_recompensas.sql','20261108144126_logros_titulos_eventos.sql','20261108144129_arena_entrenamiento_aislada.sql','20261108145840_forja_permisos_recompensas.sql'])await db.exec(readFileSync(new URL('../supabase/migrations/'+path,import.meta.url),'utf8'));
 await db.query("insert into perfiles(id,rol) values($1,'KUROI'),($2,'REENCARNADO')",[gm,user]);
 await db.query("select set_config('request.jwt.claim.sub',$1,false)",[gm]);
 await db.query("insert into personajes(id,user_id,nombre) values(1,$1,'Axel'),(2,$1,'Compañero no inscrito')",[user]);
@@ -72,6 +72,8 @@ await db.query("select arena_guardar_servidor($1,$2,'Duelo','pvp',$3,0)",[user,s
 await assert.rejects(db.query('select arena_contexto_servidor($1,$2)',[user,sala]),/No puedes unirte/);
 // La autorización no depende de campos que el jugador pueda escribir.
 await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user]);await db.exec('set role authenticated');
+assert.equal((await db.query('select id from forja_maestra')).rows.length,1);
+assert.equal((await db.query("update forja_maestra set exp_recompensa=999999 returning id")).rows.length,0,'un jugador no modifica EXP ni contenido del catálogo');
 await assert.rejects(db.query('select arena_preparar_servidor($1,1)',[user]),/permission denied/);
 await assert.rejects(db.query('select encuentro_aprobar($1,1)',[bid]),/Solo el GM/);
 await assert.rejects(db.query('select encuentro_adjudicar($1,1)',[saqueo.id]),/GM/);
