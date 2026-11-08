@@ -24,3 +24,19 @@ test('poder no recorta vida real al cambiar etapa o salir; finalizar restaura la
 test('transformación con Fatiga insuficiente no altera el encuentro',()=>{
  const b=campo();actor(b).fatiga=10;const antes=JSON.stringify(b);assert.throws(()=>activar(b),/Fatiga/);assert.equal(JSON.stringify(b),antes);
 });
+
+test('las imágenes se activan por etapa y la original no se reemplaza',()=>{
+ const normal='https://ejemplo.com/original.webp',primera='https://ejemplo.com/uno.webp',segunda='https://ejemplo.com/dos.webp';
+ let b=campo('poder');actor(b).configuracion.imagen_url=normal;
+ const habilidad=actor(b).configuracion.habilidades[0].efectos.find(e=>e.efecto==='transformacion');
+ habilidad.transformacion.etapas[0].imagen_url=primera;
+ habilidad.transformacion.etapas[1].imagen_url=segunda;
+ b=activar(b);assert.equal(actor(b).transformacion.imagen_etapa,primera);
+ assert.equal(actor(b).configuracion.imagen_url,normal);
+ b=vuelta(b);b=activar(b);
+ assert.equal(actor(b).transformacion.imagen_etapa,segunda);
+ assert.equal(actor(b).configuracion.imagen_url,normal);
+ b=vuelta(b);b=c.actuar(b,'a','volver_forma','a');
+ assert.equal(actor(b).transformacion,null);
+ assert.equal(actor(b).configuracion.imagen_url,normal);
+});
