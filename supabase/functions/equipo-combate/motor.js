@@ -1005,6 +1005,15 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         }
     }
     log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+    if(tactica?.movimiento_lanzador){
+      if(!t||!combatienteActivo(t))throw Error('Elige un objetivo vivo para el dash o salto.');
+      const destino=destinoAtaqueMovil(n,a,t,tactica.movimiento_lanzador);
+      const origen=posicionesTablero(n)[a.id];
+      for(const miembro of n.miembros)miembro.posicion=posiciones[miembro.id];
+      a.posicion={...destino};
+      const recorrido=distanciaCasillas(origen,destino);
+      if(recorrido){log(n,`${a.nombre}: ${tactica.movimiento_lanzador.tipo} ${recorrido} casillas hasta (${destino.x+1}, ${destino.y+1}) antes de golpear.`);aplicarTerreno(n,a,rng);}
+    }
     if (e.efecto === "crear_arma") {
         if (e.tabla_armas) {
             const tabla = e.tabla_armas;
@@ -1697,6 +1706,8 @@ export function validarTactica(e) {
         return null;
     if (typeof t !== 'object' || !Number.isInteger(t.alcance) || t.alcance < 0 || t.alcance > 60 || !Number.isInteger(t.tamano) || t.tamano < 0 || t.tamano > 12 || t.forma !== 'individual' && t.tamano < 1 || !['individual', 'circulo', 'cuadrado', 'linea', 'cono', 'cruz'].includes(t.forma) || !['enemigos', 'aliados', 'todos', 'yo'].includes(t.afecta) || e.efecto === 'crear_arma')
         return 'Configuración de tablero inválida.';
+    const avance = t.movimiento_lanzador;
+    if(avance&&(!['dash','salto','teletransporte'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||t.forma!=='individual'||e.efecto!=='dano'))return 'Configura correctamente el dash, salto o teletransporte ofensivo.';
     const d = t.desplazamiento;
     if (d && (!['atraer', 'empujar'].includes(d.tipo) || !Number.isInteger(d.casillas) || d.casillas < 1 || d.casillas > 12 || !['siempre', 'fallo_salvacion'].includes(d.cuando)))
         return 'Desplazamiento inválido.';
@@ -1735,6 +1746,7 @@ export function objetivoDelArea(a, t, e) {
         return false;
     if (e.efecto === 'dano' && area.forma !== 'individual' && a.id === t.id)
         return true;
+    if(a.transformacion?.descontrolada&&e.efecto==='dano')return a.id!==t.id;
     return area.afecta === 'todos' || area.afecta === 'yo' && a.id === t.id || area.afecta === 'aliados' && a.bando === t.bando || area.afecta === 'enemigos' && a.bando !== t.bando;
 }
 function secundariosTablero(c, a, t, e, centro, supera) {
