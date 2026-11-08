@@ -18,9 +18,11 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
   case 'crear_arma':resumen=e.tabla_armas?`Lanza 1d${e.tabla_armas.caras} y crea el arma asignada al resultado.`:`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
  }
  const detalles:string[]=[];
- if(e.transformacion){detalles.push('Una activación por encuentro. Cambiar etapa consume una acción, sin repetir el coste de activación.');for(const etapa of e.transformacion.etapas)detalles.push(`${etapa.nombre}: ${Object.entries(etapa.stats).map(([k,v])=>`${atributo(k)} ${v}`).join(', ')}.`);}
+ if(e.transformacion){detalles.push('Una activación por encuentro. Cambiar etapa consume una acción, sin repetir el coste de activación.');for(const etapa of e.transformacion.etapas)detalles.push(`${etapa.nombre}: ${etapa.descripcion?etapa.descripcion+' ':''}${Object.entries(etapa.stats).map(([k,v])=>`${atributo(k)} ${v}`).join(', ')}.`);}
  if(e.tablero){const t=e.tablero;
-  detalles.push(`Alcance: ${t.alcance} casillas desde el personaje.`);
+  detalles.push(t.origen_area==='lanzador'?'Rugido o aura: el efecto nace del propio atacante.':t.origen_area==='aterrizaje'?'Salta a una casilla libre y causa daño alrededor al aterrizar.':t.origen_area==='recorrido'?'Carrera ofensiva: golpea a cada criatura situada en su trayecto.':`Alcance: ${t.alcance} casillas desde el personaje.`);
+  if(t.movimiento_lanzador)detalles.push(`${{dash:'Dash',salto:'Salto',teletransporte:'Teletransporte',carrera:'Carrera'}[t.movimiento_lanzador.tipo]}: hasta ${t.movimiento_lanzador.casillas} casillas; golpe final a ${t.movimiento_lanzador.alcance_golpe} casillas.`);
+  if(t.afecta_lanzador===false)detalles.push('El lanzador no sufre daño de este efecto aunque esté dentro del área.');
   detalles.push(t.forma==='individual'?'Afecta una casilla.':t.forma==='cuadrado'?`Área: cuadrado de ${t.tamano} × ${t.tamano} casillas.`:t.forma==='linea'||t.forma==='cono'?`Área: ${t.forma} de ${t.tamano} casillas desde el lanzador.`:`Área: ${t.forma==='circulo'?'círculo':'cruz'} de radio ${t.tamano} casillas alrededor del centro.`);
   detalles.push(`Objetivos: ${{enemigos:'enemigos y el lanzador si está dentro del área',aliados:'aliados, incluido el lanzador',todos:'todos, incluidos aliados',yo:'solo el lanzador'}[t.afecta]}.`);
   if(t.desplazamiento)detalles.push(`${t.desplazamiento.tipo==='atraer'?'Atrae hacia':'Empuja lejos de'} el centro hasta ${t.desplazamiento.casillas} casillas${t.desplazamiento.cuando==='fallo_salvacion'?' si falla la salvación':''}; se detiene ante casillas ocupadas.`);
@@ -79,7 +81,7 @@ function efectoReglaClaro(e:EfectoRegla):string{
  }
 }
 export function describirRegla(r:Regla):AyudaClara{
- return {resumen:(typeof r.descripcion==="string"&&r.descripcion.trim())||r.efectos.map(efectoReglaClaro).slice(0,2).join(' ')||'Activa los efectos configurados.',detalles:[condicionClara(r.condicion),...r.efectos.slice(0,6).map(efectoReglaClaro),...(r.coste_ph?[`Consume ${r.coste_ph} PH.`]:[]),...(r.coste_fatiga?[`Genera ${r.coste_fatiga} de Fatiga.`]:[]),...(r.enfriamiento?[`Debes esperar ${r.enfriamiento} turnos antes de volver a usarla.`]:[])]};
+ return {resumen:(typeof r.descripcion==="string"&&r.descripcion.trim())||r.efectos.map(efectoReglaClaro).slice(0,2).join(' ')||'Activa los efectos configurados.',detalles:[condicionClara(r.condicion),...r.efectos.slice(0,6).map(efectoReglaClaro),...(r.coste_ph?[`Consume ${r.coste_ph} PH.`]:[]),...(r.coste_fatiga?[`Genera ${r.coste_fatiga} de Fatiga.`]:[]),...(r.enfriamiento?[`Debes esperar ${r.enfriamiento} turnos antes de volver a usarla.`]:[]),...(r.limite_por_turno?[`Máximo ${r.limite_por_turno} activación(es) por turno.`]:[])]};
 }
 export const ayudaGuardia:AyudaClara={resumen:'Adopta una postura defensiva para protegerte.',detalles:['Ganas 2 de armadura hasta tu siguiente turno.','Consume tu acción.']};
 
