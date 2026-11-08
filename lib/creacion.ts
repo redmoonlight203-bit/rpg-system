@@ -1,5 +1,6 @@
 import type { DefinicionTransformacion } from "./transformaciones";
 import {validarPortada} from "./imagenes-creacion";
+import {validarReglas} from "./reglas";
 import { linaje, type CategoriaBase } from "./estadisticas";
 export type TipoCreacion =
   "personaje" | "habilidad" | "objeto" | "titulo" | "pasiva" | "otro";
@@ -176,6 +177,16 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       for(const etapa of d.etapas){if(etapa.imagen_url!==undefined){if(typeof etapa.imagen_url!=="string")return "La imagen de etapa no es válida.";const error=validarPortada(etapa.imagen_url);if(error)return `${etapa.nombre}: ${error}`;}}
       if(d.etapas.some(v=>v.habilidades!==undefined&&(!Array.isArray(v.habilidades)||v.habilidades.some(id=>typeof id!=='string'||!id))))return 'Selecciona poderes de etapa válidos.';
       if(d.tipo==="forma"&&d.etapas.some(v=>!((v.stats.hp??v.stats.vida)>0)))return "Cada forma necesita HP propios.";
+      for(const etapa of d.etapas){
+        if(etapa.reglas!==undefined){if(!Array.isArray(etapa.reglas))return 'Las pasivas de etapa deben ser reglas válidas.';const error=validarReglas(etapa.reglas);if(error)return `${etapa.nombre}: ${error}`;}
+        if(etapa.descontrolada!==undefined&&typeof etapa.descontrolada!=='boolean')return 'Control de etapa inválido.';
+        if(etapa.curacion_entrada!==undefined&&(!Number.isInteger(etapa.curacion_entrada)||etapa.curacion_entrada<0||etapa.curacion_entrada>1000000))return 'Curación de posesión inválida.';
+        if(etapa.vida_maxima_posesion!==undefined&&(!Number.isInteger(etapa.vida_maxima_posesion)||etapa.vida_maxima_posesion<1||etapa.vida_maxima_posesion>1000000))return 'HP máximos de posesión inválidos.';
+      }
+      if(d.posesion){
+        const p=d.posesion;
+        if(!Number.isInteger(p.umbral_pct)||p.umbral_pct<1||p.umbral_pct>99||!Number.isInteger(p.cd)||p.cd<1||p.cd>100||!d.etapas.some(et=>et.id===p.etapa_id&&et.descontrolada))return 'Configura el umbral, CD y una etapa descontrolada para la posesión.';
+      }
     }
     const t=e.tablero;
     if(t!==undefined){
