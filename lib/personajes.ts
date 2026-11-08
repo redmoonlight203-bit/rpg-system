@@ -30,6 +30,9 @@ export type Personaje = {
   fatiga_actual: number;
   nivel: number;
   exp_total: number;
+  es_companero?: boolean;
+  party_activo?: boolean;
+  forja_origen_id?: string | null;
 };
 export function razasVivas(c: Raza[]) {
   return c.filter((x) => linaje(c, x.clave).some((p) => p.clave === "razas"));

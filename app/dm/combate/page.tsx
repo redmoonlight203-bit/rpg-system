@@ -335,9 +335,10 @@ export default function CampoCombate() {
           .limit(20),
         supabase
           .from("personajes")
-          .select("id,nombre,atributos,nivel")
+          .select("id,nombre,atributos,nivel,es_companero,party_activo")
           .eq("estado_aprobacion", "aprobado")
           .eq("estado_vida", "vivo")
+          .or("es_companero.eq.false,party_activo.eq.true")
           .order("nombre"),
       ]);
       if (p.error || b.error || j.error)
@@ -346,7 +347,7 @@ export default function CampoCombate() {
         ...(j.data || []).map((x) => ({
           id: String(x.id),
           nombre: x.nombre,
-          clase: "Jugador",
+          clase: x.es_companero ? "Compañero NPC" : "Jugador",
           nivel: x.nivel || 1,
           stats: x.atributos || {},
           origen: "jugador" as const,
@@ -965,7 +966,7 @@ export default function CampoCombate() {
                     <span>{p.clase}</span>
                   </div>
                   <p>
-                    {p.origen === "jugador" ? "JUGADOR" : "LA CREACIÓN"} · Nv. {nivelesSeleccionados[p.id]??p.nivel??1} ·{" "}
+                    {p.origen === "jugador" ? (p.clase === "Compañero NPC" ? "COMPAÑERO NPC" : "JUGADOR") : "LA CREACIÓN"} · Nv. {nivelesSeleccionados[p.id]??p.nivel??1} ·{" "}
                     {p.stats.vida ?? p.stats.hp ?? "Configurar"} vida ·{" "}
                     {p.stats.armadura || 0} ARM
                   </p>
