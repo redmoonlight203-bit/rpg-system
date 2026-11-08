@@ -16,5 +16,6 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: npx next typegen
       - run: npx tsc --noEmit --pretty false
       - run: npm run test:combate
