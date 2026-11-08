@@ -921,7 +921,7 @@ function planearAtaqueDeArea(c,a,punto,m){
   const dx=punto.x-origen.x,dy=punto.y-origen.y,pasos=Math.max(Math.abs(dx),Math.abs(dy));
   if(!pasos)throw Error('Elige hacia dónde correr.');
   const trayecto=[];let anterior=origen,coste=0,destino=origen;
-  for(let i=1;i<=pasos;i++){
+  for(let i=1;i<=Math.max(pasos,m.casillas);i++){
    const p={x:Math.round(origen.x+dx*i/pasos),y:Math.round(origen.y+dy*i/pasos)};
    if(!suelo(p)||!lineaVisible(anterior,p,c.mapa))break;
    const nuevo=coste+distanciaCasillas(anterior,p);
