@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight} from 'lucide-react';
 import RetratoCombate from './RetratoCombate';
 import Dado3D from './Dado3D';
@@ -24,16 +24,22 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  },[evento?.id]);
  const [destino,setDestino]=useState<Posicion|null>(null),[hover,setHover]=useState<Posicion|null>(null);
  const coste=destino?alcanzables[`${destino.x},${destino.y}`]:undefined,origen=fichas.find(f=>f.id===lanzador),t=!moviendo?habilidad?.tablero:undefined;
- const rango=t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}).filter(p=>lineaVisible(origen.posicion,p,mapa)):[],blancas=new Set(rango.map(p=>`${p.x},${p.y}`));
- const punto=centro||hover,area=t&&origen&&punto?areaDesde(origen.posicion,punto,t,{columnas,filas}):[],afectadas=new Set(area.map(p=>`${p.x},${p.y}`));
- const victimas=origen&&t?fichas.filter(f=>f.vida!==0&&afectadas.has(`${f.posicion.x},${f.posicion.y}`)&&objetivoDelArea(origen,f,habilidad!)):[];
- const fichaObjetivo=fichas.find(f=>f.id===objetivo),porCasilla=new Map(fichas.map(f=>[`${f.posicion.x},${f.posicion.y}`,f]));
+ const blancas=useMemo(()=>new Set((t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}).filter(p=>lineaVisible(origen.posicion,p,mapa)):[]).map(p=>`${p.x},${p.y}`)),[t,origen?.posicion.x,origen?.posicion.y,columnas,filas,mapa]);
+ const punto=centro||hover;
+ const area=useMemo(()=>t&&origen&&punto?areaDesde(origen.posicion,punto,t,{columnas,filas}):[],[t,origen?.posicion.x,origen?.posicion.y,punto?.x,punto?.y,columnas,filas]);
+ const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
+ const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&afectadas.has(`${f.posicion.x},${f.posicion.y}`)&&objetivoDelArea(origen,f,habilidad!)):[],[fichas,origen,t,afectadas,habilidad]);
+ const fichaObjetivo=fichas.find(f=>f.id===objetivo);
+ const porCasilla=useMemo(()=>new Map(fichas.map(f=>[`${f.posicion.x},${f.posicion.y}`,f])),[fichas]);
+ const casillas=useMemo(()=>Array.from({length:columnas*filas},(_,i)=>({x:i%columnas,y:Math.floor(i/columnas)})),[columnas,filas]);
+ // Al cambiar de actor o habilidad no conservamos un destino de la selección anterior.
+ useEffect(()=>{setDestino(null);setHover(null);},[lanzador,habilidad?.id,moviendo]);
  return <section className={`tactical-field area-${t?.color||'azul'}`} aria-label="Tablero de combate">
   <header className="tactical-field-header"><span><Crosshair size={16}/>{moviendo?'Elige una casilla iluminada':t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}`:'Toca un retrato para elegir objetivo'}</span><small>Aliados <i className="tactical-dot ally"/> Enemigos <i className="tactical-dot enemy"/></small></header>
   {t&&<div className="tactical-area-summary" role="status"><strong>{habilidad?.nombre}</strong><span>{punto?`${area.length} casillas · ${victimas.length} objetivos: ${victimas.map(f=>f.nombre).join(', ')||'ninguno'}`:'Toca una casilla blanca para centrar el efecto.'}</span>{centro&&<button onClick={()=>onApuntar?.(centro)}>Centro: {centro.x+1}, {centro.y+1}</button>}</div>}
-  <div className="tactical-scroll"><div className="tactical-board" style={{gridTemplateColumns:`repeat(${columnas}, minmax(48px, 1fr))`}}>
-   {Array.from({length:columnas*filas},(_,i)=>{const p={x:i%columnas,y:Math.floor(i/columnas)},k=`${p.x},${p.y}`,f=porCasilla.get(k),disponible=moviendo&&!!alcanzables[k],enRango=blancas.has(k),enArea=afectadas.has(k),elegida=!!destino&&destino.x===p.x&&destino.y===p.y,esCentro=centro?.x===p.x&&centro?.y===p.y;
-    return <button type="button" key={k} disabled={ocupado||(!f&&!disponible&&!(t&&enRango&&puedeApuntar))} aria-pressed={t?esCentro:f?objetivo===f.id:elegida} title={mapa?.celdas[k]} aria-label={f?`${f.nombre}, ${f.bando==='jugador'?'aliado':'enemigo'}${f.vida!==undefined?`, vida ${f.vida}/${f.max_vida}`:''}${f.id===actual?', turno actual':''}${t?enRango?', dentro del alcance':', fuera de alcance':''}`:`Casilla ${p.x+1}, ${p.y+1}${disponible?`, ${alcanzables[k]} pasos`:enRango?', dentro del alcance':''}`} className={`tactical-cell terrain-${mapa?.celdas[k]||'libre'} ${evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y?'animation-'+(evento.animacion||'impacto'):''} ${enRango?'spell-range':''} ${enArea?'spell-area':''} ${esCentro?'spell-center':''} ${f?.id===lanzador&&t?'spell-origin':''} ${disponible?'reachable':''} ${elegida&&disponible?'destination':''} ${f?`occupied ${f.bando==='jugador'?'ally':'enemy'} ${f.id===actual?'current':''} ${!t&&objetivo===f.id?'target':''} ${f.vida===0?'down':''}`:''}`} onMouseEnter={()=>{if(t&&enRango&&!centro)setHover(p);}} onMouseLeave={()=>setHover(null)} onFocus={()=>{if(t&&enRango&&!centro)setHover(p);}} onClick={()=>{
+  <div className="tactical-scroll"><div onMouseLeave={()=>setHover(null)} className="tactical-board" style={{gridTemplateColumns:`repeat(${columnas}, minmax(48px, 1fr))`}}>
+   {casillas.map(p=>{const k=`${p.x},${p.y}`,f=porCasilla.get(k),disponible=moviendo&&!!alcanzables[k],enRango=blancas.has(k),enArea=afectadas.has(k),elegida=!!destino&&destino.x===p.x&&destino.y===p.y,esCentro=centro?.x===p.x&&centro?.y===p.y;
+    return <button type="button" key={k} disabled={ocupado||(!f&&!disponible&&!(t&&enRango&&puedeApuntar))} aria-pressed={t?esCentro:f?objetivo===f.id:elegida} title={mapa?.celdas[k]} aria-label={f?`${f.nombre}, ${f.bando==='jugador'?'aliado':'enemigo'}${f.vida!==undefined?`, vida ${f.vida}/${f.max_vida}`:''}${f.id===actual?', turno actual':''}${t?enRango?', dentro del alcance':', fuera de alcance':''}`:`Casilla ${p.x+1}, ${p.y+1}${disponible?`, ${alcanzables[k]} pasos`:enRango?', dentro del alcance':''}`} className={`tactical-cell terrain-${mapa?.celdas[k]||'libre'} ${evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y?'animation-'+(evento.animacion||'impacto'):''} ${enRango?'spell-range':''} ${enArea?'spell-area':''} ${esCentro?'spell-center':''} ${f?.id===lanzador&&t?'spell-origin':''} ${disponible?'reachable':''} ${elegida&&disponible?'destination':''} ${f?`occupied ${f.bando==='jugador'?'ally':'enemy'} ${f.id===actual?'current':''} ${!t&&objetivo===f.id?'target':''} ${f.vida===0?'down':''}`:''}`} onMouseEnter={()=>{if(!centro)setHover(t&&enRango?p:null);}} onFocus={()=>{if(t&&enRango&&!centro)setHover(p);}} onClick={()=>{
       if(moviendo){if(f)onObjetivo(f.id);else if(disponible)setDestino(p);}
       else if(t){if(enRango&&puedeApuntar)onApuntar?.(p,f?.id);}
       else if(f)onObjetivo(f.id);
@@ -54,7 +60,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
 export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string};
 export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras,onLevantarse}:{actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;onResolver:()=>void;onPasar:()=>void;onInventario:()=>void;objetivo?:string;puede:boolean;ocupado:boolean;moviendo:boolean;onMovimiento:()=>void;movimiento:number;forzar:boolean;onForzar:(v:boolean)=>void;dados?:TiradaVisual[];resultado?:string;extras?:React.ReactNode;onLevantarse?:()=>void}){
  const elegida=acciones.find(a=>a.id===seleccion),propio=seleccion==='guardia'||['crear_arma','transformacion'].includes(elegida?.efecto.efecto||'');
- const ayuda=elegida?.regla_detalle?describirRegla(elegida.regla_detalle):elegida?describirEfecto(elegida.efecto,elegida.nombre):null;
+ const ayuda=useMemo(()=>elegida?.regla_detalle?describirRegla(elegida.regla_detalle):elegida?describirEfecto(elegida.efecto,elegida.nombre):null,[elegida]);
  const [categoria,setCategoria]=useState('todas');
  const phReal=Number.isFinite(actor.ph)?Math.max(0,Math.min(actor.ph,actor.stats?(Number.isFinite(actor.stats.ph)?actor.stats.ph:0):actor.ph)):0;
  const motivo=elegida?.bloqueada||((elegida?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(elegida?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!elegida?.regla)?'Fatiga insuficiente.':elegida?.enfriamiento?`Espera ${elegida.enfriamiento} turnos`:elegida&&phReal<elegida.efecto.coste_ph?'PH insuficientes':'');

@@ -2,7 +2,7 @@
 import EditorMapaCombate from "../../../components/EditorMapaCombate";
 import {ConfigurarCiclo,ResumenEncuentro} from "../../../components/CicloEncuentro";
 import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {elegirVariante,prepararVariante,type ConfiguracionMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
 import InvocarCombate from "../../../components/InvocarCombate";
@@ -90,7 +90,7 @@ type Preparado = {
   fatiga_actual?: number;
   requiere_configuracion?: boolean;
 };
-type Guardado = { id: string; nombre: string; version: number; datos: Combate };
+type Guardado = { id: string; nombre: string; version: number };
 export default function CampoCombate() {
   const [centro,setCentro]=useState<import("../../../lib/combate").Posicion|null>(null);
   const [modoMovimiento,setModoMovimiento]=useState(false);
@@ -319,18 +319,16 @@ export default function CampoCombate() {
     });
   }
 
-  function abrir(p: Guardado) {
-    setPendiente(null);
-    setRoll(null);
-    setFlotante(null);
-    setResumen("");
-    setId(p.id);
-    setNombre(p.nombre);
-    setVersion(p.version);
-    setC(p.datos);
-    setAccion("ataque");
-    setObjetivo("");
-    setError("");
+  async function abrir(p: Guardado) {
+    await ejecutar(async()=>{
+      // La lista contiene solo nombres. Al abrir siempre se obtiene la revisión actual.
+      const r=await supabase.rpc('combate_consultar_revision',{p_id:p.id,p_version:null});
+      if(r.error)throw Error(r.error.message);
+      if(!r.data?.datos)throw Error('El encuentro ya no está disponible.');
+      setPendiente(null);setRoll(null);setFlotante(null);setResumen('');
+      setId(p.id);setNombre(p.nombre);setVersion(r.data.version);setC(r.data.datos as Combate);
+      setAccion('ataque');setObjetivo('');setCentro(null);setModoMovimiento(false);setEditorEquipo(null);
+    });
   }
   async function cargar(inicial = false) {
     try {
@@ -343,7 +341,7 @@ export default function CampoCombate() {
           .order("nombre"),
         supabase
           .from("combates_yugen")
-          .select("id,nombre,version,datos")
+          .select("id,nombre,version")
           .order("updated_at", { ascending: false })
           .limit(20),
         supabase
@@ -368,7 +366,7 @@ export default function CampoCombate() {
         ...(p.data || []).map((x) => ({ ...x, origen: "forja" as const })),
       ]);
       setPartidas(b.data || []);
-      if (inicial && b.data?.length) abrir(b.data[0] as Guardado);
+      if (inicial && b.data?.length) await abrir(b.data[0] as Guardado);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar.");
     } finally {
@@ -407,7 +405,7 @@ export default function CampoCombate() {
     setVersion(r.data.version);
     setPartidas((prev) =>
       [
-        { id, nombre, datos: next, version: r.data.version },
+        { id, nombre, version: r.data.version },
         ...prev.filter((p) => p.id !== id),
       ].slice(0, 20),
     );
@@ -505,7 +503,7 @@ export default function CampoCombate() {
     }
   }
   const actor = c.miembros.find((m) => m.id === c.actual),
-    lista = actor ? acciones(actor) : [],
+    lista = useMemo(()=>actor ? acciones(actor) : [],[actor]),
     elegida =
       lista.some((a) => a.id === accion) || accion === "guardia"
         ? accion
@@ -514,6 +512,11 @@ export default function CampoCombate() {
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
       : "";
+  const fichasTablero=useMemo(()=>{
+    const posiciones=posicionesTablero(c);
+    return c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[m.personaje_id?`jugador:${m.personaje_id}`:`forja:${m.forja_id||m.id}`]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
+  },[c,retratos]);
+  const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
   useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
@@ -846,7 +849,7 @@ export default function CampoCombate() {
           value={partidas.some((p) => p.id === id) ? id : ""}
           onChange={(e) => {
             const p = partidas.find((p) => p.id === e.target.value);
-            if (p) abrir(p);
+            if (p) void abrir(p);
           }}
         >
           <option value="">Encuentros guardados</option>
@@ -1029,7 +1032,7 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
-          {c.miembros.length>0&&<TableroCombate mapa={c.mapa} key={`${id}:${c.actual}:${elegida}`} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={c.miembros.map(m=>({id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[claveRetrato(m)]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posicionesTablero(c)[m.id]}))} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={actor?casillasAlcanzables(c,actor.id):{}} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
+          {c.miembros.length>0&&<TableroCombate mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={ocupado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (

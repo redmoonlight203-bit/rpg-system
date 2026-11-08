@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { memo, useState } from "react";
 
 /** Optional portrait: missing and broken URLs always fall back to initials. */
-export default function RetratoCombate({ nombre, src, compacto = false }: {
+function RetratoCombate({ nombre, src, compacto = false }: {
   nombre: string; src?: string; compacto?: boolean;
 }) {
   const [fallida, setFallida] = useState<string | null>(null);
@@ -11,7 +11,9 @@ export default function RetratoCombate({ nombre, src, compacto = false }: {
     {src && fallida !== src ?
       // Configurable remote portraits do not require an image host allowlist.
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFallida(src)} /> :
+      <img src={src} alt="" decoding="async" loading="lazy" referrerPolicy="no-referrer" onError={() => setFallida(src)} /> :
       <span>{iniciales || "?"}</span>}
   </span>;
 }
+
+export default memo(RetratoCombate);
