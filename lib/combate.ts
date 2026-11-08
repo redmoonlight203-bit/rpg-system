@@ -792,6 +792,46 @@ export function acciones(m: Combatiente) {
    return {...a,efecto:conAlcance(a.efecto,a.nombre)};
   });
 }
+/** Encuentra una casilla libre desde la que un ataque con dash/salto/teletransporte alcance al blanco.
+ * El dash recorre un camino ortogonal sin atravesar muros ni criaturas; los saltos
+ * ignoran criaturas intermedias pero no muros, y el teletransporte solo valida la llegada.
+ * El movimiento es parte de la acción y nunca consume los puntos de movimiento normal.
+ */
+function destinoAtaqueMovil(c:Combate,a:Combatiente,t:Combatiente,m:{tipo:'dash'|'salto'|'teletransporte';casillas:number;alcance_golpe:number}):Posicion {
+ const posiciones=posicionesTablero(c),origen=posiciones[a.id],blanco=posiciones[t.id],dim=dimensionesTablero(c);
+ if(!origen||!blanco)throw Error('La posición del atacante o del objetivo no existe.');
+ if(distanciaCasillas(origen,blanco)<=m.alcance_golpe)return {...origen};
+ const ocupadas=new Set(Object.entries(posiciones).filter(([id])=>id!==a.id).map(([,p])=>p.x+','+p.y));
+ const libres=(p:Posicion)=>p.x>=0&&p.y>=0&&p.x<dim.columnas&&p.y<dim.filas&&!ocupadas.has(p.x+','+p.y)&&c.mapa?.celdas[p.x+','+p.y]!=='muro';
+ const distancias=new Map<string,number>([[origen.x+','+origen.y,0]]);
+ if(m.tipo==='dash'){
+  // BFS de costes: terreno difícil cuesta dos casillas.
+  const pendientes=[{p:origen,coste:0}];
+  while(pendientes.length){
+   pendientes.sort((x,y)=>x.coste-y.coste);
+   const {p,coste}=pendientes.shift()!;
+   if(coste!==distancias.get(p.x+','+p.y))continue;
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const v={x:p.x+dx,y:p.y+dy},k=v.x+','+v.y;
+    const nuevo=coste+(c.mapa?.celdas[k]==='dificil'?2:1);
+    if(!libres(v)||nuevo>m.casillas||(distancias.has(k)&&distancias.get(k)!<=nuevo))continue;
+    distancias.set(k,nuevo);pendientes.push({p:v,coste:nuevo});
+   }
+  }
+ }
+ const candidatos:{p:Posicion;coste:number}[]=[];
+ for(let dy=-m.alcance_golpe;dy<=m.alcance_golpe;dy++)for(let dx=-m.alcance_golpe;dx<=m.alcance_golpe;dx++){
+  const p={x:blanco.x+dx,y:blanco.y+dy};
+  if(!libres(p)||distanciaCasillas(p,blanco)>m.alcance_golpe)continue;
+  const distancia=distanciaCasillas(origen,p);
+  const coste=m.tipo==='dash'?distancias.get(p.x+','+p.y):distancia;
+  if(coste===undefined||coste>m.casillas||m.tipo==='salto'&&!lineaVisible(origen,p,c.mapa))continue;
+  candidatos.push({p,coste});
+ }
+ candidatos.sort((u,v)=>u.coste-v.coste||distanciaCasillas(u.p,blanco)-distanciaCasillas(v.p,blanco)||u.p.y-v.p.y||u.p.x-v.p.x);
+ if(!candidatos.length)throw Error('No hay una casilla libre y alcanzable para ejecutar el movimiento del ataque.');
+ return candidatos[0].p;
+}
 function actuarInterno(
   c: Combate,
   actorId: string,
@@ -886,6 +926,16 @@ function actuarInterno(
     }
   }
   log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+  if(tactica?.movimiento_lanzador){
+    if(!t||!combatienteActivo(t))throw Error('Elige un objetivo vivo para el dash o salto.');
+    const destino=destinoAtaqueMovil(n,a,t,tactica.movimiento_lanzador);
+    const origen=posicionesTablero(n)[a.id];
+    for(const miembro of n.miembros)miembro.posicion=posiciones[miembro.id];
+    a.posicion={...destino};
+    const recorrido=distanciaCasillas(origen,destino);
+    if(recorrido){log(n,`${a.nombre}: ${tactica.movimiento_lanzador.tipo} ${recorrido} casillas hasta (${destino.x+1}, ${destino.y+1}) antes de golpear.`);aplicarTerreno(n,a,rng);}
+  }
+
   if (e.efecto === "crear_arma") {
     if (e.tabla_armas) {
       const tabla = e.tabla_armas;
@@ -1459,6 +1509,8 @@ export const distanciaCasillas=(a:Posicion,b:Posicion)=>Math.abs(a.x-b.x)+Math.a
 export function validarTactica(e:Efecto):string|null {
  const t=e.tablero;if(!t)return null;
  if(typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!['enemigos','aliados','todos','yo'].includes(t.afecta)||e.efecto==='crear_arma')return 'Configuración de tablero inválida.';
+ const avance=t.movimiento_lanzador;
+ if(avance&&(!['dash','salto','teletransporte'].includes(avance.tipo)||!Number.isInteger(avance.casillas)||avance.casillas<1||avance.casillas>30||!Number.isInteger(avance.alcance_golpe)||avance.alcance_golpe<0||avance.alcance_golpe>20||t.forma!=='individual'||e.efecto!=='dano'))return 'Configura correctamente el dash, salto o teletransporte ofensivo.';
  const d=t.desplazamiento;
  if(d&&(!['atraer','empujar'].includes(d.tipo)||!Number.isInteger(d.casillas)||d.casillas<1||d.casillas>12||!['siempre','fallo_salvacion'].includes(d.cuando)))return 'Desplazamiento inválido.';
  if(t.derribo&&!['siempre','fallo_salvacion'].includes(t.derribo))return 'Derribo inválido.';
