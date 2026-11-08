@@ -1,5 +1,6 @@
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import vm from 'node:vm';import ts from 'typescript';
-function load(p){const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(p,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,crypto,JSON,Map,Set,Array,Object,Math,Number,Error});return exports;}
+function load(p){const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(p,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:cargarDependencia,crypto,JSON,Map,Set,Array,Object,Math,Number,Error});return exports;}
 const c=load('../lib/combate.ts'),r=load('../lib/reglas.ts');const phx=JSON.parse(readFileSync(new URL('./fixtures/phoenix.json',import.meta.url),'utf8'));
 const phoenix={id:'phoenix',nombre:phx.nombre,stats:phx.stats,slot_tipo:'mano',efectos:phx.configuracion_dados,reglas:phx.reglas,reglas_pasivas:phx.reglas_pasivas};
 const espada={id:'espada',nombre:'Espada',slot_tipo:'mano',stats:{armadura:1},efectos:[{id:'e',nombre:'Corte',efecto:'dano',cantidad:1,caras:6,modificador:0,coste_ph:0,duracion:0,tipo_dano:'cortante',estado:''}]};

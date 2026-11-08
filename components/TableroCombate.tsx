@@ -51,7 +51,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
 }
 export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string};
 export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras,onLevantarse}:{actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;onResolver:()=>void;onPasar:()=>void;onInventario:()=>void;objetivo?:string;puede:boolean;ocupado:boolean;moviendo:boolean;onMovimiento:()=>void;movimiento:number;forzar:boolean;onForzar:(v:boolean)=>void;dados?:TiradaVisual[];resultado?:string;extras?:React.ReactNode;onLevantarse?:()=>void}){
- const elegida=acciones.find(a=>a.id===seleccion),propio=seleccion==='guardia'||elegida?.efecto.efecto==='crear_arma';
+ const elegida=acciones.find(a=>a.id===seleccion),propio=seleccion==='guardia'||['crear_arma','transformacion'].includes(elegida?.efecto.efecto||'');
  const ayuda=elegida?.regla_detalle?describirRegla(elegida.regla_detalle):elegida?describirEfecto(elegida.efecto,elegida.nombre):null;
  const [categoria,setCategoria]=useState('todas');
  const phReal=Number.isFinite(actor.ph)?Math.max(0,Math.min(actor.ph,actor.stats?(Number.isFinite(actor.stats.ph)?actor.stats.ph:0):actor.ph)):0;

@@ -232,7 +232,7 @@ export function estadisticas(m: Combatiente) {
   return s;
 }
 export function maxVida(m: Combatiente) {
-  const s = estadisticas(m);
+  const s = m.transformacion?.tipo==='poder'?m.transformacion.stats_originales:estadisticas(m);
   return Math.max(1, s.vida ?? s.hp ?? 1);
 }
 /** Nunca permite gastar PH que excedan la capacidad real o un recurso inválido. */
@@ -427,7 +427,7 @@ function activarReglas(
         rng,
         "Represalia " + r.nombre,
       );
-      a.vida = Math.max(0, a.vida - v);
+      Object.assign(a,danarTransformado(a,v).actor);
       log(
         c,
         `${a.nombre} sufre ${v} por represalia, sin encadenar otras represalias.`,
@@ -550,7 +550,7 @@ function siguienteInterno(c: Combate, rng: RNG) {
     a = n.miembros.find((m) => m.id === n.actual);
   delete n.resultado;
   if (a) {
-    if(a.transformacion){const actualizado=avanzarTurnoTransformacion(a);Object.assign(a,actualizado);if(!a.transformacion)log(n,`${a.nombre}: termina su transformación.`);}
+    if(a.transformacion&&a.turnos>(a.transformacion.creado_turno??-1)){const actualizado=avanzarTurnoTransformacion(a);Object.assign(a,actualizado);if(!a.transformacion)log(n,`${a.nombre}: termina su transformación.`);}
     emitirMotor(n, 'fin_turno', a, a, a, rng);
     caducarMotor(n,a,rng);
     if (
@@ -679,6 +679,7 @@ function basico(): Efecto {
 }
 export function acciones(m: Combatiente) {
   const lista: Accion[] = [];
+  if(m.transformacion)lista.push({id:'volver_forma',nombre:'Volver a la forma original',efecto:{...basico(),efecto:'transformacion'},enfriamiento:0});
   if (m.arma)
     lista.push({
       id: "ataque",
@@ -720,7 +721,15 @@ export function acciones(m: Combatiente) {
       });
   for (const h of m.motor?.habilidades || []) lista.push({id:`motor-hab:${h.id}`,nombre:h.accion.nombre,efecto:h.accion,enfriamiento:0});
   for (const {clave, regla} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,regla_detalle:regla,bloqueada:regla.usos>0&&(m.motor?.usos[clave]||0)>=regla.usos?'Sin usos restantes.':undefined,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
-  return lista.filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>({...a,efecto:conAlcance(a.efecto,a.nombre)}));
+  const definiciones=lista.flatMap(a=>a.efecto.transformacion?[a.efecto.transformacion]:[]);
+  const exclusivos=new Set(definiciones.flatMap(d=>d.etapas.flatMap(e=>e.habilidades||[])));
+  const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
+  return lista.filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
+   const d=a.efecto.transformacion;
+   if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':undefined};}
+   if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
+   return {...a,efecto:conAlcance(a.efecto,a.nombre)};
+  });
 }
 function actuarInterno(
   c: Combate,
@@ -749,6 +758,7 @@ function actuarInterno(
     a.accion_usada=true;
     return n;
   }
+  if(accionId==='volver_forma'){if(!a.transformacion)throw Error('No hay transformación activa.');Object.assign(a,terminarTransformacion(a));normalizar(a);a.accion_usada=true;log(n,`${a.nombre} vuelve a su cuerpo original.`);return n;}
   if (accionId === "guardia") {
     estado(a, "guardia", "Guardia", 1, { armadura: 2 }, { inicio: true });
     a.accion_usada = true;
@@ -760,8 +770,13 @@ function actuarInterno(
   if(act.efecto.efecto==="transformacion"){
     const d=act.efecto.transformacion;
     if(!d)throw Error("Transformación sin configurar.");
+    if(!a.transformacion){const fatiga=act.efecto.coste_fatiga||0;if(fatiga&&(a.agotado||a.fatiga+fatiga>(estadisticas(a).fatiga||0)))throw Error("Fatiga insuficiente para transformarse.");a.fatiga+=fatiga;a.uso_fatiga=fatiga>0;}
     if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");Object.assign(a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id));log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
     else{if(a.transformaciones_usadas?.includes(d.id))throw Error("Transformación ya utilizada en esta partida.");if(phDisponibles(a)<(act.efecto.coste_ph||0))throw Error("PH insuficientes.");Object.assign(a,activarTransformacion(a,{...d,coste_ph:act.efecto.coste_ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos}));log(n,`${a.nombre} activa ${d.nombre}.`);}
+    if(a.transformacion&&!a.transformacion.creado_turno)a.transformacion.creado_turno=a.turnos;
+    if(!a.transformacion)throw Error('No se pudo activar la forma.');
+    if(!a.transformacion.etapa_id)throw Error('Etapa inválida.');
+    if(act.enfriamiento)a.cooldowns[act.id]=act.enfriamiento+1;
     a.accion_usada=true;normalizar(a);return n;
   }
   let e = act.efecto;
@@ -801,7 +816,7 @@ function actuarInterno(
   if (act.enfriamiento) a.cooldowns[act.id] = act.enfriamiento + 1;
   if (forzando) {
     const v = dados(n, 1, 4, rng, "Daño por agotamiento");
-    a.vida = Math.max(0, a.vida - v);
+    Object.assign(a,danarTransformado(a,v).actor);
     if (!a.vida) {
       log(n, `${a.nombre} cae por agotamiento antes de ejecutar la habilidad.`);
       return n;
@@ -1165,11 +1180,17 @@ function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
     case 'ph':t.ph+=v();break;
     case 'fatiga':{const n=v();if(n>0||!t.agotado)t.fatiga+=n;if(t.fatiga>=(estadisticas(t).fatiga||0)&&t.fatiga>0)t.agotado=true;break;}
     case 'dano':{
-     const antes=t.vida,perdido=Math.min(antes,Math.max(0,v()));t.vida-=perdido;log(ctx.c,`${t.nombre}: ${perdido} daño directo por regla (sin impacto ni ARM).`);
+     const antes=t.vida,perdido=Math.min(antes,Math.max(0,v()));Object.assign(t,danarTransformado(t,perdido).actor);log(ctx.c,`${t.nombre}: ${perdido} daño directo por regla (sin impacto ni ARM).`);
      if(perdido>0){emitirMotor(ctx.c,'recibir_dano',t,ctx.yo,t,ctx.rng,undefined,perdido);if(t.id!==ctx.yo.id)emitirMotor(ctx.c,'causar_dano',ctx.yo,ctx.yo,t,ctx.rng,undefined,perdido);}
      if(antes>0&&t.vida<=0){emitirMotor(ctx.c,'morir',t,ctx.yo,t,ctx.rng);if(t.id!==ctx.yo.id&&t.bando!==ctx.yo.bando)emitirMotor(ctx.c,'matar',ctx.yo,ctx.yo,t,ctx.rng);}break;
     }
-    case 'quitar_estado':m.modificadores=m.modificadores.filter(x=>x.clave!==clave);m.habilidades=m.habilidades.filter(x=>x.clave!==clave);t.estados=t.estados.filter(x=>x.tipo!==clave&&x.nombre!==clave);break;
+    case 'quitar_estado':{
+     const existia=tieneMotor(t,clave);
+     m.modificadores=m.modificadores.filter(x=>x.clave!==clave);m.habilidades=m.habilidades.filter(x=>x.clave!==clave);t.estados=t.estados.filter(x=>x.tipo!==clave&&x.nombre!==clave);
+     normalizar(t);
+     if(existia)emitirMotor(ctx.c,'fin_efecto',t,ctx.yo,t,ctx.rng,undefined,0,clave);
+     break;
+    }
     case 'habilidad':if(e.accion){m.habilidades=m.habilidades.filter(x=>x.id!==`${origen}:${indice}`);m.habilidades.push({origen:ctx.fuente,id:`${origen}:${indice}`,clave,accion:copia(e.accion),duracion:e.duracion||0,creado:t.turnos});}break;
     case 'estado':case 'transformar':case 'atributo':{
      const cambios=e.tipo==='atributo'?[{atributo:e.atributo||'vida',operacion:e.operacion||'sumar' as const,valor:v()}]:e.tipo==='transformar'?(e.cambios||[]).map(x=>({...x,valor:valorMotor(x.valor,ctx)})):[];
@@ -1190,7 +1211,11 @@ function caducarMotor(c:Combate,m:Combatiente,rng:RNG){if(!m.motor)return;
  const terminados:string[]=[];
  m.motor.modificadores=m.motor.modificadores.filter(x=>{if(x.duracion===0||x.creado>=m.turnos||--x.duracion>0)return true;terminados.push(x.clave);return false;});
  m.motor.habilidades=m.motor.habilidades.filter(x=>x.duracion===0||x.creado>=m.turnos||--x.duracion>0);
- for(const clave of new Set(terminados))if(!m.motor.modificadores.some(x=>x.clave===clave))emitirMotor(c,'fin_efecto',m,m,m,rng,undefined,0,clave);
+ for(const clave of new Set(terminados))if(!m.motor.modificadores.some(x=>x.clave===clave)){
+  m.motor.habilidades=m.motor.habilidades.filter(x=>x.clave!==clave);
+  normalizar(m);
+  emitirMotor(c,'fin_efecto',m,m,m,rng,undefined,0,clave);
+ }
 }
 
 export const ESPACIOS_EQUIPO:Record<string,{nombre:string;tipos:string[]}>= {
@@ -1234,7 +1259,10 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
   }
   const bonos=(equipo:Record<string,Fuente>)=>{const b:Record<string,number>={};for(const p of Object.values(equipo))for(const [k,v] of Object.entries(p.stats||{}))if(!['peso','durabilidad','dados_dano','caras_dano','dano'].includes(k))b[k]=(b[k]||0)+v;return b;};
   const viejos=bonos(anterior),actuales=bonos(elegido);
-  for(const k of new Set([...Object.keys(viejos),...Object.keys(actuales)]))m.stats[k]=(m.stats[k]||0)-(viejos[k]||0)+(actuales[k]||0);
+  for(const k of new Set([...Object.keys(viejos),...Object.keys(actuales)])){
+   const delta=-(viejos[k]||0)+(actuales[k]||0);m.stats[k]=(m.stats[k]||0)+delta;
+   if(m.transformacion)m.transformacion.stats_originales[k]=(m.transformacion.stats_originales[k]||0)+delta;
+  }
   const cambianManos=['mano_der','mano_izq'].some(k=>anterior[k]?.id!==elegido[k]?.id);
   if(cambianManos)delete m.arma;
   m.configuracion.habilidades=m.configuracion.habilidades?.filter(h=>!h.id||!reserva.has(h.id)||['habilidad','pasiva'].includes(reserva.get(h.id)?.tipo_creacion||''));

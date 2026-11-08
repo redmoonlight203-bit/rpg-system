@@ -1,3 +1,4 @@
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -14,7 +15,7 @@ vm.runInNewContext(
       },
     },
   ).outputText,
-  { exports, crypto, JSON, Array, Object, Math, Number, Map },
+  { exports, require:cargarDependencia, crypto, JSON, Array, Object, Math, Number, Map },
 );
 const c = exports;
 const e = (patch = {}) => ({

@@ -167,7 +167,9 @@ export function validarEfectos(efectos: Efecto[]): string | null {
   for (const e of efectos) {
     if(e.efecto==="transformacion"){
       const d=e.transformacion;
-      if(!d||!d.id||!d.nombre||!["forma","poder"].includes(d.tipo)||!Array.isArray(d.etapas)||d.etapas.length<1||d.etapas.length>12||d.etapas.some(v=>!v.id||!v.nombre||!v.stats||!Object.keys(v.stats).length||Object.values(v.stats).some(n=>!Number.isFinite(n)||n<0)))return "Configura una transformación válida con etapas y estadísticas.";
+      if(!d||!d.id||!d.nombre||!["forma","poder"].includes(d.tipo)||!Array.isArray(d.etapas)||d.etapas.length<1||d.etapas.length>12||d.etapas.some(v=>!v.id||!v.nombre||!v.stats||!Object.keys(v.stats).length||Object.keys(v.stats).some(k=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k))||Object.values(v.stats).some(n=>!Number.isFinite(n)||n<0||n>1000000)))return "Configura una transformación válida con etapas y estadísticas.";
+      if(new Set(d.etapas.map(v=>v.id)).size!==d.etapas.length)return 'Cada etapa necesita un identificador distinto.';
+      if(d.etapas.some(v=>v.habilidades!==undefined&&(!Array.isArray(v.habilidades)||v.habilidades.some(id=>typeof id!=='string'||!id))))return 'Selecciona poderes de etapa válidos.';
       if(d.tipo==="forma"&&d.etapas.some(v=>!((v.stats.hp??v.stats.vida)>0)))return "Cada forma necesita HP propios.";
     }
     const t=e.tablero;

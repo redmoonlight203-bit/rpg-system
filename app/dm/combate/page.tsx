@@ -265,7 +265,7 @@ export default function CampoCombate() {
         c,
         actor.id,
         elegida,
-        objetivoId || (elegida === "guardia" || efecto?.efecto === "crear_arma" ? actor.id : destino),
+        objetivoId || (elegida === "guardia" || ["crear_arma","transformacion"].includes(efecto?.efecto||"") ? actor.id : destino),
         (caras) => {
           const valor = dadoSeguro(caras);
           dados.push({ caras, valor });

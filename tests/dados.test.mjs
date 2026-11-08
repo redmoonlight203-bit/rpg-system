@@ -1,10 +1,11 @@
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 const source=ts.transpileModule(readFileSync(new URL('../lib/combate.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-function cargar(entropia){const exports={};vm.runInNewContext(source,{exports,crypto:{getRandomValues(a){a[0]=entropia();return a;}}});return exports.dadoSeguro;}
+function cargar(entropia){const exports={};vm.runInNewContext(source,{exports,require:cargarDependencia,crypto:{getRandomValues(a){a[0]=entropia();return a;}}});return exports.dadoSeguro;}
 test('todas las caras, incluidos los extremos, son alcanzables sin favorecer las bajas',()=>{
  for(const caras of [4,6,8,10,12,20,100,1000]){
   let n=0;const dado=cargar(()=>n++),cuentas=Array(caras).fill(0);

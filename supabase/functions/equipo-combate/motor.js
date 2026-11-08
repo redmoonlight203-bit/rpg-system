@@ -1,4 +1,72 @@
 // GENERADO por scripts/preparar-motor-edge.mjs. No editar directamente.
+function maxVidaForma(stats) {
+    return Math.max(1, Math.trunc(stats.vida ?? stats.hp ?? 1));
+}
+function comprobarEtapa(d, id) {
+    const e = d.etapas.find(e => e.id === id);
+    if (!e)
+        throw Error('La etapa no pertenece a esta transformación.');
+    return e;
+}
+function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
+    if (!etapaId)
+        throw Error('La transformación necesita al menos una etapa.');
+    if (actor.transformacion)
+        throw Error('Ya hay una transformación activa.');
+    if (actor.transformaciones_usadas?.includes(def.id))
+        throw Error('Esta transformación ya se utilizó en la partida.');
+    const etapa = comprobarEtapa(def, etapaId);
+    const coste = Math.max(0, def.coste_ph ?? 0);
+    if (actor.ph < coste)
+        throw Error('PH insuficiente.');
+    const original = { ...actor.stats };
+    const stats = { ...original, ...etapa.stats };
+    const forma = def.tipo === 'forma';
+    const activa = {
+        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id,
+        stats_originales: original, vida_original: actor.vida,
+        vida_forma: forma ? maxVidaForma(stats) : actor.vida,
+        turnos_restantes: def.duracion_turnos && def.duracion_turnos > 0 ? def.duracion_turnos : null
+    };
+    return { ...actor, stats, vida: forma ? activa.vida_forma : actor.vida, ph: actor.ph - coste,
+        transformacion: activa, transformaciones_usadas: [...(actor.transformaciones_usadas ?? []), def.id] };
+}
+function cambiarEtapaTransformacion(actor, def, etapaId) {
+    const activa = actor.transformacion;
+    if (!activa || activa.definicion_id !== def.id)
+        throw Error('Esta transformación no está activa.');
+    const etapa = comprobarEtapa(def, etapaId);
+    const stats = { ...activa.stats_originales, ...etapa.stats };
+    // El avance de etapa no regenera HP. En forma, la vida restante se limita
+    // al nuevo máximo; en poder, la vida real permanece intacta.
+    const vida = activa.tipo === 'forma' ? Math.min(actor.vida, maxVidaForma(stats)) : actor.vida;
+    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, vida_forma: vida } };
+}
+function terminarTransformacion(actor) {
+    const activa = actor.transformacion;
+    if (!activa)
+        return actor;
+    const vida = activa.tipo === 'forma' ? activa.vida_original : actor.vida;
+    return { ...actor, stats: { ...activa.stats_originales }, vida, transformacion: null };
+}
+function danarTransformado(actor, dano) {
+    const cantidad = Math.max(0, Math.trunc(dano));
+    const vida = Math.max(0, actor.vida - cantidad);
+    const nuevo = { ...actor, vida };
+    if (vida > 0)
+        return { actor: nuevo, muerto: false, forma_rota: false };
+    if (actor.transformacion?.tipo === 'forma')
+        return { actor: terminarTransformacion(nuevo), muerto: false, forma_rota: true };
+    return { actor: nuevo, muerto: true, forma_rota: false };
+}
+function avanzarTurnoTransformacion(actor) {
+    const activa = actor.transformacion;
+    if (!activa || activa.turnos_restantes === null)
+        return actor;
+    if (activa.turnos_restantes <= 1)
+        return terminarTransformacion(actor);
+    return { ...actor, transformacion: { ...activa, turnos_restantes: activa.turnos_restantes - 1 } };
+}
 export function validarRequisitos(r) {
     if (r === undefined)
         return null;
@@ -133,7 +201,7 @@ export function estadisticas(m) {
     return s;
 }
 export function maxVida(m) {
-    const s = estadisticas(m);
+    const s = m.transformacion?.tipo === 'poder' ? m.transformacion.stats_originales : estadisticas(m);
     return Math.max(1, s.vida ?? s.hp ?? 1);
 }
 /** Nunca permite gastar PH que excedan la capacidad real o un recurso inválido. */
@@ -300,7 +368,7 @@ function activarReglas(c, a, t, rs, rng) {
         recuperar(t, r);
         if (a.id !== t.id && (r.represalia_dados || 0) > 0) {
             const v = dados(c, r.represalia_dados, r.represalia_caras || 6, rng, "Represalia " + r.nombre);
-            a.vida = Math.max(0, a.vida - v);
+            Object.assign(a, danarTransformado(a, v).actor);
             log(c, `${a.nombre} sufre ${v} por represalia, sin encadenar otras represalias.`);
         }
     }
@@ -314,8 +382,11 @@ function recibir(c, a, t, e, total, rs, rng) {
         log(c, `${t.nombre}: reducción ${reduccion}% (${antes} → ${total}); no se acumulan porcentajes.`);
     }
     const perdido = Math.min(t.vida, Math.max(0, total));
-    t.vida -= perdido;
-    const cayo = perdido > 0 && t.vida <= 0;
+    const resultadoDano = danarTransformado(t, perdido);
+    Object.assign(t, resultadoDano.actor);
+    if (resultadoDano.forma_rota)
+        log(c, `${t.nombre}: su forma se rompe y recupera su vida anterior.`);
+    const cayo = perdido > 0 && resultadoDano.muerto;
     log(c, `${t.nombre} recibe ${perdido} daño; vida ${t.vida}.`);
     if (perdido > 0) {
         activarReglas(c, a, t, alDano, rng);
@@ -399,6 +470,12 @@ function siguienteInterno(c, rng) {
     const n = copia(c), a = n.miembros.find((m) => m.id === n.actual);
     delete n.resultado;
     if (a) {
+        if (a.transformacion && a.turnos > (a.transformacion.creado_turno ?? -1)) {
+            const actualizado = avanzarTurnoTransformacion(a);
+            Object.assign(a, actualizado);
+            if (!a.transformacion)
+                log(n, `${a.nombre}: termina su transformación.`);
+        }
         emitirMotor(n, 'fin_turno', a, a, a, rng);
         caducarMotor(n, a, rng);
         if ((estadisticas(a).fatiga || 0) > 0 &&
@@ -472,6 +549,9 @@ export function deshacer(c) {
     return registrarCambiosVida(c, { ...copia(previo), historial: h });
 }
 function limpiarFinal(n) { n.miembros = n.miembros.filter(m => !m.invocacion); for (const m of n.miembros) {
+    if (m.transformacion)
+        Object.assign(m, terminarTransformacion(m));
+    m.transformaciones_usadas = [];
     emitirMotor(n, 'fin_combate', m, m, m, dadoSeguro);
     m.estados = [];
     if (m.motor) {
@@ -542,6 +622,8 @@ function basico() {
 }
 export function acciones(m) {
     const lista = [];
+    if (m.transformacion)
+        lista.push({ id: 'volver_forma', nombre: 'Volver a la forma original', efecto: { ...basico(), efecto: 'transformacion' }, enfriamiento: 0 });
     if (m.arma)
         lista.push({
             id: "ataque",
@@ -585,7 +667,19 @@ export function acciones(m) {
     for (const { clave, regla } of reglasMotor(m))
         if (regla.evento === 'usar')
             lista.push({ id: `regla:${clave}`, nombre: regla.nombre, regla_detalle: regla, bloqueada: regla.usos > 0 && (m.motor?.usos[clave] || 0) >= regla.usos ? 'Sin usos restantes.' : undefined, efecto: { ...basico(), efecto: 'estado', estado: regla.nombre, cantidad: 0, coste_ph: regla.coste_ph, coste_fatiga: regla.coste_fatiga }, enfriamiento: regla.enfriamiento, regla: clave });
-    return lista.filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => ({ ...a, efecto: conAlcance(a.efecto, a.nombre) }));
+    const definiciones = lista.flatMap(a => a.efecto.transformacion ? [a.efecto.transformacion] : []);
+    const exclusivos = new Set(definiciones.flatMap(d => d.etapas.flatMap(e => e.habilidades || [])));
+    const permitidos = new Set(definiciones.find(d => d.id === m.transformacion?.definicion_id)?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.habilidades || []);
+    return lista.filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
+        const d = a.efecto.transformacion;
+        if (d && m.transformacion?.definicion_id === d.id) {
+            const i = d.etapas.findIndex(e => e.id === m.transformacion?.etapa_id);
+            return { ...a, nombre: i < d.etapas.length - 1 ? 'Avanzar a ' + d.etapas[i + 1].nombre : a.nombre, efecto: { ...a.efecto, coste_ph: 0, coste_fatiga: 0 }, bloqueada: i === d.etapas.length - 1 ? 'Ya está en la última etapa.' : undefined };
+        }
+        if (d && (m.transformacion || m.transformaciones_usadas?.includes(d.id)))
+            return { ...a, bloqueada: m.transformacion ? 'Otra transformación está activa.' : 'Ya utilizada en este encuentro.' };
+        return { ...a, efecto: conAlcance(a.efecto, a.nombre) };
+    });
 }
 function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
     const n = copia(c), a = n.miembros.find((m) => m.id === actorId);
@@ -609,6 +703,15 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
         a.accion_usada = true;
         return n;
     }
+    if (accionId === 'volver_forma') {
+        if (!a.transformacion)
+            throw Error('No hay transformación activa.');
+        Object.assign(a, terminarTransformacion(a));
+        normalizar(a);
+        a.accion_usada = true;
+        log(n, `${a.nombre} vuelve a su cuerpo original.`);
+        return n;
+    }
     if (accionId === "guardia") {
         estado(a, "guardia", "Guardia", 1, { armadura: 2 }, { inicio: true });
         a.accion_usada = true;
@@ -619,6 +722,46 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
         throw Error("La acción no existe.");
     if ((a.cooldowns[act.id] || 0) > 0)
         throw Error("Habilidad en enfriamiento.");
+    if (act.efecto.efecto === "transformacion") {
+        const d = act.efecto.transformacion;
+        if (!d)
+            throw Error("Transformación sin configurar.");
+        if (!a.transformacion) {
+            const fatiga = act.efecto.coste_fatiga || 0;
+            if (fatiga && (a.agotado || a.fatiga + fatiga > (estadisticas(a).fatiga || 0)))
+                throw Error("Fatiga insuficiente para transformarse.");
+            a.fatiga += fatiga;
+            a.uso_fatiga = fatiga > 0;
+        }
+        if (a.transformacion) {
+            if (a.transformacion.definicion_id !== d.id)
+                throw Error("Otra transformación está activa.");
+            const indice = d.etapas.findIndex(x => x.id === a.transformacion?.etapa_id);
+            if (indice < 0 || indice === d.etapas.length - 1)
+                throw Error("No hay otra etapa.");
+            Object.assign(a, cambiarEtapaTransformacion(a, d, d.etapas[indice + 1].id));
+            log(n, `${a.nombre} avanza a ${d.etapas[indice + 1].nombre}.`);
+        }
+        else {
+            if (a.transformaciones_usadas?.includes(d.id))
+                throw Error("Transformación ya utilizada en esta partida.");
+            if (phDisponibles(a) < (act.efecto.coste_ph || 0))
+                throw Error("PH insuficientes.");
+            Object.assign(a, activarTransformacion(a, { ...d, coste_ph: act.efecto.coste_ph, duracion_turnos: act.efecto.duracion || d.duracion_turnos }));
+            log(n, `${a.nombre} activa ${d.nombre}.`);
+        }
+        if (a.transformacion && !a.transformacion.creado_turno)
+            a.transformacion.creado_turno = a.turnos;
+        if (!a.transformacion)
+            throw Error('No se pudo activar la forma.');
+        if (!a.transformacion.etapa_id)
+            throw Error('Etapa inválida.');
+        if (act.enfriamiento)
+            a.cooldowns[act.id] = act.enfriamiento + 1;
+        a.accion_usada = true;
+        normalizar(a);
+        return n;
+    }
     let e = act.efecto;
     const s = estadisticas(a), coste = e.coste_ph || 0, fatiga = e.coste_fatiga || 0, t = n.miembros.find((m) => m.id === objetivoId);
     const tactica = e.tablero;
@@ -661,7 +804,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
         a.cooldowns[act.id] = act.enfriamiento + 1;
     if (forzando) {
         const v = dados(n, 1, 4, rng, "Daño por agotamiento");
-        a.vida = Math.max(0, a.vida - v);
+        Object.assign(a, danarTransformado(a, v).actor);
         if (!a.vida) {
             log(n, `${a.nombre} cae por agotamiento antes de ejecutar la habilidad.`);
             return n;
@@ -702,6 +845,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro) {
 }
 function resolverEfecto(n, a, t, e, act, rng, centro) {
     const s = estadisticas(a);
+    if (e.efecto === "transformacion")
+        throw Error("Transformación solo puede ejecutarse sobre el usuario.");
     if (e.efecto !== "dano") {
         const supera = e.salvacion
             ? salvacion(n, t, e.salvacion.cd, e.salvacion.atributo, rng)
@@ -1017,7 +1162,7 @@ function efectosMotor(efectos, ctx, origen) {
                 }
                 case 'dano': {
                     const antes = t.vida, perdido = Math.min(antes, Math.max(0, v()));
-                    t.vida -= perdido;
+                    Object.assign(t, danarTransformado(t, perdido).actor);
                     log(ctx.c, `${t.nombre}: ${perdido} daño directo por regla (sin impacto ni ARM).`);
                     if (perdido > 0) {
                         emitirMotor(ctx.c, 'recibir_dano', t, ctx.yo, t, ctx.rng, undefined, perdido);
@@ -1031,11 +1176,16 @@ function efectosMotor(efectos, ctx, origen) {
                     }
                     break;
                 }
-                case 'quitar_estado':
+                case 'quitar_estado': {
+                    const existia = tieneMotor(t, clave);
                     m.modificadores = m.modificadores.filter(x => x.clave !== clave);
                     m.habilidades = m.habilidades.filter(x => x.clave !== clave);
                     t.estados = t.estados.filter(x => x.tipo !== clave && x.nombre !== clave);
+                    normalizar(t);
+                    if (existia)
+                        emitirMotor(ctx.c, 'fin_efecto', t, ctx.yo, t, ctx.rng, undefined, 0, clave);
                     break;
+                }
                 case 'habilidad':
                     if (e.accion) {
                         m.habilidades = m.habilidades.filter(x => x.id !== `${origen}:${indice}`);
@@ -1081,8 +1231,11 @@ function caducarMotor(c, m, rng) {
         return true; terminados.push(x.clave); return false; });
     m.motor.habilidades = m.motor.habilidades.filter(x => x.duracion === 0 || x.creado >= m.turnos || --x.duracion > 0);
     for (const clave of new Set(terminados))
-        if (!m.motor.modificadores.some(x => x.clave === clave))
+        if (!m.motor.modificadores.some(x => x.clave === clave)) {
+            m.motor.habilidades = m.motor.habilidades.filter(x => x.clave !== clave);
+            normalizar(m);
             emitirMotor(c, 'fin_efecto', m, m, m, rng, undefined, 0, clave);
+        }
 }
 export const ESPACIOS_EQUIPO = {
     casco: { nombre: 'Cabeza', tipos: ['casco'] }, pechera: { nombre: 'Torso', tipos: ['pechera'] }, pantalones: { nombre: 'Piernas', tipos: ['pantalones'] }, zapatos: { nombre: 'Botas', tipos: ['zapatos'] }, capa: { nombre: 'Capa', tipos: ['capa'] },
@@ -1148,8 +1301,12 @@ export function cambiarEquipo(c, actorId, seleccion, rng = dadoSeguro) {
                 if (!['peso', 'durabilidad', 'dados_dano', 'caras_dano', 'dano'].includes(k))
                     b[k] = (b[k] || 0) + v; return b; };
         const viejos = bonos(anterior), actuales = bonos(elegido);
-        for (const k of new Set([...Object.keys(viejos), ...Object.keys(actuales)]))
-            m.stats[k] = (m.stats[k] || 0) - (viejos[k] || 0) + (actuales[k] || 0);
+        for (const k of new Set([...Object.keys(viejos), ...Object.keys(actuales)])) {
+            const delta = -(viejos[k] || 0) + (actuales[k] || 0);
+            m.stats[k] = (m.stats[k] || 0) + delta;
+            if (m.transformacion)
+                m.transformacion.stats_originales[k] = (m.transformacion.stats_originales[k] || 0) + delta;
+        }
         const cambianManos = ['mano_der', 'mano_izq'].some(k => anterior[k]?.id !== elegido[k]?.id);
         if (cambianManos)
             delete m.arma;

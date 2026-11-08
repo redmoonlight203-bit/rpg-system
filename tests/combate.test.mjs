@@ -1,5 +1,6 @@
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
 import{test}from'node:test';import assert from'node:assert/strict';import{readFileSync}from'node:fs';import ts from'typescript';import vm from'node:vm';
-const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/combate.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,crypto,JSON,Array,Object,Math,Number});const c=exports;
+const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/combate.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:cargarDependencia,crypto,JSON,Array,Object,Math,Number});const c=exports;
 const regla={id:'p',nombre:'Estratega',evento:'permanente',condicion:'siempre',bonos:{iniciativa:4,bono_impacto:2},curacion:0,recuperar_ph:0,reducir_fatiga:0};
 const arma={id:'crear',nombre:'Arsenal',efecto:'crear_arma',cantidad:3,caras:8,modificador:6,duracion:3,coste_ph:0,coste_fatiga:1,arma_nombre:'Lanza',arma_slot:'dos_manos',estado:'',tipo_dano:'físico'};
 function personaje(id='a'){return{id,posicion:{x:id==='a'?1:2,y:1},forja_id:id,nombre:id,stats:{vida:100,armadura:20,ph:0,fatiga:7,iniciativa:2,bono_impacto:6,dano:2},configuracion:{tipo_creacion:'personaje',pasivas:[{nombre:'Estratega',reglas:[regla]}],habilidades:[{id:'h',nombre:'Creación',stats:{},efectos:[arma]}]}};}

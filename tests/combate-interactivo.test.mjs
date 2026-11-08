@@ -1,8 +1,9 @@
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
 import{test}from'node:test';
 import assert from'node:assert/strict';
 import{readFileSync}from'node:fs';
 import ts from'typescript';import vm from'node:vm';
-const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/combate.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,crypto,JSON,Array,Object,Math,Number});const c=exports;
+const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/combate.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:cargarDependencia,crypto,JSON,Array,Object,Math,Number});const c=exports;
 function pj(id){return{id,forja_id:null,personaje_id:id,nombre:id,stats:{vida:20,armadura:5},configuracion:{tipo_creacion:'personaje'}};}
 function campo(){let b=c.nuevoCombate();for(const[id,d]of [['a',20],['b',10],['c',1]])b=c.agregar(b,pj(id),'jugador',()=>d);return c.iniciar(b);}
 test('no se pueden retirar participantes con el combate iniciado',()=>{const b=campo();for(const id of ['a','b','c'])assert.throws(()=>c.retirar(b,id),/antes de iniciar/);assert.equal(b.miembros.length,3);assert.equal(b.actual,'a');});

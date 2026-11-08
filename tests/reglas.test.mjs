@@ -1,9 +1,10 @@
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 import vm from 'node:vm';
-function cargar(path){const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,crypto,JSON,Array,Object,Math,Number,Map,Set,Error});return exports;}
+function cargar(path){const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:cargarDependencia,crypto,JSON,Array,Object,Math,Number,Map,Set,Error});return exports;}
 const c=cargar('../lib/combate.ts'),r=cargar('../lib/reglas.ts');
 const fija=(n)=>(()=>n);
 function campo(reglas,patch={}){

@@ -19,6 +19,7 @@ export type DefinicionTransformacion = {
   coste_ph?:number;
 };
 export type TransformacionActiva = {
+  creado_turno?:number;
   definicion_id:string;
   tipo:TipoTransformacion;
   etapa_id:string;
@@ -34,7 +35,7 @@ export type EstadoTransformable = {
   transformacion?:TransformacionActiva|null;
   transformaciones_usadas?:string[];
 };
-function maxVida(stats:Record<string,number>):number {
+function maxVidaForma(stats:Record<string,number>):number {
   return Math.max(1,Math.trunc(stats.vida??stats.hp??1));
 }
 function comprobarEtapa(d:DefinicionTransformacion,id:string) {
@@ -55,7 +56,7 @@ export function activarTransformacion<T extends EstadoTransformable>(actor:T,def
   const activa:TransformacionActiva={
     definicion_id:def.id,tipo:def.tipo,etapa_id:etapa.id,
     stats_originales:original,vida_original:actor.vida,
-    vida_forma:forma?maxVida(stats):actor.vida,
+    vida_forma:forma?maxVidaForma(stats):actor.vida,
     turnos_restantes:def.duracion_turnos&&def.duracion_turnos>0?def.duracion_turnos:null
   };
   return {...actor,stats,vida:forma?activa.vida_forma:actor.vida,ph:actor.ph-coste,
@@ -68,7 +69,7 @@ export function cambiarEtapaTransformacion<T extends EstadoTransformable>(actor:
   const stats={...activa.stats_originales,...etapa.stats};
   // El avance de etapa no regenera HP. En forma, la vida restante se limita
   // al nuevo máximo; en poder, la vida real permanece intacta.
-  const vida=activa.tipo==='forma'?Math.min(actor.vida,maxVida(stats)):actor.vida;
+  const vida=activa.tipo==='forma'?Math.min(actor.vida,maxVidaForma(stats)):actor.vida;
   return {...actor,stats,vida,transformacion:{...activa,etapa_id:etapaId,vida_forma:vida}};
 }
 export function terminarTransformacion<T extends EstadoTransformable>(actor:T):T {
