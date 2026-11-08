@@ -33,7 +33,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  useEffect(()=>{const v=habilidad?.vfx;precargarVFX([v?.lanzamiento,v?.recorrido,v?.impacto,...(habilidad?.transformacion?.etapas.flatMap(e=>[e.vfx?.entrada,e.vfx?.aura])||[])]);},[habilidad?.id,habilidad?.vfx,habilidad?.transformacion]);
  const coste=destino?alcanzables[`${destino.x},${destino.y}`]:undefined,origen=fichas.find(f=>f.id===lanzador),t=!moviendo?habilidad?.tablero:undefined;
  const blancas=useMemo(()=>new Set((t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}).filter(p=>lineaVisible(origen.posicion,p,mapa)):[]).map(p=>`${p.x},${p.y}`)),[t,origen?.posicion.x,origen?.posicion.y,columnas,filas,mapa]);
- const punto=centro||hover;
+ const punto=t?.origen_area==='lanzador'?origen?.posicion:centro||hover;
  const area=useMemo(()=>t&&origen&&punto?areaDesde(origen.posicion,punto,t,{columnas,filas}):[],[t,origen?.posicion.x,origen?.posicion.y,punto?.x,punto?.y,columnas,filas]);
  const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
  const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&afectadas.has(`${f.posicion.x},${f.posicion.y}`)&&objetivoDelArea(origen,f,habilidad!)):[],[fichas,origen,t,afectadas,habilidad]);
@@ -48,9 +48,9 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  return <section style={{'--herida':herida} as React.CSSProperties} className={`tactical-field area-${t?.color||'azul'}`} aria-label="Tablero de combate">
   {perspectiva&&<div className="tactical-danger-border" aria-hidden="true"/>}
   {golpePropio&&<span key={evento?.id} className="tactical-player-hit" aria-hidden="true"/>}
-  <header className="tactical-field-header"><span><Crosshair size={16}/>{moviendo?'Doble clic en una casilla iluminada para moverte':t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}`:'Toca un retrato para elegir objetivo'}</span><small>Aliados <i className="tactical-dot ally"/> Enemigos <i className="tactical-dot enemy"/></small></header>
+  <header className="tactical-field-header"><span><Crosshair size={16}/>{moviendo?'Doble clic en una casilla iluminada para moverte':t?.origen_area==='lanzador'?`Rugido: nace de ${origen?.nombre||'tu personaje'} y afecta alrededor`:t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}`:'Toca un retrato para elegir objetivo'}</span><small>Aliados <i className="tactical-dot ally"/> Enemigos <i className="tactical-dot enemy"/></small></header>
   {mapa?.procedural?.objetos?.some(o=>o.capa==='techos')&&<button type="button" className="tactical-roof-toggle" aria-pressed={mostrarTechos} onClick={()=>setMostrarTechos(v=>!v)}>{mostrarTechos?'Ocultar techos y ver interior':'Mostrar techos'}</button>}
-  {t&&<div className="tactical-area-summary" role="status"><strong>{habilidad?.nombre}</strong><span>{punto?`${area.length} casillas · ${victimas.length} objetivos: ${victimas.map(f=>f.nombre).join(', ')||'ninguno'}`:'Toca una casilla blanca para centrar el efecto.'}</span>{centro&&<button onClick={()=>onApuntar?.(centro)}>Centro: {centro.x+1}, {centro.y+1}</button>}</div>}
+  {t&&<div className="tactical-area-summary" role="status"><strong>{habilidad?.nombre}</strong><span>{punto?`${area.length} casillas · ${victimas.length} objetivos: ${victimas.map(f=>f.nombre).join(', ')||'ninguno'}`:t?.origen_area==='lanzador'?'Pulsa Confirmar acción: el área nace del atacante.':'Toca una casilla blanca para centrar el efecto.'}</span>{centro&&<button onClick={()=>onApuntar?.(centro)}>Centro: {centro.x+1}, {centro.y+1}</button>}</div>}
   <div className="tactical-scroll"><div onMouseLeave={()=>setHover(null)} className={`tactical-board ${mapa?.procedural?'has-procedural-map':''}`} style={{gridTemplateColumns:`repeat(${columnas}, minmax(48px, 1fr))`}}>
    {mapa?.procedural&&<FondoMapaProcedural mapa={mapa} techos={mostrarTechos}/>}
    {casillas.map(p=>{const k=`${p.x},${p.y}`,f=porCasilla.get(k),disponible=moviendo&&!!alcanzables[k],enRango=blancas.has(k),enArea=afectadas.has(k),elegida=!!destino&&destino.x===p.x&&destino.y===p.y,esCentro=centro?.x===p.x&&centro?.y===p.y;
@@ -75,7 +75,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
 }
 export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string};
 export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras,onLevantarse}:{actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;onResolver:()=>void;onPasar:()=>void;onInventario:()=>void;objetivo?:string;puede:boolean;ocupado:boolean;moviendo:boolean;onMovimiento:()=>void;movimiento:number;forzar:boolean;onForzar:(v:boolean)=>void;dados?:TiradaVisual[];resultado?:string;extras?:React.ReactNode;onLevantarse?:()=>void}){
- const elegida=acciones.find(a=>a.id===seleccion),propio=seleccion==='guardia'||['crear_arma','transformacion'].includes(elegida?.efecto.efecto||'');
+ const elegida=acciones.find(a=>a.id===seleccion),propio=seleccion==='guardia'||['crear_arma','transformacion'].includes(elegida?.efecto.efecto||'')||elegida?.efecto.tablero?.origen_area==='lanzador';
  const ayuda=useMemo(()=>elegida?.regla_detalle?describirRegla(elegida.regla_detalle):elegida?describirEfecto(elegida.efecto,elegida.nombre):null,[elegida]);
  const [categoria,setCategoria]=useState('todas');
  const phReal=Number.isFinite(actor.ph)?Math.max(0,Math.min(actor.ph,actor.stats?(Number.isFinite(actor.stats.ph)?actor.stats.ph:0):actor.ph)):0;
