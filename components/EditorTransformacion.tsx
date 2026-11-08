@@ -71,7 +71,9 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
       <label className="block text-sm">Nombre de la etapa
         <input className={campo} value={etapa.nombre} maxLength={120} onChange={e=>onChange({...etapa,nombre:e.target.value})} placeholder="Ej.: Manifestación parcial"/>
       </label>
-
+      <label className="block text-sm">Descripción de esta etapa para el jugador
+       <textarea className={campo} rows={3} maxLength={2000} value={etapa.descripcion||''} placeholder="Explica cómo cambia el cuerpo, el poder y la voluntad del personaje." onChange={e=>onChange({...etapa,descripcion:e.target.value})}/>
+      </label>
       <fieldset className="space-y-3 rounded-lg border border-violet-900/70 bg-neutral-900/50 p-3">
         <legend className="px-1 font-semibold text-violet-200">Apariencia durante esta etapa</legend>
         <p className="text-xs text-neutral-400">Esta imagen reemplaza temporalmente el retrato del personaje al transformarse. Cada etapa puede tener una distinta. Al regresar a su forma original, reaparece su retrato normal.</p>
