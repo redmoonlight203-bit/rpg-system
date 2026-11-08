@@ -1367,7 +1367,7 @@ export function retirar(c: Combate, id: string) {
 export type EstadoMotor = {
  modificadores: {origen?:string;clave:string;nombre:string;creado:number;duracion:number;cambios:{atributo:string;operacion:'sumar'|'multiplicar'|'fijar';valor:number}[]}[];
  habilidades: {origen?:string;id:string;clave:string;creado:number;duracion:number;accion:Efecto}[];
- usos: Record<string,number>; proximos: Record<string,number>;
+ usos: Record<string,number>; proximos: Record<string,number>; usos_turno?:Record<string,{turno:number;cantidad:number}>;
  progreso: {id:string;atributo:string;delta:number;regla:string}[];
 };
 function motor(m:Combatiente):EstadoMotor {return m.motor ||= {modificadores:[],habilidades:[],usos:{},proximos:{},progreso:[]};}
@@ -1432,11 +1432,12 @@ function emitirMotor(c:Combate,evento:EventoRegla,yo:Combatiente,actor:Combatien
 }
 function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Combatiente,objetivo:Combatiente,rng:RNG,efecto?:Efecto,cantidad=0,manual=false,estadoTerminado?:string){
  const ctx:ContextoMotor={alcanceManual:manual?conAlcance({...basico(),efecto:'estado',nombre:r.nombre,coste_ph:r.coste_ph}).tablero?.alcance:undefined,c,yo,actor,objetivo,rng,efecto,cantidad,profundidad:0,fuente:clave.startsWith('equipo:')?clave.split(':').slice(0,2).join(':'):undefined,estado_terminado:estadoTerminado},m=motor(yo);
- const error=typeof r.coste_ph!=='number'||!Number.isFinite(r.coste_ph)||r.coste_ph<0?'Coste de PH inválido.':!condicionMotor(r.condicion,ctx)?'No se cumplen las condiciones.':r.usos>0&&(m.usos[clave]||0)>=r.usos?'Sin usos restantes.':(m.proximos[clave]||0)>yo.turnos?'Regla en enfriamiento.':phDisponibles(yo)<r.coste_ph?'PH insuficientes.':r.coste_fatiga>0&&(yo.agotado||yo.fatiga+r.coste_fatiga>(estadisticas(yo).fatiga||0))?'Fatiga insuficiente.':'';
+ const cantidadEnTurno=m.usos_turno?.[clave]?.turno===yo.turnos?m.usos_turno[clave].cantidad:0;
+ const error=(r.limite_por_turno||0)>0&&cantidadEnTurno>=r.limite_por_turno!?'Límite de usos por turno alcanzado.':typeof r.coste_ph!=='number'||!Number.isFinite(r.coste_ph)||r.coste_ph<0?'Coste de PH inválido.':!condicionMotor(r.condicion,ctx)?'No se cumplen las condiciones.':r.usos>0&&(m.usos[clave]||0)>=r.usos?'Sin usos restantes.':(m.proximos[clave]||0)>yo.turnos?'Regla en enfriamiento.':phDisponibles(yo)<r.coste_ph?'PH insuficientes.':r.coste_fatiga>0&&(yo.agotado||yo.fatiga+r.coste_fatiga>(estadisticas(yo).fatiga||0))?'Fatiga insuficiente.':'';
  if(error){if(manual)throw Error(error);return;}
  yo.ph=phDisponibles(yo)-r.coste_ph;yo.fatiga+=r.coste_fatiga;
  if(r.coste_fatiga){yo.uso_fatiga=true;if(yo.fatiga>=(estadisticas(yo).fatiga||0))yo.agotado=true;}
- m.usos[clave]=(m.usos[clave]||0)+1;m.proximos[clave]=yo.turnos+r.enfriamiento+1;
+ m.usos[clave]=(m.usos[clave]||0)+1;if((r.limite_por_turno||0)>0){m.usos_turno||={};m.usos_turno[clave]={turno:yo.turnos,cantidad:cantidadEnTurno+1};}m.proximos[clave]=yo.turnos+r.enfriamiento+1;
  // Sin enfriamiento, distintas muertes durante un mismo turno sí cuentan.
  if(!r.enfriamiento)m.proximos[clave]=yo.turnos;
  log(c,`${yo.nombre} · ${r.nombre}`);
