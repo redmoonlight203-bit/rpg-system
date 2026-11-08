@@ -144,7 +144,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
 
       <div className="space-y-3 rounded-lg border border-rose-800/60 p-3">
         <label className="flex items-center gap-2 text-sm font-semibold">
-          <input type="checkbox" checked={!!etapa.descontrolada} onChange={e=>onChange({...etapa,descontrolada:e.target.checked})}/>
+          <input type="checkbox" checked={!!etapa.descontrolada} onChange={e=>onChange({...etapa,descontrolada:e.target.checked,...(e.target.checked?{vida_maxima_posesion:etapa.vida_maxima_posesion??40,curacion_entrada:etapa.curacion_entrada??15}:{})})}/>
           Etapa descontrolada: el jugador pierde el control
         </label>
         {etapa.descontrolada&&<>
