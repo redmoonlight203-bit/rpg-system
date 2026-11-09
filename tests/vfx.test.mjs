@@ -11,8 +11,8 @@ vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/vfx.ts',impor
 const {planificarVFX,validarVFX}=exports;
 const vfx={lanzamiento:'kitsuwick-blink-step',recorrido:'foundry-blink-dash',impacto:'smoke-dust-polvo-1',escala:2};
 const evento={id:'e',nombre:'Paso',dados:[],creado_en:Date.now(),desde:{x:1,y:1},hasta:{x:6,y:1},vfx};
-test('catálogo conserva 167 efectos únicos, imágenes animadas y avisos de autoría',()=>{
- assert.equal(catalogo.length,167);assert.equal(new Set(catalogo.map(v=>v.id)).size,167);
+test('catálogo conserva 170 efectos únicos, imágenes animadas y avisos de autoría',()=>{
+ assert.equal(catalogo.length,170);assert.equal(new Set(catalogo.map(v=>v.id)).size,170);
  for(const v of catalogo){
   assert.ok(v.nombre&&v.categoria&&v.duracion>0);
   for(const key of ['url','bucle']){const path=new URL('../public'+v[key],import.meta.url);assert.ok(existsSync(path));const png=readFileSync(path);assert.equal(png.subarray(1,4).toString(),'PNG');assert.ok(png.includes(Buffer.from('acTL')),v.id);}

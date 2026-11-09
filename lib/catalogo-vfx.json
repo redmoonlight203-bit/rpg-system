@@ -2169,5 +2169,44 @@
     "alto": 32,
     "repetible": false,
     "poster": "/vfx/smoke-dust/polvo-5-preview.png"
+  },
+  {
+    "id": "espacial-azul",
+    "nombre": "Azul · Atracción espacial",
+    "categoria": "Técnicas espaciales",
+    "paquete": "Yugen original",
+    "url": "/vfx/espacial/azul.png",
+    "bucle": "/vfx/espacial/azul-loop.png",
+    "poster": "/vfx/espacial/azul-preview.png",
+    "duracion": 1800,
+    "ancho": 256,
+    "alto": 144,
+    "repetible": false
+  },
+  {
+    "id": "espacial-rojo",
+    "nombre": "Rojo · Repulsión espacial",
+    "categoria": "Técnicas espaciales",
+    "paquete": "Yugen original",
+    "url": "/vfx/espacial/rojo.png",
+    "bucle": "/vfx/espacial/rojo-loop.png",
+    "poster": "/vfx/espacial/rojo-preview.png",
+    "duracion": 1800,
+    "ancho": 256,
+    "alto": 144,
+    "repetible": false
+  },
+  {
+    "id": "espacial-morado",
+    "nombre": "Morado · Fusión imaginaria",
+    "categoria": "Técnicas espaciales",
+    "paquete": "Yugen original",
+    "url": "/vfx/espacial/morado.png",
+    "bucle": "/vfx/espacial/morado-loop.png",
+    "poster": "/vfx/espacial/morado-preview.png",
+    "duracion": 2394,
+    "ancho": 256,
+    "alto": 144,
+    "repetible": false
   }
 ]

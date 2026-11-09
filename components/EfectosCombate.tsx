@@ -32,7 +32,7 @@ export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVi
  useEffect(()=>{cola.current=new ColaVisual<{id:string;clips:ClipVFX[]}>(setLote,l=>Math.max(...l.clips.map(c=>c.inicio+c.duracion))+80);return()=>{cola.current?.cerrar();cola.current=undefined;};},[]);
  useEffect(()=>{
   if(!evento||(reproducidos.has(evento.id)&&propio.current!==evento.id)||!evento.creado_en||Date.now()-(evento.recibido_en||evento.creado_en)>10000)return;
-  const clips=planificarVFX(evento).slice(0,24).map(c=>({...c,inicio:Math.min(c.inicio,800),duracion:Math.min(c.duracion,1800)}));if(!clips.length)return;
+  const clips=planificarVFX(evento).slice(0,24).map(c=>({...c,inicio:Math.min(c.inicio,800),duracion:Math.min(c.duracion,2400)}));if(!clips.length)return;
   propio.current=evento.id;reproducidos.add(evento.id);if(reproducidos.size>250)reproducidos.delete(reproducidos.values().next().value!);
   precargarVFX(clips.map(c=>c.animacion));cola.current?.agregar({id:evento.id,clips});
  },[evento?.id]);

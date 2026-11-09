@@ -45,7 +45,7 @@ export function prepararVariante<T extends {nombre:string;stats:Record<string,nu
  for(const [slot,e] of Object.entries(variante.equipamiento)){
   if(slot==='mano_izq'&&equipo.mano_der?.slot_tipo==='dos_manos')continue;
   if(e.modo==='catalogo'){
-   const elegibles=e.opciones.filter(id=>{const c=catalogo.find(c=>c.id===id)!;return !faltantesRequisitos(c.requisitos_uso,razas,base).length;});
+   const elegibles=e.opciones.filter(id=>{const c=catalogo.find(c=>c.id===id)!;return !faltantesRequisitos(c.requisitos_uso,razas,base,[...(f.configuracion.habilidades||[]).map(h=>h.forja_id||h.id||''),...variante.habilidades]).length;});
    if(!elegibles.length)throw Error(`${variante.nombre}: no cumple los requisitos del equipo de ${slot}.`);
    equipo[slot]=fuente(elegibles[Math.min(elegibles.length-1,Math.floor(rng()*elegibles.length))]);
   }else{

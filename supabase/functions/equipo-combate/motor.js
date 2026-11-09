@@ -102,6 +102,10 @@ export function validarRequisitos(r) {
         return null;
     if (!r || typeof r !== 'object' || Array.isArray(r))
         return 'Requisitos inválidos.';
+    if (r.habilidades !== undefined && (!Array.isArray(r.habilidades) || r.habilidades.length > 20 || r.habilidades.some(x => typeof x !== 'string' || !/^[0-9a-f-]{36}$/i.test(x))))
+        return 'Selecciona habilidades previas válidas.';
+    if (r.desbloqueo_automatico !== undefined && typeof r.desbloqueo_automatico !== 'boolean')
+        return 'Desbloqueo automático inválido.';
     if (r.nivel_minimo !== undefined && (!Number.isInteger(r.nivel_minimo) || r.nivel_minimo < 1 || r.nivel_minimo > 100))
         return 'El nivel requerido debe estar entre 1 y 100.';
     if (r.razas !== undefined && (!Array.isArray(r.razas) || r.razas.length > 50 || r.razas.some(x => typeof x !== 'string' || !x.trim() || x.length > 100)))
@@ -110,7 +114,7 @@ export function validarRequisitos(r) {
         return 'Los mínimos deben ser atributos válidos y números de 0 a 1000000.';
     return null;
 }
-export function faltantesRequisitos(r, razas, stats) {
+export function faltantesRequisitos(r, razas, stats, conocidas = []) {
     const error = validarRequisitos(r);
     if (error)
         return [error];
@@ -118,6 +122,8 @@ export function faltantesRequisitos(r, razas, stats) {
         return [];
     const normal = (s) => s.trim().toLocaleLowerCase();
     const errores = [];
+    if (r.habilidades?.some(id => !conocidas.includes(id)))
+        errores.push('Debes conocer todas las habilidades previas requeridas.');
     if (r.nivel_minimo !== undefined && (stats.nivel ?? 1) < r.nivel_minimo)
         errores.push('Nivel requerido: ' + r.nivel_minimo);
     if (r.razas?.length && !r.razas.some(x => razas.map(normal).includes(normal(x))))
@@ -128,7 +134,7 @@ export function faltantesRequisitos(r, razas, stats) {
     return errores;
 }
 function baseRequisitos(m) { return Object.fromEntries(Object.entries(m.stats).map(([k, v]) => [k, v - (m.configuracion.bonos_equipamiento?.[k] || 0)])); }
-function requisitosFuente(m, f) { return faltantesRequisitos(f.requisitos_uso, [m.configuracion.raza || '', ...(m.configuracion.linaje_raza || [])], baseRequisitos(m)); }
+function requisitosFuente(m, f) { return faltantesRequisitos(f.requisitos_uso, [m.configuracion.raza || '', ...(m.configuracion.linaje_raza || [])], baseRequisitos(m), [...(m.configuracion.habilidades_conocidas || []), ...(m.configuracion.habilidades || []).map(h => h.forja_id || h.id || '')]); }
 export function dadoSeguro(caras) {
     if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
         throw Error("El dado requiere caras enteras entre 2 y 4294967296.");

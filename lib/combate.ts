@@ -3,32 +3,36 @@ import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
-export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number};
+export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean};
 export function validarRequisitos(r:RequisitosUso|undefined):string|null{
  if(r===undefined)return null;
  if(!r||typeof r!=='object'||Array.isArray(r))return 'Requisitos inválidos.';
+ if(r.habilidades!==undefined&&(!Array.isArray(r.habilidades)||r.habilidades.length>20||r.habilidades.some(x=>typeof x!=='string'||! /^[0-9a-f-]{36}$/i.test(x))))return 'Selecciona habilidades previas válidas.';
+ if(r.desbloqueo_automatico!==undefined&&typeof r.desbloqueo_automatico!=='boolean')return 'Desbloqueo automático inválido.';
  if(r.nivel_minimo!==undefined&&(!Number.isInteger(r.nivel_minimo)||r.nivel_minimo<1||r.nivel_minimo>100))return 'El nivel requerido debe estar entre 1 y 100.';
  if(r.razas!==undefined&&(!Array.isArray(r.razas)||r.razas.length>50||r.razas.some(x=>typeof x!=='string'||!x.trim()||x.length>100)))return 'Selecciona razas válidas.';
  if(r.minimos!==undefined&&(!r.minimos||typeof r.minimos!=='object'||Array.isArray(r.minimos)||Object.keys(r.minimos).length>50||Object.entries(r.minimos).some(([k,v])=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k)||typeof v!=='number'||!Number.isFinite(v)||v<0||v>1000000)))return 'Los mínimos deben ser atributos válidos y números de 0 a 1000000.';
  return null;
 }
-export function faltantesRequisitos(r:RequisitosUso|undefined,razas:string[],stats:Record<string,number>):string[]{
+export function faltantesRequisitos(r:RequisitosUso|undefined,razas:string[],stats:Record<string,number>,conocidas:string[]=[]):string[]{
  const error=validarRequisitos(r);if(error)return [error];if(!r)return [];
  const normal=(s:string)=>s.trim().toLocaleLowerCase();
  const errores:string[]=[];
+ if(r.habilidades?.some(id=>!conocidas.includes(id)))errores.push('Debes conocer todas las habilidades previas requeridas.');
  if(r.nivel_minimo!==undefined&&(stats.nivel??1)<r.nivel_minimo)errores.push('Nivel requerido: '+r.nivel_minimo);
  if(r.razas?.length&&!r.razas.some(x=>razas.map(normal).includes(normal(x))))errores.push('Raza requerida: '+r.razas.join(' o '));
  for(const [k,min] of Object.entries(r.minimos||{}))if((stats[k]||0)<min)errores.push(`${k}: necesita ${min}, tiene ${stats[k]||0}`);
  return errores;
 }
 function baseRequisitos(m:Combatiente){return Object.fromEntries(Object.entries(m.stats).map(([k,v])=>[k,v-(m.configuracion.bonos_equipamiento?.[k]||0)]));}
-function requisitosFuente(m:Combatiente,f:{requisitos_uso?:RequisitosUso}){return faltantesRequisitos(f.requisitos_uso,[m.configuracion.raza||'',...(m.configuracion.linaje_raza||[])],baseRequisitos(m));}
+function requisitosFuente(m:Combatiente,f:{requisitos_uso?:RequisitosUso}){return faltantesRequisitos(f.requisitos_uso,[m.configuracion.raza||'',...(m.configuracion.linaje_raza||[])],baseRequisitos(m),[...(m.configuracion.habilidades_conocidas||[]),...(m.configuracion.habilidades||[]).map(h=>h.forja_id||h.id||'')]);}
 export type Situacion = "activo" | "inconsciente" | "muerto" | "retirado" | "rendido" | "capturado";
 export type PoliticaEncuentro = {campana?:string;modo:"oficial"|"entrenamiento"; automatico:boolean; limite_rondas:number; exp_base:number; exp_objetivo:number; dificultad:number; reparto:"replicar"|"repartir"|"participacion"; premiar_retirados:boolean};
 export type CierreEncuentro = {id:string; motivo:string; ganador:Bando|null; ronda:number; participantes:{id:string;nombre:string;bando:Bando;personaje_id?:string;situacion:Situacion;invocado:boolean}[]};
 export type EventoDominio = {id:string;tipo:"enemigo_derrotado"|"encuentro_finalizado";actor?:string;objetivo?:string;ronda:number};
 export type Bando = "jugador" | "enemigo";
 export type Fuente = {
+  forja_id?:string;
   configuracion_invocacion?: import("./invocaciones").ConfiguracionInvocacion;
   requisitos_uso?: RequisitosUso;
   id?: string;
@@ -44,6 +48,7 @@ export type Fuente = {
   reglas_pasivas?: ReglaPasiva[];
 };
 export type Config = {
+  habilidades_conocidas?:string[];
   tabla_botin_id?: string;
   exp_recompensa?: number;
   equipo_saqueable?: boolean;
