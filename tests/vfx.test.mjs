@@ -11,8 +11,8 @@ vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/vfx.ts',impor
 const {planificarVFX,validarVFX}=exports;
 const vfx={lanzamiento:'kitsuwick-blink-step',recorrido:'foundry-blink-dash',impacto:'smoke-dust-polvo-1',escala:2};
 const evento={id:'e',nombre:'Paso',dados:[],creado_en:Date.now(),desde:{x:1,y:1},hasta:{x:6,y:1},vfx};
-test('catálogo conserva 170 efectos únicos, imágenes animadas y avisos de autoría',()=>{
- assert.equal(catalogo.length,170);assert.equal(new Set(catalogo.map(v=>v.id)).size,170);
+test('catálogo conserva 179 efectos únicos, imágenes animadas y avisos de autoría',()=>{
+ assert.equal(catalogo.length,179);assert.equal(new Set(catalogo.map(v=>v.id)).size,179);
  for(const v of catalogo){
   assert.ok(v.nombre&&v.categoria&&v.duracion>0);
   for(const key of ['url','bucle']){const path=new URL('../public'+v[key],import.meta.url);assert.ok(existsSync(path));const png=readFileSync(path);assert.equal(png.subarray(1,4).toString(),'PNG');assert.ok(png.includes(Buffer.from('acTL')),v.id);}
@@ -65,4 +65,17 @@ test('etapas activan su entrada sobre el actor y limpian el aura al volver',()=>
 test('todas las referencias del catálogo se pueden guardar en una acción',()=>{
  const {validarEfectos}=cargarDependencia('creacion');
  for(const a of catalogo)assert.equal(validarEfectos([{...ataque,vfx:{lanzamiento:a.id,recorrido:a.id,impacto:a.id,escala:1.5}}]),null,a.id);
+});
+
+test('proyectiles con atracción o repulsión nacen del lanzador y terminan en la casilla atacada',()=>{
+ for(const nombre of ['azul','rojo','morado']){
+  const vfx={lanzamiento:`espacial-${nombre}-carga`,recorrido:`espacial-${nombre}-viaje`,impacto:`espacial-${nombre}-impacto`,escala:4};
+  const e={...evento,vfx,movimientos:[{id:'victima',tipo:'forzado',desde:evento.hasta,hasta:{x:8,y:1}}]};
+  const p=planificarVFX(e);
+  assert.equal(p.length,3);
+  assert.deepEqual(p[0].desde,evento.desde);assert.deepEqual(p[0].hasta,evento.desde);
+  assert.equal(p[1].id,'proyectil');assert.deepEqual(p[1].desde,evento.desde);assert.deepEqual(p[1].hasta,evento.hasta);
+  assert.deepEqual(p[2].hasta,evento.hasta);assert.equal(p[2].inicio,p[1].inicio+p[1].duracion);
+  assert.ok(!p.some(c=>c.id.startsWith('estela-victima')));
+ }
 });

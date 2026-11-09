@@ -32,7 +32,8 @@ export function planificarVFX(evento:EventoVisual):ClipVFX[]{
  };
  const salida=buscarVFX(v?.lanzamiento),espera=salida?Math.min(350,salida.duracion):0;
  agregar('salida',v?.lanzamiento,evento.desde);
- const movimientos=evento.movimientos||[];
+ // A pull/push moves victims after impact; it must not become the spell's flight path.
+ const movimientos=(evento.movimientos||[]).filter(m=>m.tipo!=='forzado'||!evento.hasta);
  if(movimientos.length){
   const mismoPunto=(a:Posicion|undefined,b:Posicion|undefined)=>!!a&&!!b&&a.x===b.x&&a.y===b.y;
   // Un ataque móvil termina junto al blanco: su casilla de llegada no es la del golpe.
