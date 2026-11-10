@@ -20,6 +20,8 @@ export function tipoAnimacionArma(accion: AtaqueParaAnimar): TipoAnimacionArma |
   if (/arco|ballesta|flecha|saeta|tiro con arco/.test(arma) || (!usaMagia && /arco|ballesta|flecha|saeta/.test(nombre))) return 'arco';
   if (/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hacha|martillo|maza|mazo/.test(arma)
     || (!usaMagia && /espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hachazo|espadazo/.test(nombre))) return 'espada';
+  // Las armas con nombre propio (p. ej. Mao) también empuñan una hoja en el ataque básico.
+  if (ataqueBase && !usaMagia && (accion.nombreArma || accion.nombreArmaEfecto || /atacar con/.test(nombre))) return 'espada';
   if (ataqueBase && !arma.trim()) return 'punos';
   return undefined;
 }
