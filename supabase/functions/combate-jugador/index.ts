@@ -1,5 +1,17 @@
 // @ts-nocheck -- Runtime Deno de Supabase.
 import {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles} from '../equipo-combate/motor.js';
+/** Animación visual sin modificar el daño ni la duración de la acción. */
+function tipoArmaVisual(accion,accionId,actor){
+ const e=accion?.efecto;
+ if(e?.efecto!=='dano')return undefined;
+ const normalizar=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+ const nombre=normalizar([accion?.nombre,e?.nombre,actor?.arma?.nombre,e?.arma_nombre].join(' '));
+ const arma=normalizar([actor?.arma?.nombre,e?.arma_nombre,accionId==='ataque'?accion?.nombre:''].join(' '));
+ if(accionId==='desarmado'||/desarmado|punos?|punetaz|patada/.test(nombre))return 'punos';
+ if(/arco|ballesta|flecha|saeta/.test(arma)||(!e?.coste_ph&&/arco|ballesta|flecha|saeta/.test(nombre)))return 'arco';
+ if(/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hacha|martillo|maza|mazo/.test(arma)||(!e?.coste_ph&&/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hachazo|espadazo/.test(nombre)))return 'espada';
+ return undefined;
+}
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
 const respuesta=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 Deno.serve(async req=>{
@@ -46,7 +58,10 @@ Deno.serve(async req=>{
     if(typeof body.accion_id!=='string'||body.accion_id.length>300||typeof body.objetivo_id!=='string'||(!body.centro&&!c.miembros.some(x=>x.id===body.objetivo_id)))throw Error('Acción u objetivo inválidos.');
     next=actuar(c,m.id,body.accion_id,body.objetivo_id,rng,body.forzar===true,body.centro);resultado=next.resultado;
    }else throw Error('Operación no permitida.');
-   if(body.operacion!=='mover')next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:m.nombre,dados,resultado};
+   if(body.operacion!=='mover'){
+    const accion=body.operacion==='actuar'?acciones(m).find(a=>a.id===body.accion_id):undefined;
+    next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:m.nombre,dados,resultado,arma_visual:tipoArmaVisual(accion,body.accion_id,m)};
+   }
    delete next.historial;
    mediciones.motor_ms=performance.now()-motorInicio;
    const commitInicio=performance.now();
