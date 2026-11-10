@@ -63,6 +63,7 @@ import AnimacionDados, {
   type TiradaVisual,
 } from "../../../components/AnimacionDados";
 import {TableroCombate,BarraCombate} from "../../../components/TableroCombate";
+import {tipoAnimacionArma} from "../../../lib/animaciones-armas";
 import RetratoCombate from "../../../components/RetratoCombate";
 import { retratosCombate } from "../../../lib/retratos-combate";
 import {describirEfecto,describirRegla,ayudaGuardia} from "../../../lib/descripciones";
@@ -305,7 +306,8 @@ export default function CampoCombate() {
         forzar,
         (objetivoId?posicionesTablero(c)[objetivoId]:centro)||undefined,
       );
-      next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado};
+      next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado,
+        arma_visual:efecto?.efecto==='dano'?tipoAnimacionArma({accionId:elegida,nombreAccion:lista.find(a=>a.id===elegida)?.nombre,nombreEfecto:efecto.nombre,nombreArma:actor.arma?.nombre,nombreArmaEfecto:efecto.arma_nombre,naturaleza:efecto.naturaleza,costePh:efecto.coste_ph}):undefined};
       await guardar(next);
       if (dados.length)
         setRoll({ id: crypto.randomUUID(), nombre: actor.nombre, dados });
