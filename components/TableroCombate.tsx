@@ -3,6 +3,7 @@ import FondoMapaProcedural from './FondoMapaProcedural';
 import {useEffect,useMemo,useState} from 'react';
 import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight} from 'lucide-react';
 import EfectosCombate,{AuraTransformacion} from './EfectosCombate';
+import AnimacionesArmas from './AnimacionesArmas';
 import type {AnimacionEtapa} from '../lib/vfx';
 import {precargarVFX} from '../lib/precarga-vfx';
 import FichaAnimada from './FichaAnimada';
@@ -65,7 +66,8 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
     </button>;
    })}
   <EfectosCombate evento={evento} columnas={columnas} filas={filas}/>
-  {evento?.desde&&evento.hasta&&!pixelArt&&['proyectil','trayectoria','desplazamiento'].includes(evento.animacion||'')&&<svg key={evento.id} className="tactical-projectile" viewBox={`0 0 ${columnas*100} ${filas*100}`} preserveAspectRatio="none" aria-hidden="true"><line x1={evento.desde.x*100+50} y1={evento.desde.y*100+50} x2={evento.hasta.x*100+50} y2={evento.hasta.y*100+50}/></svg>}
+  <AnimacionesArmas evento={evento} columnas={columnas} filas={filas}/>
+  {evento?.desde&&evento.hasta&&!pixelArt&&!evento.arma_visual&&['proyectil','trayectoria','desplazamiento'].includes(evento.animacion||'')&&<svg key={evento.id} className="tactical-projectile" viewBox={`0 0 ${columnas*100} ${filas*100}`} preserveAspectRatio="none" aria-hidden="true"><line x1={evento.desde.x*100+50} y1={evento.desde.y*100+50} x2={evento.hasta.x*100+50} y2={evento.hasta.y*100+50}/></svg>}
   </div></div>
 
   {fichaObjetivo&&!t&&<div className="tactical-target-info"><strong>{fichaObjetivo.nombre}</strong><span>{fichaObjetivo.vida!==undefined?`Vida ${fichaObjetivo.vida}/${fichaObjetivo.max_vida}`:""}</span><span>{fichaObjetivo.estados?.join(" · ")||"Sin estados activos"}</span></div>}
