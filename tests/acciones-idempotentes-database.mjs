@@ -28,6 +28,7 @@ try{
  await db.exec(readFileSync(new URL('../supabase/migrations/20261108013535_combate_sincronizacion_rapida.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261108193445_combate_guardado_ligero.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261108195811_combate_acciones_idempotentes.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261110125629_historial_sin_imagenes.sql',import.meta.url),'utf8'));
  const gm='00000000-0000-0000-0000-000000000001',a='00000000-0000-0000-0000-000000000002',b='00000000-0000-0000-0000-000000000003',bid='00000000-0000-0000-0000-000000000099';
  await db.query("insert into perfiles(id,rol) values($1,'KUROI'),($2,'REENCARNADO'),($3,'REENCARNADO')",[gm,a,b]);
  await db.query("insert into personajes(id,user_id,nombre,raza,atributos,estado_aprobacion) values(1,$1,'A','humanos','{}','aprobado'),(2,$2,'B','humanos','{}','aprobado')",[a,b]);
@@ -36,6 +37,8 @@ try{
  let c=motor.nuevoCombate();
  for(const [id,pj,bando] of [['a','1','jugador'],['b','2','enemigo']]){c=motor.agregar(c,{id,nombre:id,personaje_id:pj,posicion:{x:id==='a'?1:2,y:1},stats:{vida:2000,ph:10,fatiga:5,movimiento:20},configuracion:{tipo_creacion:'personaje'}},bando,()=>10);c.miembros.at(-1).personaje_id=pj;}
  c=motor.iniciar(c,()=>10);c.actual='a';c.regla='directo';
+ const retrato='data:image/webp;base64,'+'A'.repeat(4000);
+ c.miembros[0].configuracion.imagen_url=retrato;
  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[gm]);
  const inicial=crypto.randomUUID(),patch=cambiosCombate(undefined,c);
  let r=(await db.query('select combate_guardar_accion($1,$2,$3,0,false,$4) r',[bid,'QA acciones',patch,inicial])).rows[0].r;
@@ -69,6 +72,10 @@ try{
  }
  assert.equal((await db.query('select count(*)::int n from private.combate_acciones')).rows[0].n,102);
  assert.equal((await db.query('select datos from combates_yugen where id=$1',[bid])).rows[0].datos.historial.length,10);
+ const persistido=(await db.query('select datos from combates_yugen where id=$1',[bid])).rows[0].datos;
+ assert.equal(JSON.stringify(persistido.historial).includes('data:image/'),false,'el historial de GM y jugador no duplica retratos');
+ const restaurado=(await db.query("select combate_guardar_ligero($1,'QA acciones','{}',$2,true) r",[bid,confirmado.version])).rows[0].r;
+ assert.equal(restaurado.datos.miembros[0].configuracion.imagen_url,retrato,'deshacer restaura el retrato exacto');
  // Las funciones del servidor y los recibos no son accesibles para jugadores por la Data API.
  await db.exec('set role authenticated');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[a]);
  await assert.rejects(db.query('select * from private.combate_acciones'),/permission denied/);

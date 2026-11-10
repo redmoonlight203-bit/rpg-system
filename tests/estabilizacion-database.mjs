@@ -1,0 +1,45 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {PGlite} from '@electric-sql/pglite';
+const db = new PGlite();
+try {
+ await db.exec(`create role anon; create role authenticated; create schema auth; create schema yugen_interno;
+ create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create table perfiles(id uuid primary key,rol text);
+ create table combates_yugen(id uuid primary key,creador_id uuid,version int,datos jsonb);
+ create table resultados_encuentro(combate_id uuid references combates_yugen on delete restrict,aprobado boolean,datos jsonb);
+ create table eventos_dominio(id int primary key,combate_id uuid references combates_yugen);
+ create table logros_auditoria(evento_id int references eventos_dominio);
+ create table saqueos_encuentro(combate_id uuid references combates_yugen);
+ create table registro_experiencia(combate_id uuid references combates_yugen);
+ create schema private; create table private.combate_acciones(combate_id uuid references combates_yugen);`);
+ for (const archivo of ['20261110125629_historial_sin_imagenes.sql','20261110125639_borrar_encuentros_terminados.sql'])
+   await db.exec(readFileSync(new URL('../supabase/migrations/'+archivo,import.meta.url),'utf8'));
+ const imagen='data:image/webp;base64,'+'A'.repeat(4000);
+ const original={miembros:[{imagen,etapas:[{imagen}]}],n:2,activo:true,nulo:null};
+ const extraido=(await db.query('select private.imagenes_extraer($1::jsonb) as j',[JSON.stringify(original)])).rows[0].j;
+ assert.equal(JSON.stringify(extraido).includes('data:image'),false);
+ assert.equal((await db.query('select count(*)::int n from private.combate_imagenes')).rows[0].n,1);
+ assert.deepEqual((await db.query('select private.imagenes_restaurar($1::jsonb) j',[JSON.stringify(extraido)])).rows[0].j,original);
+ await db.exec('set role authenticated');
+ await assert.rejects(db.query('select private.imagenes_extraer($1::jsonb)',[JSON.stringify(original)]),/permission denied/);
+ await db.exec('reset role');
+ const gm='00000000-0000-0000-0000-000000000001',otro='00000000-0000-0000-0000-000000000002',id='00000000-0000-0000-0000-000000000099';
+ await db.query("insert into perfiles values($1,'KUROI'),($2,'REENCARNADO')",[gm,otro]);
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[gm]);
+ await db.query("insert into combates_yugen values($1,$2,3,'{}')",[id,gm]);
+ await db.query("insert into resultados_encuentro values($1,true,'{\"politica\":{\"modo\":\"oficial\"}}')",[id]);
+ await assert.rejects(db.query('select combate_eliminar($1,3)',[id]),/recompensas oficiales/);
+ await db.query('update resultados_encuentro set aprobado=false');
+ await assert.rejects(db.query('select combate_eliminar($1,2)',[id]),/cambió/);
+ await db.query('insert into eventos_dominio values(1,$1)',[id]);await db.exec('insert into logros_auditoria values(1)');
+ await assert.rejects(db.query('select combate_eliminar($1,3)',[id]),/logros auditados/);
+ await db.exec('delete from logros_auditoria');
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[otro]);
+ await assert.rejects(db.query('select combate_eliminar($1,3)',[id]),/Solo Kuroi/);
+ await db.query("select set_config('request.jwt.claim.sub',$1,false)",[gm]);
+ for(const tabla of ['saqueos_encuentro','registro_experiencia','private.combate_acciones'])await db.query(`insert into ${tabla} values($1)`,[id]);
+ await db.query('select combate_eliminar($1,3)',[id]);
+ assert.equal((await db.query('select count(*)::int n from combates_yugen')).rows[0].n,0);
+ console.log('SQL: imágenes reversibles y únicas; borrado con dependencias, revisiones y protecciones oficiales.');
+} finally {await db.close();}

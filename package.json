@@ -7,7 +7,9 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test:combate": "node scripts/preparar-motor-edge.mjs && node --test tests/*.test.mjs"
+    "test:combate": "node scripts/preparar-motor-edge.mjs && node --test tests/*.test.mjs",
+    "test": "npm run test:combate",
+    "test:database": "node scripts/probar-base-datos.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -20,6 +22,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
