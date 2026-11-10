@@ -126,6 +126,7 @@ export default function CampoCombate() {
   const segura=useAccionSegura<RespuestaAccion>({clave:'gm:'+id,
     enviar:async comando=>{const {action_id,...args}=comando;const r=await supabase.rpc('combate_guardar_accion',{...args,p_action_id:action_id}).abortSignal(AbortSignal.timeout(15000));if(r.error)throw errorDeServidor(r.error);if(r.data?.repetida)return recuperarAccionGM();if(typeof r.data?.sql_ms==='number')registrarMetrica('sql.commit',r.data.sql_ms);return r.data;},
     consultar:async action_id=>{const r=await supabase.rpc('combate_accion_estado',{p_id:id,p_action_id:action_id}).abortSignal(AbortSignal.timeout(10000));if(r.error)throw errorDeServidor(r.error);return r.data;},
+    descartar:async action_id=>{const r=await supabase.rpc('combate_descartar_accion',{p_id:id,p_action_id:action_id}).abortSignal(AbortSignal.timeout(10000));if(r.error)throw errorDeServidor(r.error);return r.data;},
     recuperar:recuperarAccionGM,
     onRecuperado:r=>{if(revisionRemota.current.id!==id||r.version<revisionRemota.current.version||!r.datos)return;revisionRemota.current={id,version:r.version};setC(recibirEvento({...r.datos,historial:[],pasos_deshacer:r.pasos_deshacer}));setVersion(r.version);setError('');++ejecucion.current;bloqueo.current=false;setOcupado(false);}
   });
@@ -943,7 +944,7 @@ export default function CampoCombate() {
       {invocar&&actor&&<InvocarCombate combate={c} actorId={actor.id} habilidad={invocar} onCerrar={()=>setInvocar(null)} onConfirmar={async next=>{await guardar(next);}}/>}
       {editorEquipo&&<EditorEquipoCombate key={`${editorEquipo.actor}:${editorEquipo.contexto.version}`} catalogo={c.fase==='preparacion'&&!c.miembros.find(m=>m.id===editorEquipo.actor)?.personaje_id?objetosMochila:undefined} onAgregar={agregarObjetoMochila} contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}
       <MetricasCombate/>
-      <EstadoAccionCombate estado={segura.estado} revisando={segura.revisando} onComprobar={segura.comprobar} onReintentar={segura.reintentar} conexion={conexion}/>
+      <EstadoAccionCombate estado={segura.estado} revisando={segura.revisando} onComprobar={segura.comprobar} onReintentar={segura.reintentar} onDescartar={segura.descartar} conexion={conexion}/>
       {error && (
         <p className="battle-error" role="alert">
           {error}

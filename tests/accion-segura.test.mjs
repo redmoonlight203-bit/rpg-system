@@ -27,3 +27,15 @@ test('respuesta antigua no borra otra acción que ya está procesándose',async(
  const c=new AccionSegura({enviar:()=>++cantidad===1?a.prom:b.prom,consultar:async()=>({confirmada}),recuperar:async()=>({version:1})});
  const inicial=c.ejecutar({accion:'primera'});await Promise.resolve();confirmada=true;await c.comprobar();const segunda=c.ejecutar({accion:'segunda'});await Promise.resolve();const id=c.estado.solicitud.action_id;a.resolver({version:1});await inicial;assert.equal(c.estado.solicitud.action_id,id);b.resolver({version:2});await segunda;
 });
+test('descartar exige veto del servidor y recupera el estado confirmado',async()=>{
+ let veto=false,guardado;
+ const c=new AccionSegura({enviar:async()=>{throw Error('timeout');},consultar:async()=>({confirmada:false}),descartar:async()=>({descartada:veto}),recuperar:async()=>({version:7}),guardar:s=>guardado=s});
+ await assert.rejects(c.ejecutar({accion:'mover'}));
+ await assert.rejects(c.descartar(),/resolver/);assert.ok(guardado);assert.equal(c.estado.fase,'incierta');
+ veto=true;assert.equal((await c.descartar()).version,7);assert.equal(guardado,null);assert.equal(c.estado.fase,'reposo');
+});
+test('descartar una acción ya confirmada recupera sin repetirla',async()=>{
+ let enviado=0;
+ const c=new AccionSegura({enviar:async()=>{enviado++;throw Error('timeout');},consultar:async()=>({confirmada:false}),descartar:async()=>({confirmada:true}),recuperar:async()=>({version:8})});
+ await assert.rejects(c.ejecutar({accion:'atacar'}));assert.equal((await c.descartar()).version,8);assert.equal(enviado,1);
+});

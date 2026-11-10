@@ -42,3 +42,11 @@ next-env.d.ts
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# No versionar paquetes de recursos comprimidos
+*.zip
+*.rar
+
+# Claves de recuperación y respaldos descifrados nunca se publican.
+*clave-recuperacion*
+baseline.json

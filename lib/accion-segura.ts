@@ -7,7 +7,7 @@ export function errorDeServidor(e:{message?:string;code?:string;incierta?:boolea
  const segura=['42501','22023','23514','23505','P0001'].includes(e.code||'')||!!status&&status>=400&&status<500&&!['57014','55P03','40P01','40001'].includes(e.code||'');
  return new ErrorAccion(e.message||'No se pudo confirmar la acción.',e.incierta===true||!segura);
 }
-type Opciones<T>={enviar:(comando:ComandoAccion)=>Promise<T>;consultar:(id:string)=>Promise<{confirmada?:boolean}>;recuperar:()=>Promise<T>;guardar?:(s:SolicitudAccion|null)=>void;cargar?:()=>SolicitudAccion|null;ahora?:()=>number};
+type Opciones<T>={enviar:(comando:ComandoAccion)=>Promise<T>;consultar:(id:string)=>Promise<{confirmada?:boolean}>;descartar?:(id:string)=>Promise<{confirmada?:boolean;descartada?:boolean}>;recuperar:()=>Promise<T>;guardar?:(s:SolicitudAccion|null)=>void;cargar?:()=>SolicitudAccion|null;ahora?:()=>number};
 export class AccionSegura<T> {
  estado:EstadoAccion={fase:'reposo'};
  private oyentes=new Set<(e:EstadoAccion)=>void>();
@@ -56,5 +56,13 @@ export class AccionSegura<T> {
   // El servidor serializa este action_id y devuelve el primer recibo, incluso con dos peticiones en vuelo.
   await this.mandar(s);
   return this.opciones.recuperar();
+ }
+ async descartar():Promise<T|undefined>{
+  const s=this.estado.solicitud;if(!s||!this.opciones.descartar)return;
+  // El veto comparte el bloqueo del guardado; una consulta sin recibo no basta.
+  const r=await this.opciones.descartar(s.action_id);
+  if(!r.confirmada&&!r.descartada)throw new ErrorAccion('No se pudo resolver la acción pendiente.',true);
+  const actual=await this.opciones.recuperar();
+  this.aceptar(s.action_id);return actual;
  }
 }

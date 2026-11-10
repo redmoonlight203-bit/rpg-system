@@ -1,0 +1,27 @@
+name: Estabilización
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/verificar-secretos.mjs
+      - run: npx next typegen
+      - run: npx tsc --noEmit --pretty false
+      - run: node scripts/preparar-motor-edge.mjs --check
+      - run: npm test
+      - run: npm run test:database
+# Los tests SQL existentes usan PostgreSQL real compilado a WASM (PGlite),
+# con una base aislada por archivo. No consumen credenciales ni datos de Supabase.
+# Este check debe configurarse como obligatorio en la protección de main.
