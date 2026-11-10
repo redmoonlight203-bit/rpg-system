@@ -2,9 +2,9 @@
 
 ## Ahora (máximo 3)
 
-1. Confirmar respaldo reciente con restauración comprobada (fase 0.1). Las herramientas conectadas no permiten verificar Backups ni han creado uno.
-2. Probar reconciliación de migraciones en copia y medir triggers/Network (0.2–0.4).
-3. Limpiar los encuentros de prueba desde la app tras revisar protecciones y respaldo (0.3).
+1. Autorizar explícitamente la publicación de retratos del respaldo en Storage público. La revisión automática bloqueó esa carga; no se han cambiado las imágenes existentes ni se repite la operación sin resolverlo.
+2. Tras migrar imágenes, repetir tamaños y medir p95 HTTP/triggers con GM y dos jugadores. Los presupuestos siguen sin acreditarse.
+3. Completar retención programada, revisión RLS/avisos y auditoría funcional de pantallas; no iniciar fase 4.
 
 ## Siguiente
 
@@ -32,3 +32,13 @@ Fase 5: monitoreo continuo y revisión semanal de métricas y pendientes.
 ## Recursos de usuario (pendiente previo conservado)
 
 Oro y Puntos Kuro disponibles. El GM puede crear más monedas y ajustar saldos con motivo. Pendiente definir reglas automáticas para obtener Puntos Kuro; por ahora los asigna el GM.
+
+## Avance adicional — 2026-11-10
+
+- Respaldo lógico cifrado publicado; clave separada. Descifrado con SHA-256 exacto y restauración aislada de datos, restricciones, funciones y triggers. Límites en respaldos/2026-11-10/README.md.
+- RPC de descarte atómico, persistencia selectiva de vitales, validación selectiva de mapa/botín y arena aplicadas en producción después de probarlas en la copia.
+- 25 claves foráneas ahora tienen índice: Advisors ya no devuelve unindexed_foreign_keys.
+- 294 pruebas y 23/23 archivos SQL correctos; compilación correcta con variables públicas de validación.
+- No se borró Encuentro en Ambrosía: ya tiene recompensas aprobadas. No se eluden las protecciones para borrar o reescribir ese resultado.
+- El bucket imagenes está preparado; el endpoint temporal de migración quedó deshabilitado. La carga y el cambio de referencias continúan bloqueados.
+- El plan completo no está terminado. Véase docs/metricas/avance-2026-11-10.md.

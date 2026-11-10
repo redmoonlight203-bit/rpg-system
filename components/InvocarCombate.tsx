@@ -6,7 +6,7 @@ import {incorporarInvocacion,type Combate,type Fuente} from "../lib/combate";
 import {escalarMalla} from "../lib/progresion";
 import type {InvocacionEditor} from "./EditorInvocacion";
 type Creacion=CreacionInvocable&{es_grupo?:boolean;stats_rango?:Record<string,{min:number;max:number}>;nivel_maximo?:number;reglas?:Fuente['reglas'];reglas_pasivas?:Fuente['reglas_pasivas']};
-const campo="w-full rounded border border-neutral-700 bg-black p-2 text-sm";
+const campo="w-full rounded border border-neutral-700 bg-well p-2 text-sm";
 export default function InvocarCombate({combate,actorId,habilidad,onCerrar,onConfirmar}:{combate:Combate;actorId:string;habilidad:Fuente;onCerrar:()=>void;onConfirmar:(c:Combate)=>Promise<void>}){
  const config=habilidad.configuracion_invocacion as InvocacionEditor;
  const [catalogo,setCatalogo]=useState<Creacion[]>([]),[atributos,setAtributos]=useState<{clave:string;etiqueta:string}[]>([]),[error,setError]=useState(''),[ocupado,setOcupado]=useState(false),[cargando,setCargando]=useState(true);

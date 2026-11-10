@@ -129,24 +129,24 @@ export default function DeudasKuroi() {
   const getBadgestado = (estado: string) => {
     switch (estado) {
       case "pendiente_aprobacion":
-        return <span className="bg-amber-950/80 border border-amber-800 text-amber-400 text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"><Clock className="w-3 h-3"/> Pendiente Kuroi (5d)</span>;
+        return <span className="bg-amber-950/80 border border-amber-800 text-amber-400 text-[13px] tabular-nums px-2 py-0.5 rounded flex items-center gap-1"><Clock className="w-3 h-3"/> Pendiente Kuroi (5d)</span>;
       case "aprobada":
-        return <span className="bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pacto Activo</span>;
+        return <span className="bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-[13px] tabular-nums px-2 py-0.5 rounded flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Pacto Activo</span>;
       case "pendiente_pago_confirmacion":
-        return <span className="bg-cyan-950/80 border border-cyan-800 text-cyan-300 text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Kuroi declaró Pagado (2d)</span>;
+        return <span className="bg-cyan-950/80 border border-cyan-800 text-cyan-300 text-[13px] tabular-nums px-2 py-0.5 rounded flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Kuroi declaró Pagado (2d)</span>;
       case "completada":
-        return <span className="bg-neutral-900 border border-neutral-800 text-neutral-500 text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Saldada</span>;
+        return <span className="bg-neutral-900 border border-neutral-800 text-neutral-500 text-[13px] tabular-nums px-2 py-0.5 rounded flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Saldada</span>;
       case "rechazada":
-        return <span className="bg-red-950/80 border border-red-800 text-red-400 text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"><XCircle className="w-3 h-3"/> Rechazada por Kuroi</span>;
+        return <span className="bg-red-950/80 border border-red-800 text-red-400 text-[13px] tabular-nums px-2 py-0.5 rounded flex items-center gap-1"><XCircle className="w-3 h-3"/> Rechazada por Kuroi</span>;
       default:
         return null;
     }
   };
 
-  if (cargando) return <div className="min-h-screen bg-black flex items-center justify-center text-red-500 font-mono animate-pulse">Consultando el Registro de Promesas...</div>;
+  if (cargando) return <div className="min-h-screen bg-canvas flex items-center justify-center text-red-500 tabular-nums animate-pulse">Consultando el Registro de Promesas...</div>;
 
   return (
-    <main className="min-h-screen bg-black text-neutral-200 p-6 font-serif relative">
+    <main className="min-h-screen bg-canvas text-neutral-200 p-6 font-serif relative">
       <div className="max-w-5xl mx-auto space-y-8 relative z-10 pb-20">
         
         {/* Cabecera */}
@@ -156,10 +156,10 @@ export default function DeudasKuroi() {
               <ArrowLeft className="w-6 h-6" />
             </button>
             <div>
-              <h1 className="text-2xl font-black text-neutral-100 uppercase tracking-widest font-mono flex items-center gap-2">
+              <h1 className="text-2xl font-black text-neutral-100  tracking-normal tabular-nums flex items-center gap-2">
                 <Handshake className="w-6 h-6 text-amber-500" /> Deudas de Kuroi
               </h1>
-              <p className="text-red-700/80 text-xs font-mono tracking-widest mt-1 uppercase">
+              <p className="text-red-700/80 text-xs tabular-nums tracking-normal mt-1 ">
                 [ REGISTRO INMUTABLE DE PROMESAS, FAVORES Y PACTOS ]
               </p>
             </div>
@@ -167,7 +167,7 @@ export default function DeudasKuroi() {
 
           <button
             onClick={() => setMostrarFormulario(true)}
-            className="px-4 py-2.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-800/80 text-amber-200 text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center gap-2 shadow-lg"
+            className="px-4 py-2.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-800/80 text-amber-200 text-xs tabular-nums font-bold  tracking-normal rounded-lg transition-colors flex items-center gap-2 shadow-lg"
           >
             <Plus className="w-4 h-4" /> Registrar Nueva Promesa
           </button>
@@ -176,8 +176,8 @@ export default function DeudasKuroi() {
         {/* Lista de Deudas (Cartas estilo Correo) */}
         {deudas.length === 0 ? (
           <div className="text-center py-20 bg-neutral-950/40 border border-neutral-900 rounded-xl space-y-3">
-            <Mail className="w-10 h-10 text-neutral-700 mx-auto" />
-            <p className="text-neutral-600 font-mono text-xs uppercase tracking-widest">
+            <Mail className="w-10 h-10 text-text-muted mx-auto" />
+            <p className="text-text-muted tabular-nums text-xs  tracking-normal">
               Kuroi no te debe nada en este momento... o aún no lo has registrado.
             </p>
           </div>
@@ -200,13 +200,13 @@ export default function DeudasKuroi() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-start gap-2">
                       {getBadgestado(item.estado)}
-                      <span className="text-[10px] font-mono text-neutral-600 flex items-center gap-1">
+                      <span className="text-[13px] tabular-nums text-text-muted flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> {fecha.toLocaleDateString()}
                       </span>
                     </div>
 
                     <div>
-                      <h3 className="text-base font-bold text-neutral-100 group-hover:text-amber-400 transition-colors font-mono">
+                      <h3 className="text-base font-bold text-neutral-100 group-hover:text-amber-400 transition-colors tabular-nums">
                         {item.titulo}
                       </h3>
                       <p className="text-xs text-neutral-400 line-clamp-3 mt-2 bg-black/50 p-3 rounded border border-neutral-900 italic font-serif">
@@ -215,8 +215,8 @@ export default function DeudasKuroi() {
                     </div>
                   </div>
 
-                  <div className="pt-3 mt-4 border-t border-neutral-900 flex justify-between items-center text-[11px] font-mono">
-                    <span className="text-neutral-600">Registrado el {fechaTexto}</span>
+                  <div className="pt-3 mt-4 border-t border-neutral-900 flex justify-between items-center text-[13px] tabular-nums">
+                    <span className="text-text-muted">Registrado el {fechaTexto}</span>
                     <span className="text-amber-500 group-hover:translate-x-1 transition-transform">Ver Carta →</span>
                   </div>
                 </div>
@@ -234,36 +234,36 @@ export default function DeudasKuroi() {
               </button>
 
               <div className="border-b border-neutral-900 pb-3">
-                <h2 className="text-xl font-bold text-amber-500 font-mono flex items-center gap-2 uppercase">
+                <h2 className="text-xl font-bold text-amber-500 tabular-nums flex items-center gap-2 ">
                   <Send className="w-5 h-5" /> Redactar Promesa de Kuroi
                 </h2>
-                <p className="text-neutral-500 text-xs font-mono mt-1">
+                <p className="text-neutral-500 text-xs tabular-nums mt-1">
                   Si Kuroi no responde en 5 días, el pacto se aceptará automáticamente.
                 </p>
               </div>
 
               <form onSubmit={registrarDeuda} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-400 uppercase">Título del Pacto / Promesa</label>
+                  <label className="text-xs tabular-nums text-neutral-400 ">Título del Pacto / Promesa</label>
                   <input
                     required
                     value={titulo}
                     onChange={(e) => setTitulo(e.target.value)}
                     type="text"
                     placeholder="Ej. Espada de Hueso pendiente tras la gesta del dragón"
-                    className="w-full bg-black border border-neutral-800 rounded px-3 py-2 text-xs text-neutral-200 focus:border-amber-800 outline-none font-mono"
+                    className="w-full bg-well border border-neutral-800 rounded px-3 py-2 text-xs text-neutral-200 focus:border-amber-800 outline-none tabular-nums"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-400 uppercase">Explicación y Origen de la Deuda</label>
+                  <label className="text-xs tabular-nums text-neutral-400 ">Explicación y Origen de la Deuda</label>
                   <textarea
                     required
                     value={mensaje}
                     onChange={(e) => setMensaje(e.target.value)}
                     rows={5}
                     placeholder="Escribe exactamente qué prometió Kuroi y en qué momento o sesión ocurrió..."
-                    className="w-full bg-black border border-neutral-800 rounded px-3 py-2 text-xs text-neutral-200 focus:border-amber-800 outline-none resize-none font-serif leading-relaxed"
+                    className="w-full bg-well border border-neutral-800 rounded px-3 py-2 text-xs text-neutral-200 focus:border-amber-800 outline-none resize-none font-serif leading-relaxed"
                   />
                 </div>
 
@@ -271,14 +271,14 @@ export default function DeudasKuroi() {
                   <button
                     type="submit"
                     disabled={enviando}
-                    className="flex-1 bg-amber-950 hover:bg-amber-900 text-amber-200 border border-amber-800 font-mono text-xs uppercase py-3 rounded font-bold transition-colors"
+                    className="flex-1 bg-amber-950 hover:bg-amber-900 text-amber-200 border border-amber-800 tabular-nums text-xs  py-3 rounded font-bold transition-colors"
                   >
                     {enviando ? "Sellando Carta..." : "Enviar a la Bóveda de Kuroi"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setMostrarFormulario(false)}
-                    className="px-4 py-3 bg-neutral-900 text-neutral-400 font-mono text-xs uppercase rounded hover:bg-neutral-800"
+                    className="px-4 py-3 bg-neutral-900 text-neutral-400 tabular-nums text-xs  rounded hover:bg-neutral-800"
                   >
                     Cancelar
                   </button>
@@ -299,15 +299,15 @@ export default function DeudasKuroi() {
               <div className="border-b border-neutral-900 pb-3 space-y-2">
                 <div className="flex justify-between items-center">
                   {getBadgestado(deudaDetalle.estado)}
-                  <span className="text-[10px] font-mono text-neutral-500">
+                  <span className="text-[13px] tabular-nums text-neutral-500">
                     Sello: {new Date(deudaDetalle.created_at).toLocaleString()}
                   </span>
                 </div>
-                <h2 className="text-xl font-bold text-neutral-100 font-mono">{deudaDetalle.titulo}</h2>
+                <h2 className="text-xl font-bold text-neutral-100 tabular-nums">{deudaDetalle.titulo}</h2>
               </div>
 
               <div className="bg-black/80 border border-neutral-900 p-4 rounded-lg space-y-2">
-                <span className="text-[10px] font-mono text-neutral-500 uppercase">Origen / Explicación del Pacto</span>
+                <span className="text-[13px] tabular-nums text-neutral-500 ">Origen / Explicación del Pacto</span>
                 <p className="text-sm text-neutral-300 font-serif leading-relaxed whitespace-pre-wrap">
                   {deudaDetalle.mensaje}
                 </p>
@@ -316,7 +316,7 @@ export default function DeudasKuroi() {
               {/* Si Kuroi declaró haber pagado la deuda */}
               {deudaDetalle.estado === "pendiente_pago_confirmacion" && (
                 <div className="bg-cyan-950/40 border border-cyan-800/80 p-4 rounded-lg space-y-3">
-                  <div className="flex items-center gap-2 text-cyan-300 font-mono text-xs font-bold">
+                  <div className="flex items-center gap-2 text-cyan-300 tabular-nums text-xs font-bold">
                     <ShieldAlert className="w-4 h-4" /> Kuroi ha marcado esta deuda como SALDADA.
                   </div>
                   <p className="text-xs text-neutral-400">
@@ -325,13 +325,13 @@ export default function DeudasKuroi() {
                   <div className="flex gap-2 pt-2">
                     <button
                       onClick={() => responderPago(deudaDetalle.id, true)}
-                      className="flex-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-200 text-xs font-mono py-2 rounded font-bold"
+                      className="flex-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-200 text-xs tabular-nums py-2 rounded font-bold"
                     >
                       Sí, he recibido el pago
                     </button>
                     <button
                       onClick={() => responderPago(deudaDetalle.id, false)}
-                      className="flex-1 bg-red-950 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-mono py-2 rounded font-bold"
+                      className="flex-1 bg-red-950 hover:bg-red-900 border border-red-800 text-red-200 text-xs tabular-nums py-2 rounded font-bold"
                     >
                       No, impugnar pago
                     </button>
@@ -342,7 +342,7 @@ export default function DeudasKuroi() {
               <div className="pt-2 border-t border-neutral-900 text-center">
                 <button
                   onClick={() => setDeudaDetalle(null)}
-                  className="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-mono text-xs uppercase rounded"
+                  className="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 tabular-nums text-xs  rounded"
                 >
                   Cerrar Carta
                 </button>

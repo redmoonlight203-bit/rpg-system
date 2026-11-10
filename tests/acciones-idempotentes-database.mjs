@@ -29,6 +29,7 @@ try{
  await db.exec(readFileSync(new URL('../supabase/migrations/20261108193445_combate_guardado_ligero.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261108195811_combate_acciones_idempotentes.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261110125629_historial_sin_imagenes.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261110132345_acciones_descartables.sql',import.meta.url),'utf8'));
  const gm='00000000-0000-0000-0000-000000000001',a='00000000-0000-0000-0000-000000000002',b='00000000-0000-0000-0000-000000000003',bid='00000000-0000-0000-0000-000000000099';
  await db.query("insert into perfiles(id,rol) values($1,'KUROI'),($2,'REENCARNADO'),($3,'REENCARNADO')",[gm,a,b]);
  await db.query("insert into personajes(id,user_id,nombre,raza,atributos,estado_aprobacion) values(1,$1,'A','humanos','{}','aprobado'),(2,$2,'B','humanos','{}','aprobado')",[a,b]);
@@ -76,10 +77,17 @@ try{
  assert.equal(JSON.stringify(persistido.historial).includes('data:image/'),false,'el historial de GM y jugador no duplica retratos');
  const restaurado=(await db.query("select combate_guardar_ligero($1,'QA acciones','{}',$2,true) r",[bid,confirmado.version])).rows[0].r;
  assert.equal(restaurado.datos.miembros[0].configuracion.imagen_url,retrato,'deshacer restaura el retrato exacto');
+ // Descartar serializa y veta cualquier petición tardía con el mismo identificador.
+ const cancelada=crypto.randomUUID();
+ assert.equal((await db.query('select combate_descartar_accion($1,$2) r',[bid,cancelada])).rows[0].r.descartada,true);
+ await assert.rejects(db.query('select combate_guardar_accion($1,$2,$3,$4,false,$5)',[bid,'QA acciones',{},restaurado.version,cancelada]),/descartada/);
+ assert.equal((await db.query('select combate_descartar_accion($1,$2) r',[bid,inicial])).rows[0].r.confirmada,true);
+ assert.equal((await db.query('select version from combates_yugen where id=$1',[bid])).rows[0].version,restaurado.version);
  // Las funciones del servidor y los recibos no son accesibles para jugadores por la Data API.
  await db.exec('set role authenticated');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[a]);
  await assert.rejects(db.query('select * from private.combate_acciones'),/permission denied/);
  await assert.rejects(db.query('select jugador_accion_estado_servidor($1,$2,$3,$4)',[a,bid,'a',action]),/permission denied/);
+ await assert.rejects(db.query('select combate_descartar_accion($1,$2)',[bid,cancelada]),/Solo Kuroi/);
  await assert.rejects(db.query('select combate_accion_estado($1,$2)',[bid,inicial]),/Solo el GM/);
  await db.exec('reset role');
  console.log('SQL: 100 turnos entre dos identidades con doble envío, recibos atómicos, PH/daño únicos, conflictos, historial y permisos correctos.');

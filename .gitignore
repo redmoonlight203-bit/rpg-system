@@ -46,3 +46,7 @@ supabase/.temp/
 # No versionar paquetes de recursos comprimidos
 *.zip
 *.rar
+
+# Claves de recuperación y respaldos descifrados nunca se publican.
+*clave-recuperacion*
+baseline.json

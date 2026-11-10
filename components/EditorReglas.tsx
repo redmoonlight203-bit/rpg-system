@@ -6,7 +6,7 @@ import {PasoYunque,ResumenYunque} from './AyudaYunque';
 import {describirRegla} from '../lib/descripciones';
 import {LaboratorioReglas} from './LaboratorioReglas';
 import {EVENTOS,EFECTOS_REGLA,DESTINOS,nuevaRegla,receta,validarReglas,type Regla,type CondicionRegla,type EfectoRegla,type ValorRegla,type Sujeto} from '../lib/reglas';
-const campo='mt-1 w-full rounded-lg border border-neutral-700 bg-black p-2 text-sm';
+const campo='mt-1 w-full rounded-lg border border-neutral-700 bg-well p-2 text-sm';
 const boton='rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-orange-500';
 const sujetos={yo:'Quien tiene esta habilidad u objeto',actor:'Quien provocó el evento',objetivo:'Quien recibe el evento'};
 function Opciones({items}:{items:Record<string,string>}){return <>{Object.entries(items).map(([k,v])=><option key={k} value={k}>{v}</option>)}</>;}

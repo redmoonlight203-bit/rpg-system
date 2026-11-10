@@ -91,10 +91,10 @@ export default function LineaDeTiempo() {
 
   const formatDosDigitos = (num: number) => num.toString().padStart(2, "0");
 
-  if (cargando) return <div className="min-h-screen bg-black flex items-center justify-center text-purple-500 font-mono animate-pulse">Sincronizando con la Corriente del Tiempo...</div>;
+  if (cargando) return <div className="min-h-screen bg-canvas flex items-center justify-center text-purple-500 tabular-nums animate-pulse">Sincronizando con la Corriente del Tiempo...</div>;
 
   return (
-    <main className="min-h-screen bg-black text-neutral-200 p-6 font-serif relative overflow-x-hidden">
+    <main className="min-h-screen bg-canvas text-neutral-200 p-6 font-serif relative overflow-x-hidden">
       
       {/* Resplandor Violeta Abisal de fondo */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[900px] h-[300px] bg-purple-950/15 blur-[120px] pointer-events-none" />
@@ -108,10 +108,10 @@ export default function LineaDeTiempo() {
               <ArrowLeft className="w-6 h-6" />
             </button>
             <div>
-              <h1 className="text-2xl font-black text-neutral-100 uppercase tracking-widest font-mono flex items-center gap-2">
+              <h1 className="text-2xl font-black text-neutral-100  tracking-normal tabular-nums flex items-center gap-2">
                 <Hourglass className="w-6 h-6 text-purple-500" /> Línea de Tiempo
               </h1>
-              <p className="text-purple-400/80 text-xs font-mono tracking-widest mt-1 uppercase">
+              <p className="text-purple-400/80 text-xs tabular-nums tracking-normal mt-1 ">
                 [ CRÓNICA ANCESTRAL Y CONTADOR DEL MUNDO ]
               </p>
             </div>
@@ -121,19 +121,19 @@ export default function LineaDeTiempo() {
           {tiempo && (
             <div className="bg-neutral-950 border border-purple-900/60 p-3.5 rounded-xl flex items-center gap-4 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
               <div className="flex items-center gap-2 border-r border-neutral-800 pr-4">
-                <Clock className={`w-5 h-5 ${tiempo.en_ejecucion ? "text-purple-400 animate-spin" : "text-neutral-600"}`} />
-                <div className="font-mono">
-                  <span className="text-[9px] text-neutral-500 uppercase block">Hora Actual</span>
+                <Clock className={`w-5 h-5 ${tiempo.en_ejecucion ? "text-purple-400 animate-spin" : "text-text-muted"}`} />
+                <div className="tabular-nums">
+                  <span className="text-[13px] text-neutral-500  block">Hora Actual</span>
                   <span className="text-sm font-bold text-neutral-100">
                     {formatDosDigitos(tiempo.hora)}:{formatDosDigitos(tiempo.minuto)} hs
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 font-mono">
+              <div className="flex items-center gap-2 tabular-nums">
                 <Calendar className="w-5 h-5 text-purple-500" />
                 <div>
-                  <span className="text-[9px] text-neutral-500 uppercase block">Fecha del Mundo</span>
+                  <span className="text-[13px] text-neutral-500  block">Fecha del Mundo</span>
                   <span className="text-sm font-bold text-purple-300">
                     Día {tiempo.dia} / Mes {tiempo.mes} / <span className="text-purple-400">Año {tiempo.ano}</span>
                   </span>
@@ -144,12 +144,12 @@ export default function LineaDeTiempo() {
         </header>
 
         {/* Estado del Tiempo */}
-        <div className="flex justify-between items-center text-xs font-mono bg-neutral-950/60 border border-neutral-900 p-3 rounded-lg">
+        <div className="flex justify-between items-center text-xs tabular-nums bg-neutral-950/60 border border-neutral-900 p-3 rounded-lg">
           <span className="text-neutral-500 flex items-center gap-2">
             <History className="w-4 h-4 text-purple-500" />
             Cada nodo representa un rango de <strong>100 Años</strong> registrado por Kuroi.
           </span>
-          <span className={`px-2.5 py-0.5 rounded text-[10px] uppercase font-bold border ${
+          <span className={`px-2.5 py-0.5 rounded text-[13px]  font-bold border ${
             tiempo?.en_ejecucion 
               ? "bg-purple-950/80 border-purple-700 text-purple-300 animate-pulse" 
               : "bg-neutral-900 border-neutral-800 text-neutral-500"
@@ -167,8 +167,8 @@ export default function LineaDeTiempo() {
           {/* Nodos de Eras de 100 Años */}
           {eras.length === 0 ? (
             <div className="text-center py-16 relative z-10 bg-black/80 border border-neutral-900 rounded-xl space-y-2 max-w-md mx-auto">
-              <ShieldAlert className="w-8 h-8 text-neutral-700 mx-auto" />
-              <p className="text-neutral-500 font-mono text-xs uppercase">
+              <ShieldAlert className="w-8 h-8 text-text-muted mx-auto" />
+              <p className="text-neutral-500 tabular-nums text-xs ">
                 Kuroi aún no ha registrado hitos en la Línea de Tiempo.
               </p>
             </div>
@@ -184,7 +184,7 @@ export default function LineaDeTiempo() {
                     className="flex flex-col items-center group cursor-pointer shrink-0 transition-transform hover:scale-105"
                   >
                     {/* Etiqueta Superior */}
-                    <span className="text-[10px] font-mono font-bold text-neutral-400 group-hover:text-purple-300 mb-3 bg-black/80 px-2.5 py-1 rounded border border-neutral-800 transition-colors">
+                    <span className="text-[13px] tabular-nums font-bold text-neutral-400 group-hover:text-purple-300 mb-3 bg-black/80 px-2.5 py-1 rounded border border-neutral-800 transition-colors">
                       {era.ano_inicio} - {era.ano_fin} DC
                     </span>
 
@@ -205,13 +205,13 @@ export default function LineaDeTiempo() {
                     </div>
 
                     {/* Título de la Era */}
-                    <span className="text-xs font-mono font-bold text-neutral-300 group-hover:text-purple-300 mt-3 max-w-[140px] text-center line-clamp-1">
+                    <span className="text-xs tabular-nums font-bold text-neutral-300 group-hover:text-purple-300 mt-3 max-w-[140px] text-center line-clamp-1">
                       {era.titulo}
                     </span>
 
                     {/* Indicador de Presencia del Jugador */}
                     {estaPresente && (
-                      <span className="text-[9px] font-mono text-purple-400 uppercase tracking-widest mt-1 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800">
+                      <span className="text-[13px] tabular-nums text-purple-400  tracking-normal mt-1 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800">
                         Reencarnado Activo
                       </span>
                     )}
@@ -236,20 +236,20 @@ export default function LineaDeTiempo() {
 
               {/* Cabecera del Hito */}
               <div className="border-b border-neutral-900 pb-4 space-y-1">
-                <span className="text-[10px] font-mono uppercase text-purple-400 tracking-widest font-bold bg-purple-950/60 border border-purple-800 px-2.5 py-1 rounded inline-block">
+                <span className="text-[13px] tabular-nums  text-purple-400 tracking-normal font-bold bg-purple-950/60 border border-purple-800 px-2.5 py-1 rounded inline-block">
                   [ SIGLO: AÑOS {eraSeleccionada.ano_inicio} A {eraSeleccionada.ano_fin} ]
                 </span>
-                <h2 className="text-2xl font-bold text-neutral-100 font-mono pt-2">
+                <h2 className="text-2xl font-bold text-neutral-100 tabular-nums pt-2">
                   {eraSeleccionada.titulo}
                 </h2>
               </div>
 
               {/* Lore Escrito por Kuroi */}
               <div className="space-y-2">
-                <span className="text-xs font-mono text-purple-400 uppercase font-bold flex items-center gap-1.5">
+                <span className="text-xs tabular-nums text-purple-400  font-bold flex items-center gap-1.5">
                   <Scroll className="w-4 h-4" /> Crónica Histórica de los 100 Años
                 </span>
-                <div className="bg-black/80 border border-neutral-800 p-5 rounded-lg text-sm text-neutral-200 font-serif leading-relaxed whitespace-pre-wrap">
+                <div className="bg-black/80 border border-neutral-800 p-5 rounded-lg text-sm text-neutral-200 font-serif leading-[1.7] whitespace-pre-wrap">
                   "{eraSeleccionada.lore_detallado}"
                 </div>
               </div>
@@ -257,7 +257,7 @@ export default function LineaDeTiempo() {
               <div className="pt-2 border-t border-neutral-900 text-center">
                 <button
                   onClick={() => setEraSeleccionada(null)}
-                  className="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-mono text-xs uppercase rounded"
+                  className="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 tabular-nums text-xs  rounded"
                 >
                   Cerrar Crónica
                 </button>

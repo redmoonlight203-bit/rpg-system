@@ -114,3 +114,7 @@ No registrar estas migraciones como ejecutadas hasta comparar definiciones y rev
 ## Pendiente
 
 Medición de triggers en copia, índices de FK, retención, Advisors Performance, respaldos, región Vercel y revisión completa de RPC.
+
+## Cambios aplicados tras la copia restaurada (2026-11-10)
+
+Descarte atómico de acciones GM, persistencia selectiva de vitales, validación selectiva de mapa y fuentes de botín, salida temprana de arena e índices de las 25 FK sin cobertura. Se conservan las protecciones de recompensas aprobadas, propiedad, vitales y progresión. Advisors Performance ya no muestra FK sin índice. Los avisos RLS y políticas múltiples continúan pendientes de revisión; no se abrieron permisos para silenciarlos.

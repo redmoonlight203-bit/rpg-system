@@ -8,7 +8,7 @@ for(const archivo of archivos){
  const contenido=readFileSync(archivo);
  if(contenido.includes(0))continue;
  const texto=contenido.toString('utf8');
- const clavePrivada=/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{24,}|\bsb_secret_[A-Za-z0-9_-]{20,}/.test(texto);
+ const clavePrivada=/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|-----BEGIN PGP (?:PRIVATE) KEY BLOCK-----|\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{24,}|\bsb_secret_[A-Za-z0-9_-]{20,}/.test(texto);
  const jwtPrivado=[...texto.matchAll(/\beyJ[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+/g)].some(m=>{
   try{return JSON.parse(Buffer.from(m[1],'base64url').toString()).role==='service_role';}catch{return false;}
  });

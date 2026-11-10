@@ -1,0 +1,28 @@
+set lock_timeout='1500ms';
+set search_path=public;
+create index if not exists arbol_nodos_padre_id_personaje_id_fkey_idx on arbol_nodos (padre_id, personaje_id);
+create index if not exists codex_descubrimientos_entrada_id_fkey_idx on codex_descubrimientos (entrada_id);
+create index if not exists creaciones_forja_user_id_fkey_idx on creaciones_forja (user_id);
+create index if not exists deudas_kuroi_user_id_fkey_idx on deudas_kuroi (user_id);
+create index if not exists forja_almas_unicas_user_id_fkey_idx on forja_almas_unicas (user_id);
+create index if not exists forja_instancias_forja_id_fkey_idx on forja_instancias (forja_id);
+create index if not exists inventario_jugador_forja_id_fkey_idx on inventario_jugador (forja_id);
+create index if not exists inventario_jugador_personaje_id_fkey_idx on inventario_jugador (personaje_id);
+create index if not exists inventario_jugador_user_id_fkey_idx on inventario_jugador (user_id);
+create index if not exists jugador_mapas_mapa_id_fkey_idx on jugador_mapas (mapa_id);
+create index if not exists jugador_vinculos_articulo_id_fkey_idx on jugador_vinculos (articulo_id);
+create index if not exists lista_deseos_item_id_fkey_idx on lista_deseos (item_id);
+create index if not exists mercado_objetos_comprador_id_fkey_idx on mercado_objetos (comprador_id);
+create index if not exists mercado_objetos_negociador_id_fkey_idx on mercado_objetos (negociador_id);
+create index if not exists negociaciones_tienda_item_id_fkey_idx on negociaciones_tienda (item_id);
+create index if not exists negociaciones_tienda_user_id_fkey_idx on negociaciones_tienda (user_id);
+create index if not exists personaje_naturalezas_naturaleza_id_fkey_idx on personaje_naturalezas (naturaleza_id);
+create index if not exists personajes_categoria_id_fkey_idx on personajes (categoria_id);
+create index if not exists personajes_user_id_fkey_idx on personajes (user_id);
+create index if not exists tablero_tokens_submapa_id_fkey_idx on tablero_tokens (submapa_id);
+create index if not exists tablero_tokens_tablero_id_fkey_idx on tablero_tokens (tablero_id);
+create index if not exists tableros_mapa_este_id_fkey_idx on tableros (mapa_este_id);
+create index if not exists tableros_mapa_norte_id_fkey_idx on tableros (mapa_norte_id);
+create index if not exists tableros_mapa_oeste_id_fkey_idx on tableros (mapa_oeste_id);
+create index if not exists tableros_mapa_sur_id_fkey_idx on tableros (mapa_sur_id);
+
