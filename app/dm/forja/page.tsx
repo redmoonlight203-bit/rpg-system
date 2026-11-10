@@ -6,6 +6,7 @@ import {Hammer,Swords,Layers} from "lucide-react";
 import {PasoYunque,ResumenYunque} from "../../../components/AyudaYunque";
 import {describirEfecto} from "../../../lib/descripciones";
 import PortadaYunque from "../../../components/PortadaYunque";
+import MigradorRetratos from "../../../components/MigradorRetratos";
 import IconoYugen from "../../../components/IconoYugen";
 import VinculosYunque from "../../../components/VinculosYunque";
 import RequisitosYunque from "../../../components/RequisitosYunque";
@@ -133,6 +134,7 @@ export default function Forja(){
  <header className="forja-header flex flex-wrap items-end justify-between gap-4 border-b border-orange-900/40 pb-6"><div className="forja-heading"><div className="forja-emblem"><Hammer size={26}/></div><div><p className="text-xs  tracking-normal text-orange-500">Yugen</p><h1 className="mt-2 text-3xl font-semibold">La Forja</h1><p className="mt-2 text-sm text-neutral-400">El origen de tu mundo. Crea sus personajes, habilidades, pasivas y objetos.</p></div></div><div className="flex gap-2"><Link className={boton} href="/dm/combate"><Swords size={14}/>Combate</Link><Link className={boton} href="/dm/reglas"><Layers size={14}/>Estadísticas</Link></div></header>
 
  <a href="/dm/recompensas" className="inline-block text-amber-300 underline mb-3">Crear tablas de botín, logros y títulos</a><nav className="forja-tabs flex flex-wrap gap-2" aria-label="Secciones de la Forja"><button className={`${boton} ${pestana==="creacion"?"border-orange-600 bg-orange-950":""}`} disabled={!!padre} aria-pressed={pestana==="creacion"} onClick={()=>setPestana("creacion")}>La creación ({activas.length})</button><button className={`${boton} ${pestana==="yunque"?"border-orange-600 bg-orange-950":""}`} aria-pressed={pestana==="yunque"} onClick={()=>setPestana("yunque")}>El yunque</button><button disabled={!!padre} className={boton} aria-expanded={preparados} onClick={()=>setPreparados(!preparados)}>Preparados para batalla</button><button disabled={!!padre} className={boton} aria-expanded={verPeticiones} onClick={()=>setVerPeticiones(!verPeticiones)}>Peticiones ({peticiones.length})</button></nav>
+ <MigradorRetratos onMigrado={()=>cargar(false)}/>
  {error&&<p role="alert" className="text-sm text-red-300">{error} <button onClick={()=>void cargar()} className="underline">Actualizar</button></p>}{aviso&&<p role="status" className="text-sm text-emerald-300">{aviso}</p>}
  {preparados&&<ForjaInstancias revision={revision}/>}
  {verPeticiones&&<section className={panel}><h2 className="text-lg">Peticiones pendientes</h2>{peticiones.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-3"><div><h3>{p.nombre}</h3><p className="text-sm text-neutral-400">{p.descripcion}</p></div><button disabled={!!padre} className={boton} onClick={()=>{setB({...vacio(),nombre:p.nombre,descripcion:p.descripcion,peticion:p});setPestana("yunque");}}>Abrir en el yunque</button></div>)}{!peticiones.length&&<p className="text-sm text-neutral-500">No hay peticiones pendientes.</p>}</section>}
