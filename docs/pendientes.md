@@ -2,7 +2,7 @@
 
 ## Ahora (máximo 3)
 
-1. Autorizar explícitamente la publicación de retratos del respaldo en Storage público. La revisión automática bloqueó esa carga; no se han cambiado las imágenes existentes ni se repite la operación sin resolverlo.
+1. Ejecutar en la Forja, como GM, «Migrar retratos existentes». La autorización de publicación ya fue concedida. El intento de migración directa administrativa fue bloqueado; se implementó la vía autenticada, pero **la carga de datos históricos no se declara ejecutada** hasta confirmar los archivos.
 2. Tras migrar imágenes, repetir tamaños y medir p95 HTTP/triggers con GM y dos jugadores. Los presupuestos siguen sin acreditarse.
 3. Completar retención programada, revisión RLS/avisos y auditoría funcional de pantallas; no iniciar fase 4.
 
@@ -42,3 +42,11 @@ Oro y Puntos Kuro disponibles. El GM puede crear más monedas y ajustar saldos c
 - No se borró Encuentro en Ambrosía: ya tiene recompensas aprobadas. No se eluden las protecciones para borrar o reescribir ese resultado.
 - El bucket imagenes está preparado; el endpoint temporal de migración quedó deshabilitado. La carga y el cambio de referencias continúan bloqueados.
 - El plan completo no está terminado. Véase docs/metricas/avance-2026-11-10.md.
+
+## Publicación de retratos (autorizada, pendiente de ejecución autenticada)
+
+- Se identificaron dos retratos de personaje con `data:image` en `forja_maestra`: Orin y Goblin. Cuatro imágenes adicionales de esa tabla son objetos/armas y quedan fuera de la autorización específica de retratos; las tres imágenes de inventario también se conservan intactas.
+- `lib/imagenes-storage.ts` permite publicar desde la sesión del GM bajo `<auth.uid()>/retratos/<sha256>.webp` en el bucket `imagenes`, ya público, con subida deduplicada, sin `service_role` en el navegador.
+- `components/MigradorRetratos.tsx` agrega el botón **Migrar retratos existentes** en la Forja. La operación sube primero, comprueba que el dato no haya cambiado y luego sustituye solamente `forja_maestra.imagen_url`. Los encuentros y resultados aprobados NO se alteran.
+- Nuevos archivos de PortadaYunque y Galería se suben directamente a Storage; ya no se guardan incrustados como base64 en la ficha.
+- Para verificar después de usar el botón: consultar `storage.objects` en bucket `imagenes` y comprobar que Orin/Goblin tienen URL pública en `forja_maestra`; el respaldo cifrado debe permanecer intacto. No considerar completada esta tarea antes de esas dos comprobaciones.
