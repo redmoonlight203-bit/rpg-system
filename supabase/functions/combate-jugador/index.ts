@@ -4,7 +4,7 @@ import {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posi
 function tipoArmaVisual(accion,accionId,actor){
  const e=accion?.efecto;
  if(e?.efecto!=='dano')return undefined;
- const normalizar=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+ const normalizar=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const nombre=normalizar([accion?.nombre,e?.nombre,actor?.arma?.nombre,e?.arma_nombre].join(' '));
  const arma=normalizar([actor?.arma?.nombre,e?.arma_nombre,accionId==='ataque'?accion?.nombre:''].join(' '));
  if(accionId==='desarmado'||/desarmado|punos?|punetaz|patada/.test(nombre))return 'punos';
