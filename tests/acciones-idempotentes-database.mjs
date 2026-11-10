@@ -30,6 +30,8 @@ try{
  await db.exec(readFileSync(new URL('../supabase/migrations/20261108195811_combate_acciones_idempotentes.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261110125629_historial_sin_imagenes.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261110132345_acciones_descartables.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261110132353_triggers_vitales_selectivos.sql',import.meta.url),'utf8'));
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261110170237_corregir_proyeccion_vitales.sql',import.meta.url),'utf8'));
  const gm='00000000-0000-0000-0000-000000000001',a='00000000-0000-0000-0000-000000000002',b='00000000-0000-0000-0000-000000000003',bid='00000000-0000-0000-0000-000000000099';
  await db.query("insert into perfiles(id,rol) values($1,'KUROI'),($2,'REENCARNADO'),($3,'REENCARNADO')",[gm,a,b]);
  await db.query("insert into personajes(id,user_id,nombre,raza,atributos,estado_aprobacion) values(1,$1,'A','humanos','{}','aprobado'),(2,$2,'B','humanos','{}','aprobado')",[a,b]);
