@@ -1,4 +1,4 @@
-/** Raster covers share the existing imagen_url field; no storage setup required. */
+/** Optimización raster local; la publicación final se hace en imagenes-storage.ts. */
 export const MAX_PORTADA_BYTES = 450_000;
 export function validarPortada(value: string): string | null {
   if (!value) return null;
