@@ -8,7 +8,7 @@ import type {Efecto} from "../lib/creacion";
 import SelectorVFX from './SelectorVFX';
 import type {DefinicionTransformacion, EtapaTransformacion, TipoTransformacion} from "../lib/transformaciones";
 
-const campo = "mt-1 w-full rounded-lg border border-neutral-700 bg-black p-2 text-neutral-100";
+const campo = "mt-1 w-full rounded-lg border border-neutral-700 bg-well p-2 text-neutral-100";
 const boton = "rounded-lg border border-neutral-600 px-3 py-2 text-sm hover:border-violet-400 disabled:cursor-not-allowed disabled:opacity-40";
 const atributos = [
   {clave:"vida", nombre:"Vida máxima", ayuda:"Solo para formas con barra de vida independiente."},

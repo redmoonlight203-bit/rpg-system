@@ -6,7 +6,7 @@ import {evaluarInvocacion,clasePermitida,type ClaseYugen,type ConfiguracionInvoc
 
 export type InvocacionEditor=ConfiguracionInvocacion & {plantilla?:{nombre:string;stats:Record<string,number>;habilidades:string[]}};
 type Opcion={id:string;nombre:string;clase?:string;tipo_creacion?:string;stats?:Record<string,number>;habilidades?:string[];pasivas?:string[]};
-const campo="mt-1 w-full rounded-lg border border-neutral-700 bg-black px-3 py-2 text-sm text-neutral-100";
+const campo="mt-1 w-full rounded-lg border border-neutral-700 bg-well px-3 py-2 text-sm text-neutral-100";
 export default function EditorInvocacion({value,onChange,creaciones,atributos=[],crearDentro}:{value:InvocacionEditor|null;onChange:(v:InvocacionEditor|null)=>void;creaciones:Opcion[];atributos?:{clave:string;etiqueta:string;valor_defecto?:number}[];crearDentro:()=>void}){
  const personajes=creaciones.filter(c=>c.tipo_creacion==="personaje");
  const habilidades=useMemo(()=>creaciones.filter(c=>c.tipo_creacion==="habilidad"&&value&&clasePermitida(c.clase||"",value.claseMaxima)),[creaciones,value]);

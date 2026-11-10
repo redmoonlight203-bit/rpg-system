@@ -1,6 +1,6 @@
 "use client";
 import {type Efecto, type ArmaResultado, type FuenteCreacion, efectosDe, ELEMENTOS, formula} from '../lib/creacion';
-const campo='w-full rounded border border-neutral-700 bg-black p-2 text-sm text-neutral-100';
+const campo='w-full rounded border border-neutral-700 bg-well p-2 text-sm text-neutral-100';
 export function TablaArmas({efecto:e, armas, onChange}:{efecto:Efecto;armas:FuenteCreacion[];onChange:(tabla:Efecto['tabla_armas'])=>void}){
  const tabla=e.tabla_armas;
  function dimension(caras:number){onChange({caras,resultados:Array.from({length:caras},(_,i)=>tabla?.resultados.find(r=>r.cara===i+1)||{cara:i+1,nombre:'',cantidad:e.cantidad||1,caras:e.caras,modificador:e.modificador,tipo_dano:e.tipo_dano,elemento:e.elemento,arma_slot:e.arma_slot||'mano_der'})});}

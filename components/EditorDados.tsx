@@ -10,7 +10,7 @@ import SelectorVFX from './SelectorVFX';
 import EditorAlcance from './EditorAlcance';
 import {TablaArmas} from './TablaArmas';
 import {PasoYunque,ResumenYunque} from './AyudaYunque';
-const campo='mt-1 w-full rounded-lg border border-neutral-700 bg-black p-2 text-neutral-100';
+const campo='mt-1 w-full rounded-lg border border-neutral-700 bg-well p-2 text-neutral-100';
 const tipos:{tipo:Efecto['efecto'];nombre:string;ayuda:string}[]=[
  {tipo:'transformacion',nombre:'Transformarse',ayuda:'Cambia estadísticas y puede tener varias etapas.'},
  {tipo:'dano',nombre:'Atacar',ayuda:'Un golpe, disparo o hechizo que causa daño.'},
