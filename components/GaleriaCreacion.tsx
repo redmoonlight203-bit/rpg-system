@@ -5,7 +5,8 @@ import { ArrowLeft, ArrowUpRight, Search, ImagePlus, Upload, Link2, Save, ImageO
 import { TIPOS, EFECTOS_NOMBRE, efectosDe, formula, type TipoCreacion, type Efecto } from "../lib/creacion";
 import { EVENTOS, EFECTOS_REGLA, DESTINOS, type CondicionRegla, type EfectoRegla, type ValorRegla, type Regla } from "../lib/reglas";
 import { type ReglaPasiva } from "../lib/pasivas";
-import { prepararPortada, validarPortada } from "../lib/imagenes-creacion";
+import { validarPortada } from "../lib/imagenes-creacion";
+import { publicarArchivoImagen } from "../lib/imagenes-storage";
 import IconoYugen from "./IconoYugen";
 import SelectorIconoYugen from "./SelectorIconoYugen";
 import {describirEfecto,describirRegla,type AyudaClara} from "../lib/descripciones";
@@ -107,7 +108,7 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
   async function archivo(file?: File) {
     if (!file || bloqueo.current) return;
     bloqueo.current = true; setProcesando(true); setError(""); setAviso("");
-    try { setImagen(await prepararPortada(file)); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo leer la imagen."); }
+    try { setImagen(await publicarArchivoImagen(file)); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo leer la imagen."); }
     finally { bloqueo.current = false; setProcesando(false); }
   }
   async function guardar() {
@@ -131,11 +132,11 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
         <div className="cg-symbol-editor"><h4>Icono de Yugen</h4><p>Se usa cuando no hay imagen o no se puede cargar. Automático utiliza el símbolo de la raza o categoría.</p><SelectorIconoYugen value={icono} onChange={setIcono} automatico={props.iconoDe({...item,icono:null})} disabled={ocupado}/></div>
         <label><Link2 size={14} />URL de la imagen<input type="text" placeholder="https://…" value={imagen.startsWith("data:") ? "" : imagen} onChange={(e) => { setImagen(e.target.value); setError(""); }} /></label>
         <span className="cg-or">o selecciona un archivo</span>
-        <label className="cg-upload"><Upload size={20} /><strong>Insertar imagen</strong><span>PNG, JPG o WebP · hasta 10 MB</span><input aria-label="Insertar imagen desde archivo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { void archivo(e.target.files?.[0]); e.target.value = ""; }} /></label>
+        <label className="cg-upload"><Upload size={20} /><strong>Publicar imagen</strong><span>PNG, JPG o WebP · visible mediante enlace público</span><input aria-label="Insertar imagen desde archivo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { void archivo(e.target.files?.[0]); e.target.value = ""; }} /></label>
         {imagen.startsWith("data:") && <p className="cg-local-image">Imagen de archivo lista para guardar.</p>}
         <div className="cg-image-actions"><button className="cg-button" disabled={!imagen} onClick={() => { setImagen(""); setError(""); }}><ImageOff size={14} />Quitar imagen</button><button className="cg-button" onClick={() => { setImagen(item.imagen_url || ""); setIcono(item.icono||""); setError(""); setEditando(false); }}>Cancelar</button></div>
         <button className="cg-button cg-primary" disabled={!dirty} onClick={() => void guardar()}><Save size={16} />Guardar presentación</button>
-      </fieldset><small>Los archivos se optimizan antes de guardarse. La imagen se comparte con la creación.</small></div>}
+      </fieldset><small>Los archivos se optimizan y publican en Storage; cualquiera con el enlace podrá verlos.</small></div>}
       {ocupado && <p role="status">{procesando ? "Preparando imagen…" : "Guardando imagen…"}</p>}{error && <p className="cg-error" role="alert">{error}</p>}{aviso && <p className="cg-success" role="status">{aviso}</p>}{dirty && <p className="cg-unsaved">Presentación sin guardar</p>}
     </aside>
     <div className="cg-detail-content"><div className="cg-detail-heading"><span className="cg-eyebrow">{TIPOS.find((t) => t.valor === tipo)?.nombre} / {props.clasificacion(item.tipo)}</span><h2 tabIndex={-1} ref={titulo}>{item.nombre}</h2><p>{item.descripcion || "Sin descripción."}</p><div className="cg-detail-tags"><span>Clase {item.clase || "D"}</span><span>{item.es_grupo ? "Malla · valores por rango" : "Único · valores fijos"}</span>{item.ligado_al_alma && <span>Ligado al alma</span>}</div></div>
