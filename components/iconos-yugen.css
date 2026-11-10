@@ -1,9 +1,9 @@
 .yugen-glyph{display:inline-block;flex-shrink:0;vertical-align:middle}
-.yi-picker{color:#dfc79c;font:12px Arial,sans-serif}
-.yi-search{display:block;font:12px Arial,sans-serif!important;letter-spacing:0!important;margin-bottom:12px}
-.yi-search input{display:block;width:100%;margin-top:7px;padding:10px!important;border:1px solid #57452e!important;border-radius:6px!important;background:#11130e!important;color:#eadbc2!important;font:12px Arial,sans-serif!important}
-.yi-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;max-height:300px;overflow:auto;padding:4px;scrollbar-color:#79613c #151710;scrollbar-width:thin}
-.yi-options button{display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:8px!important;border:1px solid #433925!important;border-radius:7px!important;background:linear-gradient(140deg,#232014,#11130e);padding:12px 6px!important;min-height:78px;color:#b6a27c;cursor:pointer;text-transform:none!important;letter-spacing:0!important;font:10px Arial,sans-serif!important}
-.yi-options button[aria-pressed=true]{color:#ffe0a6;border-color:#d3a761!important;background:#3b2c17;box-shadow:inset 0 0 12px #d8a44514}
-.yi-options button:focus-visible{outline:2px solid #edc37a;outline-offset:2px}
+.yi-picker{color:var(--color-gold-soft);font:13px Arial,sans-serif}
+.yi-search{display:block;font:13px Arial,sans-serif!important;letter-spacing:0!important;margin-bottom:12px}
+.yi-search input{display:block;width:100%;margin-top:7px;padding:10px!important;border:1px solid var(--color-cyan-800)!important;border-radius:6px!important;background:var(--color-well)!important;color:var(--color-cyan-300)!important;font:13px Arial,sans-serif!important}
+.yi-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;max-height:300px;overflow:auto;padding:4px;scrollbar-color:var(--color-cyan-700) var(--color-cyan-950);scrollbar-width:thin}
+.yi-options button{display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:8px!important;border:1px solid var(--color-yellow-800)!important;border-radius:7px!important;background:linear-gradient(140deg,var(--color-neutral-900),var(--color-well));padding:12px 6px!important;min-height:78px;color:var(--color-cyan-500);cursor:pointer;text-transform:none!important;letter-spacing:0!important;font:13px Arial,sans-serif!important}
+.yi-options button[aria-pressed=true]{color:var(--color-gold-bright);border-color:var(--color-yellow-400)!important;background:var(--color-yellow-900);box-shadow:inset 0 0 12px color-mix(in srgb, var(--color-yellow-400) 7.84%, transparent)}
+.yi-options button:focus-visible{outline:2px solid var(--color-yellow-300);outline-offset:2px}
 .yi-options button:disabled{opacity:.4;cursor:not-allowed}

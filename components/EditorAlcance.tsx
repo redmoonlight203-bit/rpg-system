@@ -2,7 +2,7 @@
 import {useState} from 'react';
 import type {Efecto,AlcanceHabilidad} from '../lib/creacion';
 import {areaDesde} from '../lib/combate';
-const campo='mt-1 w-full rounded-lg border border-neutral-700 bg-black p-2 text-neutral-100';
+const campo='mt-1 w-full rounded-lg border border-neutral-700 bg-well p-2 text-neutral-100';
 const formas:Record<AlcanceHabilidad['forma'],string>={individual:'Un objetivo',circulo:'Círculo por casillas',cuadrado:'Cuadrado',linea:'Línea desde el lanzador',cono:'Cono desde el lanzador',cruz:'Cruz'};
 export default function EditorAlcance({efecto:e,onChange}:{efecto:Efecto;onChange:(p:Partial<Efecto>)=>void}){
  const t=e.tablero;

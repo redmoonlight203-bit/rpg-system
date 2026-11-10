@@ -3,7 +3,7 @@ import ListaArrastrable from './ListaArrastrable';
 import {ResumenYunque} from "./AyudaYunque";
 import {validarPasivas, type ReglaPasiva } from "../lib/pasivas";
 const campo =
-  "mt-1 w-full rounded border border-neutral-700 bg-black p-2 text-sm";
+  "mt-1 w-full rounded border border-neutral-700 bg-well p-2 text-sm";
 export function EditorPasivas({
   value,
   onChange,

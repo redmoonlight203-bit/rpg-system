@@ -17,10 +17,11 @@ const serifKr = localFont({
   display: "swap",
 });
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#090a08" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#121312" };
 
 export const metadata: Metadata = {
-  title: "Yugen Realm | Nexus System",
+  title: "YUGEN | El dominio de Kuroi",
+  icons: { icon: "/brand/yugen-kuroi.png", apple: "/brand/yugen-kuroi.png" },
   description: "Plataforma de Control para Kuroi y Reencarnados",
 };
 
@@ -31,7 +32,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`dark ${sansKr.variable} ${serifKr.variable}`}>
-      <body className="bg-black text-neutral-200 antialiased min-h-screen">
+      <body className="bg-canvas text-text antialiased min-h-screen">
         {children}
       </body>
     </html>

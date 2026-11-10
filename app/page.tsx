@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import LogoYugen from "../components/LogoYugen";
 import { supabase } from "../lib/supabase";
 
 export default function HomePage() {
@@ -56,10 +57,10 @@ export default function HomePage() {
   // Pantalla de carga mientras lee el localStorage
   if (verificando) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
-        <div className="w-10 h-10 border-2 border-red-700 border-t-red-500 rounded-full animate-spin glow-blood" />
-        <p className="text-red-600 font-mono text-xs tracking-widest uppercase animate-pulse">
-          Sincronizando con el Nexo...
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
+        <LogoYugen size={144} preload/>
+        <p className="text-text-muted text-sm">
+          Conectando con el Nexo…
         </p>
       </div>
     );

@@ -4,7 +4,7 @@ import SelectorCreacionVisual from './SelectorCreacionVisual';
 import {useState} from 'react';
 import {SLOTS} from '../lib/creacion';
 import type {ConfiguracionMonstruo,VarianteMonstruo,FuenteMonstruo,EquipoMonstruo} from '../lib/monstruos';
-const campo='w-full rounded-lg border border-neutral-700 bg-black p-2 text-sm';
+const campo='w-full rounded-lg border border-neutral-700 bg-well p-2 text-sm';
 export default function EditorMonstruo({value,onChange,catalogo,atributos}:{value:ConfiguracionMonstruo|null;onChange:(c:ConfiguracionMonstruo)=>void;catalogo:FuenteMonstruo[];atributos:{clave:string;etiqueta:string}[]}){
  const [seleccion,setSeleccion]=useState('');const variantes=value?.variantes||[],v=variantes.find(v=>v.id===seleccion)||variantes[0];
  function patch(p:Partial<VarianteMonstruo>){if(v)onChange({variantes:variantes.map(x=>x.id===v.id?{...x,...p}:x)});}

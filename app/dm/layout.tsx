@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import LogoYugen from "../../components/LogoYugen";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -16,6 +17,7 @@ const principales = [
   { path: "/dm/arbol", label: "Árboles de habilidades", detail: "Ramas y puntos por personaje", icon: TrendingUp },
 ];
 const gestion = [
+  { path: "/dm/estilos", label: "Guía visual de Yugen", icon: Sliders },
   { path: "/dm/recompensas", label: "Botín, logros y títulos", icon: TrendingUp },
   { path: "/dm/party", label: "Parties de jugadores", icon: Users },
   { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },
@@ -36,7 +38,7 @@ export default function DMLayout({ children }: { children: React.ReactNode }) {
   return <div className="gm-shell">
     <a href="#gm-content" className="gm-skip">Ir al contenido</a>
     <aside className="gm-sidebar">
-      <Link href="/dm/forja" className="gm-brand" aria-label="Yugen: ir a la Forja"><Hammer size={25}/><span>YUGEN<small>ESPACIO DEL GM</small></span></Link>
+      <Link href="/dm/forja" className="gm-brand" aria-label="Yugen: ir a la Forja"><LogoYugen/><span><small>Espacio del GM</small></span></Link>
       <nav aria-label="Herramientas del GM" className="gm-primary">
         <p className="gm-caption">Tu mesa de creación</p>
         {principales.map(({path,label,detail,icon:Icon},i)=><Link key={path} href={path} aria-current={activo(path)?"page":undefined} className={`gm-link ${activo(path)?"is-active":""}`}><Icon size={20}/><span>{label}<small>{detail}</small></span><b>0{i+1}</b></Link>)}

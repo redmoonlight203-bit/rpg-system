@@ -91,10 +91,10 @@ export default function ElCodice() {
     return coincideFiltro && coincideBusqueda;
   });
 
-  if (cargando) return <div className="min-h-screen bg-black flex items-center justify-center text-red-500 font-mono animate-pulse">Abriendo el Códice Ancestral...</div>;
+  if (cargando) return <div className="min-h-screen bg-canvas flex items-center justify-center text-red-500 tabular-nums animate-pulse">Abriendo el Códice Ancestral...</div>;
 
   return (
-    <main className="min-h-screen bg-black text-neutral-200 p-6 font-serif relative">
+    <main className="min-h-screen bg-canvas text-neutral-200 p-6 font-serif relative">
       <div className="max-w-6xl mx-auto space-y-8 relative z-10 pb-20">
         
         {/* Cabecera */}
@@ -104,10 +104,10 @@ export default function ElCodice() {
               <ArrowLeft className="w-6 h-6" />
             </button>
             <div>
-              <h1 className="text-2xl font-black text-neutral-100 uppercase tracking-widest font-mono flex items-center gap-2">
+              <h1 className="text-2xl font-black text-neutral-100  tracking-normal tabular-nums flex items-center gap-2">
                 <BookOpen className="w-6 h-6 text-red-600" /> El Códice del Mundo
               </h1>
-              <p className="text-red-700/80 text-xs font-mono tracking-widest mt-1 uppercase">
+              <p className="text-red-700/80 text-xs tabular-nums tracking-normal mt-1 ">
                 [ COMPENDIO DE CONOCIMIENTO REVELADO EN TUS VIAJES ]
               </p>
             </div>
@@ -121,7 +121,7 @@ export default function ElCodice() {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar en el Códice..."
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-4 py-2 text-xs text-neutral-200 focus:border-red-800 outline-none font-mono"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-4 py-2 text-xs text-neutral-200 focus:border-red-800 outline-none tabular-nums"
             />
           </div>
         </header>
@@ -139,7 +139,7 @@ export default function ElCodice() {
             <button
               key={tab.id}
               onClick={() => setFiltro(tab.id)}
-              className={`px-4 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all ${
+              className={`px-4 py-2 rounded-lg text-xs tabular-nums  tracking-normal transition-all ${
                 filtro === tab.id
                   ? "bg-red-950 border border-red-800 text-red-200 glow-blood-sm font-bold"
                   : "bg-neutral-950 border border-neutral-800 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700"
@@ -153,11 +153,11 @@ export default function ElCodice() {
         {/* Grilla del Códice */}
         {entradasFiltradas.length === 0 ? (
           <div className="text-center py-20 bg-neutral-950/40 border border-neutral-900 rounded-xl space-y-3">
-            <Lock className="w-10 h-10 text-neutral-700 mx-auto" />
-            <p className="text-neutral-600 font-mono text-xs uppercase tracking-widest">
+            <Lock className="w-10 h-10 text-text-muted mx-auto" />
+            <p className="text-text-muted tabular-nums text-xs  tracking-normal">
               Ningún conocimiento registrado en esta categoría aún.
             </p>
-            <p className="text-neutral-700 text-xs italic">
+            <p className="text-text-muted text-xs italic">
               Explora el mundo y enfrenta nuevos entes para desbloquear entradas en el Códice.
             </p>
           </div>
@@ -174,7 +174,7 @@ export default function ElCodice() {
                     <div className="p-2.5 bg-neutral-900 border border-neutral-800 rounded-lg">
                       {getIconoTipo(item.tipo)}
                     </div>
-                    <span className="text-[10px] font-mono text-red-500/80 bg-red-950/40 border border-red-900/40 px-2 py-0.5 rounded uppercase tracking-wider font-bold">
+                    <span className="text-[13px] tabular-nums text-red-500/80 bg-red-950/40 border border-red-900/40 px-2 py-0.5 rounded  tracking-normal font-bold">
                       {item.tipo}
                     </span>
                   </div>
@@ -183,8 +183,8 @@ export default function ElCodice() {
                     <h3 className="text-lg font-bold text-neutral-200 group-hover:text-red-300 transition-colors">
                       {item.titulo}
                     </h3>
-                    <p className="text-[11px] font-mono text-neutral-500 mt-1 flex items-center gap-1">
-                      <Compass className="w-3 h-3 text-neutral-600" /> Origen: {item.origen || "Desconocido"}
+                    <p className="text-[13px] tabular-nums text-neutral-500 mt-1 flex items-center gap-1">
+                      <Compass className="w-3 h-3 text-text-muted" /> Origen: {item.origen || "Desconocido"}
                     </p>
                   </div>
 
@@ -193,8 +193,8 @@ export default function ElCodice() {
                   </p>
                 </div>
 
-                <div className="pt-3 mt-4 border-t border-neutral-900 flex justify-between items-center text-[11px] font-mono">
-                  <span className="text-neutral-600">
+                <div className="pt-3 mt-4 border-t border-neutral-900 flex justify-between items-center text-[13px] tabular-nums">
+                  <span className="text-text-muted">
                     {new Date(item.revelado_en).toLocaleDateString()}
                   </span>
                   <span className="text-red-500 group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
@@ -223,13 +223,13 @@ export default function ElCodice() {
                   {getIconoTipo(entradaDetalle.tipo)}
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono uppercase text-red-500 tracking-widest font-bold">
+                  <span className="text-[13px] tabular-nums  text-red-500 tracking-normal font-bold">
                     [ CÓDICE: {entradaDetalle.tipo} ]
                   </span>
-                  <h2 className="text-2xl font-bold text-neutral-100 font-mono">
+                  <h2 className="text-2xl font-bold text-neutral-100 tabular-nums">
                     {entradaDetalle.titulo}
                   </h2>
-                  <p className="text-xs text-neutral-500 font-mono mt-0.5">
+                  <p className="text-xs text-neutral-500 tabular-nums mt-0.5">
                     Origen: {entradaDetalle.origen} • Revelado el {new Date(entradaDetalle.revelado_en).toLocaleDateString()}
                   </p>
                 </div>
@@ -237,20 +237,20 @@ export default function ElCodice() {
 
               {/* Funcionamiento y Reglas */}
               <div className="space-y-1.5">
-                <span className="text-xs font-mono text-amber-500 uppercase font-bold flex items-center gap-1">
+                <span className="text-xs tabular-nums text-amber-500  font-bold flex items-center gap-1">
                   <Zap className="w-3.5 h-3.5" /> Funcionamiento y Propiedades
                 </span>
-                <div className="bg-black border border-neutral-800 p-4 rounded-lg text-sm text-neutral-200 font-mono leading-relaxed whitespace-pre-wrap">
+                <div className="bg-well border border-neutral-800 p-4 rounded-lg text-sm text-neutral-200 tabular-nums leading-[1.7] whitespace-pre-wrap">
                   {entradaDetalle.mecanica || "Sin detalles mecánicos especificados."}
                 </div>
               </div>
 
               {/* Historia y Lore */}
               <div className="space-y-1.5">
-                <span className="text-xs font-mono text-red-500 uppercase font-bold flex items-center gap-1">
+                <span className="text-xs tabular-nums text-red-500  font-bold flex items-center gap-1">
                   <BookOpen className="w-3.5 h-3.5" /> Historia y Leyenda
                 </span>
-                <div className="bg-neutral-900/40 border border-neutral-900 p-4 rounded-lg text-xs text-neutral-300 italic font-serif leading-relaxed whitespace-pre-wrap">
+                <div className="bg-neutral-900/40 border border-neutral-900 p-4 rounded-lg text-xs text-neutral-300 italic font-serif leading-[1.7] whitespace-pre-wrap">
                   "{entradaDetalle.descripcion || "Historia no documentada en el registro."}"
                 </div>
               </div>
@@ -258,7 +258,7 @@ export default function ElCodice() {
               <div className="pt-2 border-t border-neutral-900 text-center">
                 <button
                   onClick={() => setEntradaDetalle(null)}
-                  className="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 font-mono text-xs uppercase rounded"
+                  className="px-6 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 tabular-nums text-xs  rounded"
                 >
                   Cerrar Códice
                 </button>

@@ -16,7 +16,7 @@ type Personaje = {
   raza: string;
 };
 const input =
-  "w-full rounded border border-neutral-700 bg-black p-2.5 text-sm text-neutral-100";
+  "w-full rounded border border-neutral-700 bg-well p-2.5 text-sm text-neutral-100";
 export function ForjaOperacion({
   item,
   modo,
