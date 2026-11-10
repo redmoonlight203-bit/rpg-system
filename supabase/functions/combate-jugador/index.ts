@@ -10,6 +10,7 @@ function tipoArmaVisual(accion,accionId,actor){
  if(accionId==='desarmado'||/desarmado|punos?|punetaz|patada/.test(nombre))return 'punos';
  if(/arco|ballesta|flecha|saeta/.test(arma)||(!e?.coste_ph&&/arco|ballesta|flecha|saeta/.test(nombre)))return 'arco';
  if(/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hacha|martillo|maza|mazo/.test(arma)||(!e?.coste_ph&&/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hachazo|espadazo/.test(nombre)))return 'espada';
+ if(accionId==='ataque'&&!e?.coste_ph&&(actor?.arma?.nombre||e?.arma_nombre||/atacar con/.test(nombre)))return 'espada';
  return undefined;
 }
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
