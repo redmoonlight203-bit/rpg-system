@@ -1,13 +1,15 @@
 "use client";
+import {Enso} from "./ui/Signature";
 import { memo, useState } from "react";
 
 /** Optional portrait: missing and broken URLs always fall back to initials. */
-function RetratoCombate({ nombre, src, compacto = false }: {
-  nombre: string; src?: string; compacto?: boolean;
+function RetratoCombate({ nombre, src, compacto = false, activo = false }: {
+  nombre: string; src?: string; compacto?: boolean; activo?: boolean;
 }) {
   const [fallida, setFallida] = useState<string | null>(null);
   const iniciales = nombre.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
   return <span className={`battle-portrait ${compacto ? "compact" : ""}`} aria-hidden="true">
+    {activo&&<Enso activo/>}
     {src && fallida !== src ?
       // Configurable remote portraits do not require an image host allowlist.
       // eslint-disable-next-line @next/next/no-img-element

@@ -1,11 +1,12 @@
 "use client";
 import {useState} from 'react';
 import {Button,Panel,Field,Badge,Tabs,Modal,EmptyState,LoadingState,ErrorState,ResourceBar} from './index';
+import {Hanko,Enso,Kintsugi} from './Signature';
 import LogoYugen from '../LogoYugen';
 export default function DesignShowcase(){
  const [tab,setTab]=useState('personaje'),[open,setOpen]=useState(false),[saved,setSaved]=useState(false);
  return <main className="mx-auto max-w-[1200px] space-y-8 p-4 md:p-8">
- <header className="flex flex-wrap items-center justify-between gap-4"><div><h1>El lenguaje de Yugen</h1><p className="mt-2 text-text-muted">Tinta, oro y carmesí. Un mismo santuario para toda la mesa.</p></div><LogoYugen size={112}/></header><div className="kr-divider"/>
+ <header className="flex flex-wrap items-center justify-between gap-4"><div><h1>El lenguaje de Yugen</h1><p className="mt-2 text-text-muted">Tinta, oro y carmesí. Un mismo santuario para toda la mesa.</p></div><LogoYugen size={112}/></header><Kintsugi/><Panel title="Elementos de identidad"><div className="flex flex-wrap items-center gap-8"><Hanko/><Hanko estado="victoria"/><Hanko estado="finalizado"/><div className="flex items-center gap-3"><Enso activo/><span>Turno activo</span></div><span className="font-kanji text-4xl text-gold-soft" aria-hidden="true">幽玄</span></div></Panel>
  <div className="grid gap-4 lg:grid-cols-2"><Panel title="Acciones"><div className="flex flex-wrap gap-3"><Button onClick={()=>{setSaved(true);window.setTimeout(()=>setSaved(false),2500);}}>Guardar cambios</Button><Button variant="secondary" onClick={()=>setOpen(true)}>Abrir ventana</Button><Button variant="ghost">Ver detalles</Button><Button variant="destructive" onClick={()=>setOpen(true)}>Eliminar personaje</Button><Button disabled>No disponible</Button><Button loading>Guardar</Button></div>{saved&&<p role="status" className="mt-4 text-success-text">Cambios guardados.</p>}</Panel>
  <Panel title="Estados de la mesa"><div className="flex flex-wrap gap-3"><Badge>En curso</Badge><Badge tone="success">Vivo</Badge><Badge tone="pending">Pendiente</Badge><Badge tone="danger">Caído</Badge></div></Panel>
  <Panel title="Campos de formulario"><div className="space-y-4"><Field label="Nombre del personaje" placeholder="Escribe un nombre"/><Field label="Nombre requerido" error="Escribe un nombre para continuar."/><Field label="Campo deshabilitado" disabled value="No disponible" readOnly/></div></Panel>

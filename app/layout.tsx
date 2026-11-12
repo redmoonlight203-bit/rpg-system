@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import "./mobile.css";
+import "./yugen-design.css";
 
 const sansKr = localFont({
   src: "../public/fonts/NotoSansKR-latin.ttf",
@@ -17,6 +18,8 @@ const serifKr = localFont({
   display: "swap",
 });
 
+const kanji = localFont({src: "../public/fonts/kanji-yugen.woff2", variable: "--font-kanji-src", display: "swap"});
+
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#121312" };
 
 export const metadata: Metadata = {
@@ -31,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`dark ${sansKr.variable} ${serifKr.variable}`}>
+    <html lang="es" className={`dark ${sansKr.variable} ${serifKr.variable} ${kanji.variable}`}>
       <body className="bg-canvas text-text antialiased min-h-screen">
         {children}
       </body>

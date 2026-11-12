@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import {indiceRuta} from './layout/Riel';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, Hammer, Swords, ShoppingBag, Sliders, MoreHorizontal, Dices, X, BookOpen, Handshake, Sparkles, Shield, TrendingUp } from "lucide-react";
@@ -49,7 +50,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
       </nav>
     </>}
     <nav className="mobile-tabs" aria-label={gm ? "Navegación móvil del GM" : "Navegación móvil del jugador"}>
-      {enlaces.map(({href,label,icon:Icon}) => <Link key={href} href={href} aria-current={activo(href) ? "page" : undefined}><Icon size={21}/><span>{label}</span></Link>)}
+      {enlaces.map(({href,label,icon:Icon}) => <Link key={href} href={href} aria-current={activo(href) ? "page" : undefined}><span className="mobile-index" aria-hidden="true">{indiceRuta(href)}</span><span>{label}</span></Link>)}
       <button ref={boton} aria-controls="mobile-more" aria-expanded={abierto} onClick={() => setAbierto(!abierto)} className={extras.some(e => activo(e.href)) ? "is-active" : ""}><MoreHorizontal size={21}/><span>Más</span></button>
     </nav>
   </div>;

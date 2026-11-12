@@ -1,51 +1,51 @@
-# design.md — Sistema de diseño de Yugen Realm
+# design.md — Yugen Realm 幽玄 · Dirección visual v2
 
-Versión 1.0 · 10 de noviembre de 2026
-Paleta base: tinta `#121312` · oro `#a67d43` · carmesí `#ad0013`
+Versión 2.0 · 10 de noviembre de 2026
+Reemplaza a la v1 (queda una copia en `design-v1-paleta.md`).
+Paleta base, sin cambios: tinta `#121312` · oro `#a67d43` · carmesí `#ad0013`
 
-> **Para quien edite la app (personas o asistentes de código):** lee este archivo completo antes de tocar cualquier pantalla. Si un color, tamaño o componente no está aquí, no lo inventes: usa el más parecido de este documento o añade una entrada nueva en la sección 14.
+> **Para quien edite la app (personas o asistentes de código):** lee este archivo completo antes de tocar una pantalla. Si algo no está aquí, no lo inventes: usa lo más parecido o propón una entrada nueva en la sección 15.
 
 ---
 
-## 1. Estado actual (verificado en el código)
+## 1. Concepto: yūgen (幽玄)
 
-Esto no se parte de cero. Ya existe una base sólida que este documento ordena y completa.
+La app ya se llama Yugen. **Yūgen es la belleza que sugiere más de lo que muestra**: luz tenue, profundidad, silencio, un detalle que hace pensar. Ese es el concepto de diseño, y es lo que lo hace original: no es una imitación de «lo japonés», sale del nombre y del vocabulario propio del producto (Kuroi, Reencarnados, Alma, Forja).
 
-**Lo que ya está bien**
+**Lo moderno viene de cinco decisiones:**
 
-- `app/globals.css` ya instala la paleta. Redefine la escala de Tailwind v4 para que las clases existentes cambien de aspecto sin tocar cada archivo: `neutral` → negro cálido, `red` → carmesí, `amber` y `yellow` → dorado, `orange` → cobre, `purple`, `indigo` y `rose` → vino, `cyan` → champán, `emerald` → jade.
-- Existen componentes de estilo reutilizables: `.kr-panel` (tarjeta con borde dorado y esquinas ornamentales), `.kr-divider` (divisor con rombo), `.kr-ambient` (fondo con resplandor carmesí), y brillos `.glow-blood`, `.glow-gold`, `.glow-cyan`, `.glow-emerald`.
-- Foco visible dorado (`:focus-visible`), selección carmesí, scrollbar fina, `color-scheme: dark`.
-- Fuentes locales: Noto Sans KR (interfaz) y Noto Serif KR (títulos).
-- `app/mobile.css` ya resuelve navegación móvil, botones táctiles de 44 px y temas `forja-theme` y `battle-theme`.
+1. Mucho espacio vacío con intención (間, *ma*): menos elementos, cada uno con más peso.
+2. Rejillas finas de líneas de 1 px, en lugar de tarjetas sueltas con sombras.
+3. Tipografía grande y ligera para las cifras y los títulos.
+4. Superficies planas, sin sombras grises ni adornos ornamentales.
+5. Un solo gesto de movimiento por pantalla.
 
-**Lo que está desordenado**
+**Lo que este diseño NO es:** círculo rojo de bandera, flores de cerezo, farolillos, tipografías «estilo katana», ni kanji decorativos sin función.
 
-| Hallazgo | Dato |
+### Principios
+
+| Principio | Significado en la interfaz |
 |---|---|
-| Los nombres semánticos `crimson`, `gold` e `ink` existen pero no se usan | 0 usos de `bg-ink`, `text-gold` y `border-crimson` en `app/` y `components/` |
-| El fondo de página no es la tinta de la paleta | `body` usa `#050505` y hay 65 usos de `bg-black` |
-| Colores hexadecimales sueltos dentro de componentes | decenas, p. ej. `#11120e`, `#090a08`, `#e2c292`, `#f1d5a7`, `#c8a66e`, `#38231b`, y hasta un lavanda `#d5b3ff` que no pertenece a la paleta |
-| Radios mezclados | 71 `rounded-lg`, 51 `rounded-xl`, 1 `rounded-2xl` |
-| Mayúsculas con tracking amplio en exceso | 57 `uppercase` y 22 `tracking-widest` |
-| `font-mono` está redefinida como sans, pero se usa 101 veces como si fuera monoespaciada | los números no alinean |
+| 間 Espacio | Los márgenes grandes son parte del diseño; no se rellenan |
+| 線 Línea fina | Estructura con líneas doradas de 1 px; separar con línea antes que con caja |
+| 印 Sello | Un sello carmesí solo para decisiones: aprobado, victoria, finalizado |
+| 円 Círculo | Un único movimiento firma: el círculo (ensō) que marca el turno activo |
+| 墨 Tinta | La oscuridad tiene profundidad: lavados sutiles, no negro plano |
+| 字 Kanji con función | Cada kanji es un índice de sección; siempre va acompañado del nombre en español |
 
-**Objetivo de este documento:** que todas las pantallas se vean como un solo producto, con reglas claras y una migración por oleadas sin reescribir la app.
+Proporción de color en cualquier pantalla: **85 % tinta, 10 % oro, 5 % carmesí.**
 
 ---
 
-## 2. Identidad
+## 2. Vocabulario propio de la app
 
-**Yugen Realm es un santuario de tinta negra con detalles de oro apagado y sangre.** Lujo sobrio, no ostentoso: mucho negro, el oro estructura y ordena, el carmesí aparece poco y siempre significa algo.
+La interfaz ya usa estos términos; el diseño los refuerza:
 
-Principios, en orden de prioridad:
+- **Kuroi (黒)**: rol de GM. Su marca es el kanji 黒 en el riel lateral.
+- **Reencarnados (転生)**: rol de jugador. Su marca es 転生 en el riel lateral.
+- **Yugen (幽玄)**: nombre del producto, se usa vertical en el login.
 
-1. **La tinta manda.** Alrededor del 80 % de cualquier pantalla es negro cálido.
-2. **El oro estructura.** Bordes, títulos, iconos, cifras y elementos seleccionados.
-3. **El carmesí es escaso y significa algo.** Acciones irreversibles, combate y peligro. Si aparece en todas partes, deja de funcionar.
-4. **Un momento memorable por pantalla.** Una sola cosa llama la atención (la ficha activa, el botón de atacar, la recompensa). Todo lo demás se mantiene tranquilo.
-5. **El dato gana al adorno.** Ningún ornamento tapa información de juego.
-6. **Un solo producto.** El GM y el jugador usan los mismos componentes, colores y tipografía.
+> **Importante:** los kanji de este documento son una propuesta. Antes de publicar, pide a alguien que lea japonés que los revise (sección 15).
 
 ---
 
@@ -55,83 +55,60 @@ Principios, en orden de prioridad:
 
 | Nombre | Hex | Token | Función |
 |---|---|---|---|
-| Tinta | `#121312` | `ink` (= `neutral-950`) | Fondo de página, base de todo |
-| Oro | `#a67d43` | `gold` (= `amber-500`) | Estructura, acento, acción principal |
-| Carmesí | `#ad0013` | `crimson` (= `red-700`) | Acción irreversible, combate, peligro |
+| Tinta (墨 *sumi*) | `#121312` | `ink` / `canvas` | Fondo de página |
+| Oro (金 *kin*) | `#a67d43` | `gold` | Líneas, acento, acción principal |
+| Carmesí (紅 *beni*) | `#ad0013` | `crimson` | Sello, peligro, acciones irreversibles |
 
-### 3.2 Superficies (de más profunda a más elevada)
+### 3.2 Superficies
 
-| Nivel | Hex | Token propuesto | Uso |
-|---|---|---|---|
-| Pozo | `#0a0b0a` | `well` | Campos de texto, tablero, mapas, zonas hundidas (hoy `bg-black`) |
-| Lienzo | `#121312` | `canvas` (= `ink`) | Fondo de página |
-| Elevada | `#1a1b19` | `raised` (= `neutral-900`) | Tarjetas y paneles |
-| Superpuesta | `#262725` | `overlay` (= `neutral-800`) | Menús, modales, tooltips |
-
-### 3.3 Líneas
-
-| Uso | Valor | Token propuesto |
+| Nivel | Hex | Token |
 |---|---|---|
-| Borde sutil (paneles) | `rgb(166 125 67 / 0.22)` | `line` |
-| Borde fuerte (seleccionado) | `rgb(166 125 67 / 0.5)` | `line-strong` |
-| Borde de control inactivo | `#3a3b38` (`neutral-700`) | — |
+| Pozo (campos, tablero) | `#0a0b0a` | `well` |
+| Lienzo (página) | `#121312` | `canvas` |
+| Elevada | `#1a1b19` | `raised` |
+| Superpuesta (menús, modales) | `#262725` | `overlay` |
 
-### 3.4 Texto
+### 3.3 Texto y líneas
 
-| Uso | Hex | Contraste sobre `#121312` | Token |
+| Uso | Hex | Contraste sobre tinta | Token |
 |---|---|---|---|
 | Texto principal | `#e9e4d7` | 14,7 : 1 | `text` |
 | Texto secundario | `#a9aaa5` | 8,0 : 1 | `text-muted` |
-| Texto terciario (solo apoyo) | `#82837e` | 4,9 : 1 | `neutral-500` |
-| Títulos y cifras destacadas | `#f1d5a7` | 13,1 : 1 | `gold-bright` |
-| Etiquetas doradas | `#e2c292` | 11,0 : 1 | `gold-soft` |
-| Oro de acento (texto grande o iconos) | `#a67d43` | 5,0 : 1 | `gold` |
+| Títulos y cifras | `#f1d5a7` | 13,1 : 1 | `gold-bright` |
+| Etiquetas y kanji | `#e2c292` | 11,0 : 1 | `gold-soft` |
+| Oro de acento | `#a67d43` | 5,0 : 1 | `gold` |
+| Línea sutil | `rgb(166 125 67 / 0.22)` | — | `line` |
+| Línea fuerte | `rgb(166 125 67 / 0.5)` | — | `line-strong` |
+| Fondo de elemento activo | `#38231b` | — | `ember` |
 
-### 3.5 Estados
+### 3.4 Estados y combinaciones prohibidas
 
-| Estado | Relleno | Texto sobre fondo oscuro | Notas |
-|---|---|---|---|
-| Peligro / irreversible | `crimson` `#ad0013` con texto blanco (7,5 : 1) | `#f0606c` (`red-400`, 5,9 : 1) | Nunca usar `#ad0013` como texto sobre tinta |
-| Éxito / aprobado | `emerald-700` | `#62b393` (`emerald-400`, 7,4 : 1) | Jade apagado, solo para éxito |
-| Información | `cyan-800` | `cyan-300` (champán) | Detalles claros y ayudas |
-| Aviso | `orange-700` | `orange-400` (cobre) | Verificar contraste al aplicarlo |
+- **Peligro:** relleno `crimson` con texto blanco (7,5 : 1). Como texto sobre oscuro, usar `#f0606c` (5,9 : 1).
+- **Éxito:** `emerald-400` `#62b393` (7,4 : 1). **Información:** `cyan-300` (champán). **Aviso:** `orange-400` (cobre; verificar contraste al aplicarlo).
+- **Prohibido:** texto `#ad0013` sobre tinta (2,5 : 1), texto tinta sobre `#ad0013` (2,5 : 1) y carmesí junto a oro sin borde tinta (2,0 : 1).
 
-### 3.6 Combinaciones prohibidas (contraste insuficiente)
+### 3.5 Tokens para `globals.css`
 
-| Combinación | Contraste | Qué hacer |
-|---|---|---|
-| Texto `#ad0013` sobre tinta | 2,5 : 1 | Usar `red-400` para texto, o crimson solo como relleno |
-| Texto tinta sobre `#ad0013` | 2,5 : 1 | Usar texto blanco o `gold-bright` |
-| Carmesí sobre oro | 2,0 : 1 | No juntarlos sin un borde tinta entre ambos |
-
-> **Nota sobre la imagen de referencia:** el cartel usa texto oscuro sobre el bloque rojo. Es atractivo en tamaño de póster, pero no cumple accesibilidad para texto de interfaz. En la app, el texto sobre carmesí es blanco.
-
-### 3.7 Tokens que hay que añadir a `globals.css`
-
-Añadir dentro del bloque `@theme` existente. Tailwind v4 genera automáticamente clases como `bg-canvas`, `text-gold-bright` o `border-line`.
+Dentro del bloque `@theme` existente (si ya aplicaste los de la v1, solo falta `--font-kanji`):
 
 ```css
 @theme {
-  /* superficies */
   --color-well: #0a0b0a;
   --color-canvas: #121312;
   --color-raised: #1a1b19;
   --color-overlay: #262725;
-
-  /* oro */
   --color-gold-soft: #e2c292;
   --color-gold-bright: #f1d5a7;
-  --color-ember: #38231b;          /* fondo de elemento activo (pestañas, menú móvil) */
-
-  /* líneas */
+  --color-ember: #38231b;
   --color-line: rgb(166 125 67 / 0.22);
   --color-line-strong: rgb(166 125 67 / 0.5);
-
-  /* texto */
   --color-text: #e9e4d7;
   --color-text-muted: #a9aaa5;
   --color-danger-text: #f0606c;
   --color-success-text: #62b393;
+}
+@theme inline {
+  --font-kanji: var(--font-kanji-src), var(--font-serif);
 }
 ```
 
@@ -139,309 +116,459 @@ Añadir dentro del bloque `@theme` existente. Tailwind v4 genera automáticament
 
 ## 4. Tipografía
 
-Se mantienen las fuentes actuales; el cambio es usarlas con reglas.
+| Rol | Fuente | Tamaño | Peso | Clases orientativas |
+|---|---|---|---|---|
+| Cifra grande (vida, oro, nivel) | Noto Serif KR | 48 px | 300 | `font-serif text-5xl font-light tabular-nums text-gold-bright` |
+| Título de pantalla | Noto Serif KR | 30 px | 600 | `font-serif text-3xl font-semibold text-gold-bright` |
+| Título de sección | Noto Serif KR | 20 px | 500 | `font-serif text-xl text-gold-soft` |
+| Subtítulo de panel | Noto Sans KR | 16 px | 600 | `text-base font-semibold` |
+| Cuerpo | Noto Sans KR | 14–15 px | 400 | `text-sm text-text` |
+| Apoyo | Noto Sans KR | 13 px | 400 | `text-xs text-text-muted` |
+| Kanji índice | fuente kanji | 24–40 px | 600 | `font-kanji text-gold` |
 
-| Rol | Fuente | Tamaño | Peso | Interlineado | Clases orientativas |
-|---|---|---|---|---|---|
-| Título de pantalla | Noto Serif KR | 28–32 px | 700 | 1,2 | `font-serif text-3xl font-bold text-gold-bright` |
-| Título de sección | Noto Serif KR | 20–22 px | 600 | 1,3 | `font-serif text-xl font-semibold text-gold-soft` |
-| Subtítulo de panel | Noto Sans KR | 16 px | 600 | 1,4 | `text-base font-semibold text-text` |
-| Cuerpo | Noto Sans KR | 14–15 px | 400 | 1,55 | `text-sm text-text` |
-| Apoyo | Noto Sans KR | 13 px | 400 | 1,5 | `text-xs text-text-muted` |
-| Cifras de juego | Noto Sans KR | según contexto | 600 | 1,2 | `tabular-nums font-semibold` |
+**Fuente de los kanji.** Las fuentes actuales (`public/fonts/*-latin.ttf`) son solo latinas y no dibujan kanji. Se añade una única fuente japonesa, recortada a los glifos que se usan (unos 20 KB):
 
-Reglas:
+```bash
+pip install fonttools brotli
+pyftsubset ShipporiMincho-SemiBold.ttf \
+  --text="幽玄黒転生入主戦盤絆人鍛市魂賞経借樹規創術装倉闘賽図巻典功承" \
+  --flavor=woff2 --output-file=public/fonts/kanji-yugen.woff2
+```
 
-- Tamaño mínimo de texto legible: **13 px**. Nada de texto de 10 u 11 px para información de juego.
-- Longitud de línea máxima: unos 70 caracteres en bloques de lectura (lore, descripciones, ayuda).
-- Las cifras (vida, daño, oro, experiencia) llevan `tabular-nums` para que alineen en columnas. **No** usar `font-mono` para esto: en este proyecto es la misma fuente sans.
-- Mayúsculas con tracking amplio (`uppercase tracking-widest`): solo para etiquetas de estado muy cortas (máximo 12 caracteres) como `VIVO`, `ACTIVO`. Para el resto, usar mayúscula inicial normal. Objetivo: bajar de 57 a menos de 15 usos.
-- Un título nunca resalta una sola palabra con otro color. Todo el título lleva el mismo tratamiento.
-- Los textos de la interfaz se escriben en español, con verbos claros («Guardar cambios», no «Enviar») y el mismo nombre para la misma acción en todo el flujo.
+En `layout.tsx`, junto a las otras `localFont`:
 
----
+```ts
+const kanji = localFont({
+  src: "../public/fonts/kanji-yugen.woff2",
+  variable: "--font-kanji-src",
+  display: "swap",
+});
+// y añadir `${kanji.variable}` a la clase del <html>
+```
 
-## 5. Espaciado, radios, bordes y elevación
+Comprueba la licencia de la fuente elegida (Shippori Mincho se publica con licencia OFL, que permite recortarla y alojarla tú mismo).
 
-**Espaciado:** escala de 4 px (`1` = 4 px). Padding interno de panel: 16 px en móvil, 20–24 px en escritorio. Separación entre paneles: 16 px. Separación entre secciones: 32 px.
+**Reglas**
 
-**Radios (uno por nivel jerárquico):**
-
-| Elemento | Radio | Clase |
-|---|---|---|
-| Panel principal | 0 + esquinas doradas ornamentales | `.kr-panel` |
-| Controles (botones, campos, selects) | 8 px | `rounded-lg` |
-| Tarjetas secundarias dentro de un panel | 12 px | `rounded-xl` |
-| Chips, avatares, indicadores | pastilla | `rounded-full` |
-| Prohibido | 16 px o más | `rounded-2xl` y mayores |
-
-**Bordes:** 1 px siempre. El borde dorado sutil (`line`) es el normal; el fuerte (`line-strong`) indica selección.
-
-**Elevación:** no se usan sombras grises genéricas. La profundidad se comunica con el nivel de superficie (sección 3.2) y con borde. Los brillos solo marcan estado:
-
-- `glow-gold`: elemento seleccionado o activo.
-- `glow-blood`: objetivo de un ataque o peligro inminente.
-- `glow-emerald`: confirmación (solo unos segundos).
+- Tamaño mínimo de texto de juego: 13 px. Línea de lectura máxima: unos 65 caracteres.
+- Cifras siempre con `tabular-nums`. No usar `font-mono` (aquí es la misma fuente sans).
+- Mayúsculas con tracking amplio solo en etiquetas de estado de 12 caracteres o menos.
+- Texto vertical (縦書き) solo para el kanji índice o para 幽玄 en el login: máximo 4 caracteres, nunca información única.
+- Los kanji llevan `aria-hidden="true"`; el nombre en español es el que se lee.
+- Textos de interfaz en español, con verbos claros («Guardar cambios») y el mismo nombre para la misma acción en todo el flujo.
 
 ---
 
-## 6. Componentes base
+## 5. Elementos firma
 
-Crear una carpeta `components/ui/` con una función `cn()` (ya existen `clsx` y `tailwind-merge` como dependencias) y estos componentes. Todas las pantallas deben usarlos en lugar de repetir clases.
+Seis elementos que dan identidad. Se usan con cuidado: el diseño depende de no saturarlos.
 
-### 6.1 Botón
+| Elemento | Qué es | Dónde se usa | Dónde NO |
+|---|---|---|---|
+| **Riel (柱)** | Columna lateral de 64 px con el kanji de cada sección | Navegación del GM y del jugador en escritorio | Móvil (allí hay pestañas) |
+| **Rejilla (格子)** | Paneles unidos por líneas de 1 px que se comparten, como un shoji | Paneles de control, fichas, combate | Páginas de lectura |
+| **Kintsugi (金継ぎ)** | Divisor de línea dorada con un pequeño quiebre diagonal | Entre bloques grandes de una página | Dentro de tarjetas |
+| **Sello (判子)** | Cuadrado carmesí con un kanji en blanco, ligeramente girado | Solo: aprobado (承), victoria y encuentro finalizado | Botones, decoración |
+| **Círculo (円相)** | Anillo abierto que se dibuja alrededor del retrato activo | Turno activo en combate; indicador de carga | Cualquier otro lugar |
+| **Lavado de tinta (墨)** | Degradado suave en gris cálido sobre el lienzo | Cabeceras de página y login | Detrás de texto de lectura |
+
+```css
+@layer components {
+  /* 柱 riel */
+  .riel { width: 64px; background: var(--color-canvas); border-right: 1px solid var(--color-line); }
+  .tategaki { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: .3em; }
+
+  /* 格子 rejilla: los hijos comparten borde */
+  .lattice { display: grid; gap: 1px; background: var(--color-line); border: 1px solid var(--color-line); }
+  .lattice > * { background: var(--color-canvas); padding: 1.5rem; }
+
+  /* 金継ぎ divisor */
+  .kintsugi { position: relative; height: 1px;
+    background: linear-gradient(90deg, rgb(166 125 67 / .7) 0 38%, transparent 38% 40%, rgb(166 125 67 / .7) 40% 100%); }
+  .kintsugi::after { content: ""; position: absolute; left: 38%; top: -5px; width: 2%; height: 11px;
+    border-left: 1px solid var(--color-gold); transform: skewX(-30deg); }
+
+  /* 判子 sello */
+  .hanko { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 2px;
+    background: var(--color-crimson); color: #fff; font-family: var(--font-kanji); font-size: 22px; line-height: 1;
+    transform: rotate(-4deg); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .18); }
+
+  /* 円相 círculo (SVG: <circle class="enso" r="26" cx="32" cy="32"/>) */
+  .enso { fill: none; stroke: var(--color-crimson); stroke-width: 3; stroke-linecap: round;
+    stroke-dasharray: 150 14; transform: rotate(-90deg); transform-origin: 50% 50%; }
+  .enso--dibujar { animation: enso-dibujar .9s ease-out both; }
+  @keyframes enso-dibujar { from { stroke-dashoffset: 164; } to { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) { .enso--dibujar { animation: none; } }
+
+  /* 墨 lavado */
+  .sumi { background: radial-gradient(ellipse 70% 50% at 20% 0%, rgb(38 39 37 / .9), transparent 70%), var(--color-canvas); }
+}
+```
+
+Los trazos exactos (inclinación del kintsugi, giro del sello) son un punto de partida; ajústalos al verlos en pantalla.
+
+---
+
+## 6. Espacio, radios y líneas
+
+- **Escala de espacio (ma):** 4 · 8 · 16 · 24 · 48 · 72 · 96 px. Los saltos grandes (48 o más) separan secciones; no se compensan con relleno.
+- **Radios:** `rounded-xs` (2 px) en controles y paneles; `rounded-full` en chips; el sello usa 2 px. Prohibido `rounded-xl` y mayores.
+- **Líneas:** 1 px siempre. La línea sutil (`line`) es la normal; la fuerte (`line-strong`) marca selección.
+- **Sin sombras grises.** La profundidad viene del nivel de superficie y de la línea. Los brillos (`glow-gold`, `glow-blood`) solo señalan estado: seleccionado u objetivo.
+- **Esquinas ornamentales de `.kr-panel`:** se retiran. Se mantiene la clase solo durante la migración.
+
+---
+
+## 7. Componentes
+
+### Botón
 
 | Variante | Aspecto | Cuándo |
 |---|---|---|
-| Principal | Relleno oro `#a67d43`, texto tinta, hover `amber-400` | La acción principal de la pantalla (una sola por vista) |
-| Secundario | Borde oro, texto `gold-soft`, fondo transparente | Acciones alternativas |
-| Fantasma | Solo texto `text-muted`, hover `text` | Acciones de bajo peso |
-| Destructivo | Relleno carmesí, texto blanco | Atacar, terminar, borrar, confirmar algo irreversible |
+| Principal | Relleno oro, texto tinta, hover `amber-400` | Una acción principal por pantalla |
+| Secundario | Borde oro, texto `gold-soft` | Alternativas |
+| Fantasma | Solo texto `text-muted` | Bajo peso |
+| Destructivo | Relleno carmesí, texto blanco | Atacar, terminar, borrar |
 
-Estados: foco anillo dorado de 2 px (ya existe); deshabilitado al 45 % de opacidad, sin hover y con `cursor-not-allowed`; cargando con indicador y texto «Guardando…»; altura mínima 44 px en móvil.
+Foco: anillo dorado de 2 px. Deshabilitado: 45 % de opacidad. Cargando: «Guardando…». Altura mínima de 44 px en móvil.
 
-> **Por qué el principal es oro y no carmesí:** así el carmesí queda reservado para lo irreversible y el combate, y mantiene su fuerza. Es una decisión a confirmar (sección 14).
+### Campo
+Fondo `well`, borde `neutral-700`, foco con borde oro. Error: borde `red-400` y mensaje que explica qué falló y cómo corregirlo. Etiqueta siempre visible encima.
 
-### 6.2 Panel / tarjeta
+### Chip
+Tonal: fondo al 15 %, borde al 30 %, texto claro. Siempre con texto, nunca solo color.
 
-- Contenedor principal: `.kr-panel`.
-- Cabecera: título de sección en serif dorado, acciones a la derecha, `.kr-divider` debajo cuando haya varios bloques.
-- Panel seleccionado: borde `line-strong` + `glow-gold`.
-- El efecto de hover carmesí de `.kr-panel` se aplica **solo** a paneles clicables. Los paneles informativos no deben reaccionar al ratón.
+### Tabla
+Cabecera `gold-soft`, filas separadas por `line`, cifras a la derecha con `tabular-nums`. En móvil se convierte en lista.
 
-### 6.3 Campo de formulario
+### Modal
+Fondo `overlay`, borde `line-strong`, cierre de 44 px. Las acciones destructivas dicen qué se pierde.
 
-- Fondo `well`, borde `neutral-700`, texto `text`, marcador `text-muted`.
-- Foco: borde oro + anillo dorado.
-- Error: borde `red-400`, mensaje debajo en `danger-text` que explica qué falló y cómo corregirlo. Nunca solo color: añadir icono o texto.
-- La etiqueta va siempre encima del campo, nunca como marcador de posición.
+### Barras de recurso
+Vida en carmesí `red-500`, fatiga en cobre, recursos especiales en champán, experiencia en oro. Etiqueta y cifra siempre visibles junto a la barra. Ajusta a los recursos reales del juego.
 
-### 6.4 Pestañas
-
-Activa: texto `gold-bright`, fondo `ember`, línea inferior oro de 2 px. Inactiva: `text-muted`. En móvil se mantienen los estilos de `mobile.css` (activa con `#f1d5a7` sobre `#38231b`).
-
-### 6.5 Chip / insignia
-
-Estilo tonal: fondo del color al 15 %, borde al 30 %, texto en la versión clara. Estados de personaje y encuentro:
-
-| Estado | Color |
-|---|---|
-| Activo, en curso | oro |
-| Aprobado, vivo | jade |
-| Pendiente | champán |
-| Peligro, caído | carmesí / `red-400` |
-
-Todo chip lleva texto; nunca depende solo del color.
-
-### 6.6 Tabla
-
-Cabecera con texto `gold-soft` sobre `raised`; filas separadas por `line`; fila al pasar el ratón con `ember` al 40 %; cifras alineadas a la derecha con `tabular-nums`. En móvil, se transforma en lista de tarjetas.
-
-### 6.7 Modal
-
-Fondo `overlay`, borde `line-strong`, fondo detrás `rgb(0 0 0 / 0.6)`. Título serif. Botón de cierre de 44 px. Las acciones destructivas piden confirmación con texto claro de lo que se pierde.
-
-### 6.8 Barras de recurso (vida, fatiga y similares)
-
-Fondo `well`, etiqueta y cifra siempre visibles junto a la barra.
-
-| Recurso | Color propuesto |
-|---|---|
-| Vida | carmesí `red-500` |
-| Fatiga | cobre `orange-400` |
-| Recursos especiales | champán `cyan-300` |
-| Experiencia | oro `gold` |
-
-Ajusta esta tabla a los recursos reales del sistema de juego.
-
-### 6.9 Estados vacíos, de carga y de error
-
-- **Vacío:** una frase que invite a actuar («Aún no tienes habilidades. Crea la primera») y el botón principal.
-- **Carga:** esqueleto con `raised` y pulso suave; nunca pantalla en blanco.
-- **Error:** explica qué pasó y cómo seguir, con botón «Reintentar». Sin tono de disculpa y sin mensajes técnicos crudos.
+### Vacío, carga y error
+- **Vacío:** una frase que invita a actuar y el botón principal.
+- **Carga:** esqueleto en `raised`; en acciones largas, el círculo ensō.
+- **Error:** qué pasó y cómo seguir, con «Reintentar». Sin disculpas ni mensajes técnicos crudos.
 
 ---
 
-## 7. Combate (la pantalla estrella)
+## 8. Estructura general (shells)
 
-Es donde se gasta el «momento memorable» del producto.
-
-**Tablero**
-
-- Fondo del tablero: `well`; casillas con borde `line` muy tenue.
-- Aliados: oro / champán. Enemigos: carmesí. Neutrales: `neutral-400`.
-- Ficha activa: `glow-gold` y borde `gold-bright`.
-- Objetivo de ataque: `glow-blood` y borde `red-400`.
-- Casillas alcanzables al mover: relleno champán al 15 %.
-- Alcance de habilidad: relleno oro al 20 %.
-- Zona de área peligrosa: relleno carmesí al 25 %.
-
-**Interfaz**
-
-- Panel de acciones: un solo botón destacado por turno (el de la acción seleccionada, destructivo carmesí si compromete el turno).
-- Alerta de turno (`AlertaTurnoJugador`): pulso carmesí breve; es el único movimiento no pedido por el usuario en la pantalla.
-- Registro de combate: texto `text-muted`, la línea más reciente en `text`.
-- Retratos: borde del color del bando; nunca dejar la imagen sin marco.
-- Todo botón táctil mide 44 px como mínimo (ya lo garantiza `mobile.css`).
-
-**Rendimiento visual:** las imágenes de combatientes deben ser URLs, no base64 (ver el plan maestro, paso 1.2).
-
----
-
-## 8. Estructura de pantallas
-
-### 8.1 Plantilla de página
+### Escritorio, GM y jugador
 
 ```
-┌──────────────────────────────────────────────────────┐
-│ Título de pantalla (serif, dorado)      [Acción]     │
-│ Subtítulo breve (texto secundario)                   │
-│ ──────────────── ◆ ─────────────────  (.kr-divider)  │
-│                                                      │
-│ ┌─ Panel ────────────┐  ┌─ Panel ─────────────────┐  │
-│ │ contenido          │  │ contenido               │  │
-│ └────────────────────┘  └─────────────────────────┘  │
-└──────────────────────────────────────────────────────┘
++------+-----------------------------------------------------+
+| RIEL |  [K] Título de pantalla                 [ Acción ]  |
+|      |  Subtítulo breve                                    |
+| [K]  |  ---------------- ~ ------------------------------  |
+| [K]  |                                                     |
+| [K]  |   CONTENIDO (uno de los 8 esqueletos)               |
+| [K]  |                                                     |
+|      |                                                     |
+| [yo] |                                                     |
++------+-----------------------------------------------------+
+ 64 px   ancho máx. 1280 px · margen lateral 48 px
 ```
 
-- Alineación: contenido a la izquierda; nunca texto centrado en bloques largos. Centrado solo en login y estados vacíos.
-- Ancho máximo de lectura: 1200 px; en combate, ancho completo.
-- Una sola acción principal por pantalla, arriba a la derecha.
+- `[K]` es el kanji índice. Al pasar el ratón o al ampliar el riel (220 px) aparece el nombre en español.
+- Abajo del riel: avatar y rol (黒 Kuroi o 転生 Reencarnado).
+- El título de pantalla lleva su kanji a la izquierda, en oro, a 40 px.
 
-### 8.2 Estructuras por rol
+### Móvil
 
-- **GM:** barra lateral (`gm-shell`, `gm-sidebar`, `gm-content`). Grupos propuestos: Sesión, Mundo, Economía, Avanzado.
-- **Jugador:** cabecera superior en escritorio y pestañas inferiores en móvil (`mobile-navigation`, `player-mobile-content`). Grupos propuestos: Mi personaje, En sesión, Mundo, Cuenta.
-- La navegación activa se marca igual en ambos: texto `gold-bright`, fondo `ember`.
+```
++---------------------+
+| [K] Título   [Acc.] |
+| subtítulo           |
+| ------- ~ --------- |
+|  contenido en una   |
+|  sola columna       |
++---------------------+
+| [K] [K] [K] [K] [K] |
+| Inic Comb Part Más  |
++---------------------+
+```
 
----
-
-## 9. Movimiento
-
-- Sin entradas animadas generalizadas ni hover en todas las tarjetas.
-- Se permite movimiento que **responde a una acción**: abrir un modal, expandir un panel, confirmar un guardado, mover una ficha.
-- Duración: 150–250 ms, curva suave. Los brillos se apagan solos tras unos segundos.
-- Respetar siempre `prefers-reduced-motion` (ya existe en `mobile.css`; extenderlo a todo componente animado).
-
----
-
-## 10. Accesibilidad (suelo mínimo)
-
-- Contraste de texto normal: 4,5 : 1 o más (ver tablas de la sección 3).
-- Foco visible en todo elemento interactivo (anillo dorado, ya implementado).
-- Área táctil mínima de 44 × 44 px.
-- El color nunca es el único portador de significado: siempre texto, forma o icono.
-- Iconos sin texto llevan `aria-label` en español.
-- Probar cada pantalla con teclado y a 200 % de zoom.
+Cinco pestañas inferiores (ya existen en `mobile.css`), con kanji y nombre. «Más» abre la lista del resto.
 
 ---
 
-## 11. Aplicación por pantallas
+## 9. Los 8 esqueletos de página
 
-Los propósitos de cada ruta se infieren por su nombre; corrige esta tabla si alguno no coincide con su uso real.
+Toda pantalla de la app encaja en uno de estos ocho. Cada uno se implementa una vez como componente de layout y las pantallas solo ponen el contenido.
 
-### Oleada 1 — Núcleo (primero)
+### A · Entrada (入) — `PaginaLogin`
 
-| Pantalla | Uso del color y componente clave |
-|---|---|
-| `login` | Panel centrado sobre `.kr-ambient`; botón principal oro; el carmesí no aparece salvo en errores |
-| `dm/panel` | Tarjetas de resumen en `kr-panel`; una cifra o alerta destacada en `gold-bright`; atajos en secundario |
-| `dm/combate` | Sección 7 completa; botones destructivos carmesí; barra de acciones fija |
-| `dm/tablero` | Mismo sistema de casillas que el combate; selección con `glow-gold` |
-| `dm/personajes` | Tabla con chips de estado; acciones por fila en fantasma |
-| `dm/recompensas` | Aprobar = botón principal oro; rechazar = secundario; avisos con chips jade |
-| `ficha/creacion` | Pasos con pestañas; progreso en barra dorada; selectores visuales con borde `line-strong` al elegir |
-| `ficha/personaje` | Barras de recurso (6.8); título del personaje en serif dorado |
-| `ficha/habilidades` | Tarjetas con borde del tipo de habilidad; coste en `tabular-nums` |
-| `ficha/equipamiento` e `ficha/inventario` | Cuadrículas con casillas `raised`, rareza indicada con borde y etiqueta, no solo color |
-| `ficha/combate` | Igual que el combate del GM, con acciones grandes para móvil |
+```
++--------------------------------------------------------+
+|  (lavado de tinta + patrón al 3 %)               V     |
+|                                                  E     |
+|            +------------------------+            R     |
+|            | Yugen Realm            |            T     |
+|            | Entra al reino         |            I     |
+|            | [correo             ]  |            C     |
+|            | [contraseña         ]  |            A     |
+|            | [      Entrar       ]  |            L     |
+|            +------------------------+     (幽玄)       |
++--------------------------------------------------------+
+```
+- Único lugar con patrón de fondo (geométrico, máximo 4 % de opacidad, hecho con CSS).
+- Errores bajo el campo, en español claro. Móvil: el panel ocupa el ancho con margen de 24 px.
 
-### Oleada 2 — Apoyo
+### B · Panel de control (主) — `PaginaPanel`
 
-`dm/party`, `dm/forja`, `dm/mercado`, `dm/experiencia`, `ficha/party`, `ficha/tiradas`, `ficha/mapas`, `ficha/tienda`, `ficha/experiencia`.
+```
++----------------------------+---------------------------+
+| Sesión de hoy              | Encuentro en curso        |
+| 3 jugadores conectados     | Ronda 4 · Turno de Orin   |
+| [ Abrir combate ]          | (retrato con círculo)     |
++---------------+------------+---------------------------+
+| Pendientes    | Party      | Registro reciente         |
+| 2 recompensas | 4 fichas   | ...                       |
++---------------+------------+---------------------------+
+```
+- Rejilla de 1 px compartida. Una sola cifra grande (serif ligera) por celda.
+- Un solo elemento destacado: el encuentro en curso.
+- Móvil: las celdas se apilan; lo urgente va primero.
 
-Reglas: paneles `kr-panel`, tablas del apartado 6.6, precios y cantidades con `tabular-nums` en oro, botón de compra o confirmación en principal oro.
+### C · Tablero de combate (戦) — `PaginaCombate`
 
-### Oleada 3 — Más adelante
+```
++----------------------------------------+---------------+
+| Ronda 4 · Turno: Orin                  | Iniciativa    |
++----------------------------------------+ > Orin        |
+|                                        |   Goblin      |
+|            TABLERO (pozo)              +---------------+
+|                                        | Ficha activa  |
+|                                        | Vida  ████░   |
++----------------------------------------+ Fatiga ██░░░  |
+| [Mover] [Atacar] [Habilidad] [Objeto]  | Registro      |
+|                    [ Terminar turno ]  | ...           |
++----------------------------------------+---------------+
+```
+- El tablero ocupa todo el ancho posible; los paneles laterales miden 280 px.
+- Aliados en oro, enemigos en carmesí, ficha activa con círculo ensō y `glow-gold`, objetivo con `glow-blood`.
+- Alcance: relleno oro al 20 %; movimiento: champán al 15 %; zona peligrosa: carmesí al 25 %.
+- Un único botón destacado por turno. «Terminar turno» es destructivo (carmesí).
+- Móvil: tablero arriba, iniciativa como tira horizontal, acciones en 2 columnas abajo, registro en cajón.
+- Variante **C′ (lienzo)** para árbol de habilidades y mapas: tablero a pantalla completa con barra flotante mínima.
+- El sello 勝 / 承 aparece solo al finalizar el encuentro. Si usas 勝, añádelo a la fuente kanji.
 
-`dm/arbol`, `dm/reglas`, `dm/deudas`, `dm/tienda-almas`, `ficha/alma`, `ficha/tienda-almas`, `ficha/arena`, `ficha/codex`, `ficha/lore`, `ficha/logros`, `ficha/deudas`, `ficha/personajes`.
+### D · Ficha (人) — `PaginaFicha`
 
-Reglas: mismos componentes base. Las pantallas de lectura (lore, códice) usan serif en cuerpo, interlineado 1,7 y línea de unos 65 caracteres.
+```
++-------------------------+--------------------------------+
+|  retrato enmarcado      | Orin                           |
+|                         | Raza · Linaje · Nivel          |
+|                         +----------------+---------------+
++-------------------------+ Vida           | Fatiga        |
+| Atributos               | 42 / 60        | 3 / 10        |
+| ...                     +----------------+---------------+
+|                         | Habilidades · Equipo · Inventario|
++-------------------------+--------------------------------+
+```
+- Cifras grandes en serif ligera; atributos en lista tabular.
+- Móvil: retrato y cifras arriba, pestañas debajo en una columna.
+
+### E · Catálogo (術 装 倉 市 魂 功 典) — `PaginaCatalogo`
+
+```
++--------------------------------------------------------+
+| [Buscar.......] [Tipo v] [Rareza v]       24 elementos |
++----------+----------+----------+----------+------------+
+| celda    | celda    | celda    | celda    | DETALLE    |
+| imagen   |          |          |          | (cajón al  |
+| Nombre   |          |          |          |  elegir)   |
++----------+----------+----------+----------+            |
+| celda    | celda    | celda    | celda    |            |
++----------+----------+----------+----------+------------+
+```
+- Celdas unidas por línea (rejilla), imagen como URL (nunca base64), nombre y un dato clave. Rareza con borde y etiqueta, no solo color.
+- Selección: borde `line-strong` y `glow-gold`.
+- Móvil: 2 columnas; el detalle abre como hoja inferior.
+
+### F · Lista y detalle (絆 賞 経 借 人) — `PaginaListaDetalle`
+
+```
++----------------+-----------------------------------------+
+| [Buscar....]   | Nombre del elemento          [ Acción ] |
+|----------------|  +----------+----------+-------------+  |
+| > Elemento 1   |  | dato     | dato     | dato        |  |
+|   Elemento 2   |  +----------+----------+-------------+  |
+|   Elemento 3   |  Historial o detalle en pestañas        |
++----------------+-----------------------------------------+
+   320 px           resto
+```
+- Aprobar en recompensas: botón principal; al completarse, aparece el sello 承.
+- Móvil: primero la lista; al elegir, el detalle ocupa la pantalla con botón «Volver».
+
+### G · Editor (創 鍛 規) — `PaginaEditor`
+
+```
++--------------------------------------------------------+
+| Paso 2 de 5: Raza         (1)--(2)--(3)--( )--( )      |
++----------------------------+---------------------------+
+| FORMULARIO (máx. 640 px)   | VISTA PREVIA              |
+| Campo                      | (ficha o ítem en vivo)    |
+| Campo                      |                           |
++----------------------------+---------------------------+
+| [ Atrás ]                              [ Continuar ]   |
++--------------------------------------------------------+
+```
+- El indicador de pasos solo se usa en la creación de personaje, que sí es una secuencia. Forja y reglas usan pestañas.
+- Barra de acciones fija abajo con una única acción principal.
+- Móvil: la vista previa pasa a una pestaña junto al formulario.
+
+### H · Lectura (巻) — `PaginaLectura`
+
+```
++--------------------------------------------------------+
+|  T  | Título del texto                 | Notas al       |
+|  V  | -------------- ~ ------------    | margen         |
+|     | Párrafo de unos 62 caracteres,   | (índice,       |
+|     | interlineado 1,7 y serif.        |  relacionados) |
++--------------------------------------------------------+
+```
+- Serif en cuerpo, sin lavado de tinta detrás del texto. Título vertical corto opcional.
+- Móvil: columna única; las notas pasan al final.
 
 ---
 
-## 12. Plan de migración paso a paso
+## 10. Mapa de pantallas a esqueletos
 
-Hacerlo en una rama (`estabilizacion` o `diseno`), un paso por commit, y revisar el resultado en el navegador entre pasos.
+Los propósitos de cada ruta se infieren por su nombre; corrige lo que no coincida.
 
-**Paso 1 — Tokens.** Añadir el bloque de la sección 3.7 a `globals.css`.
-*Listo cuando:* `bg-canvas`, `text-gold-bright` y `border-line` funcionan en un componente de prueba.
+| Ruta | Esqueleto | Kanji |
+|---|---|---|
+| `login` | A Entrada | 入 |
+| `dm/panel` | B Panel | 主 |
+| `dm/combate`, `ficha/combate` | C Combate | 戦 |
+| `dm/tablero` | C Combate | 盤 |
+| `ficha/arena` | C Combate | 闘 |
+| `dm/arbol` | C′ Lienzo | 樹 |
+| `ficha/mapas` | C′ Lienzo | 図 |
+| `ficha/personaje` | D Ficha | 人 |
+| `ficha/habilidades` | E Catálogo | 術 |
+| `ficha/equipamiento` | E Catálogo | 装 |
+| `ficha/inventario` | E Catálogo | 倉 |
+| `dm/mercado`, `ficha/tienda` | E Catálogo | 市 |
+| `dm/tienda-almas`, `ficha/tienda-almas`, `ficha/alma` | E Catálogo | 魂 |
+| `ficha/logros` | E Catálogo | 功 |
+| `ficha/codex` | E Catálogo | 典 |
+| `dm/personajes`, `ficha/personajes` | F Lista y detalle | 人 |
+| `dm/party`, `ficha/party` | F Lista y detalle | 絆 |
+| `dm/recompensas` | F Lista y detalle | 賞 |
+| `dm/experiencia`, `ficha/experiencia` | F Lista y detalle | 経 |
+| `dm/deudas`, `ficha/deudas` | F Lista y detalle | 借 |
+| `ficha/tiradas` | F Lista y detalle | 賽 |
+| `ficha/creacion` | G Editor (con pasos) | 創 |
+| `dm/forja` | G Editor (con pestañas) | 鍛 |
+| `dm/reglas` | G Editor (con pestañas) | 規 |
+| `ficha/lore` | H Lectura | 巻 |
 
-**Paso 2 — Fondo y capas.** Cambiar el fondo de `body` de `#050505` a `canvas`; en `layout.tsx` cambiar `bg-black` por `bg-canvas` y ajustar `themeColor` a `#121312`. Reservar `bg-black` y `well` para campos, tableros y zonas hundidas.
-*Listo cuando:* la página se ve en tinta `#121312` y los campos quedan visiblemente más oscuros.
+Orden de implementación: primero C, D, B y A (el núcleo), después F y E, y al final G y H.
 
-**Paso 3 — Eliminar colores sueltos.** Reemplazar cada hexadecimal en componentes por un token:
+---
 
-| Hex suelto | Reemplazo |
-|---|---|
-| `#e2c292`, `#d2ac6d`, `#d1aa67`, `#c8a66e` | `gold-soft` |
-| `#f1d5a7`, `#ffe0bc` | `gold-bright` |
-| `#38231b`, `#211b12` | `ember` |
-| `#11120e`, `#11130e`, `#090a08`, `#050505` | `well` o `canvas` según el uso |
-| `#171710` | `raised` |
-| `#d5b3ff` (lavanda) y otros fuera de paleta | `cyan-300` (champán) o `gold-soft` |
-| `#b9cb9a` (verde) | `emerald-400` |
+## 11. Movimiento
 
+- **Un gesto firma:** el círculo ensō se dibuja (0,9 s) cuando empieza el turno de un personaje y desaparece al terminar.
+- Se permite movimiento que **responde a una acción**: abrir un cajón, confirmar un guardado, mover una ficha (150–250 ms).
+- Sin entradas animadas en bloques, sin hover generalizado en tarjetas.
+- Todo respeta `prefers-reduced-motion`.
+
+---
+
+## 12. Accesibilidad
+
+- Contraste de texto normal de 4,5 : 1 o más (ver tablas de la sección 3).
+- Foco visible con anillo dorado de 2 px.
+- Áreas táctiles de 44 × 44 px.
+- Kanji decorativos con `aria-hidden`; el nombre en español siempre está en el texto.
+- El color nunca es el único portador de significado.
+- Probar cada pantalla con teclado, a 200 % de zoom y a 360 px de ancho.
+
+---
+
+## 13. Presupuesto de rendimiento visual
+
+Después de arreglar la lentitud del combate, el diseño no debe volver a añadir peso.
+
+- Fuente kanji recortada: menos de 30 KB. Sin más fuentes nuevas.
+- Cero imágenes de decoración: patrón, lavado, círculo y kintsugi se hacen con CSS o SVG en línea.
+- Cero imágenes base64 en el código o en la base de datos.
+- Ninguna pantalla debe tardar más de 2 segundos en ser usable con conexión normal.
+
+---
+
+## 14. Plan de implementación
+
+Una rama (`diseno`), un paso por commit, y revisión en el navegador a 360, 768 y 1280 px entre pasos.
+
+**Paso 1 · Tokens y fuente.** Añadir los tokens de 3.5, generar la fuente kanji (sección 4) y registrarla en `layout.tsx`. Cambiar el fondo de `body` y de `layout.tsx` a `canvas` y `themeColor` a `#121312`.
+*Listo cuando:* `bg-canvas`, `text-gold-bright` y `font-kanji` funcionan y los kanji se dibujan.
+
+**Paso 2 · Elementos firma.** Añadir el CSS de la sección 5 y crear los componentes `Hanko`, `Enso` y `Kintsugi`.
+*Listo cuando:* una página de muestra solo para el GM (`/dm/estilos`) los enseña en todos sus estados.
+
+**Paso 3 · Shells.** Reconstruir la navegación con el riel (escritorio) y las pestañas inferiores (móvil), usando los kanji de la sección 10.
+*Listo cuando:* se puede navegar por toda la app en ambos modos y los nombres en español se leen en todas las pestañas.
+
+**Paso 4 · Componentes base.** Botón, campo, chip, tabla, modal, barra de recurso, estados vacío, carga y error (sección 7) en `components/ui/`.
+*Listo cuando:* la página de muestra los contiene y los usan los esqueletos.
+
+**Paso 5 · Esqueletos.** Crear `PaginaLogin`, `PaginaPanel`, `PaginaCombate`, `PaginaFicha`, `PaginaCatalogo`, `PaginaListaDetalle`, `PaginaEditor` y `PaginaLectura` en `components/layout/`.
+*Listo cuando:* cada esqueleto funciona con contenido de prueba en móvil y escritorio.
+
+**Paso 6 · Oleadas.** Migrar las pantallas en el orden de la sección 10 (núcleo, luego F y E, luego G y H). En cada una: sustituir los hexadecimales sueltos por tokens y quitar `rounded-xl` o mayores.
+*Listo cuando:* cada pantalla pasa la lista de la sección 16.
+
+**Paso 7 · Limpieza.** Retirar `.kr-panel` y las esquinas ornamentales, reducir `uppercase tracking-widest` a menos de 15 usos, eliminar `rounded-2xl` y los restos de `font-mono` para cifras.
 Medir el avance con:
 
 ```bash
 grep -rhoE "#[0-9a-fA-F]{6}\b" app components --include=*.tsx --include=*.css | sort | uniq -c | sort -rn
 ```
 
-*Listo cuando:* quedan solo los hexadecimales declarados en `globals.css` y en `mobile.css`.
-
-**Paso 4 — Componentes base.** Crear `components/ui/` con Button, Panel, Field, Badge, Tabs, Modal, EmptyState y ResourceBar, siguiendo la sección 6.
-*Listo cuando:* hay una página de muestra (`/dm/estilos`, solo para el GM) con todos los componentes en todos sus estados.
-
-**Paso 5 — Oleada 1.** Migrar `login`, los dos shells (GM y jugador), combate del GM y del jugador, y las pantallas núcleo de la sección 11.
-*Listo cuando:* cada pantalla pasa la lista de verificación de la sección 13.
-
-**Paso 6 — Oleadas 2 y 3.** Repetir con el resto, en el orden de la sección 11.
-
-**Paso 7 — Limpieza.** Reducir `uppercase tracking-widest` a menos de 15 usos, eliminar `rounded-2xl`, quitar sombras grises sueltas y reemplazar `font-mono` por `tabular-nums` donde sea para cifras.
-*Listo cuando:* los conteos de la sección 1 cumplen los objetivos.
+*Listo cuando:* solo quedan los hexadecimales declarados en `globals.css` y `mobile.css`.
 
 ---
 
-## 13. Lista de verificación por pantalla
+## 15. Decisiones pendientes
 
-- [ ] Fondo de página en `canvas`; campos y tableros en `well`.
-- [ ] Solo colores de la paleta, ninguno suelto.
-- [ ] Una sola acción principal visible; carmesí solo en acciones irreversibles o de combate.
-- [ ] Texto de interfaz de 13 px o más; contraste de 4,5 : 1 o más.
-- [ ] Cifras con `tabular-nums`.
+1. **Revisión de los kanji.** Que alguien que lea japonés confirme cada uno antes de publicar (especialmente 賽, 典, 転生 y 勝).
+2. **Rejilla o tarjetas separadas.** La rejilla de líneas compartidas da el aspecto más original y moderno, pero en pantallas muy densas puede cansar. Alternativa: rejilla en paneles de control y fichas, y filas simples en el resto.
+3. **Botón principal oro y carmesí reservado.** Se mantiene la decisión de la v1: oro para la acción principal, carmesí para lo irreversible.
+4. **Retirar las esquinas ornamentales.** Se propone quitarlas del todo; si prefieres conservarlas, que sea solo en los paneles principales.
+5. **Alcance del texto vertical.** Se propone solo para 幽玄 en el login y títulos cortos de lectura; ampliar su uso restaría legibilidad.
+
+---
+
+## 16. Lista de verificación por pantalla
+
+- [ ] Usa uno de los 8 esqueletos y sus componentes, sin estructuras propias.
+- [ ] Fondo en `canvas`; campos y tableros en `well`.
+- [ ] Solo colores de la paleta, sin hexadecimales sueltos.
+- [ ] 85 / 10 / 5 de tinta, oro y carmesí; el carmesí solo en lo irreversible, el combate y los sellos.
+- [ ] Una sola acción principal visible.
+- [ ] Kanji índice con `aria-hidden` y nombre en español presente.
+- [ ] Cifras con `tabular-nums`; texto de juego de 13 px o más.
 - [ ] Estados de carga, vacío y error definidos, con texto en español.
-- [ ] Foco visible y navegación por teclado.
-- [ ] Botones táctiles de 44 px y sin desbordes a 360 px de ancho.
-- [ ] Ninguna información depende solo del color.
-- [ ] Sin imágenes base64 incrustadas.
+- [ ] Foco visible, teclado completo, botones de 44 px y sin desbordes a 360 px.
+- [ ] Sin imágenes base64 ni imágenes de decoración.
+- [ ] Movimiento solo el círculo ensō o respuestas a una acción.
 
 ---
 
-## 14. Decisiones pendientes de confirmar
+## 17. Reglas para asistentes de código
 
-1. **Botón principal oro o carmesí.** Este documento propone oro para la acción principal y carmesí para lo irreversible. La alternativa es carmesí como principal en toda la app; tendría más impacto visual, pero perdería su significado de peligro.
-2. **Lienzo `#121312` o más oscuro.** Hoy la página usa `#050505`. Se propone `#121312` para respetar la paleta y reservar los negros más profundos para los pozos.
-3. **Esquinas ornamentales en todos los paneles o solo en los principales.** Hoy `.kr-panel` las pone siempre. Se propone mantenerlas en paneles principales y usar borde simple en tarjetas anidadas, para que el adorno no compita con los datos.
-
----
-
-## 15. Reglas para asistentes de código
-
-- Antes de crear un estilo, busca si ya existe en `globals.css`, `mobile.css` o `components/ui/`.
-- No introduzcas colores hexadecimales nuevos: usa los tokens de la sección 3.
-- No uses `rounded-2xl` ni mayores, ni sombras grises genéricas.
-- No pongas texto `#ad0013` sobre fondos oscuros ni texto oscuro sobre carmesí.
-- Todo botón nuevo usa el componente Button; todo contenedor principal usa `.kr-panel`.
-- Escribe los textos visibles en español, con mayúscula inicial y verbos claros.
-- Si una pantalla necesita algo que este documento no cubre, propón la entrada nueva en la sección 14 en lugar de improvisar.
+- Antes de crear un estilo, busca si ya existe en `globals.css`, `mobile.css`, `components/ui/` o `components/layout/`.
+- Toda pantalla nueva parte de uno de los 8 esqueletos. Si ninguno encaja, propón una entrada en la sección 15.
+- No introduzcas colores hexadecimales nuevos ni fuentes nuevas.
+- No uses radios de más de 2 px en paneles y controles, ni sombras grises.
+- No pongas texto `#ad0013` sobre oscuro ni texto oscuro sobre carmesí.
+- Un kanji nunca se usa solo ni sin `aria-hidden`; el sello solo para aprobado, victoria o finalizado.
+- No añadas animaciones nuevas fuera de la sección 11.
+- Textos visibles en español, con mayúscula inicial y verbos claros.

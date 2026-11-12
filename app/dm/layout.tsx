@@ -2,11 +2,12 @@
 
 import React from "react";
 import LogoYugen from "../../components/LogoYugen";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { Hammer, Swords, Sliders, Users, Handshake, ShoppingBag, LogOut, ChevronDown, TrendingUp } from "lucide-react";
+import { Hammer, Swords, Sliders, Users, Handshake, ShoppingBag, LogOut, TrendingUp } from "lucide-react";
 import "./gm.css";
+import Riel, {indiceRuta} from "../../components/layout/Riel";
+import MarcoRuta from "../../components/layout/MarcoRuta";
 import NavegacionMovil from "../../components/NavegacionMovil";
 
 const principales = [
@@ -27,9 +28,7 @@ const gestion = [
 ];
 
 export default function DMLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
-  const activo = (path: string) => pathname === path || pathname.startsWith(path + "/");
   async function cerrarSesion() {
     const { error } = await supabase.auth.signOut();
     if (error) { window.alert("No se pudo cerrar la sesión. Inténtalo otra vez."); return; }
@@ -37,19 +36,9 @@ export default function DMLayout({ children }: { children: React.ReactNode }) {
   }
   return <div className="gm-shell">
     <a href="#gm-content" className="gm-skip">Ir al contenido</a>
-    <aside className="gm-sidebar">
-      <Link href="/dm/forja" className="gm-brand" aria-label="Yugen: ir a la Forja"><LogoYugen/><span><small>Espacio del GM</small></span></Link>
-      <nav aria-label="Herramientas del GM" className="gm-primary">
-        <p className="gm-caption">Tu mesa de creación</p>
-        {principales.map(({path,label,detail,icon:Icon},i)=><Link key={path} href={path} aria-current={activo(path)?"page":undefined} className={`gm-link ${activo(path)?"is-active":""}`}><Icon size={20}/><span>{label}<small>{detail}</small></span><b>0{i+1}</b></Link>)}
-      </nav>
-      <details className="gm-management" key={pathname} open={gestion.some(item=>activo(item.path))}>
-        <summary>Gestión de campaña <ChevronDown size={15}/></summary>
-        <nav aria-label="Gestión de campaña">{gestion.map(({path,label,icon:Icon})=><Link key={path} href={path} aria-current={activo(path)?"page":undefined} className={`gm-link ${activo(path)?"is-active":""}`}><Icon size={16}/><span>{label}</span></Link>)}</nav>
-      </details>
-      <div className="gm-footer"><p>Todo empieza en la Forja.<br/><span>Crea. Equipa. Lleva a combate.</span></p><button onClick={()=>void cerrarSesion()}><LogOut size={16}/>Cerrar sesión</button></div>
-    </aside>
+    <Riel gm enlaces={[...principales,...gestion].map(item=>({href:item.path,nombre:item.label,kanji:indiceRuta(item.path)}))} onSalir={()=>void cerrarSesion()}/>
+    <header className="yugen-mobile-header"><LogoYugen size={44}/><span>El dominio de Kuroi</span><button type="button" onClick={()=>void cerrarSesion()} aria-label="Cerrar sesión"><LogOut size={18}/></button></header>
     <NavegacionMovil gm/>
-    <div id="gm-content" tabIndex={-1} className="gm-content">{children}</div>
+    <div id="gm-content" tabIndex={-1} className="gm-content"><MarcoRuta>{children}</MarcoRuta></div>
   </div>;
 }

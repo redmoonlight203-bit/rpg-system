@@ -64,6 +64,7 @@ import AnimacionDados, {
 } from "../../../components/AnimacionDados";
 import {TableroCombate,BarraCombate} from "../../../components/TableroCombate";
 import {tipoAnimacionArma} from "../../../lib/animaciones-armas";
+import {Hanko} from "../../../components/ui/Signature";
 import RetratoCombate from "../../../components/RetratoCombate";
 import { retratosCombate } from "../../../lib/retratos-combate";
 import {describirEfecto,describirRegla,ayudaGuardia} from "../../../lib/descripciones";
@@ -595,7 +596,7 @@ export default function CampoCombate() {
           )}
         </div>
         <div className="battle-identity">
-        <RetratoCombate nombre={m.nombre} src={retratos[claveRetrato(m)]} />
+        <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)]} />
         <div><h3>
           <button
             className={`battle-target-name ${destino === m.id ? "target-selected" : ""}`}
@@ -1038,13 +1039,13 @@ export default function CampoCombate() {
                     ? "FINALIZADO"
                     : "TURNO ACTUAL"}
               </span>
-              <h2>{actor?.nombre || (c.fase === "finalizado" ? "Encuentro finalizado" : "Forma los bandos")}</h2>
+              {c.fase === "finalizado" && <Hanko estado="finalizado"/>}<h2>{actor?.nombre || (c.fase === "finalizado" ? "Encuentro finalizado" : "Forma los bandos")}</h2>
             </div>
             <div className="battle-initiative" aria-label="Orden de iniciativa">
               <span>INICIATIVA · D20</span>
               <div>{[...c.miembros].sort((a, b) => b.iniciativa - a.iniciativa).map((m) => (
                 <button key={m.id} className={`battle-initiative-token ${c.actual === m.id ? "active" : ""} ${m.vida <= 0 ? "is-down" : ""}`} onClick={() => mostrarIniciativa(m)} aria-current={c.actual === m.id ? "step" : undefined} title={`Ver tirada de iniciativa de ${m.nombre}`}>
-                  <RetratoCombate nombre={m.nombre} src={retratos[claveRetrato(m)]} compacto />
+                  <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)]} compacto />
                   <span>{m.nombre}<b><Dices size={13} />{m.iniciativa}</b></span>
                 </button>
               ))}{!c.miembros.length && <p>Añade personajes para ordenar sus turnos.</p>}</div>
