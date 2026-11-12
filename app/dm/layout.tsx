@@ -37,7 +37,7 @@ export default function DMLayout({ children }: { children: React.ReactNode }) {
   return <div className="gm-shell">
     <a href="#gm-content" className="gm-skip">Ir al contenido</a>
     <Riel gm enlaces={[...principales,...gestion].map(item=>({href:item.path,nombre:item.label,kanji:indiceRuta(item.path)}))} onSalir={()=>void cerrarSesion()}/>
-    <header className="yugen-mobile-header"><LogoYugen size={44}/><span>El dominio de Kuroi</span><button type="button" onClick={()=>void cerrarSesion()} aria-label="Cerrar sesión"><LogOut size={18}/></button></header>
+    <header className="yugen-app-header"><LogoYugen size={88}/><span>El dominio de Kuroi</span><button type="button" onClick={()=>void cerrarSesion()} aria-label="Cerrar sesión"><LogOut size={18}/></button></header>
     <NavegacionMovil gm/>
     <div id="gm-content" tabIndex={-1} className="gm-content"><MarcoRuta>{children}</MarcoRuta></div>
   </div>;
