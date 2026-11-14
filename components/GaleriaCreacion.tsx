@@ -14,6 +14,7 @@ import ContenidoAyuda from "./ContenidoAyuda";
 import "./galeria-creacion.css";
 
 export type PiezaGaleria = {
+  formas_historia?: import("./FormasHistoria").FormaHistoria[];
   alma_en_uso?:boolean;icono?: string | null; id: string; nombre: string; tipo: string; tipo_creacion?: TipoCreacion;
   descripcion: string; historia: string; requisitos: string; defectos: string;
   imagen_url: string; clase: string; es_grupo: boolean; slot_tipo: string;
@@ -86,6 +87,9 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
 }
 
 function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; props: Props<T>; volver: () => void }) {
+  const [indiceForma, cambiarForma] = useState(0);
+  const formas = item.formas_historia || [];
+  const forma = formas[indiceForma] || formas[0];
   const [imagen, setImagen] = useState(item.imagen_url || "");
   const [icono,setIcono]=useState(item.icono||"");
   const [procesando, setProcesando] = useState(false);
@@ -126,7 +130,12 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
   return <section className="cg-detail" aria-label={`Detalles de ${item.nombre}`}>
     <button className="cg-back" disabled={ocupado} onClick={() => navegar(volver)}><ArrowLeft size={17} />Volver a la colección</button>
     <div className="cg-detail-grid"><aside className="cg-detail-visual">
-      <div className="cg-detail-cover"><Portada src={imagen} nombre={item.nombre} tipo={tipo} icono={props.iconoDe({...item,icono})} /><span className="cg-rank">{item.clase || "D"}</span></div>
+      {formas.length > 0 && <label className="grid gap-1 mb-3 font-semibold">Cambiar forma
+        <select className="w-full rounded-lg border border-neutral-600 bg-neutral-900 p-3 text-white" value={forma ? formas.indexOf(forma) : 0} onChange={e=>cambiarForma(Number(e.target.value))}>
+          {formas.map((f,i)=><option key={i} value={i}>{f.nombre}</option>)}
+        </select>
+      </label>}
+      <div className="cg-detail-cover"><Portada src={editando ? imagen : forma?.imagen || imagen} nombre={editando ? item.nombre : forma?.nombre || item.nombre} tipo={tipo} icono={props.iconoDe({...item,icono})} /><span className="cg-rank">{item.clase || "D"}</span></div>
       <button className="cg-button cg-image-toggle" disabled={ocupado} onClick={() => setEditando(!editando)} aria-expanded={editando}><ImagePlus size={16} />{item.imagen_url ? "Cambiar imagen o icono" : "Elegir imagen o icono"}</button>
       {editando && <div className="cg-image-editor"><h3>Imagen o emblema</h3><p>Elige tu propia ilustración. También se mostrará en esta ficha.</p><fieldset disabled={ocupado}>
         <div className="cg-symbol-editor"><h4>Icono de Yugen</h4><p>Se usa cuando no hay imagen o no se puede cargar. Automático utiliza el símbolo de la raza o categoría.</p><SelectorIconoYugen value={icono} onChange={setIcono} automatico={props.iconoDe({...item,icono:null})} disabled={ocupado}/></div>
@@ -146,6 +155,7 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
       {!!item.reglas_pasivas?.length && <section className="cg-detail-section"><h3>Pasivas</h3>{item.reglas_pasivas.map((r) => <div className="cg-rule" key={r.id}><strong>{r.nombre}</strong><p>{{ permanente: "Siempre activa", inicio_turno: "Al iniciar turno", recibir_ataque: "Al recibir ataque", recibir_impacto: "Al recibir impacto", recibir_dano: "Al recibir daño" }[r.evento]} · {{ siempre: "Siempre", vida_mitad: "Vida a la mitad", sin_arma: "Sin arma", ataque_magico: "Ataque mágico", ataque_natural: "Ataque natural", ataque_elemental: "Ataque elemental" }[r.condicion]}</p><p>{[r.reduccion_pct ? `Reduce ${r.reduccion_pct}% de daño` : "", r.curacion ? `Cura ${r.curacion}` : "", r.recuperar_ph ? `Recupera ${r.recuperar_ph} PH` : "", r.reducir_fatiga ? `Reduce ${r.reducir_fatiga} Fatiga` : "", r.represalia_dados ? `Represalia ${r.represalia_dados}d${r.represalia_caras}` : ""].filter(Boolean).join(" · ")}</p><p>{Object.entries(r.bonos || {}).filter(([, v]) => v).map(([key, v]) => `${props.etiqueta(item, key)} ${v > 0 ? "+" : ""}${v}`).join(" · ")}</p></div>)}</section>}
       {!!item.reglas?.length && <section className="cg-detail-section"><h3>Reglas de la creación</h3>{item.reglas.map((r, i) => <div className="cg-rule" key={r.id || i}><strong>{r.nombre || `Regla ${i + 1}`}</strong><p>{describirRegla(r).resumen}</p><p>{EVENTOS[r.evento]}</p><p>Si: {resumenCondicion(r.condicion)}</p><ul>{r.efectos.map((efecto, j) => <li key={j}><ResumenEfecto efecto={efecto} /></li>)}</ul><p>{r.coste_ph || 0} PH · {r.coste_fatiga || 0} Fatiga{r.enfriamiento ? ` · Enfriamiento: ${r.enfriamiento} turnos` : ""}{r.usos ? ` · ${r.usos} usos` : ""}</p></div>)}</section>}
       {!!relaciones.length && <section className="cg-detail-section"><h3>Habilidades, pasivas y equipo</h3><div className="cg-related">{[...new Set(relaciones)].map((id) => <span key={id}><Sparkles size={14} />{props.items.find((v) => v.id === id)?.nombre || "Creación no disponible"}</span>)}</div></section>}
+      {forma && <section className="cg-detail-section" aria-live="polite"><h3>{forma.nombre}</h3><p className="cg-prose">{forma.historia}</p></section>}
       {[['Historia', item.historia], ['Requisitos', item.requisitos], ['Limitaciones y defectos', item.defectos]].map(([label, value]) => value ? <section className="cg-detail-section" key={label}><h3>{label}</h3><p className="cg-prose">{value}</p></section> : null)}
       {item.ligado_al_alma&&props.onRestablecer&&<aside className="yunque-resumen"><strong>Una sola pertenencia del alma</strong><p>Se entrega al baúl de una cuenta. Restablecer la retira de los jugadores y la deja únicamente en La creación. Termina cualquier encuentro activo antes de hacerlo.</p><button className="cg-button" disabled={ocupado} onClick={async()=>{setGuardando(true);try{await props.onRestablecer!(item);}finally{setGuardando(false);}}}>Restablecer y devolver a La creación</button></aside>}<footer className="cg-danger-zone"><p>Las copias existentes conservan sus valores.</p><button className="cg-button" disabled={ocupado} onClick={() => navegar(() => { void props.onEliminar(item).catch((e) => setError(e instanceof Error ? e.message : "No se pudo eliminar.")); })}><Trash2 size={14} />Eliminar creación</button></footer>
     </div></div>
