@@ -30,6 +30,24 @@ function ImagenDiferida({clip,src}:{clip:ClipVFX;src:string}){
 }
 export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVisual;columnas:number;filas:number}){
  const [lote,setLote]=useState<Lote>(),propio=useRef<string|undefined>(undefined);
+ const capa=useRef<HTMLDivElement>(null);
+ useEffect(()=>{
+   if(!lote?.clips.some(c=>c.animacion==='axioma-defensa') || matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+   const tablero=capa.current?.parentElement;
+   if(!tablero)return;
+   const animaciones=tablero.getAnimations({subtree:true}).filter(anim=>{
+     const objetivo=(anim.effect as KeyframeEffect|null)?.target;
+     return anim.playState==='running' && objetivo instanceof Element && !capa.current?.contains(objetivo);
+   });
+   animaciones.forEach(anim=>anim.pause());
+   const velo=document.createElement('div');
+   Object.assign(velo.style,{position:'absolute',inset:'0',pointerEvents:'none',background:'radial-gradient(ellipse,transparent 20%,rgba(87,204,228,.32))'});
+   capa.current?.appendChild(velo);
+   velo.animate([{opacity:0},{opacity:1,offset:.23},{opacity:0}],{duration:430});
+   const reanudar=()=>{animaciones.forEach(anim=>{if(anim.playState==='paused')anim.play()});velo.remove()};
+   const timer=setTimeout(reanudar,430);
+   return ()=>{clearTimeout(timer);reanudar()};
+ },[lote]);
  const cola=useRef<ColaVisual<Lote>>(undefined);
  useEffect(()=>{cola.current=new ColaVisual<Lote>(setLote,l=>Math.max(l.pantalla?1500:0,...l.clips.map(c=>c.inicio+c.duracion))+80);return()=>{cola.current?.cerrar();cola.current=undefined;};},[]);
  useEffect(()=>{
@@ -38,7 +56,7 @@ export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVi
   propio.current=evento.id;reproducidos.add(evento.id);if(reproducidos.size>250)reproducidos.delete(reproducidos.values().next().value!);
   precargarVFX(clips.map(c=>c.animacion));cola.current?.agregar({id:evento.id,clips,pantalla:evento.vfx?.pantalla?evento.nombre.split(" · ").pop():undefined});
  },[evento?.id]);
- return <div className="vfx-layer" aria-hidden="true">{lote?.pantalla&&createPortal(<div key={lote.id} className="vfx-paradoja" aria-hidden="true"><strong>{lote.pantalla}</strong></div>,document.body)}{lote?.clips.map(c=><Sprite key={lote.id+':'+c.id} clip={c} columnas={columnas} filas={filas}/>)}</div>;
+ return <div ref={capa} className="vfx-layer" aria-hidden="true">{lote?.pantalla&&createPortal(<div key={lote.id} className="vfx-paradoja" aria-hidden="true"><strong>{lote.pantalla}</strong></div>,document.body)}{lote?.clips.map(c=><Sprite key={lote.id+':'+c.id} clip={c} columnas={columnas} filas={filas}/>)}</div>;
 }
 
 export function AuraTransformacion({id,escala=1.5}:{id?:string;escala?:number}){
