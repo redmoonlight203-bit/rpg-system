@@ -6,7 +6,7 @@ Kuroi arrastra personajes de La creación o jugadores aprobados y vivos a los ba
 
 Cada turno tiene una acción. Mayor iniciativa primero; empates por orden de incorporación; los caídos se saltan. Un personaje congelado/aturdido inicia su turno con la acción bloqueada: pulsa Siguiente turno. Terminar combate permite cerrar el encuentro sin borrar su historial. Descanso fuera de combate elimina Fatiga y agotamiento.
 
-Cada cambio guarda una versión en Supabase. Deshacer restaura hasta diez operaciones: vida, PH, Fatiga, estados, equipo temporal, turno, ronda, enfriamientos y registro. Después de deshacer una tirada, repetir la acción vuelve a tirar. Eliminar encuentro requiere confirmación, rol Kuroi, propietario y versión vigente. Las fichas e inventarios originales se conservan.
+Cada cambio guarda una versión en Supabase. Antes del cierre, Deshacer restaura hasta diez operaciones: vida, PH, Fatiga, estados, equipo temporal, turno, ronda, enfriamientos y registro. Después de deshacer una tirada, repetir la acción vuelve a tirar. Eliminar encuentro requiere confirmación, rol Kuroi, propietario y versión vigente. Las fichas e inventarios originales se conservan.
 
 ## Ataques y salvaciones
 
@@ -119,3 +119,7 @@ La plantilla de Aurio Magno tenía Phoenix equipada; `supabase/seeds/reparar_equ
 Los ataques sin `tablero` reciben alcance finito desde el motor compartido, incluso cuando provienen de equipo, habilidades concedidas, objetos del inventario o snapshots de encuentros anteriores. El alcance explícito siempre prevalece. Valores automáticos: cuerpo a cuerpo 1 casilla, lanza 2, arco 8 y magia a distancia 6. Se usa la distancia horizontal y vertical del tablero. Las reglas activas también limitan el daño a destinatarios dentro de alcance; las reacciones automáticas conservan su lógica.
 
 La migración de alcances completa las acciones antiguas del catálogo y sus copias sin reemplazar las áreas ya configuradas. Añade tres objetos ordinarios y editables: Lanza normal (2 casillas, 1d6), Arco normal (8 casillas, 1d6) y Bastón normal (proyectil de 6 casillas, 1d6 y 1 PH; golpe de 1 casilla, 1d4 sin PH). No los entrega automáticamente a jugadores.
+
+## Regla de 0 HP y cierre definitivo
+
+0 HP deja inconsciente; no activa muerte, alma ni cementerio. Una curación o poción devuelve al combatiente a activo. El GM decide la muerte explícita y se conserva una única entrada de cementerio por fallecimiento. Preparar de nuevo una ficha con 0 HP no la cura. Al finalizar se compacta el historial técnico y ya no se permite deshacer; se mantienen registro, cierre y resultados oficiales.

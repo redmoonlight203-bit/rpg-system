@@ -1,0 +1,38 @@
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {PGlite} from '@electric-sql/pglite';
+const db=new PGlite();
+const sql=n=>readFileSync(new URL('../supabase/migrations/'+n,import.meta.url),'utf8');
+try{
+ await db.exec(`create role anon;create role authenticated;create schema private;create schema auth;create schema yugen_interno;
+ create function auth.uid() returns uuid language sql as $$select null::uuid$$;
+ create function private.tienda_es_gm() returns boolean language sql as $$select true$$;
+ create table public.combates_yugen(id uuid primary key,creador_id uuid,version int default 1,nombre text,datos jsonb,updated_at timestamptz default now());
+ create table public.resultados_encuentro(combate_id uuid,aprobado boolean,datos jsonb);
+ create table public.tablas_botin(id uuid);
+ create function private.personaje_vitales() returns trigger language plpgsql as $$begin if new.vida_actual=0 or new.estado_vida='muerto' then new.estado_vida:='muerto';end if;return new;end$$;
+ create function private.personaje_preparar(bigint) returns jsonb language plpgsql as $$declare vida numeric;maximo numeric;p record;begin vida:=greatest(1,maximo-greatest(0,1-p.vida_actual));return '{}'::jsonb;end$$;
+ `);
+ await db.exec(sql('20261110125629_historial_sin_imagenes.sql'));
+ await db.exec(sql('20261110132400_trigger_ciclo_selectivo.sql'));
+ await db.exec('create trigger ciclo before insert or update on combates_yugen for each row execute function private.encuentro_validar_ciclo()');
+ const a='00000000-0000-0000-0000-000000000001',b='00000000-0000-0000-0000-000000000002';
+ const datos={fase:'finalizado',politica:{modo:'oficial'},miembros:[],historial:[{imagen:'data:image/webp;base64,'+'A'.repeat(5000)}],cierre:{ganador:'jugador'}};
+ await db.query('insert into combates_yugen(id,datos) values($1,$2),($3,$4)',[a,datos,b,{...datos,fase:'en_curso'}]);
+ await db.query("insert into resultados_encuentro values($1,true,'{\"exp\":100}')",[a]);
+ await db.exec(sql('20261114144211_estabilizacion_guia_v2.sql'));
+ const fila=(await db.query('select datos,version from combates_yugen where id=$1',[a])).rows[0];
+ assert.deepEqual(fila.datos,((({historial,...rest})=>rest)(datos)));assert.equal(fila.version,2);
+ assert.deepEqual((await db.query('select datos from resultados_encuentro')).rows[0].datos,{exp:100});
+ assert.deepEqual((await db.query("select contenido->'datos' d from private.estabilizacion_copias where clave=$1",['guia-v2:combate:'+a])).rows[0].d,datos,'copia íntegra previa a compactar');
+ await assert.rejects(db.query("update combates_yugen set datos=datos||'{\"ronda\":8}' where id=$1",[a]),/inmutable/);
+ await assert.rejects(db.query("update combates_yugen set datos=datos||'{\"miembros\":[{\"vida\":99}]}' where id=$1",[a]),/inmutable/);
+ await db.query("update combates_yugen set datos=datos||'{\"historial\":[{}]}' where id=$1",[a]);
+ assert.equal((await db.query("select datos ? 'historial' h from combates_yugen where id=$1",[a])).rows[0].h,false);
+ assert.equal((await db.query("select jsonb_array_length(datos->'historial') n from combates_yugen where id=$1",[b])).rows[0].n,1,'encuentros activos conservan deshacer');
+ await db.query("update combates_yugen set datos=datos||'{\"fase\":\"finalizado\"}' where id=$1",[b]);
+ assert.equal((await db.query("select datos ? 'historial' h from combates_yugen where id=$1",[b])).rows[0].h,false,'cada nuevo cierre compacta');
+ await db.exec('set role authenticated');
+ await assert.rejects(db.query('select * from private.estabilizacion_copias'),/permission denied/);
+ console.log('SQL: compactación de aprobados, copia reversible, resultados inmutables, cierre automático y copia privada.');
+}finally{await db.close();}

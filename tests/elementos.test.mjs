@@ -329,4 +329,4 @@ test("recuperación antes de recibir ataque sucede antes del daño", () => {
   const n = atacar(b, 6);
   assert.equal(n.miembros[1].vida, 92);
 });
-test('terminar consume Mojado y deshacer devuelve los estados del combate',()=>{const b=campo();estado(b,'mojado');const n=c.finalizar(b);assert.equal(n.miembros[1].estados.length,0);assert.equal(c.deshacer(n).miembros[1].estados[0].tipo,'mojado');});
+test('terminar consume Mojado, compacta historial y bloquea deshacer',()=>{const b=campo();estado(b,'mojado');const n=c.finalizar(b);assert.equal(n.miembros[1].estados.length,0);assert.equal(n.historial.length,0);assert.throws(()=>c.deshacer(n),/terminado/);});

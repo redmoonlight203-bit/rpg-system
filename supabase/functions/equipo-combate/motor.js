@@ -389,8 +389,15 @@ function estado(m, tipo, nombre, duracion = 0, bonos = {}, extras = {}) {
         ...extras,
     });
 }
+function curarCombatiente(m, cantidad) {
+    if (situacionCombatiente(m) === 'muerto')
+        return;
+    m.vida = Math.min(maxVida(m), m.vida + Math.max(0, cantidad));
+    if (m.vida > 0 && m.situacion === 'inconsciente')
+        m.situacion = 'activo';
+}
 function recuperar(m, r) {
-    m.vida += r.curacion;
+    curarCombatiente(m, r.curacion);
     m.ph += r.recuperar_ph;
     if (!m.agotado)
         m.fatiga -= r.reducir_fatiga;
@@ -526,7 +533,7 @@ function entrar(c, m, rng) {
         if (["quemadura", "veneno", "regeneracion"].includes(e.tipo || "")) {
             const v = dados(c, e.cantidad ?? 1, e.caras ?? 4, rng, `${m.nombre}: ${e.nombre}`);
             if (e.tipo === "regeneracion")
-                m.vida = Math.min(maxVida(m), m.vida + v);
+                curarCombatiente(m, v);
             else
                 recibir(c, m, m, { ...basico(), efecto: "dano" }, v, [], rng);
             log(c, `${m.nombre}: ${e.nombre}, vida ${m.vida}.`);
@@ -649,7 +656,7 @@ function registrar(c, fn, rng = dadoSeguro) {
         n = siguienteInterno(n, rng);
         evaluarCierre(n);
     }
-    n.historial = [...(c.historial || []), previo].slice(-10);
+    n.historial = n.fase === 'finalizado' ? [] : [...(c.historial || []), previo].slice(-10);
     return registrarCambiosVida(c, n);
 }
 export function iniciar(c, rng = dadoSeguro) {
@@ -660,6 +667,8 @@ export function siguiente(c, rng = dadoSeguro) {
 }
 export function deshacer(c) {
     const h = [...(c.historial || [])], previo = h.pop();
+    if (c.fase === 'finalizado')
+        throw Error("Un encuentro terminado no se puede deshacer.");
     if (c.progreso_confirmado)
         throw Error("El progreso ya fue aplicado a las fichas.");
     if (!previo)
@@ -1313,7 +1322,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
             if (supera && e.salvacion?.exito === "anula")
                 v = 0;
             if (e.efecto === "curacion")
-                t.vida = Math.min(maxVida(t), t.vida + v);
+                curarCombatiente(t, v);
             if (e.efecto === "recuperar_ph")
                 t.ph = Math.min(estadisticas(t).ph || 0, t.ph + v);
             if (e.efecto === "reducir_fatiga" && !t.agotado)
@@ -1601,7 +1610,7 @@ function efectosMotor(efectos, ctx, origen) {
     if (ctx.profundidad > 8)
         throw Error('Demasiadas ramas de efectos.');
     for (const [indice, e] of efectos.entries()) {
-        const destinos = ['aliados', 'enemigos', 'todos'].includes(e.destino) ? ctx.c.miembros.filter(m => m.vida > 0 && (e.destino === 'todos' || (e.destino === 'aliados' ? m.bando === ctx.yo.bando : m.bando !== ctx.yo.bando))) : [sujetoMotor(ctx, e.destino)];
+        const destinos = ['aliados', 'enemigos', 'todos'].includes(e.destino) ? ctx.c.miembros.filter(m => (m.vida > 0 || e.tipo === 'curar' && situacionCombatiente(m) !== 'muerto') && (e.destino === 'todos' || (e.destino === 'aliados' ? m.bando === ctx.yo.bando : m.bando !== ctx.yo.bando))) : [sujetoMotor(ctx, e.destino)];
         for (const t of destinos) {
             if (ctx.alcanceManual !== undefined && t.id !== ctx.yo.id && ['dano', 'estado', 'perder_accion'].includes(e.tipo)) {
                 const p = posicionesTablero(ctx.c);
@@ -1624,7 +1633,7 @@ function efectosMotor(efectos, ctx, origen) {
                     log(ctx.c, `${t.nombre}: ${e.nombre || 'Efecto activado'}`);
                     break;
                 case 'curar':
-                    t.vida = Math.min(maxVida(t), t.vida + Math.max(0, v()));
+                    curarCombatiente(t, v());
                     break;
                 case 'ph': {
                     const limite = Math.max(0, estadisticas(t).ph || 0);
@@ -1820,7 +1829,7 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
         if (!p || !accionesObjeto(m, p).some(a => a.id === efectoId))
             throw Error('Este objeto no está disponible o debes equiparlo primero.');
         const objetivo = n.miembros.find(v => v.id === objetivoId);
-        if (!objetivo || objetivo.vida <= 0)
+        if (!objetivo || situacionCombatiente(objetivo) === 'muerto')
             throw Error('Selecciona un objetivo vivo.');
         const slot = Object.entries(m.configuracion.equipamiento || {}).find(([, v]) => v.id === p.id)?.[0];
         const temporal = 'inventario-' + p.id;

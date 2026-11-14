@@ -50,3 +50,6 @@ supabase/.temp/
 # Claves de recuperación y respaldos descifrados nunca se publican.
 *clave-recuperacion*
 baseline.json
+
+# Respaldo privado del 14 de noviembre: no publicar en el repositorio.
+/respaldos/2026-11-14/baseline.pgp.b64.parte-*

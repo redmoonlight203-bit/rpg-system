@@ -3,7 +3,7 @@ import MetricasCombate from "../../../components/MetricasCombate";
 import EstadoAccionCombate from "../../../components/EstadoAccionCombate";
 import {useAccionSegura} from "../../../lib/useAccionSegura";
 import {errorDeServidor} from "../../../lib/accion-segura";
-import {registrarMetrica} from "../../../lib/metricas-combate";
+import {registrarMetrica,medirConsulta} from "../../../lib/metricas-combate";
 import {cambiosCombate,recibirEvento} from "../../../lib/combate-transferencia";
 import EditorMapaCombate from "../../../components/EditorMapaCombate";
 import PantallaCombate from "../../../components/PantallaCombate";
@@ -122,7 +122,7 @@ export default function CampoCombate() {
   const bloqueo = useRef(false),ejecucion=useRef(0);
   const [conexion,setConexion]=useState('conectando');
   async function recuperarAccionGM():Promise<RespuestaAccion>{
-    const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:null}).abortSignal(AbortSignal.timeout(10000));
+    const r=await medirConsulta('http.consulta_ligera',()=>supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:null}).abortSignal(AbortSignal.timeout(10000)));
     if(r.error)throw errorDeServidor(r.error);if(!r.data)throw Error('El encuentro ya no está disponible.');
     return {...r.data,pasos_deshacer:r.data.datos?.pasos_deshacer};
   }
@@ -137,7 +137,7 @@ export default function CampoCombate() {
 
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
   const [editorEquipo,setEditorEquipo]=useState<{actor:string;contexto:ContextoEquipo}|null>(null);
-  async function refrescarEncuentro(){const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:null});if(r.error)throw Error(r.error.message);if(r.data){setC(recibirEvento(r.data.datos as Combate));setVersion(r.data.version);}}
+  async function refrescarEncuentro(){const r=await medirConsulta('http.consulta_ligera',()=>supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:null}));if(r.error)throw Error(r.error.message);if(r.data){setC(recibirEvento(r.data.datos as Combate));setVersion(r.data.version);}}
   async function abrirEquipoActual(participante:Combatiente|undefined=actor){if(!participante)return;await ejecutar(async()=>{if(c.fase==='preparacion'&&!participante.personaje_id){const r=await supabase.from('forja_maestra').select('id,nombre').eq('tipo_creacion','objeto').eq('estado','aprobado').order('nombre');if(r.error)throw Error(r.error.message);setObjetosMochila(r.data||[]);}const contexto=await consultarEquipo({combate_id:id,actor_id:participante.id,consultar:true});setEditorEquipo({actor:participante.id,contexto});});}
   async function agregarObjetoMochila(objetoId:string){
     if(!editorEquipo||c.fase!=='preparacion')throw Error('Prepara la mochila antes de iniciar el combate.');
@@ -152,7 +152,7 @@ export default function CampoCombate() {
   useSincronizacionCombate(async(recuperar=false)=>{
     if(bloqueo.current)return false;
     const solicitud={id,version};
-    const r=await supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:recuperar?null:version}).abortSignal(AbortSignal.timeout(10000));
+    const r=await medirConsulta('http.consulta_ligera',()=>supabase.rpc('combate_consultar_ligero',{p_id:id,p_version:recuperar?null:version}).abortSignal(AbortSignal.timeout(10000)));
     if(r.error)throw Error(r.error.message);
     if(bloqueo.current)return false;
     if(revisionRemota.current.id!==solicitud.id)return;
@@ -347,7 +347,7 @@ export default function CampoCombate() {
   async function abrir(p: Guardado) {
     await ejecutar(async()=>{
       // La lista contiene solo nombres. Al abrir siempre se obtiene la revisión actual.
-      const r=await supabase.rpc('combate_consultar_ligero',{p_id:p.id,p_version:null});
+      const r=await medirConsulta('http.consulta_ligera',()=>supabase.rpc('combate_consultar_ligero',{p_id:p.id,p_version:null}));
       if(r.error)throw Error(r.error.message);
       if(!r.data?.datos)throw Error('El encuentro ya no está disponible.');
       setPendiente(null);setRoll(null);setFlotante(null);setResumen('');

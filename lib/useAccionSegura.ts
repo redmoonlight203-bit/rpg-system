@@ -1,10 +1,10 @@
 "use client";
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {AccionSegura,type ComandoAccion,type EstadoAccion,type SolicitudAccion} from './accion-segura';
-import {registrarMetrica} from './metricas-combate';
+import {registrarMetrica,bytesJSON} from './metricas-combate';
 export function useAccionSegura<T>({clave,enviar,consultar,descartar,recuperar,onRecuperado}:{clave:string;enviar:(c:ComandoAccion)=>Promise<T>;consultar:(id:string)=>Promise<{confirmada?:boolean}>;descartar?:(id:string)=>Promise<{confirmada?:boolean;descartada?:boolean}>;recuperar:()=>Promise<T>;onRecuperado:(data:T)=>void}){
  const ultima=useRef(onRecuperado),claveActual=useRef(clave);ultima.current=onRecuperado;claveActual.current=clave;
- const control=useMemo(()=>new AccionSegura<T>({enviar:async c=>{const inicio=performance.now();try{const r=await enviar(c);registrarMetrica('confirmacion',performance.now()-inicio,true,JSON.stringify(c).length);return r;}catch(e){registrarMetrica('confirmacion',performance.now()-inicio,false);throw e;}},consultar,descartar,recuperar,
+ const control=useMemo(()=>new AccionSegura<T>({enviar:async c=>{const inicio=performance.now();try{const r=await enviar(c);registrarMetrica('confirmacion',performance.now()-inicio,true,bytesJSON(r));return r;}catch(e){registrarMetrica('confirmacion',performance.now()-inicio,false);throw e;}},consultar,descartar,recuperar,
   cargar:()=>{try{return JSON.parse(sessionStorage.getItem('yugen:accion:'+clave)||'null') as SolicitudAccion|null;}catch{return null;}},
   guardar:s=>{if(s)sessionStorage.setItem('yugen:accion:'+clave,JSON.stringify(s));else sessionStorage.removeItem('yugen:accion:'+clave);}
  }),[clave]);

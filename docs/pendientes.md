@@ -1,3 +1,5 @@
+> Documento histórico. El orden de trabajo vigente y las decisiones están en [la guía rectora v2](guia-rectora-v2.md); el estado actual está en [avance del 14 de noviembre](metricas/avance-2026-11-14.md). Las tareas anteriores no sustituyen ese registro.
+
 # Estabilización de YUGEN
 
 ## Ahora (máximo 3)

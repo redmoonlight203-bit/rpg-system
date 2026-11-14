@@ -2,8 +2,7 @@
 
 ## Estado
 
-Rama de trabajo: estabilizacion, basada en main. No se ha desplegado ni migrado producción desde esta rama.
-Las migraciones de reconciliación contienen definiciones observadas en producción; no constituyen respaldo de datos.
+La fuente de producción verificada es main. El avance de la guía v2 está en [el registro fechado](metricas/avance-2026-11-14.md). El respaldo del 14 de noviembre y la reversión de funciones e historiales se ensayaron en copia aislada; no acreditan recuperación de toda la plataforma.
 
 ## Antes de desplegar
 
@@ -28,3 +27,7 @@ Una restauración completa de base no tiene garantizado ese tiempo y requiere un
 
 Usar scripts/diagnostico-combate.sql: tamaños → triggers en copia → sesiones activas → Network.
 Comparar el mismo escenario, cantidad de miembros e imágenes. Evitar EXPLAIN ANALYZE de escrituras en producción.
+
+## Reversión de la guía v2
+
+`scripts/revertir-guia-v2.sql` recupera funciones e historiales desde copias privadas y rechaza encuentros cuyo estado funcional haya cambiado. Ensayar antes con `node scripts/verificar-copia-guia-v2.mjs /ruta/privada/baseline.json`. Las versiones se incrementan para invalidar clientes antiguos. El archivo cifrado y sus huellas están en `respaldos/2026-11-14/README.md`.
