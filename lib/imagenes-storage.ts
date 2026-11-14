@@ -35,7 +35,14 @@ export async function publicarDataImage(dataUrl: string): Promise<string> {
       throw new Error(`No se pudo publicar la imagen: ${uploaded.error.message}`);
     }
   }
-  return storage.getPublicUrl(path).data.publicUrl;
+  const url=storage.getPublicUrl(path).data.publicUrl;
+  const comprobacion=await fetch(url,{cache:'no-store'});
+  if(!comprobacion.ok)throw new Error("La imagen se subió, pero su enlace todavía no responde. Reintenta para reutilizar el archivo.");
+  const remoto=new Uint8Array(await comprobacion.arrayBuffer());
+  const huella=await crypto.subtle.digest("SHA-256",remoto);
+  const shaRemota=Array.from(new Uint8Array(huella),v=>v.toString(16).padStart(2,"0")).join("");
+  if(shaRemota!==sha)throw new Error("El archivo publicado no coincide con la imagen original.");
+  return url;
 }
 
 export async function publicarArchivoImagen(file: File): Promise<string> {

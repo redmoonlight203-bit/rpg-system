@@ -2,7 +2,8 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import Link from 'next/link';
 import {supabase} from '../lib/supabase';
-import {prepararPortada,validarPortada} from '../lib/imagenes-creacion';
+import {validarPortada} from '../lib/imagenes-creacion';
+import {publicarArchivoImagen} from "../lib/imagenes-storage";
 import {nuevoLogro,DISPARADORES_LOGRO,condicionesParaEvento,type LogroYugen,type CondicionesLogro,type EventoLogro} from '../lib/logros';
 import {describirRegla,describirEfecto} from '../lib/descripciones';
 import type {Regla} from '../lib/reglas';
@@ -86,7 +87,7 @@ export default function LogrosYTitulos(){
     <legend className="px-2 font-semibold">Icono o fotografía del logro</legend>
     <div className="flex items-center gap-4"><ImagenIconoLogro icono={form.icono} imagen={form.imagen_url} nombre={form.nombre||'Vista previa del logro'} size={88}/><span>Así se verá en la colección del jugador.</span></div>
     <SelectorIconoYugen value={form.icono} automatico="corona" disabled={ocupado||imagenPendiente} onChange={icono=>patch({icono:icono||'corona',imagen_url:''})}/>
-    <label className="block">Subir una foto desde tu dispositivo<input className={campo} type="file" accept="image/png,image/jpeg,image/webp" onChange={async e=>{const input=e.currentTarget,file=input.files?.[0];if(!file)return;const revision=edicion.current;setImagenPendiente(true);setError('');try{const imagen=await prepararPortada(file);if(revision===edicion.current)patch({imagen_url:imagen});}catch(e){setError((e as Error).message);}finally{input.value='';setImagenPendiente(false);}}}/></label>
+    <label className="block">Subir una imagen pública desde tu dispositivo<input className={campo} type="file" accept="image/png,image/jpeg,image/webp" onChange={async e=>{const input=e.currentTarget,file=input.files?.[0];if(!file)return;const revision=edicion.current;setImagenPendiente(true);setError('');try{const imagen=await publicarArchivoImagen(file);if(revision===edicion.current)patch({imagen_url:imagen});}catch(e){setError((e as Error).message);}finally{input.value='';setImagenPendiente(false);}}}/></label>
     {imagenPendiente&&<p role="status">Preparando la imagen…</p>}
     <label className="block">O usar una URL de imagen<input className={campo} type="url" value={form.imagen_url.startsWith('data:')?'':form.imagen_url} placeholder="https://…" onChange={e=>patch({imagen_url:e.target.value})}/></label>
     {form.imagen_url&&<button type="button" className={boton} onClick={()=>patch({imagen_url:''})}>Quitar foto y usar el icono</button>}

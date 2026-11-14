@@ -1,0 +1,53 @@
+{
+  "fecha": "2026-11-14",
+  "autorizacion": "El propietario autoriz\u00f3 expresamente publicar las nueve im\u00e1genes del respaldo en el bucket p\u00fablico imagenes de RealYugen",
+  "archivos": {
+    "9736ee65d045b5ca6553f9d56bdf9b9b": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/236fd28f27e518aa8fd7c2766755f81fbbda76ee5ec662c2d2f03407e75e9c48.webp",
+      "sha": "236fd28f27e518aa8fd7c2766755f81fbbda76ee5ec662c2d2f03407e75e9c48",
+      "bytes": 155472
+    },
+    "2bb3ac03deffa29334261232959a96d2": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/89c06209f48d24ff9cf3e113bd6e128f1f554cd475e9dc4f7484edd30cd09b80.webp",
+      "sha": "89c06209f48d24ff9cf3e113bd6e128f1f554cd475e9dc4f7484edd30cd09b80",
+      "bytes": 179600
+    },
+    "5f4da80c720f936861b0644a3567c5c9": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/65389d38e50b1ec6faa885046776c18e2fc5be9e48c67a1cbb5093745bd17c5a.webp",
+      "sha": "65389d38e50b1ec6faa885046776c18e2fc5be9e48c67a1cbb5093745bd17c5a",
+      "bytes": 181464
+    },
+    "ca846daa1a7ccae6efde158f7583d7ed": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/9ea7e7a2e5cbf162fbdded45e0ad0e9fa843cbf61f5d1311c833ab001172f792.webp",
+      "sha": "9ea7e7a2e5cbf162fbdded45e0ad0e9fa843cbf61f5d1311c833ab001172f792",
+      "bytes": 34860
+    },
+    "75bc222e17d8b00972c4bf8eb3c5ce6f": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/baff2c8ec948d6cae5b1f4e7b6733a9ecc7cec390608d9e98ba7214630b2d5f5.webp",
+      "sha": "baff2c8ec948d6cae5b1f4e7b6733a9ecc7cec390608d9e98ba7214630b2d5f5",
+      "bytes": 105920
+    },
+    "56f580766a3b70833afa42b8ce96a876": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/206b0557ccd25534d64e20b6d82eeea5d3d7beee847ff3fd46c12f772406c706.webp",
+      "sha": "206b0557ccd25534d64e20b6d82eeea5d3d7beee847ff3fd46c12f772406c706",
+      "bytes": 52326
+    },
+    "2eae3d2a8f9e7af6d013d5f32ad5be98": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/1f82986aef81bb438523662f808bc00da4e699df1283d9e09540fb789f80bde4.webp",
+      "sha": "1f82986aef81bb438523662f808bc00da4e699df1283d9e09540fb789f80bde4",
+      "bytes": 20844
+    },
+    "56a412c38aeb43946a6a7ae2cb440c66": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/4530a405fc80bea630f03e655a1092c07e9706a219248c2aff606ff01fa9ff1c.webp",
+      "sha": "4530a405fc80bea630f03e655a1092c07e9706a219248c2aff606ff01fa9ff1c",
+      "bytes": 47800
+    },
+    "2c2f531e72461efc98bebd60e6c4f1c9": {
+      "url": "https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/migracion-guia-v2/c2364c1e806158cae439a06bd88da423aa43d8cf5825293e9f66500f7258166e.webp",
+      "sha": "c2364c1e806158cae439a06bd88da423aa43d8cf5825293e9f66500f7258166e",
+      "bytes": 35328
+    }
+  },
+  "bytes_totales": 813614,
+  "verificacion": "GET p\u00fablico, SHA-256 y revisi\u00f3n visual de las nueve im\u00e1genes"
+}

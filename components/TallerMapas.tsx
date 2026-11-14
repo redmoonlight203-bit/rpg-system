@@ -6,6 +6,7 @@ import { coloresMapa, cortarAtlas, generarMapa, validarMapa, type AtlasMapa, typ
 import { atlasYugen, esAtlasYugen, urlAtlasPermitida } from '../lib/tileset-yugen';
 import { cargarImagenAtlas, dibujarMapa } from '../lib/mapas-render';
 import { editarCasillaMapa, rellenarMapa, type PincelMapa } from '../lib/mapas-edicion';
+import {publicarDataImage} from '../lib/imagenes-storage';
 import { leerArchivoMapa } from '../lib/mapas-archivo';
 import './taller-mapas.css';
 const nombres: Record<RolTile, string> = { suelo: 'Suelo libre', muro: 'Bloquea paso y visión', dificil: 'Terreno difícil', cobertura: 'Cobertura', peligro: 'Peligro' };
@@ -116,7 +117,8 @@ export default function TallerMapas({ mapa, ocupado, onAplicar }: {
             const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
             if (!(bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) && !(String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP'))
                 throw Error('El contenido no corresponde a PNG/WebP.');
-            const url = await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(file); });
+            const dataUrl = await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(file); });
+            const url=await publicarDataImage(dataUrl);
             const img = await cargarImagenAtlas(url);
             const nuevo: AtlasMapa = { url, ancho: img.width, alto: img.height, celda: 32, margen: 0, separacion: 0, autor: '', licencia: '', regiones: cortarAtlas(img.width, img.height, 32) };
             const config: ProcedenciaMapa = { schemaVersion: 1, generatorVersion: '1.0.0', semilla: op.semilla, perfil: 'bosque', densidad: op.densidad, protegidas: [], atlas: nuevo };
@@ -132,6 +134,7 @@ export default function TallerMapas({ mapa, ocupado, onAplicar }: {
     async function abrir(file?: File) { if (!file)
         return; try {
         const m = leerArchivoMapa(await file.text());
+        if(m.procedural?.atlas?.url.startsWith('data:image/'))m.procedural.atlas.url=await publicarDataImage(m.procedural.atlas.url);
         cambiar(m.procedural ? m : inicial(m));
         setOp(m.procedural || inicial(m).procedural!);
         setSeleccion([]);

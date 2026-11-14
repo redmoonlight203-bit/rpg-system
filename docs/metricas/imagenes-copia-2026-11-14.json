@@ -1,0 +1,38 @@
+{
+  "reversion_probada": true,
+  "entorno": "PGlite aislado con snapshot real",
+  "auditoria": [
+    {
+      "tabla": "forja_maestra",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "inventario_jugador",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "combates_yugen",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "resultados_encuentro",
+      "filas_base64": 0
+    }
+  ],
+  "tamaños": [
+    {
+      "id": "1888a6b3-ae9b-4c89-b2de-55c4f19b7ef0",
+      "bytes": 37380
+    },
+    {
+      "id": "a4521eb5-1349-42ce-8be4-64a190afc949",
+      "bytes": 3660
+    },
+    {
+      "id": "bf42ee9c-578d-44b8-ac72-f1cdc8c02512",
+      "bytes": 5862
+    }
+  ],
+  "protecciones_restauradas": true,
+  "equivalencia_de_todas_las_filas": true
+}
