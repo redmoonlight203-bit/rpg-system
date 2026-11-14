@@ -2325,5 +2325,70 @@
     "ancho": 256,
     "alto": 256,
     "repetible": false
+  },
+  {
+    "id": "axioma-inercia",
+    "nombre": "Axioma · inercia",
+    "categoria": "Leyes de Kion",
+    "paquete": "YUGEN",
+    "url": "/vfx/axiomas/axioma-inercia.png",
+    "bucle": "/vfx/axiomas/axioma-inercia.png",
+    "poster": "/vfx/axiomas/axioma-inercia-preview.png",
+    "duracion": 810,
+    "ancho": 80,
+    "alto": 80,
+    "repetible": true
+  },
+  {
+    "id": "axioma-reaccion",
+    "nombre": "Axioma · reaccion",
+    "categoria": "Leyes de Kion",
+    "paquete": "YUGEN",
+    "url": "/vfx/axiomas/axioma-reaccion.png",
+    "bucle": "/vfx/axiomas/axioma-reaccion.png",
+    "poster": "/vfx/axiomas/axioma-reaccion-preview.png",
+    "duracion": 810,
+    "ancho": 80,
+    "alto": 80,
+    "repetible": true
+  },
+  {
+    "id": "axioma-conservacion",
+    "nombre": "Axioma · conservacion",
+    "categoria": "Leyes de Kion",
+    "paquete": "YUGEN",
+    "url": "/vfx/axiomas/axioma-conservacion.png",
+    "bucle": "/vfx/axiomas/axioma-conservacion.png",
+    "poster": "/vfx/axiomas/axioma-conservacion-preview.png",
+    "duracion": 810,
+    "ancho": 80,
+    "alto": 80,
+    "repetible": true
+  },
+  {
+    "id": "axioma-fusion",
+    "nombre": "Axioma · fusion",
+    "categoria": "Leyes de Kion",
+    "paquete": "YUGEN",
+    "url": "/vfx/axiomas/axioma-fusion.png",
+    "bucle": "/vfx/axiomas/axioma-fusion.png",
+    "poster": "/vfx/axiomas/axioma-fusion-preview.png",
+    "duracion": 810,
+    "ancho": 80,
+    "alto": 80,
+    "repetible": true
+  },
+  {
+    "id": "axioma-defensa",
+    "nombre": "Axioma · defensa",
+    "categoria": "Leyes de Kion",
+    "paquete": "YUGEN",
+    "url": "/vfx/axiomas/axioma-defensa.png",
+    "bucle": "/vfx/axiomas/axioma-defensa.png",
+    "poster": "/vfx/axiomas/axioma-defensa-preview.png",
+    "duracion": 810,
+    "ancho": 80,
+    "alto": 80,
+    "repetible": true
   }
 ]

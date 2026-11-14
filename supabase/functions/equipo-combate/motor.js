@@ -418,6 +418,50 @@ function recibir(c, a, t, e, total, rs, rng) {
         total = Math.floor(total * (1 - reduccion / 100));
         log(c, `${t.nombre}: reducción ${reduccion}% (${antes} → ${total}); no se acumulan porcentajes.`);
     }
+    const defensas = (t.configuracion.habilidades || []).flatMap(h => h.efectos || []).filter(p => p.defensa);
+    if (total > 0 && a.id !== t.id && defensas.length) {
+        const despierto = t.transformacion?.definicion_id === 'limitless';
+        const magico = e.naturaleza === 'magica' || e.coste_ph > 0;
+        const pagar = (p) => {
+            const coste = despierto && p.ley_limitless ? 0 : p.coste_ph;
+            if (phDisponibles(t) < coste)
+                return false;
+            t.ph = phDisponibles(t) - coste;
+            log(c, t.nombre + ' activa ' + p.nombre + ' (' + coste + ' PH).');
+            return true;
+        };
+        const inercia = defensas.find(p => p.defensa === 'inercia');
+        if (inercia && pagar(inercia)) {
+            if (salvacion(c, t, 14, 'salvacion', rng)) {
+                const detenido = total - Math.floor(total / 2);
+                total -= detenido;
+                const contra = defensas.find(p => p.defensa === (magico ? 'absorcion' : despierto ? 'reflejo' : 'reciproco'));
+                if (contra && pagar(contra)) {
+                    if (magico) {
+                        const saldo = t.recursos_especiales?.['Energía absorbida'] || 0;
+                        t.recursos_especiales = { ...t.recursos_especiales, ['Energía absorbida']: Math.min(10, saldo + Math.floor(detenido / 2)) };
+                    }
+                    else
+                        Object.assign(a, danarTransformado(a, Math.min(detenido, despierto ? 10 : 6)).actor);
+                }
+                t.ultima_defensa = { id: crypto.randomUUID(), animacion: 'axioma-defensa' };
+            }
+        }
+        else {
+            const alternativa = defensas.find(p => p.defensa === (magico ? 'absorcion' : despierto ? 'reflejo' : 'ancla'));
+            if (alternativa && pagar(alternativa)) {
+                const reducido = Math.min(total, magico ? 6 : 4);
+                total -= reducido;
+                if (magico) {
+                    const saldo = t.recursos_especiales?.['Energía absorbida'] || 0;
+                    t.recursos_especiales = { ...t.recursos_especiales, ['Energía absorbida']: Math.min(10, saldo + Math.floor(reducido / 2)) };
+                }
+                else if (alternativa.defensa === 'reflejo')
+                    Object.assign(a, danarTransformado(a, reducido).actor);
+                t.ultima_defensa = { id: crypto.randomUUID(), animacion: magico ? 'axioma-conservacion' : 'axioma-reaccion' };
+            }
+        }
+    }
     const perdido = Math.min(t.vida, Math.max(0, total));
     const resultadoDano = danarTransformado(t, perdido);
     Object.assign(t, resultadoDano.actor);
@@ -793,7 +837,7 @@ export function acciones(m) {
     const definiciones = lista.flatMap(a => a.efecto.transformacion ? [a.efecto.transformacion] : []);
     const exclusivos = new Set(definiciones.flatMap(d => d.etapas.flatMap(e => e.habilidades || [])));
     const permitidos = new Set(definiciones.find(d => d.id === m.transformacion?.definicion_id)?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.habilidades || []);
-    return lista.filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
+    return lista.filter(a => !a.efecto.defensa).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
         const d = a.efecto.transformacion;
         if (d && m.transformacion?.definicion_id === d.id) {
             const i = d.etapas.findIndex(e => e.id === m.transformacion?.etapa_id);
@@ -801,7 +845,9 @@ export function acciones(m) {
         }
         if (d && (m.transformacion || m.transformaciones_usadas?.includes(d.id)))
             return { ...a, bloqueada: m.transformacion ? 'Otra transformación está activa.' : 'Ya utilizada en este encuentro.' };
-        return { ...a, efecto: conAlcance(a.efecto, a.nombre) };
+        const efecto = m.transformacion?.definicion_id === 'limitless' && a.efecto.ley_limitless
+            ? { ...a.efecto, coste_ph: 0 } : a.efecto;
+        return { ...a, efecto: conAlcance(efecto, a.nombre) };
     });
 }
 /** Encuentra una casilla libre desde la que un ataque con dash/salto/teletransporte alcance al blanco.
@@ -1091,6 +1137,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     }
     let e = act.efecto;
     const s = estadisticas(a), coste = e.coste_ph || 0, fatiga = e.coste_fatiga || 0, t = n.miembros.find((m) => m.id === objetivoId);
+    if (coste > 0 && (s.silencio_ph || 0) > 0)
+        throw Error('Silencio del Núcleo impide gastar PH.');
     const tactica = e.tablero;
     if (tactica) {
         const fallo = validarTactica(e);
@@ -1104,6 +1152,18 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     const plan = requiereAreaMovil && tactica?.movimiento_lanzador && apuntado ? planearAtaqueDeArea(n, a, apuntado, tactica.movimiento_lanzador) : undefined;
     const punto = tactica?.origen_area === 'aterrizaje' && plan ? plan.destino : apuntado;
     let objetivos = t ? [t] : [];
+    if (e.portal && tactica && apuntado) {
+        if (!alcanceDesde(origen, tactica, dimensiones).some(p => p.x === apuntado.x && p.y === apuntado.y) || !lineaVisible(origen, apuntado, n.mapa) || n.mapa?.celdas[apuntado.x + ',' + apuntado.y] === 'muro' || Object.values(posiciones).some(p => p.x === apuntado.x && p.y === apuntado.y))
+            throw Error('El umbral necesita una casilla libre visible dentro del alcance.');
+        if (phDisponibles(a) < coste)
+            throw Error('PH insuficientes.');
+        a.ph = phDisponibles(a) - coste;
+        a.posicion = { ...apuntado };
+        a.accion_usada = true;
+        aplicarTerreno(n, a, rng);
+        log(n, a.nombre + ' cruza el Umbral Espacial.');
+        return n;
+    }
     if (tactica) {
         if (!apuntado || !alcanceDesde(origen, tactica, dimensiones).some(p => p.x === apuntado.x && p.y === apuntado.y))
             throw Error('El destino está fuera del alcance de la habilidad.');
@@ -1116,7 +1176,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             : areaDesde(origen, punto, tactica, dimensiones);
         objetivos = n.miembros.filter(m => {
             const p = m.id === a.id && plan ? plan.destino : posiciones[m.id];
-            return (m.vida > 0 || e.efecto === 'curacion' && situacionCombatiente(m) !== 'muerto')
+            return !(e.suelo && tiene(m, 'vuelo')) && (m.vida > 0 || e.efecto === 'curacion' && situacionCombatiente(m) !== 'muerto')
                 && objetivoDelArea(a, m, e) && area.some(v => v.x === p.x && v.y === p.y);
         });
         if (!objetivos.length)
@@ -1149,6 +1209,15 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         log(n, nombre + ': ' + saldo);
     }
     a.ph -= coste;
+    if (coste > 0 && (s.retribucion || 0) > 0) {
+        const golpe = Math.min(6, coste);
+        Object.assign(a, danarTransformado(a, golpe).actor);
+        log(n, 'Retribución Universal causa ' + golpe + ' de daño.');
+        if (a.vida <= 0) {
+            a.accion_usada = true;
+            return n;
+        }
+    }
     a.fatiga = Math.min(s.fatiga || 0, a.fatiga + fatiga);
     a.uso_fatiga = fatiga > 0;
     a.accion_usada = true;
@@ -1219,6 +1288,11 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         const supera = e.salvacion
             ? salvacion(n, t, e.salvacion.cd, e.salvacion.atributo, rng)
             : false;
+        if (e.vuelo) {
+            estado(t, 'vuelo', 'En vuelo', 2, {});
+            log(n, t.nombre + ' alza el vuelo durante dos turnos.');
+            return n;
+        }
         if (e.efecto === "estado") {
             if (supera) {
                 log(n, `${t.nombre} evita el estado.`);
@@ -1254,7 +1328,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     emitirMotor(n, 'atacar', a, a, t, rng, e);
     if (a.vida <= 0)
         return n;
-    const elemento = elementoDe(e), antes = reactivas(t, e, "recibir_ataque");
+    const elemento = (estadisticas(t).transmutar || 0) > 0 && e.naturaleza === 'magica' ? 'hielo' : elementoDe(e), antes = reactivas(t, e, "recibir_ataque");
     activarReglas(n, a, t, antes, rng);
     if (a.vida <= 0) {
         log(n, `${a.nombre} cae por una reacción antes de impactar.`);
@@ -1857,7 +1931,7 @@ export function casillasAlcanzables(c, actorId) {
             continue;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const x = p.x + dx, y = p.y + dy, k = `${x},${y}`;
-            const coste = c.mapa?.celdas[k] === 'dificil' ? 2 : 1;
+            const coste = !tiene(m, 'vuelo') && c.mapa?.celdas[k] === 'dificil' ? 2 : 1;
             if (x < 0 || y < 0 || x >= columnas || y >= filas || ocupadas.has(k) || c.mapa?.celdas[k] === 'muro' || d + coste > limite || (k in distancias && distancias[k] <= d + coste))
                 continue;
             distancias[k] = d + coste;
@@ -2028,6 +2102,10 @@ export function registrarCambiosVida(antes, despues) {
         return actual?.vfx?.entrada && (previa?.etapa_id !== actual.etapa_id || previa?.definicion_id !== actual.definicion_id) && actuales[m.id] ?
             [{ id: m.id, animacion: actual.vfx.entrada, posicion: actuales[m.id], escala: actual.vfx.escala }] : [];
     });
+    for (const m of despues.miembros) {
+        if (m.ultima_defensa && m.ultima_defensa.id !== antes.miembros.find(p => p.id === m.id)?.ultima_defensa?.id)
+            transformaciones.push({ id: m.id, animacion: m.ultima_defensa.animacion, posicion: actuales[m.id], escala: 2.8 });
+    }
     return { ...despues, evento_visual: { id: crypto.randomUUID(), creado_en: Date.now(), nombre: despues.miembros.find(m => m.id === despues.actual)?.nombre || 'Combate', dados: [], resultado: despues.resultado, cambios_vida: cambiosVida(antes, despues), movimientos, transformaciones } };
 }
 /** Obstáculos y terrenos del encuentro; los identificadores no representan navegación mundial. */
@@ -2060,7 +2138,7 @@ export function lineaVisible(a, b, mapa) {
 }
 function aplicarTerreno(c, m, rng = dadoSeguro) {
     const p = posicionesTablero(c)[m.id];
-    if (p && c.mapa?.celdas[`${p.x},${p.y}`] === 'peligro' && m.vida > 0) {
+    if (!tiene(m, 'vuelo') && p && c.mapa?.celdas[`${p.x},${p.y}`] === 'peligro' && m.vida > 0) {
         recibir(c, m, m, { ...basico(), efecto: 'dano' }, 2, [], rng);
         log(c, `${m.nombre}: terreno peligroso, 2 de daño.`);
     }

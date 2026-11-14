@@ -11,8 +11,8 @@ vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/vfx.ts',impor
 const {planificarVFX,validarVFX}=exports;
 const vfx={lanzamiento:'kitsuwick-blink-step',recorrido:'foundry-blink-dash',impacto:'smoke-dust-polvo-1',escala:2};
 const evento={id:'e',nombre:'Paso',dados:[],creado_en:Date.now(),desde:{x:1,y:1},hasta:{x:6,y:1},vfx};
-test('catálogo conserva 179 efectos únicos, imágenes animadas y avisos de autoría',()=>{
- assert.equal(catalogo.length,179);assert.equal(new Set(catalogo.map(v=>v.id)).size,179);
+test('catálogo conserva 184 efectos únicos, imágenes animadas y avisos de autoría',()=>{
+ assert.equal(catalogo.length,184);assert.equal(new Set(catalogo.map(v=>v.id)).size,184);
  for(const v of catalogo){
   assert.ok(v.nombre&&v.categoria&&v.duracion>0);
   for(const key of ['url','bucle']){const path=new URL('../public'+v[key],import.meta.url);assert.ok(existsSync(path));const png=readFileSync(path);assert.equal(png.subarray(1,4).toString(),'PNG');assert.ok(png.includes(Buffer.from('acTL')),v.id);}
@@ -78,4 +78,18 @@ test('proyectiles con atracción o repulsión nacen del lanzador y terminan en l
   assert.deepEqual(p[2].hasta,evento.hasta);assert.equal(p[2].inicio,p[1].inicio+p[1].duracion);
   assert.ok(!p.some(c=>c.id.startsWith('estela-victima')));
  }
+});
+
+test('Inercia resuelve cada impacto y el despertar exime solo las leyes propias',()=>{
+ const ley={id:'ley',nombre:'Inercia',efecto:'dano',cantidad:1,caras:8,modificador:0,coste_ph:2,ley_limitless:true};
+ const fuente=(id,efectos)=>({id,nombre:id,stats:{vida:32,ph:240,armadura:0,salvacion:0},posicion:{x:id==='a'?1:2,y:1},configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre:'Técnicas',stats:{},efectos}]}});
+ const k=fuente('k',[{...ley,id:'defensa',defensa:'inercia'},ley,{...ley,id:'aprendida',ley_limitless:false}]);
+ let c=motor.iniciar(motor.agregar(motor.agregar(motor.nuevoCombate(),fuente('a',[ley]),'enemigo',()=>20),k,'jugador',()=>1));c.regla='directo';
+ for(const [salva,vida] of [[14,28],[13,24]]){
+  const n=motor.actuar(c,'a','hab:h:ley','k',caras=>caras===20?salva:8);
+  const blanco=n.miembros.find(m=>m.id==='k');assert.equal(blanco.vida,vida);assert.equal(blanco.ph,238);assert.equal(blanco.accion_usada,false);
+  assert.equal(n.evento_visual.transformaciones.some(v=>v.animacion==='axioma-defensa'),salva===14);
+ }
+ const actor=c.miembros.find(m=>m.id==='k');actor.transformacion={definicion_id:'limitless'};
+ const barra=motor.acciones(actor);assert.ok(!barra.some(a=>a.efecto.defensa));assert.equal(barra.find(a=>a.efecto.id==='ley').efecto.coste_ph,0);assert.equal(barra.find(a=>a.efecto.id==='aprendida').efecto.coste_ph,2);
 });

@@ -65,6 +65,12 @@ export type AlcanceHabilidad = {
   derribo?: 'siempre'|'fallo_salvacion';
 };
 export type Efecto = {
+  ley_limitless?:boolean;
+  axioma?:boolean;
+  suelo?:boolean;
+  portal?:boolean;
+  vuelo?:boolean;
+  defensa?:'inercia'|'absorcion'|'reciproco'|'ancla'|'reflejo';
   recurso?: {nombre:string; inicial:number; cambio:number};
   companero_magico?:string;
   vfx?: ConfiguracionVFX;
