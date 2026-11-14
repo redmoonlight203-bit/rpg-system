@@ -65,6 +65,8 @@ export type AlcanceHabilidad = {
   derribo?: 'siempre'|'fallo_salvacion';
 };
 export type Efecto = {
+  recurso?: {nombre:string; inicial:number; cambio:number};
+  companero_magico?:string;
   vfx?: ConfiguracionVFX;
   animacion?: "proyectil"|"destello"|"aura"|"impacto"|"trayectoria"|"desplazamiento"|"ninguna";
   transformacion?: DefinicionTransformacion;

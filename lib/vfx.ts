@@ -1,6 +1,7 @@
 import catalogo from './catalogo-vfx.json';
 /** Referencias estables; las imágenes se descargan únicamente al previsualizar/reproducir. */
 export type ConfiguracionVFX = {
+ pantalla?:boolean;
  lanzamiento?:string;
  recorrido?:string;
  impacto?:string;

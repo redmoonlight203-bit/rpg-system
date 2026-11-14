@@ -1137,6 +1137,17 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     const forzando = fatiga > 0 && (a.agotado || a.fatiga + fatiga > (s.fatiga || 0));
     if (forzando && !forzar)
         throw Error("Agotamiento: activa Forzar natural para usarla sufriendo 1d4 de daño.");
+    if (e.recurso) {
+        const { nombre, inicial, cambio } = e.recurso;
+        if (!nombre.trim() || !Number.isSafeInteger(inicial) || inicial < 0 || !Number.isSafeInteger(cambio))
+            throw Error('Recurso inválido.');
+        const recursos = a.recursos_especiales ??= {};
+        const saldo = (Object.hasOwn(recursos, nombre) ? recursos[nombre] : inicial) + cambio;
+        if (saldo < 0)
+            throw Error(nombre + ': saldo insuficiente.');
+        a.recursos_especiales = { ...recursos, [nombre]: saldo };
+        log(n, nombre + ': ' + saldo);
+    }
     a.ph -= coste;
     a.fatiga = Math.min(s.fatiga || 0, a.fatiga + fatiga);
     a.uso_fatiga = fatiga > 0;
@@ -1264,7 +1275,17 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         n.resultado = acierta ? "Impacto" : "Fallo";
     }
     else if (n.regla === "impacto") {
-        const d = rng(20), impacto = d + (s.bono_impacto || 0);
+        let d = rng(20);
+        if (e.naturaleza === 'magica' && a.ronda_asistida !== n.ronda) {
+            const apoyo = a.configuracion.habilidades?.flatMap(h => h.efectos || []).find(p => p.companero_magico)?.companero_magico;
+            if (apoyo) {
+                const segundo = rng(20);
+                log(n, apoyo + ' concede ventaja: ' + d + ' y ' + segundo);
+                d = Math.max(d, segundo);
+                a.ronda_asistida = n.ronda;
+            }
+        }
+        const impacto = d + (s.bono_impacto || 0);
         critico = d === 20;
         acierta = critico || (d !== 1 && impacto >= arm);
         n.resultado =
