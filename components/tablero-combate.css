@@ -27,3 +27,18 @@
 .tactical-cell.spell-range{background:color-mix(in srgb,var(--color-gold) 20%,transparent);outline-color:var(--color-line-strong)}
 .tactical-cell.spell-area,.has-procedural-map .tactical-cell.spell-area{background:color-mix(in srgb,var(--color-crimson) 25%,transparent)}
 .tactical-cell.target{outline-color:var(--color-red-400);box-shadow:inset 0 0 0 2px var(--color-red-400),0 0 20px -6px var(--color-crimson)}
+
+.arena-full{display:inline-flex;align-items:center;gap:.5rem;border:1px solid #74654b;border-radius:.6rem;padding:.6rem .85rem;background:#221f1b;color:#fff1d3;cursor:pointer}
+main.arena-ampliada{position:fixed!important;inset:0!important;z-index:9999;overflow:auto;overscroll-behavior:contain;max-width:none!important;height:100dvh;background:#111116}
+.arena-lobby{margin:1rem 0;padding:clamp(1rem,3vw,2rem);border:1px solid #514438;border-radius:1rem;background:radial-gradient(ellipse at 95% 0%,#382a2b,transparent 55%),#17171c;color:#f6f2ea}
+.arena-lobby h2{font:600 clamp(1.45rem,3vw,2rem) Georgia,serif;margin:0 0 1rem}
+.arena-modos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.arena-modos button{display:grid;grid-template-columns:auto 1fr;gap:.3rem 1rem;text-align:left;align-content:start;padding:1rem;border:1px solid #655b60;border-radius:.8rem;background:#201f25;color:#f8f6f3;cursor:pointer}
+.arena-modos button>span{grid-row:span 2;color:#b8b5cd}.arena-modos strong{font-size:1.05rem}.arena-modos small,.arena-modos b{grid-column:2}.arena-modos small{color:#d0cbca}.arena-modos b{font-size:.75rem;color:#f4cf8a}
+.arena-modos button[aria-pressed=true]{border-color:#d5ad69;background:linear-gradient(110deg,#443523,#252126)}.arena-modos button:hover,.arena-modos button:focus-visible{outline:2px solid #c6a77c;outline-offset:1px}
+.arena-preparar{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-top:1rem}.arena-preparar span{font-size:.85rem;color:#d0cacf}.arena-preparar .battle-primary{margin-left:auto}
+.tactical-cell .tactical-token>.battle-portrait{position:absolute;inset:0;width:100%;height:100%;background:radial-gradient(ellipse,#37363c,#121215);overflow:hidden;border-radius:4px}
+.tactical-cell .tactical-token>.battle-portrait img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.tactical-cell .tactical-token-name{padding:1px 2px;background:linear-gradient(transparent,#0c0a13dd);font-size:clamp(9px,1vw,13px);line-height:1.2}
+@media(max-width:560px){.arena-modos{grid-template-columns:1fr}.arena-preparar .battle-primary{margin-left:0}.arena-full{font-size:.85rem}}
+.tactical-board.arena-vista-completa{min-width:0;width:100%;padding:5px}.arena-vista-completa .tactical-cell{min-height:0;min-width:0;padding:1px}.arena-vista-completa .tactical-token{inset:1px}

@@ -6,6 +6,7 @@ import {errorDeServidor} from "../../../lib/accion-segura";
 import {registrarMetrica} from "../../../lib/metricas-combate";
 import {cambiosCombate,recibirEvento} from "../../../lib/combate-transferencia";
 import EditorMapaCombate from "../../../components/EditorMapaCombate";
+import PantallaCombate from "../../../components/PantallaCombate";
 import {ConfigurarCiclo,ResumenEncuentro} from "../../../components/CicloEncuentro";
 import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -855,12 +856,28 @@ export default function CampoCombate() {
             <span>Un personaje, una acción. El sistema lleva las cuentas.</span>
           </div>
         </div>
-        <div className="battle-header-actions">
+        <div className="battle-header-actions"><PantallaCombate/>
         <button className="battle-button" onClick={abrirBiblioteca} aria-expanded={biblioteca} aria-controls="battle-library"><BookOpen size={16} />Personajes</button>
         <Link className="battle-button" href="/dm/forja">
           La creación
         </Link></div>
       </header>
+      {c.fase==="preparacion"&&<section className="arena-lobby" aria-label="Preparación de la batalla">
+        <h2>Elige tu combate</h2>
+        <div className="arena-modos">{([
+          ["entrenamiento","Práctica","Prueba habilidades y estrategias en una copia temporal."],
+          ["oficial","Combate de campaña","Conserva los resultados y adjudica experiencia y botín al cierre."]
+        ] as const).map(([modo,titulo,detalle])=>{
+          const elegido=(c.politica?.modo||"oficial")===modo;
+          return <button type="button" key={modo} aria-pressed={elegido} disabled={bloqueado}
+            onClick={()=>{if(!elegido)void ejecutar(()=>guardar({...c,politica:{...nuevoCombate().politica!,...c.politica,modo}}))}}>
+            <span aria-hidden="true">{modo==="oficial"?<Swords/>:<Dices/>}</span><strong>{titulo}</strong><small>{detalle}</small>{elegido&&<b>Seleccionado</b>}
+          </button>})}</div>
+        <div className="arena-preparar"><button className="battle-button" disabled={bloqueado} onClick={abrirBiblioteca}>Elegir combatientes</button>
+        <button className="battle-button" onClick={()=>{const panel=document.querySelector<HTMLDetailsElement>('#arena-mapa details');if(panel){panel.open=true;panel.scrollIntoView({block:"start"});panel.querySelector("summary")?.focus()}}}>Preparar escenario</button>
+        <span>{c.miembros.filter(m=>m.bando==="jugador").length} aliados · {c.miembros.filter(m=>m.bando==="enemigo").length} enemigos</span>
+        <button className="battle-primary" disabled={bloqueado||!c.miembros.length} onClick={()=>void avanzar()}>Iniciar {c.politica?.modo==="entrenamiento"?"práctica":"combate"}</button></div>
+      </section>}
       <div className="battle-toolbar">
         <input
           aria-label="Nombre del encuentro"
@@ -940,7 +957,7 @@ export default function CampoCombate() {
           </button>
         )}
       </div>
-      <EditorMapaCombate combate={c} ocupado={bloqueado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
+      <div id="arena-mapa"><EditorMapaCombate combate={c} ocupado={bloqueado} onGuardar={next=>ejecutar(()=>guardar(next))}/></div>
       <ConfigurarCiclo combate={c} ocupado={bloqueado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
       {c.fase==='finalizado'&&<ResumenEncuentro onRecargar={refrescarEncuentro} id={id} version={version} combate={c} ocupado={bloqueado}/>}
       {c.politica?.modo!=='entrenamiento'&&c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">El crecimiento de reglas se confirma junto con las recompensas. También puedes aplicarlo aquí; después el resultado queda cerrado para revisiones. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={bloqueado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
