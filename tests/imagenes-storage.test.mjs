@@ -9,7 +9,7 @@ const source=ts.transpileModule(readFileSync(new URL("../lib/imagenes-storage.ts
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}
 }).outputText;
 const image="data:image/webp;base64,QUJD";
-function cargar({user={id:"usuario-123"},uploadError=null,files=[]}={}) {
+function cargar({user={id:"usuario-123"},uploadError=null,files=[],publicOk=true,publicBytes="ABC"}={}) {
   const env={files,uploaded:[],user};
   const storage={
     upload:async(path,bytes,opts)=>{env.uploaded.push({path,bytes:Buffer.from(bytes),opts});return {error:uploadError};},
@@ -20,7 +20,7 @@ function cargar({user={id:"usuario-123"},uploadError=null,files=[]}={}) {
   const exports={};
   vm.runInNewContext(source,{
     exports,require:module=>module==="./supabase"?{supabase}:{prepararPortada:async()=>image,validarPortada:x=>x.startsWith("data:image/")?null:"bad"},
-    atob,Uint8Array,crypto:webcrypto,Buffer,Error
+    atob,Uint8Array,crypto:webcrypto,Buffer,Error,fetch:async()=>({ok:publicOk,arrayBuffer:async()=>Uint8Array.from(Buffer.from(publicBytes)).buffer})
   });
   return {api:exports,env};
 }
@@ -50,4 +50,9 @@ test("rechaza tipo de imagen sin autorización de Storage",async()=>{
   const {api,env}=cargar();
   await assert.rejects(api.publicarDataImage("data:image/jpeg;base64,QUJD"),/WebP o PNG/);
   assert.equal(env.uploaded.length,0);
+});
+
+test("no devuelve enlaces rotos ni contenido distinto aunque la carga tenga éxito",async()=>{
+ await assert.rejects(cargar({publicOk:false}).api.publicarDataImage(image),/enlace/);
+ await assert.rejects(cargar({publicBytes:"OTRA"}).api.publicarDataImage(image),/no coincide/);
 });

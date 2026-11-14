@@ -2,7 +2,8 @@
 
 import ListaArrastrable from './ListaArrastrable';
 import {useRef,useState} from "react";
-import {prepararPortada,validarPortada} from "../lib/imagenes-creacion";
+import {validarPortada} from "../lib/imagenes-creacion";
+import {publicarArchivoImagen} from "../lib/imagenes-storage";
 import {EditorReglas} from "./EditorReglas";
 import type {Efecto} from "../lib/creacion";
 import SelectorVFX from './SelectorVFX';
@@ -84,11 +85,11 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
             <div className="flex flex-1 flex-col gap-2"><p className="text-xs text-neutral-300">Retrato propio de {etapa.nombre}.</p><button type="button" className={boton+" self-start"} onClick={()=>onChange({...etapa,imagen_url:undefined})}>Quitar imagen de esta etapa</button></div>
           </div>:
           <p className="rounded-lg border border-dashed border-neutral-700 px-3 py-5 text-center text-sm text-neutral-400">Sin imagen propia: se mostrará el retrato original.</p>}
-        <label className="block text-sm">Subir imagen desde tu dispositivo (PNG, JPG o WebP)
+        <label className="block text-sm">Subir imagen pública desde tu dispositivo (PNG, JPG o WebP)
           <input type="file" accept="image/png,image/jpeg,image/webp" disabled={procesandoImagen} className={campo+" text-sm"} onChange={async e=>{
             const input=e.currentTarget,archivo=input.files?.[0];if(!archivo)return;
             setProcesandoImagen(true);setErrorImagen("");
-            try {const imagen=await prepararPortada(archivo);cambiarEtapaVigente.current({...etapaVigente.current,imagen_url:imagen});}
+            try {const imagen=await publicarArchivoImagen(archivo);cambiarEtapaVigente.current({...etapaVigente.current,imagen_url:imagen});}
             catch(error){setErrorImagen(error instanceof Error?error.message:"No se pudo procesar la imagen.");}
             finally{input.value="";setProcesandoImagen(false);}
           }}/>

@@ -13,6 +13,7 @@ function cargar(path){
  const exports={};cache.set(path,exports);
  const require=name=>{
   if(name.endsWith('.css'))return {};
+  if(name.endsWith('/imagenes-storage'))return {publicarArchivoImagen:async()=>{throw Error('No se suben imágenes durante render');}};
   if(!name.startsWith('.'))return nativeRequire(name);
   const base=resolve(dirname(path),name),p=['.tsx','.ts','.js'].map(ext=>base+ext).find(existsSync);
   return p?cargar(p):nativeRequire(base);
