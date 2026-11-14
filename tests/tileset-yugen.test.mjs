@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cargarDependencia} from './helpers/cargar-ts.mjs';
-const {atlasYugen,TILESET_YUGEN_URL}=cargarDependencia('./tileset-yugen');
+const {atlasYugen,TILESET_YUGEN_URL,urlAtlasPermitida}=cargarDependencia('./tileset-yugen');
 const {generarMapa,validarMapa}=cargarDependencia('./mapas-procedurales');
 const {compilarDibujoMapa,elegirConector,rotarMascara}=cargarDependencia('./mapas-render');
 const {editarCasillaMapa}=cargarDependencia('./mapas-edicion');
@@ -56,4 +56,12 @@ test('el paquete de exteriores no genera interiores con mobiliario inexistente',
 test('pincel de muro y cobertura produce imágenes aunque no haya sello explícito',()=>{
  let m=generarMapa(base,{...op,perfil:'bosque',densidad:0});m=editarCasillaMapa(m,1,1,{tipo:'terreno',terreno:'muro'});m=editarCasillaMapa(m,2,1,{tipo:'terreno',terreno:'cobertura'});
  const comandos=compilarDibujoMapa(m);assert.ok(comandos.some(c=>c.x===1&&c.y===1&&c.capa==='objetos'&&c.region.familia==='muro'));assert.ok(comandos.some(c=>c.x===2&&c.y===1&&c.capa==='objetos'&&c.region.familia==='roca'));
+});
+
+test('los atlas publicados en Storage se pueden volver a abrir sin admitir URLs arbitrarias',()=>{
+ const url='https://yzvpahcjbuotnqjmbkeu.supabase.co/storage/v1/object/public/imagenes/00000000-0000-0000-0000-000000000001/retratos/'+'a'.repeat(64)+'.png';
+ assert.equal(urlAtlasPermitida(url),true);
+ const m=generarMapa(base,op);m.procedural.atlas.url=url;
+ assert.equal(leerArchivoMapa(JSON.stringify(m)).procedural.atlas.url,url);
+ for(const mal of [url+'?x=1',url+'#fragment',url.replace('.png','.svg'),url.replace('https:','http:'),url.replace('.supabase.co','.supabase.co.ejemplo.com'),url.replace('/retratos/','/../')])assert.equal(urlAtlasPermitida(mal),false);
 });

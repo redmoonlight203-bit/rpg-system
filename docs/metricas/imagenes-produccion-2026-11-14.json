@@ -1,0 +1,209 @@
+{
+  "fecha": "2026-11-14",
+  "auditoria": [
+    {
+      "tabla": "arbol_nodos",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "articulos_alma",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "avisos_actualizacion",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "categorias_forja",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "cementerio_personajes",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "codex_descubrimientos",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "codex_entradas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "combate_actualizaciones",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "combates_yugen",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "config_estadisticas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "creaciones_forja",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "deudas_kuroi",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "eventos_dominio",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "forja_almas_unicas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "forja_instancias",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "forja_maestra",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "forja_operaciones",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "inventario_jugador",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "jugador_mapas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "jugador_vinculos",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "linea_tiempo_eras",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "lista_deseos",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "logros_auditoria",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "logros_concesiones",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "logros_yugen",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "mapas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "mercado_objetos",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "monedas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "movimientos_moneda",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "naturalezas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "negociaciones_tienda",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "party_companeros",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "perfiles",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "personaje_naturalezas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "personajes",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "progreso_logros",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "registro_experiencia",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "reglas_saqueo",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "resultados_encuentro",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "salas_arena",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "saldos_usuario",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "saqueos_encuentro",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "tablas_botin",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "tablero_tokens",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "tableros",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "tiempo_juego",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "tienda_items",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "tienda_ofertas",
+      "filas_base64": 0
+    },
+    {
+      "tabla": "titulos_obtenidos",
+      "filas_base64": 0
+    }
+  ],
+  "comprobaciones": {
+    "migracion": "20261114154533",
+    "sin_acceso_anon": true,
+    "ciclo_restaurado": true,
+    "filas_respaldadas": 12,
+    "imagenes_publicadas": 9,
+    "progreso_restaurado": true
+  }
+}

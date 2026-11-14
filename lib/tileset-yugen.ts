@@ -42,4 +42,9 @@ export function atlasYugen(): AtlasMapa {
     return { id: TILESET_YUGEN_ID, url: TILESET_YUGEN_URL, ancho: 1536, alto: 1536, celda: 154, margen: 0, separacion: 0, autor: 'Imagen proporcionada por el GM', licencia: 'Recurso aportado para el proyecto YUGEN; autoría y licencia de terceros no verificadas', regiones };
 }
 export function esAtlasYugen(atlas?: AtlasMapa) { return atlas?.id === TILESET_YUGEN_ID && atlas.url === TILESET_YUGEN_URL; }
-export function urlAtlasPermitida(url: string) { return url === TILESET_YUGEN_URL || (/^data:image\/(png|webp);base64,/.test(url) && url.length < 350000); }
+export function urlAtlasPermitida(url: string) {
+    // Solo recursos incluidos, importaciones locales y archivos raster con nombre
+    // por huella publicados por la aplicación; no URLs arbitrarias ni parámetros.
+    const publicada=/^https:\/\/[a-z0-9]{20}\.supabase\.co\/storage\/v1\/object\/public\/imagenes\/(?:[a-f0-9-]{36}\/retratos|migracion-guia-v2)\/[a-f0-9]{64}\.(png|webp)$/.test(url);
+    return url === TILESET_YUGEN_URL || publicada || (/^data:image\/(png|webp);base64,/.test(url) && url.length < 350000);
+}
