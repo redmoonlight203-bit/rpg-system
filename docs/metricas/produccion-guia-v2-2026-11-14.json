@@ -1,0 +1,61 @@
+{
+  "fecha": "2026-11-14",
+  "proyecto": "RealYugen",
+  "commit_migracion": "8459127f8da15b29e4806bee623e2b8744038dd6",
+  "antes": {
+    "combates": [
+      {
+        "id": "1888a6b3-ae9b-4c89-b2de-55c4f19b7ef0",
+        "bytes": 1177345,
+        "version": 40,
+        "firma_funcional": "b77da188927a989105581d462e5b326a"
+      },
+      {
+        "id": "a4521eb5-1349-42ce-8be4-64a190afc949",
+        "bytes": 3659,
+        "version": 2,
+        "firma_funcional": "875c469c235efb7bfc58eee10a73bde4"
+      },
+      {
+        "id": "bf42ee9c-578d-44b8-ac72-f1cdc8c02512",
+        "bytes": 5503636,
+        "version": 16,
+        "firma_funcional": "a0395d63de7d917909e14266272d2607"
+      }
+    ],
+    "personajes": "eaafb727bcad8af499e0cf2e99924fe3",
+    "resultados": "a5a24bac2d4ee614c84bf65fd7be4f16"
+  },
+  "despues": {
+    "combates": [
+      {
+        "id": "a4521eb5-1349-42ce-8be4-64a190afc949",
+        "bytes": 3659,
+        "version": 2,
+        "historial": true,
+        "firma_funcional": "875c469c235efb7bfc58eee10a73bde4"
+      },
+      {
+        "id": "1888a6b3-ae9b-4c89-b2de-55c4f19b7ef0",
+        "bytes": 807562,
+        "version": 41,
+        "historial": false,
+        "firma_funcional": "b77da188927a989105581d462e5b326a"
+      },
+      {
+        "id": "bf42ee9c-578d-44b8-ac72-f1cdc8c02512",
+        "bytes": 408040,
+        "version": 17,
+        "historial": false,
+        "firma_funcional": "a0395d63de7d917909e14266272d2607"
+      }
+    ],
+    "personajes": "eaafb727bcad8af499e0cf2e99924fe3",
+    "resultados": "a5a24bac2d4ee614c84bf65fd7be4f16",
+    "copias_privadas": 6
+  },
+  "resultados_intactos": true,
+  "personajes_intactos": true,
+  "estado_funcional_intacto": true,
+  "migracion_aplicada": "20261114150354_estabilizacion_guia_v2"
+}
