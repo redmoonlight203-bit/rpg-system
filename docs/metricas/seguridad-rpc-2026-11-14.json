@@ -1,0 +1,126 @@
+{
+  "fecha": "2026-11-14T14:53:17.582Z",
+  "entorno": "PGlite aislado con funciones reales; ACL en producción se auditan por separado",
+  "pruebas": [
+    {
+      "funcion": "forja_crear_copias",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_descartar_accion",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "forja_eliminar",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_guardar",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_estado_jugador",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_eliminar",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_confirmar_progreso",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "navy_reservar_cupo",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_consultar_ligero",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_accion_estado",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_guardar_accion",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_guardar_ligero",
+      "contexto": "sin_sesion",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "forja_crear_copias",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_descartar_accion",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "forja_eliminar",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_guardar",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_estado_jugador",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_eliminar",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_confirmar_progreso",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "navy_reservar_cupo",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_consultar_ligero",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_accion_estado",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_guardar_accion",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    },
+    {
+      "funcion": "combate_guardar_ligero",
+      "contexto": "jugador",
+      "resultado": "rechazado 42501"
+    }
+  ]
+}

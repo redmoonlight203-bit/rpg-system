@@ -1,0 +1,335 @@
+{
+  "reversion": "funciones e historiales recuperados en copia, con igualdad exacta de datos",
+  "entorno": "PGlite aislado con snapshot real; no HTTP ni usuarios reales",
+  "antes": [
+    {
+      "id": "1888a6b3-ae9b-4c89-b2de-55c4f19b7ef0",
+      "bytes": 1177180,
+      "historial_bytes": 1159112
+    },
+    {
+      "id": "a4521eb5-1349-42ce-8be4-64a190afc949",
+      "bytes": 3660,
+      "historial_bytes": 652
+    },
+    {
+      "id": "bf42ee9c-578d-44b8-ac72-f1cdc8c02512",
+      "bytes": 5503636,
+      "historial_bytes": 5095580
+    }
+  ],
+  "despues": [
+    {
+      "id": "1888a6b3-ae9b-4c89-b2de-55c4f19b7ef0",
+      "bytes": 807562,
+      "historial_bytes": null
+    },
+    {
+      "id": "a4521eb5-1349-42ce-8be4-64a190afc949",
+      "bytes": 3660,
+      "historial_bytes": 652
+    },
+    {
+      "id": "bf42ee9c-578d-44b8-ac72-f1cdc8c02512",
+      "bytes": 408040,
+      "historial_bytes": null
+    }
+  ],
+  "resultados_preservados": 2,
+  "explain": [
+    {
+      "Plan": {
+        "Node Type": "ModifyTable",
+        "Operation": "Update",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "combates_yugen",
+        "Alias": "combates_yugen",
+        "Startup Cost": 0.13,
+        "Total Cost": 8.15,
+        "Plan Rows": 0,
+        "Plan Width": 0,
+        "Actual Startup Time": 1.329,
+        "Actual Total Time": 1.331,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "combates_yugen_pkey",
+            "Relation Name": "combates_yugen",
+            "Alias": "combates_yugen",
+            "Startup Cost": 0.13,
+            "Total Cost": 8.15,
+            "Plan Rows": 1,
+            "Plan Width": 38,
+            "Actual Startup Time": 0.013,
+            "Actual Total Time": 0.016,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Index Cond": "(id = 'a4521eb5-1349-42ce-8be4-64a190afc949'::uuid)",
+            "Rows Removed by Index Recheck": 0
+          }
+        ]
+      },
+      "Planning Time": 0.087,
+      "Triggers": [
+        {
+          "Trigger Name": "aaa_encuentro_validar_ciclo",
+          "Relation": "combates_yugen",
+          "Time": 1.059,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "arena_actualizar",
+          "Relation": "combates_yugen",
+          "Time": 0.051,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_fin_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.047,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_inicio_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.147,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_persistir_vitales",
+          "Relation": "combates_yugen",
+          "Time": 0.028,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_proteger_progreso",
+          "Relation": "combates_yugen",
+          "Time": 0.053,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_sincronizar_equipo",
+          "Relation": "combates_yugen",
+          "Time": 0.026,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "encuentro_registrar_resultado",
+          "Relation": "combates_yugen",
+          "Time": 0.039,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "zzz_combate_emitir_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.916,
+          "Calls": 1
+        }
+      ],
+      "Execution Time": 2.524
+    },
+    {
+      "Plan": {
+        "Node Type": "ModifyTable",
+        "Operation": "Update",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "combates_yugen",
+        "Alias": "combates_yugen",
+        "Startup Cost": 0.13,
+        "Total Cost": 8.15,
+        "Plan Rows": 0,
+        "Plan Width": 0,
+        "Actual Startup Time": 1.151,
+        "Actual Total Time": 1.152,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "combates_yugen_pkey",
+            "Relation Name": "combates_yugen",
+            "Alias": "combates_yugen",
+            "Startup Cost": 0.13,
+            "Total Cost": 8.15,
+            "Plan Rows": 1,
+            "Plan Width": 38,
+            "Actual Startup Time": 0.013,
+            "Actual Total Time": 0.016,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Index Cond": "(id = 'a4521eb5-1349-42ce-8be4-64a190afc949'::uuid)",
+            "Rows Removed by Index Recheck": 0
+          }
+        ]
+      },
+      "Planning Time": 0.062,
+      "Triggers": [
+        {
+          "Trigger Name": "aaa_encuentro_validar_ciclo",
+          "Relation": "combates_yugen",
+          "Time": 0.986,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "arena_actualizar",
+          "Relation": "combates_yugen",
+          "Time": 0.05,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_fin_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.084,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_inicio_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.059,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_persistir_vitales",
+          "Relation": "combates_yugen",
+          "Time": 0.028,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_proteger_progreso",
+          "Relation": "combates_yugen",
+          "Time": 0.045,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_sincronizar_equipo",
+          "Relation": "combates_yugen",
+          "Time": 0.025,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "encuentro_registrar_resultado",
+          "Relation": "combates_yugen",
+          "Time": 0.101,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "zzz_combate_emitir_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.626,
+          "Calls": 1
+        }
+      ],
+      "Execution Time": 2.612
+    },
+    {
+      "Plan": {
+        "Node Type": "ModifyTable",
+        "Operation": "Update",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "combates_yugen",
+        "Alias": "combates_yugen",
+        "Startup Cost": 0.13,
+        "Total Cost": 8.15,
+        "Plan Rows": 0,
+        "Plan Width": 0,
+        "Actual Startup Time": 0.971,
+        "Actual Total Time": 0.972,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "combates_yugen_pkey",
+            "Relation Name": "combates_yugen",
+            "Alias": "combates_yugen",
+            "Startup Cost": 0.13,
+            "Total Cost": 8.15,
+            "Plan Rows": 1,
+            "Plan Width": 38,
+            "Actual Startup Time": 0.013,
+            "Actual Total Time": 0.014,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Index Cond": "(id = 'a4521eb5-1349-42ce-8be4-64a190afc949'::uuid)",
+            "Rows Removed by Index Recheck": 0
+          }
+        ]
+      },
+      "Planning Time": 0.058,
+      "Triggers": [
+        {
+          "Trigger Name": "aaa_encuentro_validar_ciclo",
+          "Relation": "combates_yugen",
+          "Time": 0.819,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "arena_actualizar",
+          "Relation": "combates_yugen",
+          "Time": 0.047,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_fin_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.04,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_inicio_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.053,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_persistir_vitales",
+          "Relation": "combates_yugen",
+          "Time": 0.027,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_proteger_progreso",
+          "Relation": "combates_yugen",
+          "Time": 0.039,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "combate_sincronizar_equipo",
+          "Relation": "combates_yugen",
+          "Time": 0.025,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "encuentro_registrar_resultado",
+          "Relation": "combates_yugen",
+          "Time": 0.023,
+          "Calls": 1
+        },
+        {
+          "Trigger Name": "zzz_combate_emitir_aviso",
+          "Relation": "combates_yugen",
+          "Time": 0.568,
+          "Calls": 1
+        }
+      ],
+      "Execution Time": 1.73
+    }
+  ]
+}

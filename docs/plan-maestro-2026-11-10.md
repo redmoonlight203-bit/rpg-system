@@ -1,3 +1,5 @@
+> Documento histórico. El orden de trabajo vigente y las decisiones están en [la guía rectora v2](guia-rectora-v2.md); el estado actual está en [avance del 14 de noviembre](metricas/avance-2026-11-14.md). Las tareas anteriores no sustituyen ese registro.
+
 Plan maestro: estabilizar, optimizar y dar sentido a las pantallas
 Preparado el 10 de noviembre de 2026 · Basado en la revisión del código del proyecto y en el diagnóstico real del combate
 0. Cómo usar este documento

@@ -30,6 +30,8 @@ try {
  await db.exec(readFileSync(new URL('../supabase/migrations/20261107192533_personajes_vida_cementerio.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261107193447_personajes_alma_al_morir.sql',import.meta.url),'utf8'));
  await db.exec(readFileSync(new URL('../supabase/migrations/20261103182719_equipo_en_combate.sql',import.meta.url),'utf8').slice(readFileSync(new URL('../supabase/migrations/20261103182719_equipo_en_combate.sql',import.meta.url),'utf8').indexOf('create or replace function yugen_interno.proteger_equipo_activo()')).split('revoke all on all functions')[0]);
+ const migracion=readFileSync(new URL('../supabase/migrations/20261114144211_estabilizacion_guia_v2.sql',import.meta.url),'utf8');
+ await db.exec(migracion.slice(migracion.indexOf('-- Guía v2:'),migracion.indexOf("do $$declare d text;viejo text:='and new.datos")));
  const usuario=async(id)=>db.exec(`set request.jwt.claim.sub='00000000-0000-0000-0000-${id.padStart(12,'0')}';`);
  await usuario('2');
  const args=['00000000-0000-0000-0000-000000000013','Axel','Historia','Fuego','Montaña Shiro (Prueba de vida)',{vida:25,ph:5,fatiga:5}];
@@ -58,10 +60,22 @@ try {
  assert.deepEqual((await db.query('select vida_actual,ph_actual,fatiga_actual from personajes where id=$1',[id])).rows[0],{vida_actual:'40',ph_actual:'5',fatiga_actual:'0'});
  const bid2='00000000-0000-0000-0000-000000000022';
  await db.query('insert into combates_yugen values($1,$2,$3)',[bid2,'Muerte',combate(0)]);
+ assert.deepEqual((await db.query('select vida_actual,estado_vida from personajes where id=$1',[id])).rows[0],{vida_actual:'0',estado_vida:'vivo'});
+ assert.equal((await db.query('select count(*)::int n from cementerio_personajes')).rows[0].n,0);
+ assert.equal((await db.query('select public.combate_preparar_jugador($1) p',[id])).rows[0].p.vida_actual,0);
+ await db.query('update combates_yugen set datos=$1 where id=$2',[combate(0),bid2]);
+ assert.equal((await db.query('select count(*)::int n from cementerio_personajes')).rows[0].n,0);
+ await db.query('update combates_yugen set datos=$1 where id=$2',[combate(6),bid2]);
+ assert.equal((await db.query('select vida_actual from personajes where id=$1',[id])).rows[0].vida_actual,'6');
+ const muerto=combate(0);muerto.miembros[0].situacion='muerto';
+ // El trigger de persistencia vigente propaga la decisión explícita del GM.
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261110170237_corregir_proyeccion_vitales.sql',import.meta.url),'utf8'));
+ await db.exec('alter table cementerio_personajes add column resucitado_at timestamptz');
+ await db.query('update combates_yugen set datos=$1 where id=$2',[muerto,bid2]);
  let tumba=(await db.query('select * from cementerio_personajes where personaje_id=$1',[id])).rows[0];
  assert.equal(tumba.snapshot.inventario.length,2);assert.equal(tumba.snapshot.combatiente.vida,0);assert.equal(tumba.snapshot.personaje.nombre,'Axel');assert.equal(tumba.snapshot.inventario.find(i=>i.nombre==='Phoenix').configuracion.efectos[0].dano,99);
  assert.equal((await db.query("select personaje_id from inventario_jugador where nombre='Phoenix'")).rows[0].personaje_id,null);
- await db.query('update combates_yugen set datos=$1 where id=$2',[combate(0,'finalizado'),bid2]);
+ await db.query('update combates_yugen set datos=$1 where id=$2',[{...muerto,fase:'finalizado'},bid2]);
  assert.equal((await db.query('select count(*)::int as n from cementerio_personajes')).rows[0].n,1);
  await assert.rejects(db.query("update personajes set estado_vida='vivo',vida_actual=10 where id=$1",[id]),/cementerio/);
  await usuario('2');await db.exec('set role authenticated');

@@ -430,8 +430,13 @@ function estado(
     ...extras,
   });
 }
+function curarCombatiente(m:Combatiente,cantidad:number){
+ if(situacionCombatiente(m)==='muerto')return;
+ m.vida=Math.min(maxVida(m),m.vida+Math.max(0,cantidad));
+ if(m.vida>0&&m.situacion==='inconsciente')m.situacion='activo';
+}
 function recuperar(m: Combatiente, r: ReglaPasiva) {
-  m.vida += r.curacion;
+  curarCombatiente(m,r.curacion);
   m.ph += r.recuperar_ph;
   if (!m.agotado) m.fatiga -= r.reducir_fatiga;
   normalizar(m);
@@ -594,7 +599,7 @@ function entrar(c: Combate, m: Combatiente, rng: RNG) {
         rng,
         `${m.nombre}: ${e.nombre}`,
       );
-      if (e.tipo === "regeneracion") m.vida = Math.min(maxVida(m), m.vida + v);
+      if (e.tipo === "regeneracion") curarCombatiente(m,v);
       else recibir(c, m, m, { ...basico(), efecto: "dano" }, v, [], rng);
       log(c, `${m.nombre}: ${e.nombre}, vida ${m.vida}.`);
       if (
@@ -698,7 +703,7 @@ function registrar(c: Combate, fn: () => Combate, rng:RNG=dadoSeguro) {
   }
   evaluarCierre(n);
   if(n.fase==='en_curso'&&n.actual&&!n.miembros.some(m=>m.id===n.actual&&combatienteActivo(m))){n=siguienteInterno(n,rng);evaluarCierre(n);}
-  n.historial = [...(c.historial || []), previo].slice(-10);
+  n.historial = n.fase==='finalizado' ? [] : [...(c.historial || []), previo].slice(-10);
   return registrarCambiosVida(c,n);
 }
 export function iniciar(c: Combate, rng: RNG = dadoSeguro) {
@@ -710,6 +715,7 @@ export function siguiente(c: Combate, rng: RNG = dadoSeguro) {
 export function deshacer(c: Combate) {
   const h = [...(c.historial || [])],
     previo = h.pop();
+  if(c.fase==='finalizado')throw Error("Un encuentro terminado no se puede deshacer.");
   if (c.progreso_confirmado) throw Error("El progreso ya fue aplicado a las fichas.");
   if (!previo) throw Error("No hay una acción anterior.");
   return registrarCambiosVida(c,{ ...copia(previo), historial: h });
@@ -1225,7 +1231,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
       );
       if (supera && e.salvacion?.exito === "mitad") v = Math.floor(v / 2);
       if (supera && e.salvacion?.exito === "anula") v = 0;
-      if (e.efecto === "curacion") t.vida = Math.min(maxVida(t), t.vida + v);
+      if (e.efecto === "curacion") curarCombatiente(t,v);
       if (e.efecto === "recuperar_ph")
         t.ph = Math.min(estadisticas(t).ph || 0, t.ph + v);
       if (e.efecto === "reducir_fatiga" && !t.agotado)
@@ -1535,7 +1541,7 @@ function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Comba
 function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
  if(ctx.profundidad>8)throw Error('Demasiadas ramas de efectos.');
  for(const [indice,e] of efectos.entries()){
-  const destinos=['aliados','enemigos','todos'].includes(e.destino)?ctx.c.miembros.filter(m=>m.vida>0&&(e.destino==='todos'||(e.destino==='aliados'?m.bando===ctx.yo.bando:m.bando!==ctx.yo.bando))):[sujetoMotor(ctx,e.destino as Sujeto)];
+  const destinos=['aliados','enemigos','todos'].includes(e.destino)?ctx.c.miembros.filter(m=>(m.vida>0||e.tipo==='curar'&&situacionCombatiente(m)!=='muerto')&&(e.destino==='todos'||(e.destino==='aliados'?m.bando===ctx.yo.bando:m.bando!==ctx.yo.bando))):[sujetoMotor(ctx,e.destino as Sujeto)];
   for(const t of destinos){
    if(ctx.alcanceManual!==undefined&&t.id!==ctx.yo.id&&['dano','estado','perder_accion'].includes(e.tipo)){const p=posicionesTablero(ctx.c);if(distanciaCasillas(p[ctx.yo.id],p[t.id])>ctx.alcanceManual)continue;}
    const v=()=>valorMotor(e.valor,ctx),m=motor(t),clave=e.clave||`${origen}:${indice}`;
@@ -1546,7 +1552,7 @@ function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
     }
     case 'perder_accion':t.accion_usada=true;log(ctx.c,`${t.nombre} pierde su acción del turno.`);break;
     case 'mensaje':log(ctx.c,`${t.nombre}: ${e.nombre||'Efecto activado'}`);break;
-    case 'curar':t.vida=Math.min(maxVida(t),t.vida+Math.max(0,v()));break;
+    case 'curar':curarCombatiente(t,v());break;
     case 'ph':{const limite=Math.max(0,estadisticas(t).ph||0);t.ph=Math.max(0,Math.min(limite,phDisponibles(t)+v()));break;}
     case 'fatiga':{const n=v();if(n>0||!t.agotado)t.fatiga+=n;if(t.fatiga>=(estadisticas(t).fatiga||0)&&t.fatiga>0)t.agotado=true;break;}
     case 'dano':{
@@ -1658,7 +1664,7 @@ export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:str
   if(!m||n.fase!=='en_curso'||n.actual!==m.id||m.accion_usada||m.vida<=0)throw Error('Usar un objeto requiere tu turno y una acción disponible.');
   const p=m.configuracion.reserva?.find(p=>p.id===objetoId);
   if(!p||!accionesObjeto(m,p).some(a=>a.id===efectoId))throw Error('Este objeto no está disponible o debes equiparlo primero.');
-  const objetivo=n.miembros.find(v=>v.id===objetivoId);if(!objetivo||objetivo.vida<=0)throw Error('Selecciona un objetivo vivo.');
+  const objetivo=n.miembros.find(v=>v.id===objetivoId);if(!objetivo||situacionCombatiente(objetivo)==='muerto')throw Error('Selecciona un objetivo vivo.');
   const slot=Object.entries(m.configuracion.equipamiento||{}).find(([,v])=>v.id===p.id)?.[0];
   const temporal='inventario-'+p.id;
   if(!slot)(m.configuracion.habilidades||=[]).push({...p,id:temporal});
