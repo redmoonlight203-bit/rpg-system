@@ -2,6 +2,7 @@ import { azarEstable, validarMapa } from './mapas-topologia';
 export { azarEstable, validarMapa } from './mapas-topologia';
 import type { MapaCombate, Terreno } from './combate';
 import { generarExterior } from './generador-exteriores';
+import { generarExteriorV3 } from './generador-exteriores-v3';
 import type { FamiliaPieza } from './tileset-yugen';
 export type PerfilMapa = 'taberna' | 'casa' | 'bosque' | 'pueblo' | 'mazmorra' | 'ruinas';
 export type RolTile = 'suelo' | 'muro' | 'dificil' | 'cobertura' | 'peligro';
@@ -30,7 +31,7 @@ export type AtlasMapa = {
 };
 export type ProcedenciaMapa = {
     schemaVersion: 1;
-    generatorVersion: '1.0.0' | '2.0.0';
+    generatorVersion: '1.0.0' | '2.0.0' | '3.0.0';
     semilla: string;
     perfil: PerfilMapa;
     densidad: number;
@@ -73,6 +74,8 @@ export function cortarAtlas(ancho: number, alto: number, celda: number, margen =
 export function generarMapa(base: MapaCombate, op: ProcedenciaMapa): MapaCombate {
     if (!Number.isInteger(base.columnas) || !Number.isInteger(base.filas) || base.columnas < 8 || base.columnas > 24 || base.filas < 8 || base.filas > 24 || !Number.isFinite(op.densidad) || op.densidad < 0 || op.densidad > 1 || !['taberna', 'casa', 'bosque', 'pueblo', 'mazmorra', 'ruinas'].includes(op.perfil) || op.semilla.length > 120)
         throw Error('Configuración de generación inválida.');
+    if (op.generatorVersion === '3.0.0')
+        return generarExteriorV3(base, op);
     if (op.generatorVersion === '2.0.0')
         return generarExterior(base, op);
     const azar = azarEstable(`${op.generatorVersion}:${op.semilla}:${op.perfil}`), celdas: Record<string, Terreno> = {}, w = base.columnas, h = base.filas, cy = Math.floor(h / 2), cx = Math.floor(w / 2);

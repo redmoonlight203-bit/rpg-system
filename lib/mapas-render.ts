@@ -51,7 +51,7 @@ export function compilarDibujoMapa(m: MapaCombate): DibujoMapa[] {
         for (let x = 0; x < m.columnas; x++) {
             const k = `${x},${y}`, superficie: SuperficieMapa = meta.superficies?.[k] || (m.celdas[k] === 'dificil' ? 'barro' : 'hierba');
             let region: RegionAtlas | undefined, rotacion = 0, cerrar = 0;
-            if (meta.generatorVersion === '2.0.0') {
+            if (meta.generatorVersion !== '1.0.0') {
                 if (superficie.startsWith('camino_')) {
                     const mask = mascaraVecinos(x, y, (nx, ny) => nx < 0 || ny < 0 || nx >= m.columnas || ny >= m.filas || meta.superficies?.[`${nx},${ny}`] === superficie);
                     const seleccion = mask ? elegirConector(familias.get(superficie) || [], mask) : undefined;
@@ -80,7 +80,7 @@ export function compilarDibujoMapa(m: MapaCombate): DibujoMapa[] {
         if (region)
             salida.push({ region, x: o.x, y: o.y, ancho: o.ancho, alto: o.alto, rotacion, capa: o.capa });
     }
-    if (meta.generatorVersion === '2.0.0') {
+    if (meta.generatorVersion !== '1.0.0') {
         const ocupadas = new Set((meta.objetos || []).filter(o => o.capa === 'objetos').flatMap(o => Array.from({ length: o.ancho * o.alto }, (_, i) => `${o.x + i % o.ancho},${o.y + Math.floor(i / o.ancho)}`)));
         for (const [k, t] of Object.entries(m.celdas)) {
             if (ocupadas.has(k))

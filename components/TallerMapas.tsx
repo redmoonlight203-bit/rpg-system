@@ -15,7 +15,7 @@ const perfiles: Record<PerfilMapa, string> = { bosque: 'Bosque y senderos', pueb
 function inicial(m: MapaCombate): MapaCombate {
     if (m.procedural)
         return m;
-    const op: ProcedenciaMapa = { schemaVersion: 1, generatorVersion: '2.0.0', semilla: 'yugen-exteriores-1', perfil: 'pueblo', densidad: .5, protegidas: [], atlas: atlasYugen(), estiloCamino: 'tierra', colorTecho: 'gris' };
+    const op: ProcedenciaMapa = { schemaVersion: 1, generatorVersion: '3.0.0', semilla: `yugen-${String(m.id || 'exteriores').slice(0, 8)}`, perfil: 'pueblo', densidad: .5, protegidas: [], atlas: atlasYugen(), estiloCamino: 'tierra', colorTecho: 'gris' };
     // Existing handmade terrain is preserved; only empty encounters get an initial generated draft.
     return Object.keys(m.celdas).length ? { ...m, procedural: { ...op, superficies: {}, objetos: [] } } : generarMapa(m, op);
 }
@@ -99,14 +99,14 @@ export default function TallerMapas({ mapa, ocupado, onAplicar }: {
     function seleccionarPieza(region: RegionAtlas) { setPincel({ tipo: 'pieza', region, ancho: huella, alto: huella, rotacion }); setHerramienta('pincel'); }
     function generar(nuevaSemilla = false) { setError(''); try {
         const semilla = nuevaSemilla ? crypto.randomUUID().slice(0, 12) : op.semilla;
-        const m = generarMapa(borrador, { ...op, semilla, atlas, protegidas: borrador.procedural?.protegidas || [] });
+        const m = generarMapa(borrador, { ...op, generatorVersion: op.generatorVersion === '2.0.0' ? '3.0.0' : op.generatorVersion, semilla, atlas, protegidas: borrador.procedural?.protegidas || [] });
         cambiar(m);
         setOp({ ...m.procedural! });
     }
     catch (e) {
         setError((e as Error).message);
     } }
-    function usarYugen() { const a = atlasYugen(), config: ProcedenciaMapa = { ...op, atlas: a, generatorVersion: '2.0.0', perfil: ['bosque', 'pueblo', 'ruinas'].includes(op.perfil) ? op.perfil : 'pueblo', protegidas: [] }; setOp(config); cambiar(generarMapa(borrador, config)); setSeleccion([]); setFamilia('todas'); setPincel({ tipo: 'superficie', superficie: 'camino_tierra' }); }
+    function usarYugen() { const a = atlasYugen(), config: ProcedenciaMapa = { ...op, atlas: a, generatorVersion: '3.0.0', perfil: ['bosque', 'pueblo', 'ruinas'].includes(op.perfil) ? op.perfil : 'pueblo', protegidas: [] }; setOp(config); cambiar(generarMapa(borrador, config)); setSeleccion([]); setFamilia('todas'); setPincel({ tipo: 'superficie', superficie: 'camino_tierra' }); }
     async function importarAtlas(file?: File) {
         if (!file)
             return;
