@@ -123,3 +123,15 @@ La migración de alcances completa las acciones antiguas del catálogo y sus cop
 ## Regla de 0 HP y cierre definitivo
 
 0 HP deja inconsciente; no activa muerte, alma ni cementerio. Una curación o poción devuelve al combatiente a activo. El GM decide la muerte explícita y se conserva una única entrada de cementerio por fallecimiento. Preparar de nuevo una ficha con 0 HP no la cura. Al finalizar se compacta el historial técnico y ya no se permite deshacer; se mantienen registro, cierre y resultados oficiales.
+
+## Campo de batalla: capa visual del tablero (2026-11-15)
+
+`components/tablero-campo.css` se carga después de `tablero-combate.css` y solo actúa dentro de `.campo`. No cambia reglas, datos ni llamadas al servidor.
+
+- Azul: casillas a las que se puede llegar. Rojo: casillas que quedarían adyacentes tras moverse (alcance cuerpo a cuerpo; no considera el alcance del arma equipada).
+- Cursor de esquinas que sigue al ratón y al foco; flecha de ruta hasta la casilla bajo el cursor o el destino elegido. La ruta es una vista previa; el destino y el coste los confirma el motor.
+- Fichas como medallones con anillo de bando, peana y barra de vida con estela; el nombre aparece en la unidad bajo el cursor o marcada como objetivo.
+- Barra de unidad bajo el tablero: retrato, vida, estados y terreno de la casilla.
+- Golpes: quien ataca embiste, quien recibe destella y retrocede, el número de daño salta y el tablero se sacude en proporción a la vida perdida. Todo se deduce del `evento_visual` confirmado.
+- Cartel de turno al cambiar la unidad activa.
+- Con `prefers-reduced-motion` no hay animaciones ni cartel.
