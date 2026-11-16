@@ -35,15 +35,10 @@ import NavyCompanera from "../../../components/NavyCompanera";
 import {iconoCreacion,iconoValido} from "../../../lib/iconos-yugen";
 import {validarPortada} from "../../../lib/imagenes-creacion";
 import {esMonstruo} from "../../../lib/progresion";
+import {vacio,vinculoVacio,type Borrador,type Creacion,type Peticion,type VinculoNaturaleza} from "../../../lib/yunque-borrador";
 
 type NaturalezaCatalogo={id:string;nombre:string;descripcion:string;clave:string};
-type VinculoNaturaleza={naturaleza_id:string;origen:string;bestia:string;sello:string;notas:string};
-const vinculoVacio=():VinculoNaturaleza=>({naturaleza_id:"",origen:"",bestia:"",sello:"",notas:""});
 type Atributo={id:string;categoria:string;clave:string;etiqueta:string;valor_defecto:number;descripcion?:string};
-type Creacion={formas_historia?:FormaHistoria[];alma_en_uso?:boolean;naturaleza_vinculo?:VinculoNaturaleza;configuracion_monstruo?:ConfiguracionMonstruo|null;nivel_maximo?:number;configuracion_invocacion?:InvocacionEditor|null;requisitos_uso?:RequisitosUso;consumible?:boolean;icono?:string|null;id:string;nombre:string;tipo:string;tipo_creacion?:TipoCreacion;descripcion:string;historia:string;requisitos:string;defectos:string;imagen_url:string;clase:string;stats:Record<string,number>;stats_rango:Record<string,Rango>;es_grupo:boolean;slot_tipo:string;estado:string;ligado_al_alma:boolean;es_vendible:boolean;precio_sugerido:string;habilidades:string[];pasivas:string[];reglas:Regla[];reglas_pasivas:ReglaPasiva[];equipamiento:Record<string,string>;configuracion_dados:Efecto[]};
-type Peticion={id:string;nombre:string;descripcion:string;user_id:string};
-type Borrador={formas:FormaHistoria[];icono:string;naturalezaVinculo:VinculoNaturaleza;ramaMonstruo:boolean;monstruo:ConfiguracionMonstruo|null;nivelMaximo:number;invocacion:InvocacionEditor|null;requisitos_uso:RequisitosUso;consumible:boolean;id?:string;peticion?:Peticion;nombre:string;tipo:TipoCreacion;clasificacion:string;descripcion:string;historia:string;requisitos:string;defectos:string;imagen:string;clase:string;malla:boolean;slot:string;stats:Record<string,number>;rangos:Record<string,Rango>;efectos:Efecto[];habilidades:string[];pasivas:string[];reglas:Regla[];reglas_pasivas:ReglaPasiva[];equipamiento:Record<string,string>;alma:boolean;venta:boolean;precio:string};
-const vacio=():Borrador=>({formas:[],icono:"",naturalezaVinculo:vinculoVacio(),ramaMonstruo:false,monstruo:null,nivelMaximo:20,invocacion:null,requisitos_uso:{},consumible:false,nombre:"",tipo:"objeto",clasificacion:"",descripcion:"",historia:"",requisitos:"",defectos:"",imagen:"",clase:"D",malla:false,slot:"ninguno",stats:{},rangos:{},efectos:[],habilidades:[],pasivas:[],reglas:[],reglas_pasivas:[],equipamiento:{},alma:false,venta:false,precio:""});
 const campo="mt-1 w-full rounded-lg border border-neutral-700 bg-well px-3 py-2.5 text-sm text-neutral-100 focus:border-orange-500 focus:outline-none";
 const boton="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-orange-600 disabled:cursor-not-allowed disabled:opacity-40";
 const panel="forja-panel space-y-5 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6";
