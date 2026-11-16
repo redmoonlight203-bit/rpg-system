@@ -16,23 +16,26 @@
 @theme {
   --text-xs: 0.8125rem;
   --text-xs--line-height: 1.5;
-  --color-well: #0a0b0a;
-  --color-canvas: #121312;
-  --color-raised: #1a1b19;
-  --color-overlay: #262725;
-  --color-gold-soft: #e2c292;
-  --color-gold-bright: #f1d5a7;
-  --color-ember: #38231b;
-  --color-line: rgb(166 125 67 / 0.22);
-  --color-line-strong: rgb(166 125 67 / 0.5);
-  --color-text: #e9e4d7;
-  --color-text-muted: #a9aaa5;
-  --color-danger-text: #f0606c;
-  --color-success-text: #62b393;
+  /* v3 · Noche de Kuroi: vacío violeta, oro de pergamino, morado arcano */
+  --color-well: #07060b;
+  --color-canvas: #0e0c14;
+  --color-raised: #17131f;
+  --color-overlay: #221c2e;
+  --color-gold-soft: #e7c994;
+  --color-gold-bright: #f4dcae;
+  --color-ember: #2c1f2a;
+  --color-line: rgb(199 164 106 / 0.22);
+  --color-line-strong: rgb(199 164 106 / 0.55);
+  --color-text: #efe9dc;
+  --color-text-muted: #a39db3;
+  --color-danger-text: #ff7a88;
+  --color-success-text: #7fd6a4;
+  --color-arcano: #8b6cff;
+  --color-arcano-soft: #c4b5ff;
   /* ---- Nombres semánticos (úsalos de aquí en adelante) ---- */
-  --color-crimson: #ad0013;
-  --color-gold: #a67d43;
-  --color-ink: #121312;
+  --color-crimson: #b3122e;
+  --color-gold: #c7a46a;
+  --color-ink: #0e0c14;
 
   /* ---- NEGRO cálido (reemplaza neutral) ---- */
   --color-neutral-50: #f8f6f0;

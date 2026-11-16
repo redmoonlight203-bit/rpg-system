@@ -24,7 +24,7 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, view
 
 export const metadata: Metadata = {
   title: "YUGEN | El dominio de Kuroi",
-  icons: { icon: "/brand/yugen-kuroi.png", apple: "/brand/yugen-kuroi.png" },
+  icons: { icon: "/brand/yugen-kuroi.svg", apple: "/brand/yugen-kuroi.svg" },
   description: "Plataforma de Control para Kuroi y Reencarnados",
 };
 
