@@ -20,8 +20,11 @@ import {
   type Raza,
   type Atributo,
 } from "../../../lib/personajes";
-import { linaje } from "../../../lib/estadisticas";
+import { linaje, imagenDeRaza } from "../../../lib/estadisticas";
 import FichaVital from "../../../components/FichaVital";
+import RetratoRaza from "../../../components/RetratoRaza";
+import { Marco, BarraVital, Medallon } from "../../../components/ui/Juego";
+import { experienciaParaNivel, NIVEL_MAXIMO } from "../../../lib/progresion";
 import IconoYugen from "../../../components/IconoYugen";
 import "../../../components/personajes.css";
 export default function FichaPersonaje() {
@@ -121,10 +124,15 @@ export default function FichaPersonaje() {
       icon: Flame,
     },
   ];
+  const nivel = p?.nivel || 1,
+    expTotal = p?.exp_total || 0,
+    expBase = experienciaParaNivel(nivel),
+    expSiguiente = experienciaParaNivel(Math.min(NIVEL_MAXIMO, nivel + 1)),
+    nivelMaximo = nivel >= NIVEL_MAXIMO;
   return (
-    <main className="pj-page">
+    <main className="pj-page y3-heroe">
       <Link className="pj-button" href={p?.es_companero?"/ficha/party":"/ficha/personajes"}>
-        <ArrowLeft size={14} />
+        <ArrowLeft size={14} aria-hidden="true" />
         {p?.es_companero?"Mi party":"Mis personajes"}
       </Link>
       {error ? (
@@ -133,75 +141,70 @@ export default function FichaPersonaje() {
           <button onClick={() => void cargar()}>Reintentar</button>
         </p>
       ) : !p ? (
-        <p className="pj-empty">Cargando tu historia…</p>
+        <p className="pj-empty" role="status">Kuroi busca tu historia entre las almas…</p>
       ) : (
         <>
-          <header className="pj-head pj-section">
-            <div>
-              <span className="pj-eyebrow">
-                {raza?.nombre || p.raza} / NIVEL {p.nivel || 1}
-              </span>
-              <h1>{p.nombre}</h1>
-              <p>{p.lugar_reencarnacion}</p>
+          {/* Carta de héroe: retrato, nombre, linaje y progreso */}
+          <Marco brillo className="y3-carta">
+            <div className="y3-carta-retrato" aria-hidden="true">
+              <RetratoRaza src={imagenDeRaza(categorias, raza?.clave)} nombre={raza?.nombre} className="y3-carta-silueta" />
+              <span className="y3-carta-emblema"><IconoYugen id={raza?.icono} size={40} /></span>
             </div>
-            <IconoYugen id={raza?.icono} size={65} />
-          </header>
-          <div className="pj-layout">
-            <section className="pj-panel">
-              <FichaVital personaje={p} />
-              <p>
-                Las heridas, los PH gastados y la fatiga se conservan entre
-                encuentros. El GM puede curarte o darte descanso.
-              </p>
-            </section>
-            <section className="pj-panel">
-              <span className="pj-eyebrow">IDENTIDAD</span>
-              <p>{p.historia || "Tu historia todavía se escribe."}</p>
-              {p.defecto && <p>Rasgo especial: {p.defecto}</p>}
-              <p>{(p.exp_total || 0).toLocaleString("es-DO")} XP acumulada</p>
-            </section>
-          </div>
-          <section className="pj-section">
-            <h2>Atributos del personaje</h2>
-            <div className="pj-stats">
-              {Object.entries(p.atributos || {}).map(([k, v]) => (
-                <div className="pj-stat" key={k}>
-                  <small>
-                    {defs.find((s) => s.clave === k)?.etiqueta ||
-                      k.replaceAll("_", " ")}
-                  </small>
-                  <strong>{v}</strong>
+            <div className="y3-carta-cuerpo">
+              <p className="y3-carta-linaje">{raza?.nombre || p.raza}{p.lugar_reencarnacion ? ` · ${p.lugar_reencarnacion}` : ""}</p>
+              <h1 className="y3-display y3-carta-nombre">{p.nombre}</h1>
+              <div className="y3-carta-nivel">
+                <span className="y3-nivel-gema" role="img" aria-label={`Nivel ${nivel}`}><strong>{nivel}</strong></span>
+                <div className="y3-carta-exp">
+                  <BarraVital tipo="exp" etiqueta={nivelMaximo ? "Nivel máximo alcanzado" : `Experiencia hacia el nivel ${nivel + 1}`}
+                    valor={nivelMaximo ? 1 : expTotal - expBase} max={nivelMaximo ? 1 : expSiguiente - expBase} />
+                  <small>{expTotal.toLocaleString("es")} XP acumulada</small>
                 </div>
+              </div>
+              <FichaVital personaje={p} />
+              <p className="y-nota">Las heridas, los PH gastados y la fatiga se conservan entre encuentros. Kuroi puede curarte o darte descanso.</p>
+            </div>
+          </Marco>
+
+          <section className="pj-section" aria-labelledby="atributos-titulo">
+            <h2 id="atributos-titulo" className="y3-display y3-seccion-titulo">Atributos</h2>
+            <div className="y3-medallones">
+              {Object.entries(p.atributos || {}).map(([k, v]) => (
+                <Medallon key={k} etiqueta={defs.find((s) => s.clave === k)?.etiqueta || k.replaceAll("_", " ")} valor={String(v)} />
               ))}
             </div>
-            <p>
-              Valores de la ficha. El equipo y los efectos temporales se
-              calculan al preparar el combate.
-            </p>
+            <p className="y-nota">Valores de la ficha. El equipo y los efectos temporales se suman al preparar el combate.</p>
           </section>
-          {!!pasivas.length && (
-            <section className="pj-section">
-              <h2>Herencia racial</h2>
-              <div className="pj-grid">
+
+          <div className="y3-dos">
+            <Marco titulo="Historia">
+              <p className="y3-historia">{p.historia || "Tu historia todavía se escribe."}</p>
+              {p.defecto && <p className="y-nota">Rasgo especial: {p.defecto}</p>}
+            </Marco>
+            {!!pasivas.length && (
+              <Marco titulo="Herencia racial">
                 {pasivas.map((c) => (
-                  <article key={c.id} className="pj-card">
-                    <span className="pj-eyebrow">{c.nombre}</span>
+                  <article key={c.id} className="y3-herencia">
+                    <small>{c.nombre}</small>
                     <h3>{c.pasiva_racial?.nombre}</h3>
                     <p>{c.pasiva_racial?.descripcion}</p>
                   </article>
                 ))}
-              </div>
-            </section>
-          )}
-          <div className="pj-grid">
-            {opciones.map((o) => (
-              <Link href={o.href} className="pj-card" key={o.href}>
-                <o.icon size={28} />
-                <h2>{o.nombre}</h2>
-                <p>{o.texto}</p>
-              </Link>
-            ))}
+              </Marco>
+            )}
           </div>
+
+          <section aria-labelledby="caminos-titulo">
+            <h2 id="caminos-titulo" className="y3-display y3-seccion-titulo">Tus caminos</h2>
+            <div className="y3-lugares">
+              {opciones.map((o) => (
+                <Link href={o.href} className="y3-lugar" key={o.href}>
+                  <span className="y3-lugar-icono" aria-hidden="true"><o.icon size={30} /></span>
+                  <span className="y3-lugar-texto"><strong>{o.nombre}</strong><small>{o.texto}</small></span>
+                </Link>
+              ))}
+            </div>
+          </section>
         </>
       )}
     </main>

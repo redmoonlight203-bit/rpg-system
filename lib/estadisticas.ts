@@ -1,4 +1,4 @@
-export interface CategoriaBase { id: string; clave: string; nombre: string; parent_id?: string | null; icono?: string | null }
+export interface CategoriaBase { id: string; clave: string; nombre: string; parent_id?: string | null; icono?: string | null; imagen_url?: string | null }
 export interface AtributoBase { clave: string; categoria: string; valor_defecto?: number | null }
 
 /** Root first, selected category last. Old rows without parent_id remain standalone. */
@@ -25,4 +25,15 @@ export function padreValido(categorias: CategoriaBase[], categoriaId: string | u
   const padre = categorias.find(c => c.id === padreId);
   if (!padre) return false;
   return !linaje(categorias, padre.clave).some(c => c.id === categoriaId);
+}
+
+/** Imagen de raza (design.md v3): la de la categoría o la de su ancestro más cercano, sin contar la raíz «razas». */
+export function imagenDeRaza(categorias: CategoriaBase[], clave: string | null | undefined): string | undefined {
+  if (!clave) return undefined;
+  const cadena = linaje(categorias, clave);
+  for (let i = cadena.length - 1; i >= 0; i--) {
+    const c = cadena[i];
+    if (c.clave !== 'razas' && c.imagen_url) return c.imagen_url;
+  }
+  return undefined;
 }

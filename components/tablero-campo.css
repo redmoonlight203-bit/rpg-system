@@ -63,7 +63,7 @@
 .campo .enemy .tactical-token{--bando:rgb(var(--rojo))}
 .campo .tactical-token::before{content:'';position:absolute;left:4%;right:4%;bottom:-13%;height:34%;border-radius:50%;background:radial-gradient(ellipse,color-mix(in srgb,var(--bando) 75%,transparent) 0 45%,color-mix(in srgb,var(--bando) 25%,transparent) 62%,transparent 72%);box-shadow:0 3px 8px #000b}
 .campo .ficha-cuerpo{position:absolute;inset:0;display:block}
-.campo .tactical-cell .tactical-token .battle-portrait{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);color:#f1d5a7;font:600 clamp(13px,1.5vw,20px)/1 var(--font-serif,Georgia,serif);box-shadow:0 0 0 2px var(--bando),0 0 0 3.5px #050505,0 5px 9px #000c}
+.campo .tactical-cell .tactical-token .battle-portrait{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);color:var(--color-gold-bright);font:600 clamp(13px,1.5vw,20px)/1 var(--font-serif,Georgia,serif);box-shadow:0 0 0 2px var(--bando),0 0 0 3.5px #050505,0 5px 9px #000c}
 .campo .tactical-cell .tactical-token .battle-portrait img{object-fit:cover;border-radius:50%}
 .campo .tactical-cell.current .battle-portrait{box-shadow:0 0 0 2px rgb(var(--oro)),0 0 0 3.5px #050505,0 0 16px 3px rgb(var(--oro)/.6),0 5px 9px #000c}
 .campo .tactical-cell.target .battle-portrait{box-shadow:0 0 0 2px rgb(var(--rojo)),0 0 0 3.5px #050505,0 0 16px 3px rgb(var(--rojo)/.7)}
@@ -104,10 +104,10 @@
 .campo-info.ally{border-left-color:rgb(var(--azul))}
 .campo-info.enemy{border-left-color:rgb(var(--rojo))}
 .campo-info small{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8f918b}
-.campo-info>.battle-portrait{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:2px;overflow:hidden;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);box-shadow:0 0 0 1px rgb(var(--oro)/.45);color:#f1d5a7;font:600 20px/1 var(--font-serif,Georgia,serif)}
+.campo-info>.battle-portrait{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:2px;overflow:hidden;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);box-shadow:0 0 0 1px rgb(var(--oro)/.45);color:var(--color-gold-bright);font:600 20px/1 var(--font-serif,Georgia,serif)}
 .campo-info>.battle-portrait img{width:100%;height:100%;object-fit:cover}
 .campo-info-nombre{min-width:130px}
-.campo-info-nombre strong{display:block;font:600 24px/1.15 var(--font-serif,Georgia,serif);color:#f1d5a7}
+.campo-info-nombre strong{display:block;font:600 24px/1.15 var(--font-serif,Georgia,serif);color:var(--color-gold-bright)}
 .campo-info-vida{min-width:170px}
 .campo-info-vida strong{display:block;font:300 32px/1 var(--font-serif,Georgia,serif);font-variant-numeric:tabular-nums;color:#fff}
 .campo-info-vida strong i{font-style:normal;font-size:18px;color:#8f918b}
@@ -119,7 +119,7 @@
 .campo-info-terreno{margin-left:auto;padding-left:18px;border-left:1px solid rgb(var(--oro)/.2);text-align:right;white-space:nowrap}
 .campo-info-terreno strong{display:block;font:600 16px/1.3 var(--font-serif,Georgia,serif);color:rgb(var(--oro))}
 .campo .tactical-move-confirm{border-top:1px solid rgb(var(--oro)/.18);background:#0c0d0f;color:var(--color-text-muted,#a9aaa5)}
-.campo .tactical-move-confirm button{border-radius:2px;background:#a67d43;border-color:#c49a5c;color:#121312;font-weight:600}
+.campo .tactical-move-confirm button{border-radius:2px;background:var(--color-gold);border-color:#c49a5c;color:var(--color-ink);font-weight:600}
 .campo .tactical-move-confirm button:disabled{opacity:.45;cursor:not-allowed}
 
 /* Movimiento: solo si la persona no ha pedido reducirlo. */

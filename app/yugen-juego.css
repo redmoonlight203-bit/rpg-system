@@ -1,0 +1,162 @@
+/* ==========================================================================
+   YUGEN v3 · PIEZAS DE JUEGO (design.md v3 §4–§6)
+   Escena, runa, marco, barra vital, medallón, sello y re-vestido de la cabecera.
+   Animaciones solo con transform/opacity; todas se apagan con movimiento reducido.
+   ========================================================================== */
+
+/* ── Escena: vacío, halo arcano y grano de pergamino ── */
+.yugen-page{
+ background:
+  radial-gradient(ellipse 60% 38% at 18% -6%,color-mix(in srgb,var(--color-arcane) 16%,transparent),transparent 70%),
+  radial-gradient(ellipse 50% 30% at 92% 0%,color-mix(in srgb,var(--color-gold) 10%,transparent),transparent 70%),
+  radial-gradient(ellipse 120% 80% at 50% 120%,var(--color-well),transparent 60%),
+  var(--color-canvas);
+ position:relative;isolation:isolate}
+.yugen-page::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.05;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E")}
+.yugen-page>main{background:transparent!important}
+.yugen-page main{animation:y3-entrada .3s ease-out both}
+@keyframes y3-entrada{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── Títulos en display de fantasía ── */
+.yugen-page .y-cab h1,.y3-display,.yugen-page .y3-display{font-family:var(--font-display);font-weight:600;letter-spacing:.02em;text-shadow:0 0 24px color-mix(in srgb,var(--color-gold) 25%,transparent)}
+.yugen-page .y-cab-kanji{border-right-color:color-mix(in srgb,var(--color-gold) 35%,transparent)}
+.yugen-page .y-cab-migas{color:var(--color-arcane);letter-spacing:.04em}
+/* Divisor ornamentado: oro que se desvanece con un rombo central (sustituye al kintsugi sobrio) */
+.yugen-page .y-cab-kintsugi.kintsugi{height:1px;background:linear-gradient(90deg,transparent,var(--color-gold) 20%,var(--color-gold) 80%,transparent);max-width:none}
+.yugen-page .y-cab-kintsugi.kintsugi::after{left:50%;top:-4px;width:9px;height:9px;border:1px solid var(--color-gold);background:var(--color-canvas);transform:translateX(-50%) rotate(45deg)}
+.yugen-page .y-secciones>button[aria-selected=true]{text-shadow:0 0 12px color-mix(in srgb,var(--color-gold) 45%,transparent)}
+
+/* ── Runa ── */
+.y3-runa{display:inline-block;background:linear-gradient(160deg,var(--color-gold-bright),var(--color-gold));-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--color-gold) 40%,transparent))}
+.y3-runa-kanji{display:inline-grid;place-items:center;font-family:var(--font-kanji);line-height:1;color:var(--color-gold-soft);text-shadow:0 0 14px color-mix(in srgb,var(--color-gold) 45%,transparent)}
+
+/* ── Marco con esquinas ornamentadas ── */
+.y3-marco{position:relative;padding:28px;background:linear-gradient(170deg,color-mix(in srgb,var(--color-raised) 92%,var(--color-arcane)),var(--color-raised) 40%,var(--color-well));border:1px solid var(--color-line);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-well) 70%,transparent),0 18px 40px -24px #000}
+.y3-marco--brillo{border-color:var(--color-line-strong);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-well) 70%,transparent),0 0 0 1px color-mix(in srgb,var(--color-gold) 15%,transparent),0 0 32px -8px color-mix(in srgb,var(--color-gold) 35%,transparent)}
+.y3-marco-esquina{position:absolute;width:28px;height:28px;color:var(--color-gold);pointer-events:none}
+.y3-marco-esquina.is-ti{top:-1px;left:-1px}.y3-marco-esquina.is-td{top:-1px;right:-1px;transform:scaleX(-1)}
+.y3-marco-esquina.is-bi{bottom:-1px;left:-1px;transform:scaleY(-1)}.y3-marco-esquina.is-bd{bottom:-1px;right:-1px;transform:scale(-1)}
+.y3-marco-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid var(--color-line)}
+.y3-marco-cab h2{margin:0;font:600 18px/1.3 var(--font-display);letter-spacing:.06em;color:var(--color-gold-soft)}
+
+/* ── Barra vital ── */
+.y3-barra{display:grid;gap:8px;min-width:0}
+.y3-barra-cab{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font:500 13px var(--font-sans);color:var(--color-text-muted);letter-spacing:.04em}
+.y3-barra-cab strong{font:500 18px var(--font-serif);font-variant-numeric:tabular-nums;color:var(--color-parchment)}
+.y3-barra-cab small{font-size:13px;color:var(--color-text-muted)}
+.y3-barra-pista{position:relative;height:10px;overflow:hidden;background:var(--color-well);border:1px solid var(--color-line);box-shadow:inset 0 1px 3px #0009}
+.y3-barra--grande .y3-barra-pista{height:16px}
+.y3-barra--grande .y3-barra-cab strong{font-size:30px;font-weight:300}
+.y3-barra-relleno{position:absolute;inset:0;transform-origin:left center;transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.y3-barra-relleno::after{content:'';position:absolute;inset:0 0 50% 0;background:linear-gradient(#ffffff38,transparent)}
+.y3-barra--vida .y3-barra-relleno{background:linear-gradient(90deg,var(--color-red-800),var(--color-red-500));box-shadow:0 0 12px color-mix(in srgb,var(--color-red-500) 60%,transparent)}
+.y3-barra--ph .y3-barra-relleno{background:linear-gradient(90deg,var(--color-purple-700),var(--color-arcane))}
+.y3-barra--fatiga .y3-barra-relleno{background:linear-gradient(90deg,var(--color-orange-800),var(--color-orange-400))}
+.y3-barra--exp .y3-barra-relleno{background:linear-gradient(90deg,var(--color-amber-700),var(--color-gold-bright))}
+.y3-barra-destello{position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,#fff8 50%,transparent 70%);transform:translateX(-100%);animation:y3-destello .7s ease-out forwards;pointer-events:none}
+@keyframes y3-destello{to{transform:translateX(100%)}}
+
+/* ── Medallón ── */
+.y3-medallon{display:grid;justify-items:center;gap:8px;text-align:center;min-width:0}
+.y3-medallon-disco{display:grid;place-items:center;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--color-overlay),var(--color-well) 75%);border:2px solid var(--color-gold);box-shadow:inset 0 0 0 3px var(--color-well),inset 0 0 0 4px color-mix(in srgb,var(--color-gold) 40%,transparent),0 6px 18px -8px #000;transition:transform .18s ease}
+.y3-medallon-disco strong{font:400 28px var(--font-serif);font-variant-numeric:tabular-nums;color:var(--color-gold-bright)}
+.y3-medallon>span{font:600 12px var(--font-display);letter-spacing:.08em;color:var(--color-parchment);text-transform:uppercase}
+.y3-medallon>small{font:12px var(--font-sans);color:var(--color-text-muted)}
+.y3-medallon:hover .y3-medallon-disco{transform:translateY(-2px)}
+
+/* ── Sello de lacre ── */
+.y3-sello{display:inline-flex;align-items:center;gap:10px;font:600 14px var(--font-display);letter-spacing:.06em;color:var(--color-parchment)}
+.y3-sello-lacre{display:grid;place-items:center;width:44px;height:44px;border-radius:46% 54% 50% 50%/52% 48% 54% 46%;background:radial-gradient(circle at 38% 32%,var(--color-red-500),var(--color-crimson) 55%,var(--color-red-900));color:#fff;font:22px var(--font-kanji);box-shadow:inset 0 0 0 3px #ffffff1f,0 4px 10px -2px #000;transform:rotate(-6deg)}
+.y3-sello--celebrar .y3-sello-lacre{animation:y3-sellar .6s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes y3-sellar{from{opacity:0;transform:scale(1.8) rotate(-20deg)}to{opacity:1;transform:rotate(-6deg)}}
+
+/* ── Halo para lo disponible ── */
+.y3-halo{position:relative}
+.y3-halo::after{content:'';position:absolute;inset:-6px;border-radius:inherit;box-shadow:0 0 0 1px color-mix(in srgb,var(--color-arcane) 45%,transparent),0 0 22px 2px color-mix(in srgb,var(--color-arcane) 35%,transparent);opacity:.4;animation:y3-halo 2.4s ease-in-out infinite;pointer-events:none}
+@keyframes y3-halo{50%{opacity:1}}
+
+/* ── Botones con presión ── */
+.yugen-page button:not(:disabled),.yugen-page a.y-button{transition:transform .12s ease,background-color .2s,border-color .2s,color .2s}
+.yugen-page button:not(:disabled):active,.yugen-page a.y-button:active{transform:scale(.97)}
+
+/* ── Riel: runa activa con halo ── */
+.yugen-rail nav a.is-active .yugen-rail-index{text-shadow:0 0 12px color-mix(in srgb,var(--color-gold) 70%,transparent);color:var(--color-gold-bright)}
+
+@media (prefers-reduced-motion:reduce){
+ .yugen-page main,.y3-barra-destello,.y3-sello--celebrar .y3-sello-lacre,.y3-halo::after{animation:none}
+ .y3-barra-relleno,.y3-medallon-disco,.yugen-page button,.yugen-page a.y-button{transition:none}
+ .yugen-page button:active{transform:none}
+}
+
+/* ── Ficha del jugador: carta de héroe ── */
+.yugen-page .y3-vitales{display:grid;gap:20px;padding:0;border:0;background:none}
+.y3-vitales-menores{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px 24px}
+.y3-carta{display:grid;grid-template-columns:minmax(200px,280px) minmax(0,1fr);gap:32px;margin:24px 0 48px;padding:32px}
+.y3-carta-retrato{position:relative;display:grid;place-items:end center;min-height:320px;overflow:hidden;border:1px solid var(--color-line);background:radial-gradient(ellipse 70% 55% at 50% 35%,color-mix(in srgb,var(--color-arcane) 22%,transparent),transparent 70%),linear-gradient(180deg,var(--color-overlay),var(--color-well))}
+.y3-carta-silueta{width:70%;height:auto;max-height:300px;color:var(--color-gold);opacity:.85;filter:drop-shadow(0 0 18px color-mix(in srgb,var(--color-gold) 30%,transparent))}
+.y3-carta-emblema{position:absolute;top:12px;left:12px;display:grid;place-items:center;width:56px;height:56px;border-radius:50%;border:1px solid var(--color-gold);background:var(--color-well);color:var(--color-gold-soft)}
+.y3-carta-cuerpo{display:grid;align-content:start;gap:20px;min-width:0}
+.y3-carta-linaje{margin:0;font:500 13px var(--font-sans);letter-spacing:.08em;color:var(--color-arcane)}
+.yugen-page .y3-carta-nombre{margin:-8px 0 0;font-size:clamp(36px,5vw,60px);line-height:1.05;color:var(--color-gold-bright)}
+.y3-carta-nivel{display:flex;align-items:center;gap:20px}
+.y3-nivel-gema{display:grid;place-items:center;flex:0 0 auto;width:72px;height:72px;transform:rotate(45deg);border:2px solid var(--color-gold);background:radial-gradient(circle at 40% 35%,var(--color-overlay),var(--color-well));box-shadow:0 0 22px -6px color-mix(in srgb,var(--color-gold) 60%,transparent)}
+.y3-nivel-gema>*{transform:rotate(-45deg)}
+.y3-nivel-gema strong{font:400 30px var(--font-serif);color:var(--color-gold-bright);font-variant-numeric:tabular-nums}
+.y3-carta-exp{flex:1;display:grid;gap:6px;min-width:0}
+.y3-carta-exp>small{font:13px var(--font-sans);color:var(--color-text-muted)}
+.yugen-page .y3-seccion-titulo{margin:0 0 20px;font-size:22px;letter-spacing:.06em;color:var(--color-gold-soft)}
+.y3-medallones{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:24px 16px;margin-bottom:12px}
+.y3-dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:24px;margin:48px 0}
+.y3-historia{margin:0;font:italic 17px/1.7 var(--font-serif);color:var(--color-parchment)}
+.y3-herencia+.y3-herencia{margin-top:16px;padding-top:16px;border-top:1px solid var(--color-line)}
+.y3-herencia small{font:12px var(--font-sans);color:var(--color-arcane)}
+.y3-herencia h3{margin:4px 0;font:600 17px var(--font-display);color:var(--color-gold-soft)}
+.y3-herencia p{margin:0;font:14px/1.6 var(--font-sans);color:var(--color-text-muted)}
+
+/* ── Lugares (hub y caminos): cartas que se elevan ── */
+.y3-lugares{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:16px}
+.y3-lugar{position:relative;display:flex;align-items:center;gap:18px;min-height:96px;padding:20px 22px;text-decoration:none;border:1px solid var(--color-line);background:linear-gradient(150deg,var(--color-raised),var(--color-well));color:var(--color-text);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.y3-lugar:hover,.y3-lugar:focus-visible{transform:translateY(-3px);border-color:var(--color-line-strong);box-shadow:0 14px 30px -18px #000,0 0 26px -10px color-mix(in srgb,var(--color-gold) 45%,transparent)}
+.y3-lugar-icono{display:grid;place-items:center;flex:0 0 auto;width:58px;height:58px;border-radius:50%;border:1px solid var(--color-gold);background:radial-gradient(circle at 40% 35%,var(--color-overlay),var(--color-well));color:var(--color-gold-soft);box-shadow:inset 0 0 0 3px var(--color-well)}
+.y3-lugar-texto{display:grid;gap:4px;min-width:0}
+.y3-lugar-texto strong{font:600 16px var(--font-display);letter-spacing:.04em;color:var(--color-gold-bright)}
+.y3-lugar-texto small{font:13px/1.5 var(--font-sans);color:var(--color-text-muted)}
+.y3-lugar-novedad{position:absolute;top:12px;right:12px;width:9px;height:9px;border-radius:50%;background:var(--color-arcane);box-shadow:0 0 10px var(--color-arcane)}
+
+@media(max-width:767px){
+ .y3-carta{grid-template-columns:1fr;padding:20px;gap:20px}
+ .y3-carta-retrato{min-height:200px}
+ .y3-carta-silueta{max-height:190px}
+ .y3-nivel-gema{width:58px;height:58px}
+ .y3-medallones{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 8px}
+ .y3-medallon-disco{width:64px;height:64px}
+}
+@media (prefers-reduced-motion:reduce){.y3-lugar{transition:none}.y3-lugar:hover{transform:none}}
+
+.yugen-page .pj-page.y3-heroe,.yugen-page .y3-hub{background:transparent;box-shadow:none}
+/* Las pantallas v3 de la ficha no heredan el re-pintado antiguo de jugador.css (fondo oscuro y títulos Georgia). */
+.y-player .player-mobile-content>main:is(.y3-heroe,.y3-hub):is(.y3-heroe,.y3-hub){background:transparent!important}
+.y-player .player-mobile-content>main :is(h1,h2,h3).y3-display{font-family:var(--font-display)!important}
+/* ── Hub del jugador ── */
+.y3-hub{max-width:1280px;margin:0 auto;padding:clamp(20px,4vw,48px)}
+.y3-hub-portal{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,1fr);align-items:center;gap:32px;margin-bottom:56px;padding:clamp(28px,4vw,56px);background:radial-gradient(ellipse 60% 80% at 85% 40%,color-mix(in srgb,var(--color-arcane) 18%,transparent),transparent 70%),linear-gradient(160deg,var(--color-raised),var(--color-well))}
+.yugen-page .y3-hub-titulo{margin:12px 0 16px;font-size:clamp(34px,5vw,64px);line-height:1.08;color:var(--color-gold-bright)}
+.y3-hub-lema{margin:0 0 28px;max-width:44ch;font:italic 17px/1.7 var(--font-serif);color:var(--color-parchment)}
+.y3-hub-sello{display:grid;place-items:center;min-height:220px}
+.y3-hub-orbe{display:grid;place-items:center;width:180px;height:180px;border-radius:50%;border:1px solid var(--color-gold);background:radial-gradient(circle at 40% 35%,var(--color-overlay),var(--color-well) 70%);color:var(--color-gold-soft);box-shadow:inset 0 0 0 6px var(--color-well),inset 0 0 0 7px color-mix(in srgb,var(--color-gold) 35%,transparent)}
+.y3-boton-principal{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:12px 24px;background:linear-gradient(180deg,var(--color-gold-soft),var(--color-gold));color:var(--color-ink);font:600 15px var(--font-display);letter-spacing:.04em;text-decoration:none;border:1px solid var(--color-gold-bright);box-shadow:0 8px 24px -10px color-mix(in srgb,var(--color-gold) 70%,transparent);transition:transform .12s ease,box-shadow .2s}
+.y3-boton-principal:hover{box-shadow:0 10px 30px -8px color-mix(in srgb,var(--color-gold) 90%,transparent)}
+.y3-boton-principal:active{transform:scale(.97)}
+.y3-lugares--hub{grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
+@media(max-width:767px){.y3-hub-portal{grid-template-columns:1fr}.y3-hub-sello{min-height:0;order:-1}.y3-hub-orbe{width:120px;height:120px}}
+/* ── Figura de raza (imagen del propietario) ── */
+.y3-retrato-raza{display:block;width:100%;height:100%;object-fit:cover;object-position:center top}
+.y3-carta-retrato .y3-retrato-raza{position:absolute;inset:0;opacity:1;max-height:none}
+.y3-carta-retrato:has(.y3-retrato-raza){place-items:stretch}
+.y3-carta-retrato:has(.y3-retrato-raza)::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 40px 10px var(--color-well);pointer-events:none}
+.inv-body-grid .inv-body-raza{object-fit:cover;object-position:center;opacity:.9;border:1px solid var(--color-line);filter:saturate(1.05)}
+/* Con figura de raza, los huecos dejan ver el cuerpo: vidrio oscuro en vez de caja opaca. */
+.inv-body-grid:has(.inv-body-raza) .inv-slot{background:color-mix(in srgb,var(--color-well) 45%,transparent);border-color:color-mix(in srgb,var(--color-gold) 30%,transparent);border-radius:2px;-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px)}
+.inv-body-grid:has(.inv-body-raza) .inv-slot:hover{background:color-mix(in srgb,var(--color-well) 25%,transparent);border-color:var(--color-gold)}
+.inv-body-grid:has(.inv-body-raza) .inv-slot :is(.inv-slot-label,strong,span){text-shadow:0 1px 3px #000,0 0 8px #000}

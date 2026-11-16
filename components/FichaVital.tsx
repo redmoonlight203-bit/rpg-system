@@ -1,24 +1,18 @@
-import {ResourceBar} from "./ui/ResourceBar";
 import type { Personaje } from "../lib/personajes";
 import { vidaMaxima } from "../lib/personajes";
+import { BarraVital } from "./ui/Juego";
+
+/** Vitales persistentes del personaje (design.md v3: barras que se llenan con destello al cambiar). */
 export default function FichaVital({ personaje: p }: { personaje: Personaje }) {
   const max = p.vida_maxima_actual ?? vidaMaxima(p),
     vida = p.vida_actual ?? max;
   return (
-    <div className="pj-vital">
-      <div>
-        <span>VIDA PERMANENTE</span>
-        <strong>
-          {vida} <small>/ {max}</small>
-        </strong>
+    <div className="y3-vitales">
+      <BarraVital grande tipo="vida" etiqueta="Vida" valor={vida} max={max} />
+      <div className="y3-vitales-menores">
+        <BarraVital tipo="ph" etiqueta="PH" valor={p.ph_actual ?? p.atributos.ph ?? 0} max={p.atributos.ph ?? 0} />
+        <BarraVital tipo="fatiga" etiqueta="Fatiga" valor={p.fatiga_actual ?? 0} max={p.atributos.fatiga ?? 0} />
       </div>
-      <meter
-        min={0}
-        max={max}
-        value={vida}
-        aria-label={`Vida: ${vida} de ${max}`}
-      />
-      <div className="pj-vital-resources"><ResourceBar label="PH" value={p.ph_actual ?? p.atributos.ph ?? 0} max={p.atributos.ph ?? 0} kind="special"/><ResourceBar label="Fatiga" value={p.fatiga_actual ?? 0} max={p.atributos.fatiga ?? 0} kind="fatigue"/></div>
     </div>
   );
 }
