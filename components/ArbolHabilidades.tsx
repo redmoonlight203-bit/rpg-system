@@ -1,4 +1,5 @@
 "use client";
+import {Cabecera} from './layout/Cabecera';
 import {useTiempoReal} from "../lib/useTiempoReal";
 import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
 import Link from 'next/link';
@@ -44,7 +45,7 @@ export default function ArbolHabilidades({gm=false}:{gm?:boolean}){
  function editar(n:NodoArbol){setForm({id:n.id,padre:n.padre_id||'',tipo:n.tipo,nombre:n.nombre,descripcion:n.descripcion,habilidad:n.habilidad_id||'',atributo:n.atributo||'',incremento:String(n.incremento||1),coste:String(n.coste||1),nivel:String(n.nivel_minimo)});}
  return <main className={`arbol-page ${gm?'arbol-gm':''}`}>
   <Link className="arbol-back" href={gm?'/dm/experiencia':'/ficha/personaje'}><ArrowLeft size={16}/>{gm?'Experiencia y niveles':'Volver al personaje'}</Link>
-  <header className="arbol-heading"><div><span className="arbol-eyebrow">YUGEN / SENDAS DEL PODER</span><h1>Árbol de habilidades</h1><p>{gm?'Prepara el futuro de cada personaje: conecta ramas, habilidades y mejoras de estadísticas.':'Cada personaje tiene su propio camino. Ganas 3 puntos por nivel y decides dónde invertirlos.'}</p></div><GitBranch size={44}/></header>
+  <Cabecera kanji="樹" migas={gm?'Kuroi · Progresión':'Reencarnado · Sendas del poder'} titulo="Árbol de habilidades" subtitulo={gm?'Prepara el futuro de cada personaje: conecta ramas, habilidades y mejoras de estadísticas.':'Cada personaje tiene su propio camino. Ganas 3 puntos por nivel y decides dónde invertirlos.'}/>
   {error&&<p className="arbol-error" role="alert">{error}</p>}{aviso&&<p className="arbol-notice" role="status">{aviso}</p>}
   <section className="arbol-toolbar"><label>Personaje<select disabled={ocupado} value={id} onChange={e=>cambiar(e.target.value)}><option value="" disabled>Elige un personaje</option>{personajes.map(p=><option key={p.id} value={p.id}>{p.nombre} · #{p.id}{gm?` · ${duenos[p.user_id]||'Jugador'}`:''}</option>)}</select></label><span className="arbol-live">{sincronizado?'● En tiempo real':'Actualización automática'}</span><button onClick={()=>void cargar()} disabled={ocupado||!id} aria-label="Actualizar árbol"><RefreshCw size={18}/></button>{gm&&id&&<button disabled={ocupado} onClick={()=>{setForm(vacio());setSeleccion('');}}><Plus size={17}/>Nueva rama</button>}</section>
   {cargando?<p className="arbol-empty">Cargando personajes…</p>:!id?<p className="arbol-empty">No hay personajes vivos y aprobados. Cada uno tendrá su árbol individual al ser aprobado.</p>:!pj?<p className="arbol-empty">Abriendo árbol…</p>:<>

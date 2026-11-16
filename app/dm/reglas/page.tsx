@@ -1,4 +1,5 @@
 "use client";
+import {Cabecera} from "../../../components/layout/Cabecera";
 import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 
@@ -148,15 +149,13 @@ export default function Estadisticas() {
     </div>;
   }
 
-  return <main className="st-theme min-h-full bg-well p-4 text-neutral-200 sm:p-8">
+  return <main className="st-theme min-h-full text-text">
     <div className="mx-auto max-w-6xl space-y-7">
-      <header className="flex flex-wrap items-end justify-between gap-5 border-b border-neutral-800 pb-6">
-        <div><p className="mb-2 text-xs  tracking-normal text-emerald-500">Configuración de Yugen</p><Link className="inline-block text-amber-300 underline mb-3" href="/dm/recompensas">Configurar bandas de saqueo y recompensas</Link><h1 className="text-3xl font-bold">Estadísticas y reglas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400">Da identidad a las razas y define los atributos de tu mundo. Las subcategorías heredan las bases de su categoría y añaden sus propias reglas.</p></div>
-        <Link href="/dm/forja" className={boton}>Ir a la Forja <ArrowRight size={16}/></Link>
-      </header>
+      <Cabecera kanji="規" migas="Kuroi · Preparar el mundo" titulo="Estadísticas y reglas" subtitulo="Da identidad a las razas y define los atributos de tu mundo. Las subcategorías heredan las bases de su categoría y añaden sus propias reglas."
+        acciones={<><Link href="/dm/recompensas" className={boton}>Bandas de saqueo y recompensas</Link><Link href="/dm/forja" className={boton}>Ir a la Forja <ArrowRight size={16} aria-hidden="true"/></Link></>}/>
       {!cargando && !herenciaDisponible && <p role="status" className="text-sm leading-6 text-amber-300">Para activar categorías y subcategorías, ejecuta la migración 20261030_categorias_heredadas.sql en Supabase. Mientras tanto puedes seguir editando categorías y atributos existentes.</p>}
       {actual&&ruta.some(c=>c.clave==='monstruos')&&<ReglasCriaturas key={actual.id} categoria={actual} atributos={deCategoria} onGuardado={cargar}/>}
-      {actual&&ruta.some(c=>c.clave==='habilidades_invocacion')&&<p className="rounded-xl border border-sky-900 p-4 text-sm">Invocaciones: configura en El Yunque la criatura de origen o la plantilla temporal, quién la diseña, el techo absoluto de clase, rangos, costes, duración y máximo activo. Una invocación tira iniciativa, dispone de una acción por turno y no se publica en La Creación. La suma de estadísticas, habilidades y pasivas debe respetar el techo.</p>}
+      {actual&&ruta.some(c=>c.clave==='habilidades_invocacion')&&<p className="rounded-xs border border-line bg-raised p-4 text-sm">Invocaciones: configura en El Yunque la criatura de origen o la plantilla temporal, quién la diseña, el techo absoluto de clase, rangos, costes, duración y máximo activo. Una invocación tira iniciativa, dispone de una acción por turno y no se publica en La Creación. La suma de estadísticas, habilidades y pasivas debe respetar el techo.</p>}
       <NaturalezasYugen soloCatalogo />
       {aviso && <p role="status" className="text-sm text-emerald-400">{aviso}</p>}
       {error && <div role="alert" className="space-y-3 text-sm text-red-300"><p>No se pudo actualizar la configuración: {error}</p><button className={boton} onClick={() => void cargar()}>Reintentar</button></div>}
@@ -171,7 +170,7 @@ export default function Estadisticas() {
             </nav>
             {!categorias.length && <p className="py-6 text-sm text-neutral-500">Crea tu primera categoría para comenzar.</p>}
           </aside>
-          <section className="st-workspace min-w-0 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6">
+          <section className="st-workspace min-w-0 rounded-xs border border-line bg-raised p-5 sm:p-6">
             {actual ? <><div className="st-category-head flex flex-wrap items-start justify-between gap-3"><div><div className="st-category-emblem"><IconoYugen id={iconoCategoria(categorias,actual.clave)} size={48}/></div><h2 className="text-xl font-semibold">{actual.nombre}</h2><p className="mt-1 text-xs  tracking-wide text-neutral-500">{actual.parent_id ? "Subcategoría" : "Categoría"}</p><p className="mt-2 text-xs text-emerald-400">{ruta.map(c => c.nombre).join(" / ")}</p><p className="mt-2 text-sm text-neutral-400">{actual.descripcion || "Añade una descripción para explicar qué se crea en esta categoría."}</p><p className="mt-2 tabular-nums text-xs text-emerald-500">{actual.clave}</p></div><button className={boton} onClick={() => abrir({ tipo: "categoria", original: actual })}><Pencil size={14}/> Editar</button></div>
               <div className="st-children mt-6 border-t border-neutral-800 pt-5">
                 <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold">Subcategorías ({subcategorias.length})</h3><button disabled={!herenciaDisponible} className={boton} onClick={() => abrir({ tipo: "categoria" }, actual.id)}><Plus size={14}/> Crear subcategoría</button></div>

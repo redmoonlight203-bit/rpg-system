@@ -1,4 +1,5 @@
 "use client";
+import {Cabecera} from "../../../components/layout/Cabecera";
 import {mensajeError} from '../../../lib/errores';
 import MetricasCombate from "../../../components/MetricasCombate";
 import EstadoAccionCombate from "../../../components/EstadoAccionCombate";
@@ -846,23 +847,12 @@ export default function CampoCombate() {
           </section>
         </div>
       )}
-      <header className="battle-header">
-        <div className="battle-heading">
-          <div className="battle-emblem">
-            <Swords size={25} />
-          </div>
-          <div>
-            <p>DOMINIO KUROI / COMBATE</p>
-            <h1>Campo de batalla</h1>
-            <span>Un personaje, una acción. El sistema lleva las cuentas.</span>
-          </div>
-        </div>
-        <div className="battle-header-actions"><PantallaCombate/>
-        <button className="battle-button" onClick={abrirBiblioteca} aria-expanded={biblioteca} aria-controls="battle-library"><BookOpen size={16} />Personajes</button>
+      <Cabecera kanji="戦" migas="Kuroi · Sesión" titulo="Campo de batalla" subtitulo="Un personaje, una acción. El sistema lleva las cuentas."
+        acciones={<div className="battle-header-actions"><PantallaCombate/>
+        <button className="battle-button" onClick={abrirBiblioteca} aria-expanded={biblioteca} aria-controls="battle-library"><BookOpen size={16} aria-hidden="true" />Personajes</button>
         <Link className="battle-button" href="/dm/forja">
           La creación
-        </Link></div>
-      </header>
+        </Link></div>}/>
       {c.fase==="preparacion"&&<section className="arena-lobby" aria-label="Preparación de la batalla">
         <h2>Elige tu combate</h2>
         <div className="arena-modos">{([

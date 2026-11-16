@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Check, Clock } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
-import { 
-  Skull, LogOut, Handshake, Check, Clock, Map, User, Sliders, RefreshCw 
-} from "lucide-react";
+import { mensajeError } from "../../../lib/errores";
+import { Cabecera, Secciones } from "../../../components/layout/Cabecera";
+import { Button } from "../../../components/ui/Button";
 
 interface Deuda {
   id: string;
@@ -16,167 +16,137 @@ interface Deuda {
   created_at: string;
   fecha_pago_solicitado?: string;
 }
+type Filtro = "pendientes" | "activos" | "cerrados" | "todos";
+
+const ESTADO: Record<string, { texto: string; tono: string }> = {
+  pendiente_aprobacion: { texto: "Pendiente de aprobar", tono: "oro" },
+  aprobada: { texto: "Pacto activo", tono: "exito" },
+  pendiente_pago_confirmacion: { texto: "Cobrado · esperando al jugador", tono: "oro" },
+  completada: { texto: "Saldado", tono: "neutro" },
+  rechazada: { texto: "Rechazado", tono: "peligro" },
+};
+const GRUPO: Record<Filtro, string[]> = {
+  pendientes: ["pendiente_aprobacion"],
+  activos: ["aprobada", "pendiente_pago_confirmacion"],
+  cerrados: ["completada", "rechazada"],
+  todos: [],
+};
 
 export default function DeudasKuroi() {
-  const router = useRouter();
   const [deudas, setDeudas] = useState<Deuda[]>([]);
+  const [nombres, setNombres] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [filtro, setFiltro] = useState<Filtro>("pendientes");
+  const [ocupado, setOcupado] = useState("");
 
   const cargarDeudas = async () => {
     setCargando(true);
-    const { data: deudasData, error } = await supabase
-      .from("deudas_kuroi")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (deudasData && !error) {
-      setDeudas(deudasData as Deuda[]);
-    }
+    setError("");
+    const [d, p] = await Promise.all([
+      supabase.from("deudas_kuroi").select("id,user_id,titulo,mensaje,estado,created_at,fecha_pago_solicitado").order("created_at", { ascending: false }),
+      supabase.from("perfiles").select("id,nombre,email"),
+    ]);
+    if (d.error) setError(mensajeError(d.error, "No se pudieron cargar los pactos."));
+    else setDeudas(d.data as Deuda[]);
+    if (!p.error) setNombres(Object.fromEntries((p.data || []).map((x: { id: string; nombre?: string; email?: string }) => [x.id, x.nombre || x.email || "Jugador"])));
     setCargando(false);
   };
 
   useEffect(() => {
-    cargarDeudas();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la pantalla
+    void cargarDeudas();
   }, []);
 
   const resolverDeuda = async (deudaId: string, nuevoEstado: "aprobada" | "rechazada" | "pendiente_pago_confirmacion") => {
-    const updateData: any = { estado: nuevoEstado };
-    
-    // Si Kuroi decide cobrar la deuda hoy, guardamos la fecha para el temporizador de 2 días
+    const updateData: { estado: string; fecha_pago_solicitado?: string } = { estado: nuevoEstado };
     if (nuevoEstado === "pendiente_pago_confirmacion") {
+      // El servidor fija la fecha del cobro; el jugador tiene 2 días para confirmarlo o impugnarlo.
       updateData.fecha_pago_solicitado = new Date().toISOString();
-      if (!window.confirm("¿Estás seguro de COBRAR esta deuda? El jugador tendrá 2 días en la vida real para saldarla en el rol.")) return;
-    } else {
-      if (!window.confirm(`¿Seguro que deseas marcar este pacto como ${nuevoEstado.toUpperCase()}?`)) return;
-    }
+      if (!window.confirm("¿Cobrar este pacto? El jugador tendrá 2 días para confirmar el pago o impugnarlo.")) return;
+    } else if (!window.confirm(nuevoEstado === "aprobada" ? "¿Aprobar este pacto?" : "¿Rechazar este pacto? El jugador verá que fue rechazado.")) return;
 
-    const { error } = await supabase
-      .from("deudas_kuroi")
-      .update(updateData)
-      .eq("id", deudaId);
-
-    if (!error) {
-      cargarDeudas();
-    } else {
-      alert("Error al actualizar la deuda.");
-    }
+    setOcupado(deudaId);
+    const { error } = await supabase.from("deudas_kuroi").update(updateData).eq("id", deudaId);
+    setOcupado("");
+    if (error) setError(mensajeError(error, "No se pudo actualizar el pacto."));
+    else void cargarDeudas();
   };
 
-  if (cargando) return <div className="min-h-screen bg-canvas flex items-center justify-center text-amber-500 tabular-nums animate-pulse">Abriendo la Bóveda de Pactos...</div>;
+  const cuenta = (f: Filtro) => (f === "todos" ? deudas.length : deudas.filter((d) => GRUPO[f].includes(d.estado)).length);
+  const visibles = filtro === "todos" ? deudas : deudas.filter((d) => GRUPO[filtro].includes(d.estado));
 
   return (
-    <main className="min-h-screen bg-canvas text-neutral-200 p-6 font-serif relative overflow-x-hidden">
-      <div className="max-w-7xl mx-auto space-y-6 relative z-10 pb-20">
-        
-        {/* CABECERA Y NAVEGACIÓN SUPERIOR */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-amber-900/50 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-amber-950/40 border border-amber-800 rounded-lg text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-              <Handshake className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-neutral-100  tracking-normal tabular-nums">
-                Bóveda de Deudas
-              </h1>
-              <p className="text-amber-700/80 text-xs tabular-nums tracking-normal ">
-                [ REGISTRO DE PACTOS, FAVORES Y COBROS ]
-              </p>
-            </div>
-          </div>
-        </header>
+    <main>
+      <Cabecera
+        kanji="借"
+        migas="Kuroi · Economía"
+        titulo="Pactos y deudas"
+        subtitulo="Lo que prometiste en persona a cada jugador. Aprueba o rechaza sus promesas y cóbralas cuando llegue el momento: el jugador tiene 2 días para confirmar el pago o impugnarlo."
+      />
+      <Secciones
+        etiqueta="Filtrar pactos"
+        valor={filtro}
+        onCambio={(id) => setFiltro(id as Filtro)}
+        items={[
+          { id: "pendientes", etiqueta: "Por aprobar", cuenta: cuenta("pendientes") },
+          { id: "activos", etiqueta: "Activos", cuenta: cuenta("activos") },
+          { id: "cerrados", etiqueta: "Cerrados", cuenta: cuenta("cerrados") },
+          { id: "todos", etiqueta: "Todos", cuenta: cuenta("todos") },
+        ]}
+      />
 
-        {/* CONTENIDO DEL GESTOR DE DEUDAS */}
-        <section className="bg-neutral-950 border border-amber-900/40 rounded-xl p-6 space-y-6">
-          <div className="border-b border-neutral-900 pb-3">
-            <h2 className="text-lg font-bold text-amber-500 tabular-nums  tracking-normal flex items-center gap-2">
-              <Skull className="w-5 h-5 text-amber-600" /> Pactos Anotados por los Reencarnados ({deudas.length})
-            </h2>
-            <p className="text-neutral-500 text-xs tabular-nums mt-1">
-              Aprueba o rechaza los favores. Cuando un jugador deba pagar, marca la deuda como <strong>"PAGADA"</strong> para iniciar su temporizador fatal de 2 días.
-            </p>
-          </div>
+      {error && (
+        <p role="alert" className="y-error" style={{ marginBottom: 24 }}>
+          {error} <Button variant="secondary" onClick={() => void cargarDeudas()}>Reintentar</Button>
+        </p>
+      )}
 
-          {deudas.length === 0 ? (
-            <p className="text-text-muted tabular-nums text-xs italic text-center py-12">No hay pactos registrados en el mundo actualmente.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {deudas.map((item) => (
-                <div key={item.id} className="bg-well border border-neutral-800 hover:border-amber-900/60 transition-colors p-5 rounded-xl space-y-4 flex flex-col justify-between">
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start gap-2">
-                      <span className={`text-[13px] tabular-nums  px-2 py-0.5 rounded border ${
-                        item.estado === "pendiente_aprobacion" ? "bg-orange-950/60 border-orange-800 text-orange-400 animate-pulse" :
-                        item.estado === "aprobada" ? "bg-emerald-950/60 border-emerald-800 text-emerald-400" :
-                        item.estado === "pendiente_pago_confirmacion" ? "bg-cyan-950/60 border-cyan-800 text-cyan-400" :
-                        item.estado === "completada" ? "bg-neutral-900 border-neutral-700 text-neutral-500" :
-                        "bg-red-950/60 border-red-800 text-red-400"
-                      }`}>
-                        Estado: {item.estado.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-[13px] tabular-nums text-neutral-500">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-base font-bold text-neutral-100 tabular-nums">{item.titulo}</h3>
-                    
-                    <p className="text-xs text-neutral-300 italic bg-neutral-900/60 p-3 rounded border border-neutral-800 font-serif leading-relaxed">
-                      "{item.mensaje}"
-                    </p>
-                  </div>
-
-                  {/* Botonera Contextual según el Estado */}
-                  <div className="pt-3 border-t border-neutral-900 flex flex-col gap-2">
-                    
-                    {/* 1. Si está recién enviada */}
-                    {item.estado === "pendiente_aprobacion" && (
-                      <div className="flex gap-2">
-                        <button onClick={() => resolverDeuda(item.id, "aprobada")} className="flex-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-200 text-[13px] tabular-nums py-2 rounded font-bold  transition-colors">
-                          Aprobar Pacto
-                        </button>
-                        <button onClick={() => resolverDeuda(item.id, "rechazada")} className="flex-1 bg-red-950 hover:bg-red-900 border border-red-800 text-red-200 text-[13px] tabular-nums py-2 rounded font-bold  transition-colors">
-                          Rechazar
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 2. Si está aprobada y el jugador la está usando (Esperando Cobro de Kuroi) */}
-                    {item.estado === "aprobada" && (
-                      <button onClick={() => resolverDeuda(item.id, "pendiente_pago_confirmacion")} className="w-full bg-amber-950 hover:bg-amber-900 border border-amber-800 text-amber-200 text-xs tabular-nums py-2.5 rounded font-bold  flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-900/20">
-                        <Check className="w-4 h-4 text-amber-400" /> Marcar Pacto como PAGADO
-                      </button>
-                    )}
-
-                    {/* 3. Si Kuroi cobró y el jugador tiene 2 días para confirmar */}
-                    {item.estado === "pendiente_pago_confirmacion" && (
-                      <div className="w-full text-center text-xs tabular-nums text-cyan-400 bg-cyan-950/40 p-2.5 rounded border border-cyan-900 flex items-center justify-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" /> El reloj de 2 días está corriendo para el Jugador.
-                      </div>
-                    )}
-
-                    {/* 4. Si la deuda se pagó y el jugador confirmó */}
-                    {item.estado === "completada" && (
-                      <div className="w-full text-center text-xs tabular-nums text-neutral-500 bg-neutral-900 p-2 rounded">
-                        ✓ Deuda Saldada y Terminada
-                      </div>
-                    )}
-
-                    {/* 5. Si la rechazaste */}
-                    {item.estado === "rechazada" && (
-                      <div className="w-full text-center text-xs tabular-nums text-red-500 bg-red-950/30 p-2 rounded border border-red-900/50">
-                        Pacto Denegado
-                      </div>
-                    )}
-
-                  </div>
+      {cargando ? (
+        <p role="status" className="y-vacio">Abriendo la bóveda de pactos…</p>
+      ) : visibles.length === 0 ? (
+        <div className="y-vacio">
+          <strong>{filtro === "pendientes" ? "No hay pactos por aprobar" : "No hay pactos en esta sección"}</strong>
+          Los jugadores registran aquí lo que les prometiste desde su menú «Pactos con Kuroi».
+        </div>
+      ) : (
+        <div className="y-rejilla">
+          {visibles.map((item) => {
+            const e = ESTADO[item.estado] || { texto: item.estado, tono: "neutro" };
+            return (
+              <article key={item.id} aria-labelledby={`pacto-${item.id}`} style={{ display: "flex", flexDirection: "column" }}>
+                <div className="y-tarjeta-meta">
+                  <span className={`y-chip y-chip--${e.tono}`}>{e.texto}</span>
+                  <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleDateString("es")}</time>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-      </div>
+                <h2 id={`pacto-${item.id}`} className="y-tarjeta-titulo">{item.titulo}</h2>
+                <p className="y-nota" style={{ margin: 0 }}>De {nombres[item.user_id] || "un jugador"}</p>
+                <blockquote className="y-cita">{item.mensaje}</blockquote>
+                <div className="y-tarjeta-acciones" style={{ marginTop: "auto" }}>
+                  {item.estado === "pendiente_aprobacion" && (
+                    <>
+                      <Button disabled={!!ocupado} loading={ocupado === item.id} onClick={() => resolverDeuda(item.id, "aprobada")}>Aprobar</Button>
+                      <Button variant="secondary" disabled={!!ocupado} onClick={() => resolverDeuda(item.id, "rechazada")}>Rechazar</Button>
+                    </>
+                  )}
+                  {item.estado === "aprobada" && (
+                    <Button disabled={!!ocupado} loading={ocupado === item.id} onClick={() => resolverDeuda(item.id, "pendiente_pago_confirmacion")}>
+                      <Check size={16} aria-hidden="true" /> Cobrar pacto
+                    </Button>
+                  )}
+                  {item.estado === "pendiente_pago_confirmacion" && (
+                    <p className="y-nota" style={{ display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
+                      <Clock size={16} aria-hidden="true" /> Esperando a que el jugador confirme el pago (2 días).
+                    </p>
+                  )}
+                  {item.estado === "completada" && <p className="y-nota" style={{ margin: 0 }}>Pacto saldado.</p>}
+                  {item.estado === "rechazada" && <p className="y-nota" style={{ margin: 0 }}>Rechazaste este pacto.</p>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }

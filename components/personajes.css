@@ -34,7 +34,7 @@
 .pj-panel {
   padding: 24px;
   border: 1px solid var(--color-cyan-900);
-  border-radius:12px;
+  border-radius:2px;
   background: linear-gradient(140deg, var(--color-neutral-900), var(--color-neutral-950));
 }
 .pj-card h2 {
@@ -56,7 +56,7 @@
   gap: 8px;
   padding: 11px 17px;
   border: 1px solid var(--color-cyan-700);
-  border-radius: 8px;
+  border-radius:2px;
   background: var(--color-cyan-900);
   color: var(--color-cyan-300);
   font-size: 13px;
@@ -79,7 +79,7 @@
   min-width: 0;
   background: var(--color-well);
   border: 1px solid var(--color-cyan-800);
-  border-radius: 8px;
+  border-radius:2px;
   padding: 12px;
   color: var(--color-text);
   margin: 7px 0 15px;
@@ -97,7 +97,7 @@
 .pj-stat {
   background: var(--color-neutral-950);
   border: 1px solid var(--color-cyan-900);
-  border-radius: 10px;
+  border-radius:2px;
   padding: 14px;
 }
 .pj-stat strong {
@@ -146,7 +146,7 @@
   padding: 15px;
   border: 1px solid var(--color-yellow-700);
   background: var(--color-yellow-900);
-  border-radius: 9px;
+  border-radius:2px;
   margin-bottom: 20px;
 }
 .pj-error {
@@ -200,7 +200,7 @@
   padding: 40px;
   text-align: center;
   border: 1px dashed var(--color-cyan-800);
-  border-radius:12px;
+  border-radius:2px;
 }
 .pj-page a:focus-visible,
 .pj-page button:focus-visible {
@@ -224,4 +224,4 @@
   }
 }
 
-.pj-revive-dialog{position:fixed;inset:0;margin:auto;max-width:650px;width:calc(100% - 28px);max-height:90dvh;overflow:auto;border:1px solid var(--color-yellow-500);border-radius:12px;padding:28px;background:linear-gradient(150deg,var(--color-yellow-950),var(--color-neutral-950));color:var(--color-cyan-300);font:14px/1.8 Arial,sans-serif}.pj-revive-dialog::backdrop{background:#000c;backdrop-filter:blur(4px)}.pj-revive-dialog h2{font:30px Georgia}.pj-revive-dialog h3{font:22px Georgia;margin:12px 0}.pj-revive-dialog>section{border:1px solid var(--color-yellow-700);border-radius:9px;margin:18px 0;padding:20px}.pj-revive-dialog>section>svg{color:var(--color-yellow-300)}.pj-revive-dialog p{color:var(--color-cyan-500)}.pj-revive-dialog button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:1px solid var(--color-yellow-600);border-radius:6px;padding:12px 17px;background:var(--color-yellow-900);color:var(--color-gold-bright);font:13px Arial;cursor:pointer}.pj-revive-dialog button:disabled{opacity:.4;cursor:not-allowed}.pj-revive-dialog button:focus-visible{outline:2px solid var(--color-gold-soft);outline-offset:3px}.pj-resurrection-status{color:var(--color-neutral-400)!important;font-size:13px!important}@media(max-width:600px){.pj-revive-dialog{padding:20px}.pj-revive-dialog h2{font-size:26px}.pj-revive-dialog button{width:100%}}
+.pj-revive-dialog{position:fixed;inset:0;margin:auto;max-width:650px;width:calc(100% - 28px);max-height:90dvh;overflow:auto;border:1px solid var(--color-yellow-500);border-radius:2px;padding:28px;background:linear-gradient(150deg,var(--color-yellow-950),var(--color-neutral-950));color:var(--color-cyan-300);font:14px/1.8 Arial,sans-serif}.pj-revive-dialog::backdrop{background:#000c;backdrop-filter:blur(4px)}.pj-revive-dialog h2{font:30px Georgia}.pj-revive-dialog h3{font:22px Georgia;margin:12px 0}.pj-revive-dialog>section{border:1px solid var(--color-yellow-700);border-radius:2px;margin:18px 0;padding:20px}.pj-revive-dialog>section>svg{color:var(--color-yellow-300)}.pj-revive-dialog p{color:var(--color-cyan-500)}.pj-revive-dialog button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:1px solid var(--color-yellow-600);border-radius:2px;padding:12px 17px;background:var(--color-yellow-900);color:var(--color-gold-bright);font:13px Arial;cursor:pointer}.pj-revive-dialog button:disabled{opacity:.4;cursor:not-allowed}.pj-revive-dialog button:focus-visible{outline:2px solid var(--color-gold-soft);outline-offset:3px}.pj-resurrection-status{color:var(--color-neutral-400)!important;font-size:13px!important}@media(max-width:600px){.pj-revive-dialog{padding:20px}.pj-revive-dialog h2{font-size:26px}.pj-revive-dialog button{width:100%}}
