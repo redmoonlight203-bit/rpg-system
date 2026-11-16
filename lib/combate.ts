@@ -1,7 +1,7 @@
 import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
-import { type Efecto, type Elemento, type AlcanceHabilidad } from "./creacion";
+import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean};
 export function validarRequisitos(r:RequisitosUso|undefined):string|null{
@@ -470,6 +470,18 @@ function activarReglas(
     }
   }
 }
+/**
+ * Defensas de Kion expresadas como datos de la primitiva «Reacción» (plan del Yunque general, fase 2).
+ * Las creaciones antiguas con `defensa` usan estas plantillas; las nuevas configuran `reaccion` en la Forja.
+ */
+export const PLANTILLAS_REACCION:Record<NonNullable<Efecto["defensa"]>,Reaccion>={
+  inercia:{prioridad:10,principal:{salvacion:{cd:14,atributo:'salvacion'},reducir:{modo:'mitad'},animacion:'axioma-defensa',permite_seguimiento:true}},
+  absorcion:{naturaleza:'magica',principal:{reducir:{modo:'fijo',valor:6},reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10},animacion:'axioma-conservacion'},seguimiento:{reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10}}},
+  reflejo:{naturaleza:'fisica',forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},devolver:{},animacion:'axioma-reaccion'},seguimiento:{devolver:{maximo:10}}},
+  reciproco:{naturaleza:'fisica',sin_forma:'limitless',seguimiento:{devolver:{maximo:6}}},
+  ancla:{naturaleza:'fisica',sin_forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},animacion:'axioma-reaccion'}},
+};
+export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion||(e.defensa?PLANTILLAS_REACCION[e.defensa]:undefined);}
 function recibir(
   c: Combate,
   a: Combatiente,
@@ -492,10 +504,12 @@ function recibir(
       `${t.nombre}: reducción ${reduccion}% (${antes} → ${total}); no se acumulan porcentajes.`,
     );
   }
-  const defensas=(t.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).filter(p=>p.defensa);
-  if(total>0 && a.id!==t.id && defensas.length){
-    const despierto=t.transformacion?.definicion_id==='limitless';
+  const reacciones=(t.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).map(p=>({p,r:reaccionDe(p)})).filter((x):x is {p:Efecto;r:Reaccion}=>!!x.r);
+  if(total>0 && a.id!==t.id && reacciones.length){
+    const forma=t.transformacion?.definicion_id;
+    const despierto=forma==='limitless';
     const magico=e.naturaleza==='magica'||e.coste_ph>0;
+    const aplica=(r:Reaccion)=>(!r.naturaleza||(r.naturaleza==='magica')===magico)&&(!r.forma||forma===r.forma)&&(!r.sin_forma||forma!==r.sin_forma);
     const pagar=(p:Efecto)=>{
       const coste=despierto && p.ley_limitless?0:p.coste_ph;
       if(phDisponibles(t)<coste)return false;
@@ -503,31 +517,29 @@ function recibir(
       log(c,t.nombre+' activa '+p.nombre+' ('+coste+' PH).');
       return true;
     };
-    const inercia=defensas.find(p=>p.defensa==='inercia');
-    if(inercia && pagar(inercia)){
-      if(salvacion(c,t,14,'salvacion',rng)){
-        const detenido=total-Math.floor(total/2);
+    const resolver=(res:ResultadoReaccion,cantidad:number)=>{
+      if(res.reservar){
+        const {recurso,proporcion,maximo}=res.reservar,saldo=t.recursos_especiales?.[recurso]||0;
+        t.recursos_especiales={...t.recursos_especiales,[recurso]:Math.min(maximo,saldo+Math.floor(cantidad*proporcion))};
+      }
+      if(res.devolver)Object.assign(a,danarTransformado(a,res.devolver.maximo===undefined?cantidad:Math.min(cantidad,res.devolver.maximo)).actor);
+    };
+    // Principales por prioridad (estable): la primera que se paga resuelve el golpe, aunque falle su salvación.
+    const principales=reacciones.map((x,i)=>({...x,i})).filter(x=>x.r.principal&&aplica(x.r)).sort((x,y)=>(y.r.prioridad||0)-(x.r.prioridad||0)||x.i-y.i);
+    for(const x of principales){
+      const pr=x.r.principal!;
+      if(!pagar(x.p))continue;
+      if(!pr.salvacion||salvacion(c,t,pr.salvacion.cd,pr.salvacion.atributo,rng)){
+        const detenido=pr.reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,pr.reducir.valor||0);
         total-=detenido;
-        const contra=defensas.find(p=>p.defensa===(magico?'absorcion':despierto?'reflejo':'reciproco'));
-        if(contra && pagar(contra)){
-          if(magico){
-            const saldo=t.recursos_especiales?.['Energía absorbida']||0;
-            t.recursos_especiales={...t.recursos_especiales,['Energía absorbida']:Math.min(10,saldo+Math.floor(detenido/2))};
-          }else Object.assign(a,danarTransformado(a,Math.min(detenido,despierto?10:6)).actor);
+        resolver(pr,detenido);
+        if(pr.permite_seguimiento){
+          const sig=reacciones.find(y=>y!==x&&y.r.seguimiento&&aplica(y.r));
+          if(sig && pagar(sig.p))resolver(sig.r.seguimiento!,detenido);
         }
-        t.ultima_defensa={id:crypto.randomUUID(),animacion:'axioma-defensa'};
+        if(pr.animacion)t.ultima_defensa={id:crypto.randomUUID(),animacion:pr.animacion};
       }
-    } else {
-      const alternativa=defensas.find(p=>p.defensa===(magico?'absorcion':despierto?'reflejo':'ancla'));
-      if(alternativa && pagar(alternativa)){
-        const reducido=Math.min(total,magico?6:4);
-        total-=reducido;
-        if(magico){
-          const saldo=t.recursos_especiales?.['Energía absorbida']||0;
-          t.recursos_especiales={...t.recursos_especiales,['Energía absorbida']:Math.min(10,saldo+Math.floor(reducido/2))};
-        }else if(alternativa.defensa==='reflejo')Object.assign(a,danarTransformado(a,reducido).actor);
-        t.ultima_defensa={id:crypto.randomUUID(),animacion:magico?'axioma-conservacion':'axioma-reaccion'};
-      }
+      break;
     }
   }
   const perdido = Math.min(t.vida, Math.max(0, total));
@@ -857,7 +869,7 @@ export function acciones(m: Combatiente) {
   const definiciones=lista.flatMap(a=>a.efecto.transformacion?[a.efecto.transformacion]:[]);
   const exclusivos=new Set(definiciones.flatMap(d=>d.etapas.flatMap(e=>e.habilidades||[])));
   const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
-  return lista.filter(a=>!a.efecto.defensa).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
+  return lista.filter(a=>!reaccionDe(a.efecto)).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
    const d=a.efecto.transformacion;
    if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':d.etapas[i+1]?.descontrolada?'Esta fase requiere fallar la salvación de posesión.':undefined};}
    if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
