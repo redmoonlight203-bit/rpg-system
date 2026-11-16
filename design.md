@@ -141,9 +141,9 @@ Se permite movimiento que **responde a algo** y que **celebra** algo:
 
 ## 11. Logo y marca
 
-- El logo es `public/brand/yugen-kuroi.svg`: Kuroi con ojos blancos y sonrisa, sobre dados de rol, con el nombre YUGEN.
+- El logo es `public/brand/yugen-kuroi.png`: el diseño original de Kuroi sobre dados de rol y el nombre YUGEN, con los ojos cambiados a blanco y una sonrisa añadida.
 - Kuroi siempre es un gato negro (o figura negra) con ojos blancos y sonrisa. No se usan ojos rojos ni rasgos demoníacos como marca principal.
-- Favicon y `apple-icon`: el mismo SVG.
+- Favicon y `apple-icon`: el mismo PNG.
 
 ---
 

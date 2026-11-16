@@ -1,4 +1,4 @@
 import Image from "next/image";
 export default function LogoYugen({size=88, className="", preload=false}:{size?:number;className?:string;preload?:boolean}) {
- return <Image src="/brand/yugen-kuroi.svg" alt="YUGEN: Kuroi, gato negro de ojos blancos y sonrisa, sobre dados de rol" width={size} height={size} sizes={`${size}px`} preload={preload} className={`yugen-logo ${className}`}/>;
+ return <Image src="/brand/yugen-kuroi.png" alt="YUGEN: Kuroi, gato negro de ojos blancos y sonrisa, sobre dados de rol" width={size} height={size} sizes={`${size}px`} preload={preload} className={`yugen-logo ${className}`}/>;
 }
