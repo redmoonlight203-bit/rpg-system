@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -58,7 +59,7 @@ export default function Estadisticas() {
       setHerenciaDisponible(lista.length > 0 && Object.prototype.hasOwnProperty.call(lista[0], "parent_id"));
       setCategorias(lista); setStats((atributos.data || []) as Stat[]);
       setSeleccion(actual => lista.some(c => c.clave === actual) ? actual : lista[0]?.clave || "");
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudieron cargar los datos."); }
+    } catch (e) { setError(mensajeError(e,"No se pudieron cargar los datos.")); }
     finally { setCargando(false); }
   }
   useTiempoReal(()=>cargar(false));
@@ -103,7 +104,7 @@ export default function Estadisticas() {
       if (!resultado.data) throw new Error("No se confirmó el guardado. Revisa los permisos de tu cuenta.");
       if (editor.tipo === "categoria") setSeleccion(claveFinal);
       setEditor(null); setAviso("Cambios guardados."); await cargar();
-    } catch (e) { setErrorEditor(e instanceof Error ? e.message : "No se pudieron guardar los cambios."); }
+    } catch (e) { setErrorEditor(mensajeError(e,"No se pudieron guardar los cambios.")); }
     finally { setGuardando(false); }
   }
 
@@ -123,7 +124,7 @@ export default function Estadisticas() {
       if (!resultado.data) throw new Error("No se confirmó la eliminación. Revisa los permisos de tu cuenta.");
       setStats(prev => prev.filter(s => s.id !== stat.id));
       setAviso(`Atributo «${stat.etiqueta}» quitado de «${actual.nombre}».${heredado ? " Se conserva su versión heredada." : ""}`);
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo quitar el atributo."); }
+    } catch (e) { setError(mensajeError(e,"No se pudo quitar el atributo.")); }
     finally { bloqueoQuitar.current = false; setQuitando(null); }
   }
 

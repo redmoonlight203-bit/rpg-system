@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import FormasHistoria,{type FormaHistoria} from "../../../components/FormasHistoria";
@@ -108,7 +109,7 @@ export default function Forja(){
     if(padre.tipo==='habilidad')vuelta.habilidades=[...new Set([...vuelta.habilidades,id])];else if(padre.tipo==='pasiva')vuelta.pasivas=[...new Set([...vuelta.pasivas,id])];else {const slot=padre.slot||SLOTS.find(s=>s.tipos.includes(b.slot)&&!vuelta.equipamiento[s.clave]&&(b.slot!=='dos_manos'||(!vuelta.equipamiento.mano_der&&!vuelta.equipamiento.mano_izq)))?.clave;if(slot){vuelta.equipamiento[slot]=id;if(b.slot==='dos_manos')delete vuelta.equipamiento[slot==='mano_der'?'mano_izq':'mano_der'];}}
     setB(vuelta);setPadre(null);setPestana('yunque');setAviso(vuelta.habilidades.includes(id)||vuelta.pasivas.includes(id)||Object.values(vuelta.equipamiento).includes(id)?'Creación guardada y asignada al personaje.':'Creación guardada. Ya está disponible en la colección para asignarla.');await cargar();
    }else{setB(vacio());setPestana("creacion");await cargar();}
-  }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar.");}finally{bloqueo.current=false;setGuardando(false);}
+  }catch(e){setError(mensajeError(e,"No se pudo guardar."));}finally{bloqueo.current=false;setGuardando(false);}
  }
  async function guardarImagen(id:string,imagen:string,icono:string){
   if(bloqueo.current)throw new Error("Hay otra operación en curso. Inténtalo de nuevo.");
@@ -125,9 +126,9 @@ export default function Forja(){
  async function restablecer(f:Creacion){
   if(bloqueo.current||!window.confirm(`¿Restablecer «${f.nombre}»? Se retirará de los baúles y personajes y quedará únicamente en La creación, lista para una nueva entrega. Los recuerdos del cementerio se conservan. Si está en un encuentro activo, debes terminarlo primero.`))return;
   bloqueo.current=true;
-  try{const r=await supabase.rpc('forja_restablecer_alma',{p_forja:f.id});if(r.error)throw Error(r.error.message);setAviso('Creación restablecida. Ya no está vinculada a ninguna cuenta.');setRevision(v=>v+1);await cargar(false);}catch(e){setError(e instanceof Error?e.message:'No se pudo restablecer.');}finally{bloqueo.current=false;}
+  try{const r=await supabase.rpc('forja_restablecer_alma',{p_forja:f.id});if(r.error)throw Error(r.error.message);setAviso('Creación restablecida. Ya no está vinculada a ninguna cuenta.');setRevision(v=>v+1);await cargar(false);}catch(e){setError(mensajeError(e,'No se pudo restablecer.'));}finally{bloqueo.current=false;}
  }
- async function eliminar(f:Creacion){if(!window.confirm(`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(r.error.message);else await cargar();}
+ async function eliminar(f:Creacion){if(!window.confirm(`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(mensajeError(r.error,'No se pudo eliminar.'));else await cargar();}
 
  const etiquetaClasificacion=(c:CategoriaBase)=>categorias.filter(v=>v.parent_id&&v.nombre===c.nombre).length>1?`${c.nombre} (${categorias.find(p=>p.id===c.parent_id)?.nombre||""})`:c.nombre;
  const nombreClasificacion=(clave:string)=>categorias.find(c=>c.clave===clave)?.nombre||`Sin clasificación (${clave})`;

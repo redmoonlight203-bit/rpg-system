@@ -1,4 +1,5 @@
 'use client';
+import {mensajeError} from '../lib/errores';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {supabase} from '../lib/supabase';
@@ -18,7 +19,7 @@ type Resultado={aprobado:boolean;recompensas:{nombre:string;cantidad:number;resu
 type Saqueo={id:string;nombre:string;tirada:number;banda:number;botin:{tipo:string;cantidad:number;forja_id?:string;moneda_id?:string}[];entrega?:{personaje:string}|null};
 export function ResumenEncuentro({id,version,combate:c,ocupado,onRecargar}:{id:string;version:number;combate:Combate;ocupado:boolean;onRecargar:()=>Promise<void>}){
  const [resultado,setResultado]=useState<Resultado|null>(null),[saqueos,setSaqueos]=useState<Saqueo[]>([]),[error,setError]=useState(''),[trabajando,setTrabajando]=useState(false),[ajuste,setAjuste]=useState(0),[motivo,setMotivo]=useState(''),[destinos,setDestinos]=useState<Record<string,string>>({}),[nombres,setNombres]=useState<Record<string,string>>({});
- async function cargar(){const [r,s,f,m]=await Promise.all([supabase.from('resultados_encuentro').select('aprobado,recompensas').eq('combate_id',id).maybeSingle(),supabase.from('saqueos_encuentro').select('id,nombre,tirada,banda,botin,entrega').eq('combate_id',id),supabase.from('forja_maestra').select('id,nombre').eq('tipo_creacion','objeto'),supabase.from('monedas').select('id,nombre')]);for(const x of [r,s,f,m])if(x.error){setError(x.error.message);return;}setResultado(r.data as Resultado|null);setSaqueos(s.data||[]);setNombres(Object.fromEntries([...(f.data||[]),...(m.data||[])].map(f=>[f.id,f.nombre])));}
+ async function cargar(){const [r,s,f,m]=await Promise.all([supabase.from('resultados_encuentro').select('aprobado,recompensas').eq('combate_id',id).maybeSingle(),supabase.from('saqueos_encuentro').select('id,nombre,tirada,banda,botin,entrega').eq('combate_id',id),supabase.from('forja_maestra').select('id,nombre').eq('tipo_creacion','objeto'),supabase.from('monedas').select('id,nombre')]);for(const x of [r,s,f,m])if(x.error){setError(mensajeError(x.error,'No se pudo cargar el resultado del encuentro.'));return;}setResultado(r.data as Resultado|null);setSaqueos(s.data||[]);setNombres(Object.fromEntries([...(f.data||[]),...(m.data||[])].map(f=>[f.id,f.nombre])));}
  useEffect(()=>{const t=setTimeout(()=>void cargar(),0);return()=>clearTimeout(t);},[id,version]); // eslint-disable-line react-hooks/exhaustive-deps
  useTiempoReal(cargar);
  async function operar(nombre:string,args:Record<string,unknown>){if(trabajando)return;setTrabajando(true);setError('');try{const r=await supabase.rpc(nombre,args);if(r.error)throw r.error;await onRecargar();await cargar();}catch(e){setError((e as Error).message);}finally{setTrabajando(false);}}

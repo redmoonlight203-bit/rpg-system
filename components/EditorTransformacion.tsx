@@ -1,5 +1,6 @@
 "use client";
 
+import {mensajeError} from '../lib/errores';
 import ListaArrastrable from './ListaArrastrable';
 import {useRef,useState} from "react";
 import {validarPortada} from "../lib/imagenes-creacion";
@@ -90,7 +91,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
             const input=e.currentTarget,archivo=input.files?.[0];if(!archivo)return;
             setProcesandoImagen(true);setErrorImagen("");
             try {const imagen=await publicarArchivoImagen(archivo);cambiarEtapaVigente.current({...etapaVigente.current,imagen_url:imagen});}
-            catch(error){setErrorImagen(error instanceof Error?error.message:"No se pudo procesar la imagen.");}
+            catch(error){setErrorImagen(mensajeError(error,"No se pudo procesar la imagen."));}
             finally{input.value="";setProcesandoImagen(false);}
           }}/>
         </label>

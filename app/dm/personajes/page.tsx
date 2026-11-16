@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Users, Heart, Skull, Check, Search, Moon, Shield, RotateCcw, Hammer } from "lucide-react";
@@ -106,7 +107,7 @@ export default function GestionPersonajes() {
       setAtributos(a.data || []);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "No se pudo cargar la gestión.",
+        mensajeError(e,"No se pudo cargar la gestión."),
       );
     } finally {
       setCargando(false);
@@ -126,7 +127,7 @@ export default function GestionPersonajes() {
       await fn();
       await cargar();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+      setError(mensajeError(e,"No se pudo guardar."));
     } finally {
       bloqueo.current = false;
       setOcupado(false);
@@ -148,7 +149,7 @@ export default function GestionPersonajes() {
       .select("*")
       .eq("personaje_id", p.id)
       .eq("user_id", p.user_id);
-    if (r.error) setError(r.error.message);
+    if (r.error) setError(mensajeError(r.error, "No se pudo completar la acción."));
     else setItems(r.data || []);
   }
   async function recuperar(p: Personaje, tipo: string) {

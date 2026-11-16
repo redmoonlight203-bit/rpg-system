@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import {useTiempoReal} from "../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -98,7 +99,7 @@ export default function BaulAlma({
       }
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cargar el baúl.");
+      setError(mensajeError(e,"No se pudo cargar el baúl."));
     } finally {
       setCargando(false);
     }
@@ -122,7 +123,7 @@ export default function BaulAlma({
       await cargar();
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "No se pudo completar la operación.",
+        mensajeError(e,"No se pudo completar la operación."),
       );
     } finally {
       bloqueo.current = false;

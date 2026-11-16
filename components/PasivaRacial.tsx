@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import {useRef, useState} from "react";
 import {EditorPasivas} from "./EditorPasivas";
 import {EditorReglas} from "./EditorReglas";
@@ -27,7 +28,7 @@ export function PasivaRacial({categoria,categorias,onSaved}:{categoria:Categoria
    q=categoria.pasiva_racial?q.eq("pasiva_racial",JSON.stringify(categoria.pasiva_racial)):q.is("pasiva_racial",null);
    const r=await q.select("id").single();if(r.error)throw Error(r.error.message);if(!r.data)throw Error("La raza cambió. Recarga antes de guardar.");
    setEditando(false);onSaved();
-  }catch(e){setError(e instanceof Error?e.message:"No se pudo guardar la pasiva.");}finally{bloqueo.current=false;setOcupado(false);}
+  }catch(e){setError(mensajeError(e,"No se pudo guardar la pasiva."));}finally{bloqueo.current=false;setOcupado(false);}
  }
  return <section className="mt-6 space-y-4 rounded-xl border border-orange-900/60 bg-orange-950/10 p-4 sm:p-5">
   <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs  tracking-normal text-orange-400">Motor racial</p><h3 className="mt-1 font-semibold">Pasiva de {categoria.nombre}</h3></div>{!editando&&<button className={boton} onClick={()=>{setValor(structuredClone(categoria.pasiva_racial||vacia()));setEditando(true);setError("");}}>{categoria.pasiva_racial?"Editar pasiva":"Crear pasiva"}</button>}</div>

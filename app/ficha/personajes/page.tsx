@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -132,7 +133,7 @@ export default function PersonajesJugador() {
       );
       await cargar();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo enviar.");
+      setError(mensajeError(e,"No se pudo enviar."));
     } finally {
       bloqueo.current = false;
       setOcupado(false);

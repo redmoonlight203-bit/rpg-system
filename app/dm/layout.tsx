@@ -10,21 +10,22 @@ import Riel, {indiceRuta} from "../../components/layout/Riel";
 import MarcoRuta from "../../components/layout/MarcoRuta";
 import NavegacionMovil from "../../components/NavegacionMovil";
 
+// Orden del recorrido del GM (docs/ciclo-juego.md): preparar → sesión → recompensas; después mundo y ajustes.
 const principales = [
   { path: "/dm/forja", label: "La Forja", detail: "Crear y dar forma al mundo", icon: Hammer },
+  { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },
+  { path: "/dm/party", label: "Parties de jugadores", icon: Users },
   { path: "/dm/combate", label: "Combate", detail: "Probar tus creaciones", icon: Swords },
-  { path: "/dm/reglas", label: "Estadísticas", detail: "Definir categorías y atributos", icon: Sliders },
+  { path: "/dm/recompensas", label: "Botín, logros y títulos", icon: TrendingUp },
   { path: "/dm/experiencia", label: "Experiencia", detail: "Personajes de jugador y su party", icon: TrendingUp },
-  { path: "/dm/arbol", label: "Árboles de habilidades", detail: "Ramas y puntos por personaje", icon: TrendingUp },
 ];
 const gestion = [
-  { path: "/dm/estilos", label: "Guía visual de Yugen", icon: Sliders },
-  { path: "/dm/recompensas", label: "Botín, logros y títulos", icon: TrendingUp },
-  { path: "/dm/party", label: "Parties de jugadores", icon: Users },
-  { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },
+  { path: "/dm/arbol", label: "Árboles de habilidades", detail: "Ramas y puntos por personaje", icon: TrendingUp },
+  { path: "/dm/reglas", label: "Estadísticas", detail: "Definir categorías y atributos", icon: Sliders },
   { path: "/dm/mercado", label: "Tiendas", icon: ShoppingBag },
   { path: "/dm/tienda-almas", label: "Tienda de almas", icon: ShoppingBag },
   { path: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
+  { path: "/dm/estilos", label: "Guía visual de Yugen", icon: Sliders },
 ];
 
 export default function DMLayout({ children }: { children: React.ReactNode }) {

@@ -24,20 +24,20 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/ficha/tienda", label: "Tienda", icon: ShoppingBag },
   ];
   const extras = gm ? [
-    { href: "/dm/recompensas", label: "Botín, logros y títulos", icon: Sparkles },
-    { href: "/dm/reglas", label: "Estadísticas y reglas", icon: Sliders },
     { href: "/dm/party", label: "Parties de jugadores", icon: Users },
+    { href: "/dm/recompensas", label: "Botín, logros y títulos", icon: Sparkles },
     { href: "/dm/experiencia", label: "Experiencia", icon: TrendingUp },
+    { href: "/dm/reglas", label: "Estadísticas y reglas", icon: Sliders },
     { href: "/dm/arbol", label: "Árboles de habilidades", icon: Sparkles },
     { href: "/dm/tienda-almas", label: "Tienda de almas", icon: Users },
     { href: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
   ] : [
-    { href: "/ficha/arena", label: "Arena de entrenamiento", icon: Swords },
-    { href: "/ficha/logros", label: "Logros, títulos e historial", icon: Sparkles },
-    { href: "/ficha/tiradas", label: "Mesa de dados", icon: Dices },
     { href: "/ficha/party", label: "Mi party", icon: Users },
+    { href: "/ficha/tiradas", label: "Mesa de dados", icon: Dices },
     { href: "/ficha/experiencia", label: "Árbol de habilidades", icon: TrendingUp },
     { href: "/ficha/alma", label: "Baúl del alma", icon: Sparkles },
+    { href: "/ficha/logros", label: "Logros, títulos e historial", icon: Sparkles },
+    { href: "/ficha/arena", label: "Arena de entrenamiento", icon: Swords },
     ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
   ];
   const activo = (href: string) => pathname === href || (href !== "/ficha" && pathname.startsWith(href + "/"));

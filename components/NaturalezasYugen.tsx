@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import {useCallback,useEffect,useState} from 'react';
 import {useTiempoReal} from '../lib/useTiempoReal';
 import {EditorDados} from './EditorDados';
@@ -52,7 +53,7 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
  const esKemono=elegidaInfo?.clave==='kemono'||elegidaInfo?.nombre.toLowerCase().includes('kemono');
  async function ejecutar(fn:()=>Promise<void>){
   if(ocupado)return;setOcupado(true);setError('');setMensaje('');
-  try{await fn();await cargar();onCambio?.();}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.');}finally{setOcupado(false);}
+  try{await fn();await cargar();onCambio?.();}catch(e){setError(mensajeError(e,'No se pudo guardar.'));}finally{setOcupado(false);}
  }
  function editar(n?:Naturaleza){
   setEditId(n?.id||'');setNombre(n?.nombre||'');setDescripcion(n?.descripcion||'');setMod({...n?.modificadores});

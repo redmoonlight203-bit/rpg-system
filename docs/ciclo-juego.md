@@ -2,6 +2,27 @@
 
 El documento maestro del 7 de noviembre guía este cambio. La exploración del mundo de YUGEN 2.0 permanece fuera de alcance.
 
+## Recorridos de una sesión
+
+Paso 3.1 del plan maestro. Cada pantalla responde a un paso de uno de estos recorridos; la clasificación y la auditoría están en [pantallas.md](pantallas.md).
+
+**GM (Kuroi)**
+
+1. Preparar el mundo: La Forja (`/dm/forja`), Estadísticas (`/dm/reglas`), Árboles (`/dm/arbol`), Tiendas (`/dm/mercado`).
+2. Preparar a los jugadores: Jugadores y personajes (`/dm/personajes`), Parties (`/dm/party`).
+3. Jugar: Combate (`/dm/combate`), con sus reglas del encuentro y mapa.
+4. Repartir: resultado y aprobación dentro del combate; Botín, logros y títulos (`/dm/recompensas`); Experiencia (`/dm/experiencia`).
+5. Cerrar: terminar y, si procede, borrar el encuentro desde Combate.
+
+**Jugador (reencarnado)**
+
+1. Entrar: `/login` → El Nexo (`/ficha`).
+2. Su personaje: Personajes (`/ficha/personajes`) → ficha (`/ficha/personaje`) con Habilidades, Equipamiento, Inventario y Baúl del alma.
+3. Preparar la sesión: Mi party (`/ficha/party`).
+4. Jugar: Combates (`/ficha/combate`) y Mesa de dados (`/ficha/tiradas`).
+5. Recibir: EXP y botín llegan a la ficha y al baúl; Árbol de habilidades (`/ficha/experiencia`), Logros (`/ficha/logros`).
+6. Gastar: Tienda (`/ficha/tienda`).
+
 ## Uso
 
 - En **Combate → Reglas del encuentro y resultado**, configurar campaña, modalidad, cierre automático, límite de rondas y política de EXP antes de iniciar. Elegir tablas por participante permite diferenciar un goblin asesino, tanque o mago. Los cofres y objetivos se añaden como fuentes independientes de botín.

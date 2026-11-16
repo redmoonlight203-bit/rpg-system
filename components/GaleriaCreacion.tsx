@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight, Search, ImagePlus, Upload, Link2, Save, ImageOff, Swords, Shield, Users, Sparkles, Package, Crown, Shapes, Pencil, Trash2 } from "lucide-react";
@@ -112,7 +113,7 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
   async function archivo(file?: File) {
     if (!file || bloqueo.current) return;
     bloqueo.current = true; setProcesando(true); setError(""); setAviso("");
-    try { setImagen(await publicarArchivoImagen(file)); } catch (e) { setError(e instanceof Error ? e.message : "No se pudo leer la imagen."); }
+    try { setImagen(await publicarArchivoImagen(file)); } catch (e) { setError(mensajeError(e,"No se pudo leer la imagen.")); }
     finally { bloqueo.current = false; setProcesando(false); }
   }
   async function guardar() {
@@ -121,7 +122,7 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
     if (fallo) { setError(fallo); return; }
     bloqueo.current = true; setGuardando(true); setError(""); setAviso("");
     try { await props.onImagen(item.id, value, icono); setImagen(value); setAviso("Presentación guardada en la creación."); setEditando(false); }
-    catch (e) { setError(e instanceof Error ? e.message : "No se pudo guardar la imagen."); }
+    catch (e) { setError(mensajeError(e,"No se pudo guardar la imagen.")); }
     finally { bloqueo.current = false; setGuardando(false); }
   }
   const tipo = props.tipoDe(item);
@@ -157,7 +158,7 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
       {!!relaciones.length && <section className="cg-detail-section"><h3>Habilidades, pasivas y equipo</h3><div className="cg-related">{[...new Set(relaciones)].map((id) => <span key={id}><Sparkles size={14} />{props.items.find((v) => v.id === id)?.nombre || "Creación no disponible"}</span>)}</div></section>}
       {forma && <section className="cg-detail-section" aria-live="polite"><h3>{forma.nombre}</h3><p className="cg-prose">{forma.historia}</p></section>}
       {[['Historia', item.historia], ['Requisitos', item.requisitos], ['Limitaciones y defectos', item.defectos]].map(([label, value]) => value ? <section className="cg-detail-section" key={label}><h3>{label}</h3><p className="cg-prose">{value}</p></section> : null)}
-      {item.ligado_al_alma&&props.onRestablecer&&<aside className="yunque-resumen"><strong>Una sola pertenencia del alma</strong><p>Se entrega al baúl de una cuenta. Restablecer la retira de los jugadores y la deja únicamente en La creación. Termina cualquier encuentro activo antes de hacerlo.</p><button className="cg-button" disabled={ocupado} onClick={async()=>{setGuardando(true);try{await props.onRestablecer!(item);}finally{setGuardando(false);}}}>Restablecer y devolver a La creación</button></aside>}<footer className="cg-danger-zone"><p>Las copias existentes conservan sus valores.</p><button className="cg-button" disabled={ocupado} onClick={() => navegar(() => { void props.onEliminar(item).catch((e) => setError(e instanceof Error ? e.message : "No se pudo eliminar.")); })}><Trash2 size={14} />Eliminar creación</button></footer>
+      {item.ligado_al_alma&&props.onRestablecer&&<aside className="yunque-resumen"><strong>Una sola pertenencia del alma</strong><p>Se entrega al baúl de una cuenta. Restablecer la retira de los jugadores y la deja únicamente en La creación. Termina cualquier encuentro activo antes de hacerlo.</p><button className="cg-button" disabled={ocupado} onClick={async()=>{setGuardando(true);try{await props.onRestablecer!(item);}finally{setGuardando(false);}}}>Restablecer y devolver a La creación</button></aside>}<footer className="cg-danger-zone"><p>Las copias existentes conservan sus valores.</p><button className="cg-button" disabled={ocupado} onClick={() => navegar(() => { void props.onEliminar(item).catch((e) => setError(mensajeError(e,"No se pudo eliminar."))); })}><Trash2 size={14} />Eliminar creación</button></footer>
     </div></div>
   </section>;
 }
