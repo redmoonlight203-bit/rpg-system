@@ -1,0 +1,156 @@
+/* ==========================================================================
+   Campo de batalla · capa visual del tablero táctico
+   --------------------------------------------------------------------------
+   Se carga después de tablero-combate.css y solo actúa dentro de `.campo`.
+   Convención de lectura rápida: azul = puedes llegar, rojo = amenaza u
+   objetivo, oro = selección y turno. No cambia reglas ni datos del combate.
+   ========================================================================== */
+.campo{--azul:86 156 255;--rojo:232 52 70;--oro:226 194 146;--tinta:#0b0c0b;border-color:var(--color-line,rgb(166 125 67/.22));border-radius:4px;background:var(--tinta);color:var(--color-text,#e9e4d7)}
+.campo .tactical-field-header{padding:8px 14px;background:linear-gradient(#17181a,#0f1011);border-bottom:1px solid rgb(var(--oro)/.18);font-size:13px;color:var(--color-text-muted,#a9aaa5)}
+.campo .tactical-field-header .arena-full{padding:5px 12px;border:1px solid rgb(var(--oro)/.4);border-radius:2px;background:transparent;color:rgb(var(--oro));font-size:13px}
+.campo .tactical-field-header .arena-full:hover{background:rgb(var(--oro)/.12)}
+.campo .tactical-dot.ally{background:rgb(var(--azul))}
+.campo .tactical-dot.enemy{background:rgb(var(--rojo))}
+.campo .tactical-scroll{max-height:72dvh;background:#060706}
+
+/* Tablero: sin relleno, para que mapa, casillas y capas de efectos compartan el mismo origen. */
+.campo .tactical-board,.campo .tactical-board.arena-vista-completa{padding:0;background:#10120f;isolation:isolate}
+.campo .procedural-map-canvas{left:0;top:0;width:100%;height:100%;image-rendering:auto;filter:brightness(1.22) saturate(1.12) contrast(1.04)}
+.campo .weapon-animation-layer{inset:0}
+.campo .tactical-board::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;box-shadow:inset 0 0 90px 10px rgb(0 0 0/.55)}
+
+/* Casillas: una retícula discreta; el arte del mapa es el protagonista. */
+.campo .tactical-cell{padding:0;border:0;background:transparent;box-shadow:inset 0 0 0 .5px rgb(255 255 255/.07);color:#fff;z-index:2;transition:none}
+.campo .tactical-coordinate{display:none}
+.campo .tactical-cell.terrain-muro{background:rgb(0 0 0/.5);box-shadow:inset 0 0 0 .5px rgb(255 255 255/.05)}
+.campo .has-procedural-map .tactical-cell.terrain-muro{background:rgb(0 0 0/.16)}
+.campo .tactical-cell.terrain-dificil,.campo .tactical-cell.terrain-cobertura{box-shadow:inset 0 0 0 .5px rgb(255 255 255/.07)}
+.campo .tactical-cell.terrain-dificil::after,.campo .tactical-cell.terrain-cobertura::after{content:'';position:absolute;right:7%;bottom:7%;width:9%;aspect-ratio:1;transform:rotate(45deg);background:#d08a3c;box-shadow:0 0 0 1.5px #000a;pointer-events:none}
+.campo .tactical-cell.terrain-cobertura::after{background:#6fc79a;border-radius:50%}
+.campo .tactical-cell.terrain-peligro{box-shadow:inset 0 0 18px rgb(var(--rojo)/.55),inset 0 0 0 .5px rgb(var(--rojo)/.5)}
+
+/* Rango de movimiento (azul) y franja que quedaría al alcance (rojo). */
+.campo .tactical-cell.reachable,.campo .has-procedural-map .tactical-cell.reachable{background:rgb(var(--azul)/.36);box-shadow:inset 0 0 0 1px rgb(var(--azul)/.62)}
+.campo .tactical-cell.threat{background:rgb(var(--rojo)/.3);box-shadow:inset 0 0 0 1px rgb(var(--rojo)/.55)}
+.campo .tactical-cell.reachable:hover,.campo .tactical-cell.destination,.campo .has-procedural-map .tactical-cell.destination{background:rgb(var(--azul)/.58);box-shadow:inset 0 0 0 1px rgb(255 255 255/.7)}
+.campo .tactical-cell.reachable>span{position:absolute;right:6%;top:5%;min-width:1.5em;padding:0 3px;border-radius:2px;background:#000c;color:#fff;font:700 12px/1.5 var(--font-sans,system-ui);opacity:0}
+.campo .tactical-cell.reachable.cursor>span,.campo .tactical-cell.destination>span{opacity:1}
+
+/* Alcance y área de habilidades. */
+.campo .tactical-cell.spell-range{background:rgb(255 255 255/.13);outline:0;box-shadow:inset 0 0 0 1px rgb(255 255 255/.4)}
+.campo .tactical-cell.spell-area,.campo .has-procedural-map .tactical-cell.spell-area{background:color-mix(in srgb,var(--area-ink) 42%,transparent);box-shadow:inset 0 0 0 1.5px var(--area-ink)}
+.campo .tactical-cell.spell-origin{outline:0;box-shadow:none}
+.campo .tactical-cell.spell-center{outline:2px solid #fff;outline-offset:-3px}
+
+/* Cursor de esquinas: sigue al ratón y al foco del teclado. */
+.campo .tactical-cell.cursor,.campo .tactical-cell.destination,.campo .tactical-cell.target{z-index:6}
+.campo .tactical-cell.cursor::before,.campo .tactical-cell.destination::before,.campo .tactical-cell.target::before{content:'';position:absolute;inset:-3px;pointer-events:none;z-index:7;--c:#fff;--g:3px;--l:28%;filter:drop-shadow(0 0 2px #000) drop-shadow(0 1px 1px #000);
+ background:
+  linear-gradient(var(--c),var(--c)) top left/var(--l) var(--g) no-repeat,linear-gradient(var(--c),var(--c)) top left/var(--g) var(--l) no-repeat,
+  linear-gradient(var(--c),var(--c)) top right/var(--l) var(--g) no-repeat,linear-gradient(var(--c),var(--c)) top right/var(--g) var(--l) no-repeat,
+  linear-gradient(var(--c),var(--c)) bottom left/var(--l) var(--g) no-repeat,linear-gradient(var(--c),var(--c)) bottom left/var(--g) var(--l) no-repeat,
+  linear-gradient(var(--c),var(--c)) bottom right/var(--l) var(--g) no-repeat,linear-gradient(var(--c),var(--c)) bottom right/var(--g) var(--l) no-repeat}
+.campo .tactical-cell.destination::before{--c:rgb(var(--oro))}
+.campo .tactical-cell.target::before{--c:rgb(var(--rojo));inset:-1px}
+.campo .tactical-cell:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+
+/* Fichas: medallón con anillo de bando sobre una peana, en lugar de un cuadro que tapa la casilla. */
+.campo .tactical-cell.occupied,.campo .tactical-cell.enemy,.campo .tactical-cell.current,.campo .has-procedural-map .tactical-cell.target,.campo .tactical-cell.target{background:transparent;box-shadow:inset 0 0 0 .5px rgb(255 255 255/.07);outline:0}
+.campo .tactical-cell.occupied.reachable{background:rgb(var(--azul)/.36)}
+.campo .tactical-cell.occupied.threat{background:rgb(var(--rojo)/.3)}
+.campo .tactical-cell.occupied.spell-area{background:color-mix(in srgb,var(--area-ink) 42%,transparent)}
+.campo .tactical-token{inset:5% 8% 11%;--bando:rgb(var(--azul))}
+.campo .enemy .tactical-token{--bando:rgb(var(--rojo))}
+.campo .tactical-token::before{content:'';position:absolute;left:4%;right:4%;bottom:-13%;height:34%;border-radius:50%;background:radial-gradient(ellipse,color-mix(in srgb,var(--bando) 75%,transparent) 0 45%,color-mix(in srgb,var(--bando) 25%,transparent) 62%,transparent 72%);box-shadow:0 3px 8px #000b}
+.campo .ficha-cuerpo{position:absolute;inset:0;display:block}
+.campo .tactical-cell .tactical-token .battle-portrait{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);color:#f1d5a7;font:600 clamp(13px,1.5vw,20px)/1 var(--font-serif,Georgia,serif);box-shadow:0 0 0 2px var(--bando),0 0 0 3.5px #050505,0 5px 9px #000c}
+.campo .tactical-cell .tactical-token .battle-portrait img{object-fit:cover;border-radius:50%}
+.campo .tactical-cell.current .battle-portrait{box-shadow:0 0 0 2px rgb(var(--oro)),0 0 0 3.5px #050505,0 0 16px 3px rgb(var(--oro)/.6),0 5px 9px #000c}
+.campo .tactical-cell.target .battle-portrait{box-shadow:0 0 0 2px rgb(var(--rojo)),0 0 0 3.5px #050505,0 0 16px 3px rgb(var(--rojo)/.7)}
+.campo .tactical-cell.down{filter:none;opacity:1}
+.campo .tactical-cell.down .tactical-token{filter:grayscale(1) brightness(.6);opacity:.6;transform:scale(.82)}
+.campo .tactical-cell.down .tactical-health,.campo .tactical-cell.down .tactical-token::before{display:none}
+.campo .tactical-token-danger{border-radius:50%;border-width:2px}
+
+/* Nombre: solo en la unidad en turno, bajo el cursor o marcada como objetivo. */
+.campo .tactical-cell .tactical-token-name{left:50%;right:auto;bottom:auto;top:-22%;transform:translateX(-50%);max-width:190%;padding:1px 6px;border-radius:2px;background:#000d;border:1px solid var(--bando);font:600 11px/1.45 var(--font-sans,system-ui);opacity:0;z-index:9}
+.campo .tactical-cell.cursor .tactical-token-name,.campo .tactical-cell.target .tactical-token-name{opacity:1}
+.campo .tactical-health{left:6%;right:6%;bottom:-12%;height:5px;border-radius:3px;background:#000;box-shadow:0 0 0 1px #000,0 1px 2px #000;overflow:hidden;z-index:3}
+.campo .tactical-health>span{position:absolute;left:0;top:0;height:100%;background:linear-gradient(#8df0b0,#33b86c);transition:width .28s ease-out}
+.campo .tactical-health>.estela{background:#fff;transition:width .75s .5s ease-in}
+.campo .enemy .tactical-health>span:not(.estela){background:linear-gradient(#ff9a8a,#e23b3b)}
+.campo .tactical-turn-marker{left:50%;top:-30%;transform:translateX(-50%);color:rgb(var(--oro));font-size:13px;text-shadow:0 0 6px #000,0 1px 0 #000;z-index:8}
+.campo .tactical-cell.cursor .tactical-turn-marker{display:none}
+.campo .tactical-states{right:-6%;top:-6%;min-width:17px;padding:0 4px;border-radius:9px;background:rgb(var(--rojo));color:#fff;font:700 10px/17px var(--font-sans,system-ui);text-align:center;box-shadow:0 0 0 1.5px #000;z-index:8}
+
+/* Ruta con flecha hasta la casilla elegida. */
+.campo-ruta{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;filter:drop-shadow(0 2px 2px rgb(0 0 0/.85))}
+.campo-ruta polyline{fill:none;stroke:#fff;stroke-width:15;stroke-linejoin:round;stroke-linecap:round;opacity:.95}
+.campo-ruta polygon{fill:#fff}
+
+/* Cartel de turno: barrido breve al cambiar de unidad. */
+.campo-turno{position:absolute;left:0;right:0;top:50%;z-index:30;display:flex;align-items:baseline;justify-content:center;gap:14px;padding:12px 0;pointer-events:none;opacity:0;transform:translateY(-50%);color:#fff;background:linear-gradient(90deg,transparent,rgb(var(--azul)/.9) 22% 78%,transparent);border-block:1px solid rgb(255 255 255/.35);text-shadow:0 2px 6px #000}
+.campo-turno.enemy{background:linear-gradient(90deg,transparent,rgb(160 14 30/.92) 22% 78%,transparent)}
+.campo-turno span{font:500 13px/1 var(--font-sans,system-ui);letter-spacing:.18em;text-transform:uppercase;opacity:.85}
+.campo-turno strong{font:600 clamp(22px,3vw,34px)/1 var(--font-serif,Georgia,serif)}
+
+/* Números de daño y curación. */
+.campo .tactical-life-float{top:-18%;font:800 clamp(24px,2.6vw,38px)/1 var(--font-sans,system-ui);font-variant-numeric:tabular-nums;letter-spacing:-.01em;-webkit-text-stroke:1.5px #000;paint-order:stroke fill;text-shadow:0 3px 0 #000,0 0 14px #000}
+.campo .tactical-life-float.damage{color:#ff5a5a}
+.campo .tactical-life-float.healing{color:#7ef0a8}
+
+/* Barra de unidad: quién está bajo el cursor y qué pisa. */
+.campo-info{display:flex;align-items:center;gap:18px;min-height:76px;padding:10px 16px;border-top:1px solid rgb(var(--oro)/.28);border-left:4px solid transparent;background:linear-gradient(#16181c,#0c0d0f);font-size:13px;color:var(--color-text-muted,#a9aaa5)}
+.campo-info.ally{border-left-color:rgb(var(--azul))}
+.campo-info.enemy{border-left-color:rgb(var(--rojo))}
+.campo-info small{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8f918b}
+.campo-info>.battle-portrait{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:2px;overflow:hidden;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);box-shadow:0 0 0 1px rgb(var(--oro)/.45);color:#f1d5a7;font:600 20px/1 var(--font-serif,Georgia,serif)}
+.campo-info>.battle-portrait img{width:100%;height:100%;object-fit:cover}
+.campo-info-nombre{min-width:130px}
+.campo-info-nombre strong{display:block;font:600 24px/1.15 var(--font-serif,Georgia,serif);color:#f1d5a7}
+.campo-info-vida{min-width:170px}
+.campo-info-vida strong{display:block;font:300 32px/1 var(--font-serif,Georgia,serif);font-variant-numeric:tabular-nums;color:#fff}
+.campo-info-vida strong i{font-style:normal;font-size:18px;color:#8f918b}
+.campo-info-vida .tactical-health{position:relative;display:block;left:0;right:0;bottom:0;margin-top:6px;height:6px}
+.campo-info.enemy .campo-info-vida .tactical-health>span:not(.estela){background:linear-gradient(#ff9a8a,#e23b3b)}
+.campo-info-estados{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.campo-info-estados span{padding:2px 9px;border-radius:999px;border:1px solid rgb(var(--rojo)/.5);background:rgb(var(--rojo)/.16);color:#ffb3b8;font-size:12px}
+.campo-info-estados span.caido{border-color:#666;background:#2a2a2a;color:#bbb}
+.campo-info-terreno{margin-left:auto;padding-left:18px;border-left:1px solid rgb(var(--oro)/.2);text-align:right;white-space:nowrap}
+.campo-info-terreno strong{display:block;font:600 16px/1.3 var(--font-serif,Georgia,serif);color:rgb(var(--oro))}
+.campo .tactical-move-confirm{border-top:1px solid rgb(var(--oro)/.18);background:#0c0d0f;color:var(--color-text-muted,#a9aaa5)}
+.campo .tactical-move-confirm button{border-radius:2px;background:#a67d43;border-color:#c49a5c;color:#121312;font-weight:600}
+.campo .tactical-move-confirm button:disabled{opacity:.45;cursor:not-allowed}
+
+/* Movimiento: solo si la persona no ha pedido reducirlo. */
+@media (prefers-reduced-motion:no-preference){
+ .campo .tactical-cell.reachable{animation:campo-rango 2.4s ease-in-out infinite}
+ .campo .tactical-cell.cursor::before{animation:campo-cursor .9s ease-in-out infinite}
+ .campo .tactical-cell.current .tactical-token{animation:campo-respira 1.6s ease-in-out infinite}
+ .campo .tactical-cell.token-moving .tactical-token{animation:none}
+ .campo .tactical-turn-marker{animation:campo-rebote .8s ease-in-out infinite}
+ .campo-turno{animation:campo-turno 1.5s cubic-bezier(.2,.8,.2,1) both}
+ .campo .ficha-cuerpo.embiste{animation:campo-embiste .44s cubic-bezier(.3,0,.2,1) both;z-index:10}
+ .campo .ficha-cuerpo.golpeada{animation:campo-golpe .6s .15s cubic-bezier(.2,.9,.3,1) both}
+ .campo .ficha-cuerpo.curada{animation:campo-cura 1s ease-out both}
+ .campo .tactical-cell:has(.embiste),.campo .tactical-cell:has(.golpeada){z-index:12;overflow:visible}
+ .campo .tactical-life-float{animation:campo-numero 1.5s .15s cubic-bezier(.2,1.4,.4,1) both;transform:translateX(-50%)}
+ .campo-ruta polyline{stroke-dasharray:1 0;animation:campo-ruta .25s ease-out both}
+}
+@media (prefers-reduced-motion:reduce){
+ .campo-turno{display:none}
+ .campo .tactical-health>span{transition:none}
+}
+@keyframes campo-rango{50%{background-color:rgb(var(--azul)/.27)}}
+@keyframes campo-cursor{50%{inset:-6px}}
+@keyframes campo-respira{50%{transform:translateY(-5%)}}
+@keyframes campo-rebote{50%{transform:translate(-50%,-25%)}}
+@keyframes campo-turno{0%{opacity:0;transform:translate(-18%,-50%)}16%,72%{opacity:1;transform:translate(0,-50%)}100%{opacity:0;transform:translate(12%,-50%)}}
+@keyframes campo-embiste{0%{transform:translate(0,0)}22%{transform:translate(calc(var(--lx)*-10%),calc(var(--ly)*-10%)) scale(.96)}48%{transform:translate(calc(var(--lx)*52%),calc(var(--ly)*52%)) scale(1.08)}100%{transform:translate(0,0)}}
+@keyframes campo-golpe{0%{transform:translate(0,0);filter:brightness(4) saturate(0)}18%{transform:translate(calc(var(--lx)*30%),calc(var(--ly)*30%)) rotate(calc(var(--lx)*7deg));filter:brightness(2.4) saturate(.3)}36%{transform:translate(calc(var(--lx)*10% - 5%),calc(var(--ly)*10%));filter:none}52%{transform:translate(calc(var(--lx)*14% + 4%),calc(var(--ly)*14%))}70%{transform:translate(-2%,0)}100%{transform:translate(0,0)}}
+@keyframes campo-cura{0%{filter:brightness(1)}30%{filter:brightness(1.7) drop-shadow(0 0 10px #7ef0a8)}100%{filter:brightness(1)}}
+@keyframes campo-numero{0%{opacity:0;transform:translate(-50%,40%) scale(.3)}14%{opacity:1;transform:translate(-50%,0) scale(1.45)}26%{transform:translate(-50%,0) scale(1)}78%{opacity:1;transform:translate(-50%,-30%) scale(1)}100%{opacity:0;transform:translate(-50%,-70%) scale(.9)}}
+@keyframes campo-ruta{from{opacity:0}to{opacity:.95}}
+/* El número de daño manda: mientras se muestra, el nombre se aparta. */
+.campo .tactical-life-float{top:-48%}
+.campo .tactical-cell:has(.tactical-life-float) .tactical-token-name,.campo .tactical-cell:has(.tactical-life-float) .tactical-turn-marker{opacity:0}

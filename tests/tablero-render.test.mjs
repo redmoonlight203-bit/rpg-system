@@ -8,7 +8,7 @@ import * as motor from '../supabase/functions/equipo-combate/motor.js';
 function tablero(){
  const hooks=[],efectos=[];let cursor=0;
  const igual=(a,b)=>a&&b&&a.length===b.length&&a.every((x,i)=>Object.is(x,b[i]));
- const react={useState:inicial=>{const n=cursor++;hooks[n]??={valor:inicial};return [hooks[n].valor,v=>hooks[n].valor=typeof v==='function'?v(hooks[n].valor):v];},useMemo:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps))hooks[n]={deps,valor:fn()};return hooks[n].valor;},useEffect:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps)){hooks[n]={deps};efectos.push(fn);}}};
+ const react={useRef:inicial=>{const n=cursor++;hooks[n]??={current:inicial};return hooks[n];},useState:inicial=>{const n=cursor++;hooks[n]??={valor:inicial};return [hooks[n].valor,v=>hooks[n].valor=typeof v==='function'?v(hooks[n].valor):v];},useMemo:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps))hooks[n]={deps,valor:fn()};return hooks[n].valor;},useEffect:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps)){hooks[n]={deps};efectos.push(fn);}}};
  const cuentas={alcance:0,area:0},exports={};
  const jsx=(type,props,key)=>({type,props,key});
  const require=nombre=>nombre==='react'?react:nombre==='react/jsx-runtime'?{jsx,jsxs:jsx}:nombre==='../lib/movimiento-visual'?cargarDependencia('movimiento-visual'):nombre==='../lib/combate'?{...motor,alcanceDesde:(...a)=>{cuentas.alcance++;return motor.alcanceDesde(...a);},areaDesde:(...a)=>{cuentas.area++;return motor.areaDesde(...a);}}:nombre==='../lib/precarga-vfx'?{precargarVFX:()=>{}}:nombre==='../lib/descripciones'?{describirEfecto:()=>({resumen:'',detalles:[]}),describirRegla:()=>({resumen:'',detalles:[]})}:nombre==='lucide-react'?new Proxy({},{get:(_,k)=>k}):()=>null;

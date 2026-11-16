@@ -13,7 +13,7 @@ export function leerArchivoMapa(texto: string): MapaCombate {
             throw Error('El mapa contiene terrenos inválidos.');
     const p = m.procedural;
     if (p) {
-        if (p.schemaVersion !== 1 || !['1.0.0', '2.0.0'].includes(p.generatorVersion) || typeof p.semilla !== 'string' || p.semilla.length > 120 || !['taberna', 'casa', 'bosque', 'pueblo', 'mazmorra', 'ruinas'].includes(p.perfil) || !Number.isFinite(p.densidad) || p.densidad < 0 || p.densidad > 1 || !Array.isArray(p.protegidas) || p.protegidas.length > 576 || p.protegidas.some(k => typeof k !== 'string' || !claveValida(k)))
+        if (p.schemaVersion !== 1 || !['1.0.0', '2.0.0', '3.0.0'].includes(p.generatorVersion) || typeof p.semilla !== 'string' || p.semilla.length > 120 || !['taberna', 'casa', 'bosque', 'pueblo', 'mazmorra', 'ruinas'].includes(p.perfil) || !Number.isFinite(p.densidad) || p.densidad < 0 || p.densidad > 1 || !Array.isArray(p.protegidas) || p.protegidas.length > 576 || p.protegidas.some(k => typeof k !== 'string' || !claveValida(k)))
             throw Error('Procedencia del mapa inválida.');
         const a = p.atlas;
         if (a) {

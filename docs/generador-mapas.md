@@ -52,3 +52,18 @@ La batería incluye 1000 semillas por cada uno de los cinco perfiles antiguos y 
 Se verificó visualmente el renderer compartido mediante una página temporal de QA para pueblo, ruinas, senderos y ocultación de techos. La vista previa directa de Next no arrancó porque la infraestructura le añade opciones de Vite; por ello no se afirma una prueba visual completa de los controles React ni de dos sesiones Supabase autenticadas. La página temporal no forma parte de la app publicada. La compilación se comprueba con variables Supabase de ejemplo; no con acceso a la base real.
 
 Continúan fuera de esta entrega del primer paquete: catálogo remoto independiente con versiones/publicación por campaña; importación de atlas grandes a Storage con validación de servidor; adaptadores genéricos de autotile 16/47; puertas/destructibles dinámicos; mapas de 64/128 y Workers/chunks; mediciones p95 en dispositivos móviles. El límite 24×24 pertenece también al servidor existente. Los atlas personalizados conservan el límite anterior de 250 KB y corte por rejilla.
+
+## Gramática v3 (2026-11-15)
+
+La v2 trazaba siempre la misma cruz central y los mismos solares: en 300 semillas de pueblo o ruinas producía un único trazado de calles y una única disposición de edificios; la semilla solo movía la decoración. `generador-exteriores-v3.ts` (`generatorVersion: 3.0.0`) hace que la semilla decida el esqueleto:
+
+- accesos en posiciones distintas de cada borde y cruce descentrado;
+- calles con quiebros propios, sin tramos paralelos pegados ni pegados al borde; no todos los accesos tienen calle;
+- callejones sin salida y plazas ocasionales;
+- edificios y ruinas de tamaño y posición variables, con la puerta hacia la calle más cercana y un sendero que la une;
+- tejados según la forma del edificio; cercas horizontales y verticales;
+- decoración en agrupaciones (pedregales, barrizales, tocones, escombros) en lugar de ruido uniforme.
+
+Cada pieza que bloquea se valida al colocarla, así que el mapa queda siempre conectado. El taller genera con v3; los mapas guardados con v1 o v2 se abren y se dibujan igual que antes. La semilla inicial de un encuentro vacío deriva de su identificador, para que dos encuentros nuevos no empiecen con el mismo mapa. Pruebas: `tests/generador-exteriores-v3.test.mjs`.
+
+Límite conocido: el arte sigue saliendo de un único tileset de 89 recortes, sin árboles ni interiores. La variedad de piezas solo crece añadiendo tilesets.
