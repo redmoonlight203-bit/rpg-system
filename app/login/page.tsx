@@ -1,4 +1,5 @@
 "use client";
+import {Runa} from '../../components/ui/Juego';
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -77,7 +78,7 @@ export default function LoginPage() {
 
         // Redirección según rol
         if (perfil.rol === "KUROI") {
-          router.replace("/dm/forja");
+          router.replace("/dm");
         } else {
           router.push("/ficha");
         }
@@ -94,7 +95,7 @@ export default function LoginPage() {
       <div className="yugen-entry-wordmark">Yugen <span>El dominio de Kuroi</span></div>
       <div className="yugen-entry-title"><p>Un alma. Infinitas historias.</p><h2>Todo mundo<br/>comienza con<br/><em>una historia.</em></h2><Kintsugi/><p>Da forma a lo imposible.<br/>El siguiente capítulo te pertenece.</p></div>
       <svg className="yugen-landscape" viewBox="0 0 800 500" fill="none" aria-hidden="true"><g stroke="currentColor" strokeWidth="1"><path d="M0 430 90 290 140 350 245 100 320 260 385 180 465 330 555 80 620 240 680 180 800 400"/><path d="m0 470 100-130 45 60 105-245 65 180 72-80 80 150 90-270 64 165 60-65 119 200M90 290l18 92m137-282-2 235m312-255-12 280M140 350l-25 80m205-170 25 140m275-160 40 170"/><path d="M0 490q190-120 360-55t440-40M0 460q180-45 340 15t460-40"/><path d="M690 0v80m0 80v80M110 0v100m0 80v65"/></g><circle cx="690" cy="120" r="28" fill="currentColor"/><circle cx="110" cy="140" r="9" fill="currentColor"/></svg>
-      <span className="yugen-entry-kanji" aria-hidden="true">幽玄</span><span className="yugen-entry-foot">Crea · Explora · Trasciende</span>
+      <span className="yugen-entry-kanji y3-entrada-runa" aria-hidden="true"><Runa seccion="nexo" size={72}/></span><span className="yugen-entry-foot">Crea · Explora · Trasciende</span>
     </section><section className="yugen-entry-form">
     <div className="yugen-entry-brand"><LogoYugen size={160} preload/></div>
     <span className="yugen-entry-number">01 / El Nexo</span>
@@ -110,7 +111,7 @@ export default function LoginPage() {
         {esRegistro && <p className="flex gap-2 text-sm text-text-muted"><Lock size={18} className="shrink-0 text-gold"/>Tu cuenta quedará pendiente hasta que Kuroi apruebe tu acceso.</p>}
         <Field id="correo" label="Correo electrónico" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="reencarnado@yugen.com"/>
         <Field id="clave" label="Contraseña" type="password" autoComplete={esRegistro?'new-password':'current-password'} required value={password} onChange={e=>setPassword(e.target.value)}/>
-        <Button type="submit" className="w-full" loading={cargando} loadingText="Procesando…">{esRegistro?<><UserPlus size={18}/>Solicitar registro</>:<><LogIn size={18}/>Iniciar sesión</>}</Button>
+        <Button type="submit" className="w-full" loading={cargando} loadingText="Procesando…">{esRegistro?<><UserPlus size={18}/>Solicitar registro</>:<><LogIn size={18}/>Entrar al mundo</>}</Button>
       </form>
       <div className="border-t border-line pt-4 text-center"><Button type="button" variant="ghost" onClick={()=>setEsRegistro(!esRegistro)}>{esRegistro?'Ya tengo cuenta. Iniciar sesión':'Crear una cuenta de reencarnado'}</Button></div>
     </Panel>

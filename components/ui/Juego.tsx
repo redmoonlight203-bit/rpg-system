@@ -44,5 +44,7 @@ export function Medallon({etiqueta,valor,detalle}:{etiqueta:string;valor:ReactNo
 
 /** Sello de lacre para decisiones y logros (aprobado, victoria, nivel). `celebrar` anima su aparición una vez. */
 export function Sello({texto,runa='承',celebrar=false}:{texto:string;runa?:string;celebrar?:boolean}){
- return <span className={cn('y3-sello',celebrar&&'y3-sello--celebrar')}><span className="y3-sello-lacre" aria-hidden="true">{runa}</span><span>{texto}</span></span>;
+ // `runa` puede ser un kanji o la ruta de una runa en imagen (/arte/runas/…), que se pinta en blanco con máscara.
+ const imagen=runa.startsWith('/');
+ return <span className={cn('y3-sello',celebrar&&'y3-sello--celebrar')}><span className="y3-sello-lacre" aria-hidden="true">{imagen?<span className="y3-sello-runa" style={{WebkitMaskImage:`url(${runa})`,maskImage:`url(${runa})`}}/>:runa}</span><span>{texto}</span></span>;
 }

@@ -23,6 +23,7 @@ import {
 import { linaje, imagenDeRaza } from "../../../lib/estadisticas";
 import FichaVital from "../../../components/FichaVital";
 import RetratoRaza from "../../../components/RetratoRaza";
+import CelebracionNivel from "../../../components/CelebracionNivel";
 import { Marco, BarraVital, Medallon } from "../../../components/ui/Juego";
 import { experienciaParaNivel, NIVEL_MAXIMO } from "../../../lib/progresion";
 import IconoYugen from "../../../components/IconoYugen";
@@ -144,6 +145,7 @@ export default function FichaPersonaje() {
         <p className="pj-empty" role="status">Kuroi busca tu historia entre las almas…</p>
       ) : (
         <>
+          <CelebracionNivel personajeId={p.id} nivel={nivel} nombre={p.nombre} />
           {/* Carta de héroe: retrato, nombre, linaje y progreso */}
           <Marco brillo className="y3-carta">
             <div className="y3-carta-retrato" aria-hidden="true">

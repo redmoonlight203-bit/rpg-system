@@ -2,7 +2,7 @@
 
 Las ilustraciones, runas y texturas las aporta el propietario. Este archivo dice qué falta, con qué nombre y en qué formato. Cada archivo nuevo se anota en la tabla «Entregado» con su origen y licencia.
 
-## 1 · Runas de sección (prioridad alta)
+## 1 · Runas de sección (entregadas el 16-11)
 
 Sustituyen a los kanji del menú lateral, las pestañas móviles y las cabeceras.
 
@@ -32,7 +32,7 @@ Sustituyen a los kanji del menú lateral, las pestañas móviles y las cabeceras
 | `arbol` | Árboles de habilidades (GM) | GM |
 | `estilos` | Guía visual | GM |
 
-Al recibir cada runa se añade a `RUNAS_DISPONIBLES` en `lib/runas.ts`. Mientras tanto se sigue viendo el kanji.
+Entregadas como una hoja de 40 runas: se recortaron como máscaras (`runas/<clave>.png`, 160 px) y 21 están asignadas en `RUNAS_DISPONIBLES` (`lib/runas.ts`). Para cambiar una, sustituye el archivo con el mismo nombre. Las 19 restantes de la hoja siguen disponibles para nuevas secciones.
 
 ## 2 · Ilustraciones (prioridad media)
 
@@ -40,7 +40,7 @@ Al recibir cada runa se añade a `RUNAS_DISPONIBLES` en `lib/runas.ts`. Mientras
 |---|---|---|---|
 | `escenas/entrada.webp` | 1920 × 1080 | WebP | Fondo de la escena de login (Kuroi en su vacío) |
 | `escenas/nexo.webp` | 800 × 800, fondo transparente | WebP o PNG | Ilustración del portal del Nexo (sustituye al emblema) |
-| `razas/<clave>.webp` | ~1024 × 683 (se recorta la figura central) | WebP o PNG | Figura de cada raza, estilo hombre de Vitruvio. **Faltan: Dragones y Hadas.** Desde el 16-11 también se pueden subir desde Estadísticas al crear o editar la raza. |
+| `razas/<clave>.webp` | ~1024 × 683 (se recorta la figura central) | WebP o PNG | Figura de cada raza, estilo hombre de Vitruvio. Desde el 16-11 también se pueden subir desde Estadísticas al crear o editar la raza. |
 
 ### Regla: cada raza nueva lleva su imagen
 
@@ -60,3 +60,6 @@ Al crear una raza en Estadísticas hay que subir su figura; sin ella no se puede
 | `razas/enanos.webp` | Propietario, 16-11-2026 (recortada) | Del propietario | 16-11-2026 |
 | `razas/hombres-bestia.webp` | Propietario, 16-11-2026 (recortada) | Del propietario | 16-11-2026 |
 | `razas/gigantes.webp` | Propietario, 16-11-2026 (recortada) | Del propietario | 16-11-2026 |
+| `razas/dragones.webp`, `razas/hadas.webp` | Propietario, 16-11-2026 (recortadas) | Del propietario | 16-11-2026 |
+| `runas/*.png` (21) | Hoja de 40 runas del propietario, recortadas como máscaras | Del propietario | 16-11-2026 |
+| `escenas/mapa-estelar.webp` | Mapa estelar del propietario (escala de grises, 552 px) | Del propietario | 16-11-2026 |
