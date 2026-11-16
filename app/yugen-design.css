@@ -71,3 +71,56 @@
 .yugen-rail.is-expanded .yugen-rail-brand{flex-direction:column;padding:12px 8px;gap:0}.yugen-rail.is-expanded .yugen-rail-brand .yugen-logo{width:104px;height:104px}.yugen-rail.is-expanded .yugen-rail-brand>span{display:none}
 .y-player .y-player-top{height:auto;min-height:112px;padding:12px 32px}.y-player .y-player-top>.yugen-logo{width:88px;height:88px}
 @media(max-width:767px){.gm-shell.gm-shell{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.gm-shell>.yugen-app-header,.gm-shell>.gm-content{grid-column:1}.gm-shell>.mobile-navigation{display:block}.yugen-app-header{min-height:88px;padding:8px 16px;gap:12px}.yugen-app-header>.yugen-logo{width:72px;height:72px}.yugen-app-header>span{font-size:14px}.yugen-entry-brand .yugen-logo{width:128px;height:128px}.y-player .y-player-top{min-height:88px;padding:8px 16px}.y-player .y-player-top>.yugen-logo{width:72px;height:72px}}
+
+/* ── Piezas de pantalla (design.md §7–§9): cabecera, secciones, rejilla, chips ── */
+.y-cab{margin:0 0 32px}
+.y-cab-fila{display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.y-cab-kanji{font-family:var(--font-kanji);font-size:40px;line-height:1;color:var(--color-gold-soft);padding:8px 24px 8px 0;border-right:1px solid var(--color-line);align-self:stretch;display:flex;align-items:center}
+.y-cab-texto{flex:1 1 320px;min-width:0}
+.yugen-page .y-cab h1{margin:4px 0 0;font:500 clamp(30px,3.5vw,44px)/1.15 var(--font-serif);color:var(--color-gold-bright);letter-spacing:-.01em}
+.y-cab-migas{margin:0;font:13px var(--font-sans);color:var(--color-gold-soft)}
+.y-cab-sub{margin:8px 0 0;max-width:65ch;font:14px/1.7 var(--font-sans);color:var(--color-text-muted)}
+.y-cab-acciones{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.y-cab-kintsugi.kintsugi{max-width:none;margin:24px 0 0}
+.y-secciones{display:flex;gap:0;margin:0 0 24px;border-bottom:1px solid var(--color-line);overflow-x:auto;scrollbar-width:thin}
+.y-secciones>button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 16px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;color:var(--color-text-muted);font:500 14px var(--font-sans);white-space:nowrap;border-radius:0;cursor:pointer}
+.y-secciones>button:hover{color:var(--color-text)}
+.y-secciones>button[aria-selected=true]{color:var(--color-gold-bright);border-bottom-color:var(--color-gold)}
+.y-secciones-cuenta{font:500 12px var(--font-sans);font-variant-numeric:tabular-nums;color:var(--color-gold-soft);border:1px solid var(--color-line);padding:1px 7px;border-radius:999px}
+.y-rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:0;border-top:1px solid var(--color-line);border-left:1px solid var(--color-line)}
+.y-rejilla>*{background:var(--color-canvas);padding:24px;min-width:0;border-right:1px solid var(--color-line);border-bottom:1px solid var(--color-line)}
+.y-tarjeta-titulo{margin:8px 0 4px;font:500 20px/1.3 var(--font-serif);color:var(--color-gold-bright)}
+.y-tarjeta-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font:13px var(--font-sans);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.y-cita{margin:16px 0;padding:12px 16px;border-left:1px solid var(--color-line-strong);background:var(--color-well);font:italic 15px/1.6 var(--font-serif);color:var(--color-text)}
+.y-tarjeta-acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--color-line)}
+.y-tarjeta-acciones>*{flex:1 1 auto}
+.y-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:1px solid;border-radius:999px;font:500 13px var(--font-sans);white-space:nowrap}
+.y-chip--oro{color:var(--color-gold-soft);border-color:color-mix(in srgb,var(--color-gold) 40%,transparent);background:color-mix(in srgb,var(--color-gold) 12%,transparent)}
+.y-chip--exito{color:var(--color-success-text);border-color:color-mix(in srgb,var(--color-success-text) 35%,transparent);background:color-mix(in srgb,var(--color-success-text) 10%,transparent)}
+.y-chip--peligro{color:var(--color-danger-text);border-color:color-mix(in srgb,var(--color-danger-text) 35%,transparent);background:color-mix(in srgb,var(--color-danger-text) 10%,transparent)}
+.y-chip--neutro{color:var(--color-text-muted);border-color:var(--color-line);background:transparent}
+.y-vacio{padding:48px 24px;text-align:center;border:1px dashed var(--color-line);color:var(--color-text-muted);font:14px/1.7 var(--font-sans)}
+.y-vacio strong{display:block;margin-bottom:4px;font:500 18px var(--font-serif);color:var(--color-gold-soft)}
+.y-campo{display:grid;gap:6px;font:14px var(--font-sans);color:var(--color-text-muted)}
+.y-campo :is(input,select,textarea){width:100%;min-height:44px;padding:8px 12px;background:var(--color-well);border:1px solid var(--color-neutral-700);border-radius:2px;color:var(--color-text);font:15px var(--font-sans)}
+.y-campo :is(input,select,textarea):focus{outline:none;border-color:var(--color-gold)}
+.y-nota{font:13px/1.7 var(--font-sans);color:var(--color-text-muted);max-width:75ch}
+@media(max-width:767px){
+ .y-cab{margin-bottom:24px}.y-cab-fila{gap:12px 16px;flex-wrap:nowrap;align-items:flex-start}.y-cab-fila:has(.y-cab-acciones){flex-wrap:wrap}.y-cab-kanji{font-size:28px;padding:4px 14px 4px 0;align-self:flex-start}.y-cab-texto{flex:1 1 0}
+ .y-cab-acciones{width:100%}.y-cab-acciones>*{flex:1 1 auto}
+ .y-rejilla>*{padding:16px}
+}
+/* Ganan a los estilos propios de cada pantalla durante la migración (más especificidad, sin !important). */
+.yugen-page .y-secciones>button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 16px;border:0;border-bottom:2px solid transparent;border-radius:0;margin:0 0 -1px;background:none;box-shadow:none;color:var(--color-text-muted);font:500 14px var(--font-sans)}
+.yugen-page .y-secciones>button:hover{color:var(--color-text);background:none}
+.yugen-page .y-secciones>button[aria-selected=true]{color:var(--color-gold-bright);border-bottom-color:var(--color-gold);background:none}
+.yugen-page .pj-buscar{max-width:640px;margin:0 0 24px}
+.yugen-page :is(.pj-card,.pj-vital,.pj-page button,.pj-tabs button){border-radius:2px}
+.yugen-page .pj-vital meter{height:6px;border-radius:0;background:var(--color-well)}
+.yugen-page .pj-vital meter::-webkit-meter-bar{background:var(--color-well);border:0;border-radius:0;height:6px}
+.yugen-page .pj-vital meter::-webkit-meter-optimum-value,.yugen-page .pj-vital meter::-webkit-meter-suboptimum-value,.yugen-page .pj-vital meter::-webkit-meter-even-less-good-value{background:var(--color-red-500);border-radius:0}
+.yugen-page .pj-vital meter::-moz-meter-bar{background:var(--color-red-500);border-radius:0}
+.yugen-page .forja-tabs{gap:0!important;border-bottom:1px solid var(--color-line);flex-wrap:nowrap!important;overflow-x:auto}
+.yugen-page .forja-tabs>button{border:0;border-bottom:2px solid transparent;border-radius:0!important;margin-bottom:-1px;background:none;color:var(--color-text-muted);min-height:44px;padding:8px 16px;white-space:nowrap}
+.yugen-page .forja-tabs>button:hover{color:var(--color-text);background:none}
+.yugen-page .forja-tabs>button:is([aria-pressed=true],[aria-expanded=true]){color:var(--color-gold-bright);border-bottom-color:var(--color-gold);background:none}

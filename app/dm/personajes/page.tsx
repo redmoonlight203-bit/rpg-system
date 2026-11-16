@@ -1,4 +1,6 @@
 "use client";
+import {Cabecera,Secciones} from "../../../components/layout/Cabecera";
+import {Button} from "../../../components/ui/Button";
 import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -272,43 +274,28 @@ export default function GestionPersonajes() {
     );
   return (
     <main className="pj-page">
-      <header className="pj-head">
-        <div>
-          <span className="pj-eyebrow">GM / CONTINUIDAD DE CAMPAÑA</span>
-          <h1>Jugadores y personajes</h1>
-          <p>
-            Revisa nuevas vidas, atiende las heridas y conserva la historia de
-            quienes cayeron.
-          </p>
-        </div>
-        <button disabled={ocupado} onClick={() => void cargar()}>
-          Actualizar
-        </button>
-      </header>
-      <nav className="pj-tabs" aria-label="Gestión de jugadores">
-        {[
-          ["vivos", "Personajes", Heart],
-          ["solicitudes", `Solicitudes (${pendientes.length})`, Check],
-          ["cementerio", `Cementerio (${tumbas.length})`, Skull],
-          ["cuentas", "Jugadores", Users],
-        ].map(([id, label, Icon]) => {
-          const I = Icon as typeof Heart;
-          return (
-            <button
-              key={String(id)}
-              aria-pressed={tab === id}
-              onClick={() => {
-                setTab(String(id));
-                setSeleccion(null);
-                setTumba(null);
-              }}
-            >
-              <I size={16} />
-              {String(label)}
-            </button>
-          );
-        })}
-      </nav>
+      <Cabecera
+        kanji="人"
+        migas="Kuroi · Preparar a los jugadores"
+        titulo="Jugadores y personajes"
+        subtitulo="Revisa nuevas vidas, atiende las heridas y conserva la historia de quienes cayeron."
+        acciones={<Button variant="secondary" disabled={ocupado} onClick={() => void cargar()}>Actualizar</Button>}
+      />
+      <Secciones
+        etiqueta="Gestión de jugadores"
+        valor={tab}
+        onCambio={(id) => {
+          setTab(id);
+          setSeleccion(null);
+          setTumba(null);
+        }}
+        items={[
+          { id: "vivos", etiqueta: "Personajes", icono: <Heart size={16} aria-hidden="true" /> },
+          { id: "solicitudes", etiqueta: "Solicitudes", cuenta: pendientes.length, icono: <Check size={16} aria-hidden="true" /> },
+          { id: "cementerio", etiqueta: "Cementerio", cuenta: tumbas.length, icono: <Skull size={16} aria-hidden="true" /> },
+          { id: "cuentas", etiqueta: "Jugadores", icono: <Users size={16} aria-hidden="true" /> },
+        ]}
+      />
       {error && (
         <p role="alert" className="pj-notice pj-error">
           {error}
@@ -319,9 +306,8 @@ export default function GestionPersonajes() {
           {aviso}
         </p>
       )}
-      <label>
-        <Search size={14} />
-        Buscar
+      <label className="y-campo pj-buscar">
+        <span style={{display:"inline-flex",alignItems:"center",gap:8}}><Search size={14} aria-hidden="true" />Buscar</span>
         <input
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}

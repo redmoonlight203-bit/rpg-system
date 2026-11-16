@@ -1,4 +1,5 @@
 "use client";
+import {Cabecera} from "./layout/Cabecera";
 import {
   useCallback,
   useEffect,
@@ -378,22 +379,20 @@ export default function Party({ gm = false }: { gm?: boolean }) {
     );
   return (
     <main className="pj-page party-page">
-      <Link className="pj-button" href={gm ? "/dm/experiencia" : "/ficha"}>
-        <ArrowLeft size={15} />
-        {gm ? "Experiencia" : "Volver al Nexo"}
-      </Link>
-      <header className="pj-head">
-        <div>
-          <span className="pj-eyebrow">YUGEN / COMPAÑEROS DE VIAJE</span>
-          <h1>{gm ? "Parties de jugadores" : "Mi party"}</h1>
-          <p>
-            {gm
-              ? "Asigna NPC a una cuenta y gestiona su equipo. Los compañeros activos entran juntos al añadir al personaje al combate."
-              : "Gestiona a tus personajes y compañeros: equipamiento, inventario, habilidades y árbol. Cuando el GM añada a tu personaje al combate, sus compañeros activos entrarán con él."}
-          </p>
-        </div>
-        <Users size={45} />
-      </header>
+      {!gm && (
+        <Link className="pj-button" href="/ficha">
+          <ArrowLeft size={15} />
+          Volver al Nexo
+        </Link>
+      )}
+      <Cabecera
+        kanji="絆"
+        migas={gm ? "Kuroi · Preparar a los jugadores" : "Reencarnado · Compañeros de viaje"}
+        titulo={gm ? "Parties de jugadores" : "Mi party"}
+        subtitulo={gm
+          ? "Asigna NPC a una cuenta y gestiona su equipo. Los compañeros activos entran juntos al añadir al personaje al combate."
+          : "Gestiona a tus personajes y compañeros: equipamiento, inventario, habilidades y árbol. Cuando el GM añada a tu personaje al combate, sus compañeros activos entrarán con él."}
+      />
       {error && (
         <p role="alert" className="pj-notice pj-error">
           {error}

@@ -157,6 +157,42 @@
   --color-emerald-800: #134531;
   --color-emerald-900: #0c2e20;
   --color-emerald-950: #04140d;
+  /* sky: mismos tonos que cyan para quedar dentro de la paleta Yugen */
+  --color-sky-50: #fbf9f3;
+  --color-sky-100: #f6f2e6;
+  --color-sky-200: #eee8d5;
+  --color-sky-300: #e3dabd;
+  --color-sky-400: #d3c79f;
+  --color-sky-500: #bdae80;
+  --color-sky-600: #9a8c60;
+  --color-sky-700: #766a46;
+  --color-sky-800: #544a30;
+  --color-sky-900: #332d1d;
+  --color-sky-950: #1a1710;
+  /* violet: mismos tonos que purple para quedar dentro de la paleta Yugen */
+  --color-violet-50: #fdf2f4;
+  --color-violet-100: #f9e3e6;
+  --color-violet-200: #f2c4cc;
+  --color-violet-300: #e697a6;
+  --color-violet-400: #d6687f;
+  --color-violet-500: #bf3d5c;
+  --color-violet-600: #a52a49;
+  --color-violet-700: #8a1f3a;
+  --color-violet-800: #67162a;
+  --color-violet-900: #3f0f1a;
+  --color-violet-950: #1c060b;
+  /* green: mismos tonos que emerald para quedar dentro de la paleta Yugen */
+  --color-green-50: #f1f9f5;
+  --color-green-100: #e0f2ea;
+  --color-green-200: #c0e3d4;
+  --color-green-300: #94cdb5;
+  --color-green-400: #62b393;
+  --color-green-500: #3a9473;
+  --color-green-600: #27795a;
+  --color-green-700: #1c5f44;
+  --color-green-800: #134531;
+  --color-green-900: #0c2e20;
+  --color-green-950: #04140d;
 }
 
 /* Tipografías (las carga layout.tsx con next/font).

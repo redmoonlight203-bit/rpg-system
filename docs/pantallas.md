@@ -85,3 +85,14 @@ Al revisar Pactos y deudas apareció que `deudas_kuroi` y otras 17 tablas tenía
 - Las otras 17 tablas (migración `20261116160000_tablas_abiertas_sin_anon.sql`): retirado el acceso sin sesión. Para usuarios con sesión no cambia nada. Prueba: `tests/tablas-abiertas-database.mjs`.
 
 **Pendiente importante:** en esas 17 tablas cualquier usuario con sesión (también un jugador) sigue pudiendo modificar o borrar filas, por ejemplo `categorias_forja` y `config_estadisticas`, que definen razas y atributos. Hay que sustituir cada «Permitir todo» por reglas de lectura para todos y escritura solo para Kuroi (o propias del jugador donde corresponda), comprobando antes qué pantallas escriben en cada tabla.
+
+## Rediseño visual · tanda GM (16-11)
+
+Aplicación del plan de `design.md` a las pantallas del GM. Las pantallas del jugador van en la siguiente tanda.
+
+- Pieza común `components/layout/Cabecera.tsx` (§8): kanji índice, migas, título serif, subtítulo, zona de acciones y divisor kintsugi; y `Secciones`, pestañas con subrayado oro navegables con teclado. Usadas en Forja, Jugadores y personajes, Parties, Combate, Recompensas, Experiencia, Árbol, Estadísticas, Tiendas, Tienda de almas y Pactos. Antes había seis estilos de cabecera distintos.
+- Piezas de contenido en `app/yugen-design.css`: rejilla de líneas compartidas, chips tonales, cita, vacío, campo.
+- Pactos y deudas rehecha entera: nombre del jugador en cada pacto, filtros por estado, carga y error con reintento, botón principal oro en vez de verde y rojo.
+- Limpieza (§7 del plan): 57 fuentes monoespaciadas sustituidas, 132 radios grandes llevados a 2 px (se respetan círculos y píldoras), barra de vida en carmesí, `sky`, `violet` y `green` incorporados a la paleta.
+- Comprobado con capturas a 1440 y 390 px de las 10 pantallas: sin desbordes horizontales. Lint: 15 avisos menos que antes y ninguno nuevo.
+- Pendiente del GM: contenido interior de Forja y Estadísticas (editores grandes), tablero de combate y textos en mayúsculas espaciadas («PERSONAJE DE JUGADOR · #1»).

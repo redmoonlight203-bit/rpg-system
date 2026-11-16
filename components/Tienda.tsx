@@ -1,4 +1,5 @@
 "use client";
+import {Cabecera} from "./layout/Cabecera";
 import {mensajeError} from '../lib/errores';
 import {useTiempoReal} from "../lib/useTiempoReal";
 
@@ -59,7 +60,7 @@ export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
  function publicar(e:FormEvent){e.preventDefault();if(modo==="monedas"&&(!moneda||!Number.isSafeInteger(Number(precio))||Number(precio)<1)){setError("Selecciona moneda y precio entero positivo.");return;}if(elegida&&descripcion.trim())void operar("publicar");}
  const visibles=ofertas.filter(o=>vista==="historial"?["aceptada","retirada"].includes(o.estado):vista==="negociaciones"?o.estado==="negociando":["disponible","negociando"].includes(o.estado));
  if(!cargando&&almas&&!gm&&!permitido&&!error)return <main className="tienda"><h1>Tienda no disponible</h1><Link href="/ficha">Volver a mi ficha</Link></main>;
- return <main className="tienda"><header className="tienda-header"><div><p className="tienda-kicker">YUGEN · CREACIONES EN CIRCULACIÓN</p><h1><ShoppingBag size={27}/>{almas?"Tienda de almas":"La tienda"}</h1><p>Creaciones con precio en monedas o acuerdos presenciales.</p></div><div className="tienda-actions"><Link href={gm?"/dm/forja":"/ficha"}>{gm?"Volver a la Forja":"Volver a mi ficha"}</Link><button disabled={ocupado} onClick={()=>{setError("");void cargar(true);}} aria-label="Actualizar tienda"><RefreshCw size={16}/></button></div></header>
+ return <main className="tienda"><Cabecera kanji={almas?"魂":"市"} migas={gm?"Kuroi · Mundo":"Reencarnado · Tienda"} titulo={almas?"Tienda de almas":"La tienda"} subtitulo={almas?"Cuerpos y creaciones del alma, con precio en monedas o acuerdos presenciales.":"Creaciones con precio en monedas o acuerdos presenciales."} acciones={<div className="tienda-actions"><Link href={gm?"/dm/forja":"/ficha"}>{gm?"Volver a la Forja":"Volver a mi ficha"}</Link><button disabled={ocupado} onClick={()=>{setError("");void cargar(true);}} aria-label="Actualizar tienda"><RefreshCw size={16} aria-hidden="true"/></button></div>}/>
  {error&&<p role="alert" className="tienda-error">{error}</p>}{aviso&&<p role="status" className="tienda-aviso">{aviso}</p>}
  {!gm&&permitido&&<Billetera/>}
  {(gm||colmena)&&<div className="tienda-access">{almas?"Escaparate exclusivo de Mentes colmena":"Escaparate general"}<Link href={gm?(almas?"/dm/mercado":"/dm/tienda-almas"):(almas?"/ficha/tienda":"/ficha/tienda-almas")}>{almas?"Ir a tienda general":"Ir a Tienda de almas"}</Link></div>}
