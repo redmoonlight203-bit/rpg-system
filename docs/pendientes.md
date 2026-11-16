@@ -14,7 +14,9 @@
 - 1.3: resolver acción incierta para terminar/borrar. Descartar requiere serialización en servidor: una consulta sin recibo no demuestra que una petición en vuelo no vaya a confirmar después.
 - 1.4: una optimización por trigger, con antes/después.
 - 1.5–1.7: avisos dirigidos, regiones y sesión GM + dos jugadores, tres pasadas.
-- 2.1–2.7: completar revisión de triggers/RPC/índices/RLS, retención y despliegue reversible.
+- 2.1 hecho (16-11): propósito de cada trigger y propuestas de unión en base-de-datos.md.
+- 2.4 preparado (16-11): migración de retención semanal con prueba; falta aplicarla en producción.
+- 2.2, 2.6–2.7: consolidar combate_guardar_ligero, confirmar_jugador_rapido y combate_eliminar; avisos RLS restantes; cronometrar la reversión.
 - 3.1–3.8: auditoría funcional de pantallas, navegación, estados, consultas y móvil. No esconder reglas ni alma únicamente por la clasificación propuesta: son funciones actuales de creación y cuenta que requieren revisión de uso.
 
 ## Más adelante
