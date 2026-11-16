@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cargarDependencia} from './helpers/cargar-ts.mjs';
 const {aGrafo}=cargarDependencia('yunque-grafo');
-const {describirEfecto}=cargarDependencia('descripciones');
+const {describirEfecto,describirReaccion}=cargarDependencia('descripciones');
 const {PLANTILLAS_REACCION}=cargarDependencia('combate');
 const F=JSON.parse(readFileSync(new URL('./fixtures/yunque-borradores.json',import.meta.url),'utf8'));
 const clon=x=>JSON.parse(JSON.stringify(x));
@@ -93,9 +93,12 @@ test('defensa antigua aparece como nodo reaccion con la plantilla PLANTILLAS_REA
  const g=aGrafo(F.antigua,ctx);
  const n=por(g,'reaccion:a-absorcion');
  assert.ok(n);assert.equal(n.tipo,'reaccion');
+ assert.equal(F.antigua.efectos[0].reaccion,undefined);
+ assert.equal(F.antigua.efectos[0].defensa,'absorcion');
  assert.equal(n.error,null);
- assert.deepEqual(json(PLANTILLAS_REACCION.absorcion.principal.reservar),{recurso:'Energía absorbida',proporcion:0.5,maximo:10});
- assert.ok(/absorbe|reduce|reserva|Energía/i.test(n.frase),n.frase);
+ assert.equal(n.ruta.join('/'),'efectos/0/defensa');
+ assert.equal(n.frase,describirReaccion(PLANTILLAS_REACCION.absorcion));
+ assert.notEqual(n.frase,describirReaccion(PLANTILLAS_REACCION.inercia));
 });
 test('vínculo a creación inexistente: error «ya no está en La Creación»',()=>{
  const g=aGrafo(F.personaje,{creaciones:[]});

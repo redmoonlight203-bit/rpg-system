@@ -1,7 +1,7 @@
 import type {Borrador} from "./yunque-borrador";
-import {EFECTOS_NOMBRE,validarEfectos,validarReaccion,type Efecto,type Reaccion} from "./creacion";
+import {EFECTOS_NOMBRE,validarEfectos,validarReaccion,type Efecto} from "./creacion";
 import {EVENTOS,EFECTOS_REGLA,validarReglas,type Regla,type EfectoRegla,type CondicionRegla} from "./reglas";
-import {describirEfecto,describirRegla,condicionClara} from "./descripciones";
+import {describirEfecto,describirRegla,describirReaccion,condicionClara} from "./descripciones";
 import {validarPasivas} from "./pasivas";
 import {reaccionDe,validarTactica,validarRequisitos} from "./combate";
 /**
@@ -20,21 +20,6 @@ const entrada=(acepta:TipoNodo[],etiqueta?:string):Puerto=>({id:'entrada',lado:'
 const salida=(id:string,acepta:TipoNodo[],etiqueta?:string):Puerto=>({id,lado:'salida',acepta,...(etiqueta?{etiqueta}:{})});
 const SIEMPRE:CondicionRegla={tipo:'siempre'};
 const RELLENO:EfectoRegla={tipo:'perder_accion',destino:'yo'};
-function fraseReaccion(r:Reaccion):string{
- const partes:string[]=[];
- const res=(x:Reaccion['principal']|Reaccion['seguimiento'],pre:string)=>{
-  if(!x)return;
-  const t:string[]=[];
-  const p=x as NonNullable<Reaccion['principal']>;
-  if(p.reducir)t.push(p.reducir.modo==='mitad'?'reduce el daño a la mitad':`reduce el daño en ${p.reducir.valor}`);
-  if(x.devolver)t.push(`devuelve daño${x.devolver.maximo?` (máx. ${x.devolver.maximo})`:''}`);
-  if(x.reservar)t.push(`reserva ${x.reservar.recurso}`);
-  if(t.length)partes.push(`${pre}${t.join(', ')}`);
- };
- res(r.principal,'Al recibir un golpe, ');
- res(r.seguimiento,partes.length?'después ':'Tras una reacción, ');
- return (partes.join('; ')||'Reacción configurada')+'.';
-}
 export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  const nodos:Nodo[]=[];const cables:Cable[]=[];
  const nodo=(id:string,tipo:TipoNodo,ruta:Ruta,titulo:string,frase:string,error:string|null,puertos:Puerto[])=>{nodos.push({id,tipo,ruta,titulo,frase,error,puertos});};
@@ -58,7 +43,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(e.salvacion)modulo('salvacion','salvacion','Salvación',`CD ${e.salvacion.cd} de ${e.salvacion.atributo}; si la supera: ${e.salvacion.exito}.`);
   if(e.efecto==='estado')modulo('estado',null,'Estado',e.estado?`Aplica ${e.estado}.`:'Estado sin nombre.');
   const reaccion=reaccionDe(e);
-  if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',fraseReaccion(reaccion),validarReaccion(reaccion));
+  if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',describirReaccion(reaccion),validarReaccion(reaccion));
   if(e.transformacion||e.efecto==='transformacion')modulo('transformacion','transformacion','Transformación',e.transformacion?.nombre||'Transformación sin configurar.');
   if(e.recurso)modulo('recurso','recurso','Recurso',`${e.recurso.nombre}: inicia en ${e.recurso.inicial}, cambia ${e.recurso.cambio}.`);
   if(e.vfx)modulo('vfx','vfx','Animación','Animación configurada.');
