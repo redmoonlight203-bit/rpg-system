@@ -36,6 +36,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/ficha/tiradas", label: "Mesa de dados", icon: Dices },
     { href: "/ficha/experiencia", label: "Árbol de habilidades", icon: TrendingUp },
     { href: "/ficha/alma", label: "Baúl del alma", icon: Sparkles },
+    { href: "/ficha/deudas", label: "Pactos con Kuroi", icon: Handshake },
     { href: "/ficha/logros", label: "Logros, títulos e historial", icon: Sparkles },
     { href: "/ficha/arena", label: "Arena de entrenamiento", icon: Swords },
     ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
