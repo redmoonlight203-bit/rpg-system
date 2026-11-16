@@ -10,7 +10,31 @@ export const KANJI_RESPALDO: Record<string, string> = {
 };
 
 /** Secciones con runa ya entregada → archivo dentro de /arte/runas/. Añadir aquí cada runa que llegue. */
-export const RUNAS_DISPONIBLES: Record<string, string> = {};
+export const RUNAS_DISPONIBLES: Record<string, string> = {
+  'nexo': 'nexo.png',
+  'personajes': 'personajes.png',
+  'personaje': 'personajes.png',
+  'party': 'party.png',
+  'combate': 'combate.png',
+  'arena': 'arena.png',
+  'tiradas': 'tiradas.png',
+  'experiencia': 'experiencia.png',
+  'arbol': 'arbol.png',
+  'alma': 'alma.png',
+  'tienda': 'tienda.png',
+  'mercado': 'mercado.png',
+  'tienda-almas': 'tienda-almas.png',
+  'deudas': 'deudas.png',
+  'logros': 'logros.png',
+  'forja': 'forja.png',
+  'recompensas': 'recompensas.png',
+  'reglas': 'reglas.png',
+  'estilos': 'estilos.png',
+  'habilidades': 'habilidades.png',
+  'equipamiento': 'equipamiento.png',
+  'inventario': 'inventario.png',
+};
+// Origen: hoja de 40 runas del propietario (16-11-2026), recortadas como máscaras; ver public/arte/README.md.
 
 export function seccionDeRuta(href: string): string {
   const ultima = href.split('/').filter(Boolean).at(-1) || '';

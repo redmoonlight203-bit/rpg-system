@@ -4,7 +4,6 @@ import {useState} from 'react';
 import {Backpack,Shield,Swords,FlaskConical,Shirt,Footprints,Hand,Crown,Gem,Wind,ScanFace,X,Check,Search,ArrowLeft} from 'lucide-react';
 import {ESPACIOS_EQUIPO} from '../lib/combate';
 import {supabase} from '../lib/supabase';
-import SiluetaYugen from './SiluetaYugen';
 import RetratoRaza from './RetratoRaza';
 import './inventario-combate.css';
 export type PiezaEquipo={stats?:Record<string,number>;id:string;nombre:string;slot_tipo:string;tipo_creacion?:string;descripcion?:string;imagen_url?:string;consumible?:boolean;acciones?:{id:string;nombre:string;coste_ph:number;coste_fatiga:number;bloqueada?:string}[]};
@@ -16,7 +15,7 @@ export async function consultarEquipo(body:Record<string,unknown>):Promise<Conte
 }
 const iconos={casco:ScanFace,pechera:Shirt,pantalones:Shield,zapatos:Footprints,capa:Wind,mano_der:Swords,mano_izq:Hand,titulo:Crown};
 function IconoPieza({pieza,slot}:{pieza?:PiezaEquipo;slot?:string}){const Icono=pieza?.consumible?FlaskConical:iconos[(slot||pieza?.slot_tipo) as keyof typeof iconos]||(['mano','dos_manos'].includes(pieza?.slot_tipo||'')?Swords:pieza?.slot_tipo==='ninguno'?FlaskConical:Gem);return pieza?.imagen_url?<img src={pieza.imagen_url} alt="" loading="lazy"/>:<Icono size={26} aria-hidden="true"/>;}
-function Silueta({src}:{src?:string}){return src?<RetratoRaza src={src} className="inv-body inv-body-raza"/>:<SiluetaYugen className="inv-body"/>;}
+function Silueta({src}:{src?:string}){return <RetratoRaza src={src} className="inv-body inv-body-raza"/>;}
 export function EditorEquipoCombate({contexto,solicitud,onGuardado,onCerrar,inicial,catalogo,onAgregar,imagenRaza}:{imagenRaza?:string;catalogo?:{id:string;nombre:string}[];onAgregar?:(id:string)=>Promise<void>;contexto:ContextoEquipo;inicial?:Record<string,string>;solicitud:Record<string,unknown>;onGuardado:()=>void|Promise<void>;onCerrar:()=>void}){
  const [equipo,setEquipo]=useState({...(inicial||contexto.equipo)}),[error,setError]=useState(''),[ocupado,setOcupado]=useState(false),[slot,setSlot]=useState(''),[piezaId,setPiezaId]=useState(''),[busqueda,setBusqueda]=useState(''),[filtro,setFiltro]=useState('todo'),[objetivo,setObjetivo]=useState(contexto.actor_id||''),[accion,setAccion]=useState(''),[agregarId,setAgregarId]=useState('');
  const piezas=new Map(contexto.fuentes.map(p=>[p.id,p]));const pieza=piezas.get(piezaId);

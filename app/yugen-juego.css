@@ -160,3 +160,40 @@
 .inv-body-grid:has(.inv-body-raza) .inv-slot{background:color-mix(in srgb,var(--color-well) 45%,transparent);border-color:color-mix(in srgb,var(--color-gold) 30%,transparent);border-radius:2px;-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px)}
 .inv-body-grid:has(.inv-body-raza) .inv-slot:hover{background:color-mix(in srgb,var(--color-well) 25%,transparent);border-color:var(--color-gold)}
 .inv-body-grid:has(.inv-body-raza) .inv-slot :is(.inv-slot-label,strong,span){text-shadow:0 1px 3px #000,0 0 8px #000}
+
+/* ── Constelación de habilidades ── */
+.y3-constelacion{position:relative;overflow:hidden;min-width:0;border:1px solid var(--color-line);background:radial-gradient(ellipse 55% 45% at 50% 36%,color-mix(in srgb,var(--color-arcane) 22%,transparent),transparent 70%),var(--color-well)}
+.y3-constelacion-cielo{position:absolute;inset:0;background:url(/arte/escenas/mapa-estelar.webp) center/cover no-repeat;opacity:.32;mix-blend-mode:screen;filter:sepia(.35) hue-rotate(205deg) saturate(1.4)}
+.y3-constelacion-figura{position:absolute;left:50%;top:0;bottom:0;width:min(44%,420px);transform:translateX(-50%);opacity:.9;-webkit-mask-image:radial-gradient(ellipse 60% 55% at 50% 42%,#000 55%,transparent 100%);mask-image:radial-gradient(ellipse 60% 55% at 50% 42%,#000 55%,transparent 100%)}
+.y3-constelacion-figura .y3-retrato-raza{height:auto;max-height:100%;width:100%;object-fit:contain;object-position:center 8%}
+.y3-constelacion-trazos{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.y3-constelacion-trazos path{fill:none;stroke:var(--color-gold);stroke-width:1.4;opacity:.75;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--color-gold) 70%,transparent))}
+.y3-constelacion-trazos path.is-apagado{stroke:var(--color-text-muted);stroke-dasharray:3 6;opacity:.35;filter:none}
+.y3-constelacion-trazos path.is-elegido{stroke:var(--color-gold-bright);stroke-width:2.4;opacity:1}
+.y3-constelacion-corazon{fill:var(--color-gold-bright);filter:drop-shadow(0 0 10px var(--color-gold-bright))}
+.y3-estrella{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:12px;width:min(42%,230px);padding:6px 14px 6px 6px;text-align:left;border:1px solid color-mix(in srgb,var(--color-gold) 40%,transparent);border-radius:999px;background:color-mix(in srgb,var(--color-well) 78%,transparent);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);color:var(--color-text);cursor:pointer}
+.y3-estrella:hover,.y3-estrella:focus-visible{border-color:var(--color-gold)}
+.y3-estrella.is-elegida{border-color:var(--color-gold-bright);box-shadow:0 0 24px -4px color-mix(in srgb,var(--color-gold) 70%,transparent)}
+.y3-estrella-astro{position:relative;display:grid;place-items:center;flex:0 0 auto;width:48px;height:48px;border-radius:50%;border:1px solid var(--color-gold);background:radial-gradient(circle at 40% 35%,var(--color-overlay),var(--color-well) 75%);color:var(--color-gold-soft);box-shadow:0 0 18px -2px color-mix(in srgb,var(--color-gold) 55%,transparent)}
+.y3-estrella:not(.is-apagada) .y3-estrella-astro::after{content:'';position:absolute;inset:-5px;border-radius:50%;box-shadow:0 0 0 1px color-mix(in srgb,var(--color-arcane) 45%,transparent),0 0 16px 1px color-mix(in srgb,var(--color-arcane) 40%,transparent);opacity:.45;animation:y3-halo 2.4s ease-in-out infinite}
+.y3-estrella.is-apagada{opacity:.6}
+.y3-estrella.is-apagada .y3-estrella-astro{border-color:var(--color-neutral-600);color:var(--color-text-muted);box-shadow:none;filter:grayscale(.7)}
+.y3-estrella-texto{display:grid;gap:2px;min-width:0}
+.y3-estrella-texto strong{font:600 14px var(--font-display);letter-spacing:.03em;color:var(--color-gold-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.y3-estrella-texto small{font:12px var(--font-sans);color:var(--color-text-muted)}
+.y3-constelacion-lema{position:absolute;left:0;right:0;bottom:16px;text-align:center;font:600 12px var(--font-display);letter-spacing:.14em;color:var(--color-gold-soft);text-transform:uppercase;opacity:.8}
+.y3-constelacion-vacio{position:absolute;left:10%;right:10%;bottom:64px;background:color-mix(in srgb,var(--color-well) 85%,transparent)}
+@media(max-width:767px){.y3-estrella{width:46%;gap:8px;padding-right:8px}.y3-estrella-astro{width:38px;height:38px}.y3-estrella-texto strong{font-size:12px}.y3-constelacion-figura{width:62%}}
+@media (prefers-reduced-motion:reduce){.y3-estrella .y3-estrella-astro::after{animation:none}}
+/* Vista de equipo del Yunque: figura neutra en lugar de la silueta antigua */
+.vy-body>.vy-figura{position:absolute;inset:0 6%;width:88%;height:100%;object-fit:contain;object-position:center;opacity:.85;pointer-events:none}
+.yugen-page button.y3-estrella{border-radius:999px}
+/* Cabeceras heredadas de las pantallas del jugador (.y-page) en el idioma v3: sin monoespaciada ni Georgia. */
+.yugen-page :is(.y-breadcrumb,.y-eyebrow,.y-count,.y-panel-title,.y-home-number){font-family:var(--font-sans);letter-spacing:.06em}
+.yugen-page .y-breadcrumb{color:var(--color-arcane)}
+.yugen-page .y-eyebrow{color:var(--color-gold-soft);font-weight:500}
+.yugen-page .y-page-heading h1{font-family:var(--font-display);font-weight:600;letter-spacing:.02em;color:var(--color-gold-bright);text-shadow:0 0 24px color-mix(in srgb,var(--color-gold) 25%,transparent)}
+.yugen-page .y-page-heading p{font:15px/1.7 var(--font-sans);color:var(--color-text-muted)}
+.yugen-page .y-count{border-color:var(--color-line);color:var(--color-gold-soft);font-variant-numeric:tabular-nums}
+.yugen-page .y-tabs [aria-current=page],.yugen-page .y-tabs [aria-selected=true]{border-bottom-color:var(--color-gold);text-shadow:0 0 12px color-mix(in srgb,var(--color-gold) 45%,transparent)}
+.yugen-page :is(.y-skill-node small,.y-item-card small){font-family:var(--font-sans)}
