@@ -1,5 +1,5 @@
 import type {Borrador} from "./yunque-borrador";
-import {nuevoEfecto,type Efecto} from "./creacion";
+import {nuevoEfecto,EFECTOS_NOMBRE,type Efecto} from "./creacion";
 import {nuevaRegla,type Regla,type EfectoRegla,type CondicionRegla} from "./reglas";
 import type {ReglaPasiva} from "./pasivas";
 import {reaccionDe} from "./combate";
@@ -20,6 +20,7 @@ const PELIGROSAS=['__proto__','constructor','prototype'];
 const uuid=()=>crypto.randomUUID();
 const falla=(m:string):never=>{throw new Error(m);};
 /** Un puerto de salida conecta con un nodo del tipo destino si lo acepta y el destino es una entrada. */
+// El `acepta` del destino no se comprueba a propósito: un Puerto no lleva el tipo de su nodo propietario.
 export function conexionValida(origen:Puerto,destino:Puerto,tipoDestino:TipoNodo):boolean{
  return origen.lado==='salida'&&destino.lado==='entrada'&&origen.acepta.includes(tipoDestino);
 }
@@ -51,8 +52,11 @@ function nuevosIdsEfectoRegla(e:EfectoRegla):EfectoRegla{
 }
 function nuevosIdsRegla(r:Regla):Regla{const c=clon(r);c.id=uuid();c.efectos=c.efectos.map(nuevosIdsEfectoRegla);return c;}
 // ---- Valores por defecto mínimos y válidos de cada módulo ----
+const NOMBRE_MODULO:Record<string,string>={estado:'un estado',transformacion:'una transformación',tabla_armas:'una tabla de armas'};
 function aplicarModulo(e:Efecto,tipo:TipoNodo,datos:unknown):void{
  const d=datos as any;
+ // Estado, transformación y tabla de armas fijan `efecto`: solo sobre una acción de daño (excluyentes entre sí).
+ if(NOMBRE_MODULO[tipo]&&e.efecto!=='dano')falla(`Esta acción ya es de tipo ${EFECTOS_NOMBRE[e.efecto]??e.efecto}; crea otra acción para añadir ${NOMBRE_MODULO[tipo]}.`);
  switch(tipo){
   case 'alcance':
    if(e.efecto==='crear_arma')falla('Crear un arma no usa un alcance en el tablero.');
@@ -227,10 +231,10 @@ export function aplicar(b:Borrador,o:Operacion):Borrador{
     case 'salvacion':delete e!.salvacion;return r;
     case 'estado':e!.efecto='dano';e!.estado='';e!.duracion=0;delete e!.estado_tipo;delete e!.bonos_estado;return r;
     case 'reaccion':delete e!.reaccion;delete e!.defensa;return r;
-    case 'transformacion':delete e!.transformacion;if(e!.efecto==='transformacion')e!.efecto='dano';return r;
+    case 'transformacion':delete e!.transformacion;e!.efecto='dano';return r;
     case 'recurso':delete e!.recurso;return r;
     case 'vfx':delete e!.vfx;return r;
-    case 'tabla_armas':delete e!.tabla_armas;if(e!.efecto==='crear_arma')e!.efecto='dano';return r;
+    case 'tabla_armas':delete e!.tabla_armas;e!.efecto='dano';return r;
     case 'invocacion':r.invocacion=null;return r;
     case 'requisitos':r.requisitos_uso={};return r;
     case 'vinculo':return falla('Usa la colección para desenlazar creaciones.');

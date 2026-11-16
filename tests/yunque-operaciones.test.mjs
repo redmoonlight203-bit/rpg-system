@@ -166,3 +166,21 @@ test('editar otra acción conserva defensa, axioma, portal, suelo, vuelo, ley_li
  assert.deepEqual(json(r.efectos[0]),copia);
  assert.equal(r.efectos[0].defensa,'absorcion');
 });
+
+test('estado/transformación/tabla_armas solo sobre acciones de daño y excluyentes',()=>{
+ const b=base();b.efectos=[{...nuevoEfecto(),nombre:'A',efecto:'curacion'}];
+ const id=b.efectos[0].id;
+ assert.throws(()=>aplicar(b,{op:'agregar',tipo:'estado',padre:'accion:'+id}),/ya es de tipo Curación; crea otra acción/);
+ const c=base();c.efectos=[{...nuevoEfecto(),nombre:'A'}];
+ const cid='accion:'+c.efectos[0].id;
+ const e=aplicar(c,{op:'agregar',tipo:'estado',padre:cid});
+ assert.throws(()=>aplicar(e,{op:'agregar',tipo:'transformacion',padre:cid}),/ya es de tipo Estado/);
+ assert.throws(()=>aplicar(e,{op:'agregar',tipo:'tabla_armas',padre:cid}),/ya es de tipo Estado/);
+ assert.equal(json(aplicar(e,{op:'quitar',nodo:'estado:'+c.efectos[0].id}).efectos[0]).efecto,'dano');
+ for(const t of ['estado','transformacion','tabla_armas']){
+  const r=aplicar(aplicar(c,{op:'agregar',tipo:t,padre:cid}),{op:'quitar',nodo:`${t}:${c.efectos[0].id}`});
+  assert.equal(r.efectos[0].efecto,'dano',t);
+ }
+ const r=aplicar(e,{op:'quitar',nodo:'estado:'+c.efectos[0].id});
+ assert.equal(JSON.stringify(r.efectos[0]),JSON.stringify(c.efectos[0]));
+});
