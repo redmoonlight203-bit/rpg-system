@@ -15,9 +15,11 @@
 - 1.4: una optimización por trigger, con antes/después.
 - 1.5–1.7: avisos dirigidos, regiones y sesión GM + dos jugadores, tres pasadas.
 - 2.1 hecho (16-11): propósito de cada trigger y propuestas de unión en base-de-datos.md.
-- 2.4 preparado (16-11): migración de retención semanal con prueba; falta aplicarla en producción.
-- 2.2 preparado (16-11): migración de consolidación autoverificada con prueba; ejecutar scripts/verificar-consolidacion-2.2.sql y aplicarla en producción.
-- 2.6–2.7: avisos RLS restantes; cronometrar la reversión.
+- 2.4 hecho (16-11): retención semanal aplicada, pg_cron activo, primera pasada: 27 recibos y 26 avisos borrados.
+- 2.2 hecho (16-11): funciones del combate consolidadas y verificadas en producción.
+- 2.3/2.6 (16-11): 4 avisos auth_rls_initplan resueltos; Security sin errores. Quedan 4 tablas con políticas permisivas múltiples (requiere pruebas por identidad).
+- 2.7: cronometrar la reversión.
+- Evidencia: docs/metricas/fase2-2026-11-16.md.
 - 3.1–3.8: auditoría funcional de pantallas, navegación, estados, consultas y móvil. No esconder reglas ni alma únicamente por la clasificación propuesta: son funciones actuales de creación y cuenta que requieren revisión de uso.
 
 ## Más adelante

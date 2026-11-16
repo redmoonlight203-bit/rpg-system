@@ -7,7 +7,8 @@ set lock_timeout='1500ms';
 --  · combate_eliminar = 20261110125639_borrar_encuentros_terminados.
 -- Esta migración NO cambia comportamiento. Guarda la definición actual en private.estabilizacion_copias,
 -- declara la consolidada y aborta (sin aplicar nada) si el cuerpo, la configuración o SECURITY DEFINER
--- no son idénticos a los que había. Si aborta, producción tiene otra versión: recuperarla con
+-- no son idénticos a los que había (en el cuerpo solo se toleran saltos CRLF y espacios al final de línea;
+-- la versión consolidada los normaliza a LF). Si aborta, producción tiene otra versión: recuperarla con
 -- pg_get_functiondef y actualizar este archivo antes de volver a intentarlo.
 -- Desde aquí, cualquier cambio a estas funciones se hace con CREATE OR REPLACE completo, nunca con replace().
 
@@ -123,7 +124,8 @@ do $$declare a record;n record;faltan int;begin
  for a in select * from consolidacion_antes loop
   select p.prosrc,p.proconfig,p.prosecdef,p.provolatile,pg_get_function_result(p.oid) resultado into n
   from pg_proc p where p.oid=a.firma::regprocedure;
-  if n.prosrc is distinct from a.prosrc then raise exception 'Consolidación 2.2: el cuerpo de % en esta base no coincide con el repositorio. No se aplica nada.',a.firma;end if;
+  -- Solo se ignoran \r y espacios al final de línea: producción tenía parte de combate_eliminar con saltos CRLF.
+  if regexp_replace(replace(n.prosrc,E'\r',''),E'[ \t]+\n',E'\n','g') is distinct from regexp_replace(replace(a.prosrc,E'\r',''),E'[ \t]+\n',E'\n','g') then raise exception 'Consolidación 2.2: el cuerpo de % en esta base no coincide con el repositorio. No se aplica nada.',a.firma;end if;
   if n.proconfig is distinct from a.proconfig or n.prosecdef<>a.prosecdef or n.provolatile<>a.provolatile or n.resultado<>a.resultado then
    raise exception 'Consolidación 2.2: la configuración de % no coincide con el repositorio. No se aplica nada.',a.firma;end if;
  end loop;

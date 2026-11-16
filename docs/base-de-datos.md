@@ -109,7 +109,7 @@ Propuestas; ninguna se aplica sin medir antes y después en una copia (una migra
 
 Migración `20261116120000_retencion_semanal.sql`, probada en `tests/retencion-database.mjs`. `private.retencion_ejecutar()` borra recibos de `private.combate_acciones` y descartes con más de 7 días, y avisos de `combate_actualizaciones` de encuentros inexistentes o terminados hace más de 7 días. `avisos_actualizacion` no crece (una fila por perfil). Los encuentros terminados sin aprobar con más de 30 días no se borran: se anotan en `private.retencion_registro` (últimos 52) y el GM los consulta con `retencion_estado()`. Si pg_cron está disponible se programa los lunes a las 04:17 UTC (`yugen-retencion-semanal`).
 
-**Estado: sin aplicar en producción.** Antes: ensayar en copia, contar filas que borraría y comprobar con `select * from cron.job` que la tarea quedó registrada.
+**Estado: aplicada en producción el 16-11** (versión `20261116142010`), tarea pg_cron activa y primera pasada ejecutada. Evidencia en [metricas/fase2-2026-11-16.md](metricas/fase2-2026-11-16.md).
 
 ## Consolidación de funciones del combate (paso 2.2)
 
@@ -117,7 +117,7 @@ Migración `20261116130000_consolidar_funciones_combate.sql`: una sola definici�
 
 No cambia comportamiento: guarda la definición previa en `private.estabilizacion_copias` (clave `consolidacion-2.2:…`) y aborta toda la transacción si cuerpo, configuración o SECURITY DEFINER difieren de lo que hay en la base. La prueba `tests/consolidacion-funciones-database.mjs` reproduce la cadena real de migraciones y comprueba igualdad exacta y los dos casos de aborto.
 
-**Estado: sin aplicar en producción.** Antes, ejecutar `scripts/verificar-consolidacion-2.2.sql` (solo lectura): las tres filas deben decir «coincide». Regla desde ahora: estas funciones se modifican con `CREATE OR REPLACE` completo en una migración nueva, nunca con `replace()` sobre `pg_get_functiondef`.
+**Estado: aplicada en producción el 16-11** (versión `20261116141935`). `combate_eliminar` tenía saltos CRLF en producción; la migración solo tolera esa diferencia de formato y ahora el cuerpo es idéntico al del repositorio. `scripts/verificar-consolidacion-2.2.sql` sirve para comprobarlo de nuevo. Regla desde ahora: estas funciones se modifican con `CREATE OR REPLACE` completo en una migración nueva, nunca con `replace()` sobre `pg_get_functiondef`.
 
 Observación, sin cambiar: `combate_eliminar` no borra `private.combate_acciones_descartadas`; esas filas huérfanas las limpia la retención semanal a los 7 días.
 
@@ -139,7 +139,7 @@ No registrar estas migraciones como ejecutadas hasta comparar definiciones y rev
 
 ## Pendiente
 
-Medición de triggers en copia, aplicar retención en producción, aplicar consolidación de funciones (paso 2.2), Advisors Performance (RLS y políticas múltiples) y región Vercel. Índices de FK, respaldos y revisión de RPC ya están hechos (ver avance del 14 de noviembre).
+Medición de triggers en copia, políticas permisivas múltiples (4 tablas) y región Vercel. Retención, consolidación 2.2 y los 4 avisos auth_rls_initplan quedaron aplicados el 16-11. Índices de FK, respaldos y revisión de RPC ya están hechos (ver avance del 14 de noviembre).
 
 ## Cambios aplicados tras la copia restaurada (2026-11-10)
 

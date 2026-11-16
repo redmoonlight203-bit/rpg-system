@@ -41,6 +41,13 @@ try{
  await db.exec(sql(CONSOLIDACION));
  assert.deepEqual(await estado(),antes);
 
+ // 1b. Producción tenía parte de combate_eliminar con saltos CRLF y un espacio en una línea vacía: se acepta y se normaliza.
+ const elim=(await db.query("select pg_get_functiondef('public.combate_eliminar(uuid,integer)'::regprocedure) d")).rows[0].d;
+ const conCrlf=elim.replace("borrarlo.';end if;\n\n","borrarlo.';end if;\n \r\n").replace(/;\n (if exists|raise|end if;\n delete|delete)/g,';\r\n $1');
+ assert.notEqual(conCrlf,elim);await db.exec(conCrlf);
+ assert.match((await db.query("select prosrc from pg_proc where oid='public.combate_eliminar(uuid,integer)'::regprocedure")).rows[0].prosrc,/\r\n/);
+ await db.exec(sql(CONSOLIDACION));
+ assert.deepEqual(await estado(),antes,'tras aplicar, el cuerpo queda normalizado a LF');
  // 2. Si la base tiene otra versión de una función, aborta y no aplica nada.
  await db.exec(`create or replace function public.combate_eliminar(p_id uuid,p_version integer) returns void language plpgsql security definer set search_path to 'public','pg_temp' as $$begin null;end;$$`);
  const distinta=await estado();
