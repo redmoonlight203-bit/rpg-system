@@ -111,6 +111,16 @@ Migración `20261116120000_retencion_semanal.sql`, probada en `tests/retencion-d
 
 **Estado: sin aplicar en producción.** Antes: ensayar en copia, contar filas que borraría y comprobar con `select * from cron.job` que la tarea quedó registrada.
 
+## Consolidación de funciones del combate (paso 2.2)
+
+Migración `20261116130000_consolidar_funciones_combate.sql`: una sola definición completa y legible de `combate_guardar_ligero`, `yugen_interno.confirmar_jugador_rapido` y `combate_eliminar`. Solo la primera tenía parches por `replace()` (dos, del 14-11); se reconstruyó aplicándolos sobre la definición de producción registrada el 10-11.
+
+No cambia comportamiento: guarda la definición previa en `private.estabilizacion_copias` (clave `consolidacion-2.2:…`) y aborta toda la transacción si cuerpo, configuración o SECURITY DEFINER difieren de lo que hay en la base. La prueba `tests/consolidacion-funciones-database.mjs` reproduce la cadena real de migraciones y comprueba igualdad exacta y los dos casos de aborto.
+
+**Estado: sin aplicar en producción.** Antes, ejecutar `scripts/verificar-consolidacion-2.2.sql` (solo lectura): las tres filas deben decir «coincide». Regla desde ahora: estas funciones se modifican con `CREATE OR REPLACE` completo en una migración nueva, nunca con `replace()` sobre `pg_get_functiondef`.
+
+Observación, sin cambiar: `combate_eliminar` no borra `private.combate_acciones_descartadas`; esas filas huérfanas las limpia la retención semanal a los 7 días.
+
 ## Reconciliación
 
 Las migraciones historial_sin_imagenes y borrar_encuentros_terminados registran definiciones completas ya observadas en producción.
@@ -129,7 +139,7 @@ No registrar estas migraciones como ejecutadas hasta comparar definiciones y rev
 
 ## Pendiente
 
-Medición de triggers en copia, aplicar retención en producción, consolidación de funciones (paso 2.2), Advisors Performance (RLS y políticas múltiples) y región Vercel. Índices de FK, respaldos y revisión de RPC ya están hechos (ver avance del 14 de noviembre).
+Medición de triggers en copia, aplicar retención en producción, aplicar consolidación de funciones (paso 2.2), Advisors Performance (RLS y políticas múltiples) y región Vercel. Índices de FK, respaldos y revisión de RPC ya están hechos (ver avance del 14 de noviembre).
 
 ## Cambios aplicados tras la copia restaurada (2026-11-10)
 
