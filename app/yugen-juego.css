@@ -197,3 +197,58 @@
 .yugen-page .y-count{border-color:var(--color-line);color:var(--color-gold-soft);font-variant-numeric:tabular-nums}
 .yugen-page .y-tabs [aria-current=page],.yugen-page .y-tabs [aria-selected=true]{border-bottom-color:var(--color-gold);text-shadow:0 0 12px color-mix(in srgb,var(--color-gold) 45%,transparent)}
 .yugen-page :is(.y-skill-node small,.y-item-card small){font-family:var(--font-sans)}
+.y3-sello-runa{display:block;width:26px;height:26px;background:#fff;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center}
+
+/* ── Celebración de nivel ── */
+.y3-celebracion{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--color-well) 82%,transparent);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.y3-celebracion-destello{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--color-gold-bright) 45%,transparent),transparent 45%);animation:y3-destello-nivel .9s ease-out both}
+@keyframes y3-destello-nivel{from{opacity:0;transform:scale(.6)}40%{opacity:1}to{opacity:.35;transform:scale(1.15)}}
+.y3-celebracion-carta{position:relative;display:grid;justify-items:center;gap:14px;max-width:420px;padding:40px 32px;text-align:center;border:1px solid var(--color-gold);background:linear-gradient(170deg,var(--color-raised),var(--color-well));box-shadow:0 0 60px -10px color-mix(in srgb,var(--color-gold) 60%,transparent);animation:y3-entrada-carta .5s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes y3-entrada-carta{from{opacity:0;transform:translateY(16px) scale(.94)}to{opacity:1;transform:none}}
+.y3-celebracion-nivel{margin:0;font:300 96px/1 var(--font-serif);color:var(--color-gold-bright);text-shadow:0 0 30px color-mix(in srgb,var(--color-gold) 70%,transparent);font-variant-numeric:tabular-nums}
+.yugen-page .y3-celebracion h2,.y3-celebracion h2{margin:0;font-size:24px;color:var(--color-gold-bright)}
+@media (prefers-reduced-motion:reduce){.y3-celebracion-destello,.y3-celebracion-carta{animation:none}}
+
+/* ── Escena de entrada (login) ── */
+.yugen-entry-story{background:radial-gradient(ellipse 70% 50% at 30% 30%,color-mix(in srgb,var(--color-arcane) 22%,transparent),transparent 70%),var(--color-well)!important;position:relative;isolation:isolate;overflow:hidden}
+.yugen-entry-story::before{content:'';position:absolute;inset:0;z-index:-1;background:url(/arte/escenas/mapa-estelar.webp) center/cover no-repeat;opacity:.3;mix-blend-mode:screen;filter:sepia(.35) hue-rotate(205deg) saturate(1.4);animation:y3-cielo 60s linear infinite alternate}
+@keyframes y3-cielo{from{transform:scale(1.04) translateY(0)}to{transform:scale(1.1) translateY(-2%)}}
+.yugen-entry-story .yugen-landscape{opacity:.35}
+.yugen-entry-wordmark,.yugen-entry-title h2{font-family:var(--font-display)!important;letter-spacing:.02em}
+.yugen-entry-title h2{text-shadow:0 0 30px color-mix(in srgb,var(--color-gold) 30%,transparent)}
+.yugen-entry-title p:first-child,.yugen-entry-number,.yugen-auth-kicker{color:var(--color-arcane)!important}
+.y3-entrada-runa{writing-mode:horizontal-tb!important}
+.yugen-auth-panel{position:relative;border:1px solid var(--color-line-strong)!important;background:linear-gradient(170deg,var(--color-raised),var(--color-well))!important;box-shadow:0 0 40px -14px color-mix(in srgb,var(--color-gold) 50%,transparent)!important}
+.yugen-auth-panel::before,.yugen-auth-panel::after{content:'';position:absolute;width:22px;height:22px;border:1px solid var(--color-gold);pointer-events:none}
+.yugen-auth-panel::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.yugen-auth-panel::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+.yugen-auth-panel h1{font-family:var(--font-display)!important;letter-spacing:.02em}
+.yugen-auth-panel button[type=submit]{background:linear-gradient(180deg,var(--color-gold-soft),var(--color-gold));font-family:var(--font-display);letter-spacing:.06em;box-shadow:0 8px 24px -10px color-mix(in srgb,var(--color-gold) 70%,transparent)}
+@media (prefers-reduced-motion:reduce){.yugen-entry-story::before{animation:none}}
+.yugen-page .yugen-auth-panel{padding:clamp(24px,4vw,40px)!important}
+.yugen-entry-story::before{opacity:.22}
+/* ── Galería de personajes: cartas con figura de raza ── */
+.yugen-page .y3-pj-carta{position:relative;overflow:hidden;padding-top:0;border-color:var(--color-line);background:linear-gradient(170deg,var(--color-raised),var(--color-well));transition:transform .18s ease,box-shadow .18s ease}
+.yugen-page .y3-pj-carta:hover{transform:translateY(-3px);box-shadow:0 14px 30px -18px #000,0 0 26px -10px color-mix(in srgb,var(--color-gold) 45%,transparent)}
+.y3-pj-figura{position:relative;height:190px;margin:0 -24px 16px;overflow:hidden;border-bottom:1px solid var(--color-line)}
+.y3-pj-figura .y3-retrato-raza{width:100%;height:100%;object-fit:cover;object-position:center 12%}
+.y3-pj-figura::after{content:'';position:absolute;inset:0;background:linear-gradient(transparent 55%,var(--color-raised))}
+.yugen-page .y3-pj-carta h2{font-family:var(--font-display);letter-spacing:.03em;color:var(--color-gold-bright)}
+@media (prefers-reduced-motion:reduce){.yugen-page .y3-pj-carta{transition:none}.yugen-page .y3-pj-carta:hover{transform:none}}
+.yugen-page .pj-grid:has(.y3-pj-carta){display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:20px}
+.yugen-page .pj-head h1{font-family:var(--font-display);font-weight:600;letter-spacing:.02em;color:var(--color-gold-bright)}
+.yugen-page .pj-eyebrow{font-family:var(--font-sans);letter-spacing:.06em;color:var(--color-arcane)}
+
+/* ── Mesa de Kuroi ── */
+.y3-mesa-encuentro{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:24px;margin-bottom:48px}
+.yugen-page .y3-mesa-encuentro h2{margin:4px 0;font-size:clamp(24px,3vw,34px);color:var(--color-gold-bright)}
+.y3-mesa-tareas{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:16px}
+.y3-mesa-tarea{position:relative;display:grid;justify-items:start;gap:6px;padding:24px;border:1px solid var(--color-line);background:linear-gradient(160deg,var(--color-raised),var(--color-well));text-decoration:none;color:var(--color-text);transition:transform .18s ease,border-color .18s ease}
+.y3-mesa-tarea:hover,.y3-mesa-tarea:focus-visible{transform:translateY(-3px);border-color:var(--color-line-strong)}
+.y3-mesa-cifra{font:300 56px/1 var(--font-serif);font-variant-numeric:tabular-nums;color:var(--color-gold-bright);text-shadow:0 0 24px color-mix(in srgb,var(--color-gold) 40%,transparent)}
+.y3-mesa-titulo{font:600 16px var(--font-display);letter-spacing:.04em;color:var(--color-gold-soft)}
+.y3-mesa-tarea small{font:13px/1.5 var(--font-sans);color:var(--color-text-muted)}
+.y3-mesa-tarea.is-calma .y3-mesa-cifra{color:var(--color-text-muted);text-shadow:none}
+.y3-mesa-tarea.is-calma{opacity:.8}
+@media(max-width:767px){.y3-mesa-encuentro{grid-template-columns:auto minmax(0,1fr)}.y3-mesa-encuentro>a{grid-column:1/-1;justify-content:center}.y3-mesa-cifra{font-size:44px}}
+@media (prefers-reduced-motion:reduce){.y3-mesa-tarea{transition:none}.y3-mesa-tarea:hover{transform:none}}

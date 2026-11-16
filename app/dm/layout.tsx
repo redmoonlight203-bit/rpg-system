@@ -12,6 +12,7 @@ import NavegacionMovil from "../../components/NavegacionMovil";
 
 // Orden del recorrido del GM (docs/ciclo-juego.md): preparar → sesión → recompensas; después mundo y ajustes.
 const principales = [
+  { path: "/dm", label: "Mesa de Kuroi", detail: "Lo pendiente de la sesión", icon: Hammer },
   { path: "/dm/forja", label: "La Forja", detail: "Crear y dar forma al mundo", icon: Hammer },
   { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },
   { path: "/dm/party", label: "Parties de jugadores", icon: Users },

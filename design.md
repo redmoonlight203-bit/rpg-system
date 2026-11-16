@@ -54,7 +54,9 @@ Las familias de Tailwind ya usadas (`neutral`, `amber`, `purple`…) se re-pinta
 | **Medallón** | Atributo como moneda: cifra grande dentro de un círculo con borde de oro | Atributos de la ficha |
 | **Sello** | Lacre carmesí con runa | Aprobado, victoria, nivel subido, creación terminada |
 
-**Runas mientras no lleguen las imágenes:** el componente `Runa` muestra la imagen de `public/arte/runas/<seccion>.svg` (o `.png`); si no existe, muestra el kanji anterior. Ninguna pantalla queda vacía.
+**Runas:** entregadas el 16-11 (`public/arte/runas/<seccion>.png`, máscaras teñidas de oro). Una sección sin runa asignada muestra el kanji anterior.
+
+**Figuras de raza:** cada raza tiene su figura (estilo hombre de Vitruvio, `public/arte/razas/`); sustituye por completo a la silueta antigua, que se eliminó. Sin raza conocida se usa la figura humana. El mapa estelar (`public/arte/escenas/mapa-estelar.webp`) es el cielo de la constelación de habilidades y de la entrada.
 
 ## 5. Movimiento
 

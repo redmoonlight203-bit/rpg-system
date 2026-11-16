@@ -1,2 +1,2 @@
 import {redirect} from "next/navigation";
-export default function TableroRetirado(){redirect("/dm/forja");}
+export default function TableroRetirado(){redirect("/dm");}

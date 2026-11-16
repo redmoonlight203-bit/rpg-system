@@ -1,4 +1,5 @@
 "use client";
+import RetratoRaza from "../../../components/RetratoRaza";
 import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,7 +14,7 @@ import {
   type Raza,
   type Atributo,
 } from "../../../lib/personajes";
-import { linaje } from "../../../lib/estadisticas";
+import { linaje, imagenDeRaza } from "../../../lib/estadisticas";
 import IconoYugen from "../../../components/IconoYugen";
 import FichaVital from "../../../components/FichaVital";
 import "../../../components/personajes.css";
@@ -422,8 +423,8 @@ export default function PersonajesJugador() {
           )}
           <div className="pj-grid">
             {personajes.map((p) => (
-              <article key={p.id} className="pj-card">
-                <User size={30} />
+              <article key={p.id} className="pj-card y3-pj-carta">
+                <div className="y3-pj-figura" aria-hidden="true"><RetratoRaza src={imagenDeRaza(categorias, categorias.find((c) => c.id === p.categoria_id)?.clave || p.raza)} /></div>
                 <span className="pj-eyebrow">
                   {" "}
                   {p.estado_aprobacion} · {p.estado_vida}

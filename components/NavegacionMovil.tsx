@@ -15,7 +15,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
   const setAbierto = (valor: boolean) => setRutaMenu(valor ? pathname : null);
   const boton = useRef<HTMLButtonElement>(null);
   const enlaces = gm ? [
-    { href: "/dm/forja", label: "Forja", icon: Hammer },
+    { href: "/dm", label: "Mesa", icon: Home },
     { href: "/dm/combate", label: "Combate", icon: Swords },
     { href: "/dm/personajes", label: "Personajes", icon: Users },
     { href: "/dm/mercado", label: "Tiendas", icon: ShoppingBag },
@@ -26,6 +26,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/ficha/tienda", label: "Tienda", icon: ShoppingBag },
   ];
   const extras = gm ? [
+    { href: "/dm/forja", label: "La Forja", icon: Hammer },
     { href: "/dm/party", label: "Parties de jugadores", icon: Users },
     { href: "/dm/recompensas", label: "Botín, logros y títulos", icon: Sparkles },
     { href: "/dm/experiencia", label: "Experiencia", icon: TrendingUp },
@@ -43,7 +44,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/ficha/arena", label: "Arena de entrenamiento", icon: Swords },
     ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
   ];
-  const activo = (href: string) => pathname === href || (href !== "/ficha" && pathname.startsWith(href + "/"));
+  const activo = (href: string) => pathname === href || (href !== "/ficha" && href !== "/dm" && pathname.startsWith(href + "/"));
   return <div className="mobile-navigation" onKeyDown={e => { if (e.key === "Escape") { setAbierto(false); boton.current?.focus(); } }}>
     {abierto && <>
       <button className="mobile-menu-backdrop" aria-label="Cerrar más opciones" onClick={() => setAbierto(false)} />
