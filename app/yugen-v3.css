@@ -1,0 +1,73 @@
+/* ==========================================================================
+   YUGEN v3 · Primitivas «La noche de Kuroi» (ver design.md §5 y §8)
+   ========================================================================== */
+
+.yg-marco {
+  position: relative;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--color-raised), var(--color-canvas));
+  padding: 1rem;
+}
+.yg-marco::before,
+.yg-marco::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-gold-bright);
+  pointer-events: none;
+}
+.yg-marco::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-top-left-radius: 6px; }
+.yg-marco::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; border-bottom-right-radius: 6px; }
+
+.yg-vital { display: grid; gap: 0.5rem; }
+.yg-vital-cabecera { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.875rem; }
+.yg-vital-pista {
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-well);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+}
+.yg-vital-relleno {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 500ms cubic-bezier(.2,.7,.2,1);
+  position: relative;
+}
+.yg-vital-relleno::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  transform: translateX(-100%);
+  animation: yg-brillo 2.8s ease-in-out infinite;
+}
+.yg-vital-vida { background: linear-gradient(90deg, #7d0a1f, var(--color-crimson)); }
+.yg-vital-energia { background: linear-gradient(90deg, #5b43c9, var(--color-arcano)); }
+.yg-vital-exp { background: linear-gradient(90deg, var(--color-gold), var(--color-gold-bright)); }
+
+.yg-sello {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--color-gold-bright);
+  border-radius: 4px;
+  color: var(--color-gold-bright);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  transform: rotate(-2deg);
+}
+.yg-sello > [aria-hidden] { font-size: 1rem; color: var(--color-crimson); }
+
+@keyframes yg-brillo {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yg-vital-relleno { transition: none; }
+  .yg-vital-relleno::after { animation: none; display: none; }
+}

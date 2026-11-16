@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import "./mobile.css";
 import "./yugen-design.css";
+import "./yugen-v3.css";
 
 const sansKr = localFont({
   src: "../public/fonts/NotoSansKR-latin.ttf",
