@@ -54,5 +54,5 @@ jobs:
         run: |
           sha256sum supabase/functions/equipo-combate/motor.js
           for funcion in equipo-combate combate-jugador arena-yugen; do
-            supabase functions deploy "$funcion" --project-ref "$PROYECTO_SUPABASE" --no-verify-jwt --use-api
+            supabase functions deploy "$funcion" --project-ref "$PROYECTO_SUPABASE" --no-verify-jwt --use-api --yes
           done
