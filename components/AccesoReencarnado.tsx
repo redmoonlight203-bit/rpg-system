@@ -9,7 +9,7 @@ import LogoYugen from './LogoYugen';
 import ProgresoJugador from './ProgresoJugador';
 import NavegacionMovil from './NavegacionMovil';
 import {supabase} from '../lib/supabase';
-const rutas=new Set(['/ficha','/ficha/personajes','/ficha/personaje','/ficha/equipamiento','/ficha/inventario','/ficha/habilidades','/ficha/alma','/ficha/tienda','/ficha/tienda-almas','/ficha/combate','/ficha/tiradas','/ficha/experiencia','/ficha/party','/ficha/logros','/ficha/arena']);
+const rutas=new Set(['/ficha','/ficha/personajes','/ficha/personaje','/ficha/equipamiento','/ficha/inventario','/ficha/habilidades','/ficha/alma','/ficha/tienda','/ficha/tienda-almas','/ficha/combate','/ficha/tiradas','/ficha/experiencia','/ficha/party','/ficha/logros','/ficha/arena','/ficha/deudas']);
 export default function AccesoReencarnado({children}:{children:ReactNode}){
  const ruta=usePathname(),router=useRouter();const[perfil,setPerfil]=useState<{mente_colmena:boolean}|null>(null);
  useEffect(()=>{let vivo=true;async function cargar(){const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace('/login');return;}const {data,error}=await supabase.from('perfiles').select('rol,estado,mente_colmena').eq('id',user.id).single();if(!vivo)return;if(error||!data||data.estado!=='aprobado'){router.replace('/login');return;}if(data.rol==='KUROI'){router.replace('/dm');return;}setPerfil(data);}void cargar();const t=setInterval(()=>void cargar(),15000);return()=>{vivo=false;clearInterval(t);};},[router]);
