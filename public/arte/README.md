@@ -40,7 +40,11 @@ Al recibir cada runa se añade a `RUNAS_DISPONIBLES` en `lib/runas.ts`. Mientras
 |---|---|---|---|
 | `escenas/entrada.webp` | 1920 × 1080 | WebP | Fondo de la escena de login (Kuroi en su vacío) |
 | `escenas/nexo.webp` | 800 × 800, fondo transparente | WebP o PNG | Ilustración del portal del Nexo (sustituye al emblema) |
-| `retratos/<clave-de-raza>.webp` | 600 × 800 | WebP | Retrato genérico por raza en la carta de héroe (p. ej. `humano.webp`, `elfo.webp`) |
+| `razas/<clave>.webp` | ~1024 × 683 (se recorta la figura central) | WebP o PNG | Figura de cada raza, estilo hombre de Vitruvio. **Faltan: Dragones y Hadas.** Desde el 16-11 también se pueden subir desde Estadísticas al crear o editar la raza. |
+
+### Regla: cada raza nueva lleva su imagen
+
+Al crear una raza en Estadísticas hay que subir su figura; sin ella no se puede guardar (lo comprueba también el servidor). Una subraza puede heredar la de su raza superior, como Kuro con Humanos. Si la imagen trae dibujados los huecos de equipo, se recorta la figura central: la aplicación pone sus propios huecos interactivos encima.
 
 ## 3 · Opcional
 
@@ -51,4 +55,8 @@ Al recibir cada runa se añade a `RUNAS_DISPONIBLES` en `lib/runas.ts`. Mientras
 
 | Archivo | Origen | Licencia | Fecha |
 |---|---|---|---|
-| — | — | — | — |
+| `razas/humanos.webp` | Propietario, 16-11-2026 (recortada: sin huecos ni rótulos dibujados) | Del propietario | 16-11-2026 |
+| `razas/elfos.webp` | Propietario, 16-11-2026 (recortada) | Del propietario | 16-11-2026 |
+| `razas/enanos.webp` | Propietario, 16-11-2026 (recortada) | Del propietario | 16-11-2026 |
+| `razas/hombres-bestia.webp` | Propietario, 16-11-2026 (recortada) | Del propietario | 16-11-2026 |
+| `razas/gigantes.webp` | Propietario, 16-11-2026 (recortada) | Del propietario | 16-11-2026 |

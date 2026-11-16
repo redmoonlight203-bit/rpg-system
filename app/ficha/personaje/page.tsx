@@ -20,9 +20,9 @@ import {
   type Raza,
   type Atributo,
 } from "../../../lib/personajes";
-import { linaje } from "../../../lib/estadisticas";
+import { linaje, imagenDeRaza } from "../../../lib/estadisticas";
 import FichaVital from "../../../components/FichaVital";
-import SiluetaYugen from "../../../components/SiluetaYugen";
+import RetratoRaza from "../../../components/RetratoRaza";
 import { Marco, BarraVital, Medallon } from "../../../components/ui/Juego";
 import { experienciaParaNivel, NIVEL_MAXIMO } from "../../../lib/progresion";
 import IconoYugen from "../../../components/IconoYugen";
@@ -147,7 +147,7 @@ export default function FichaPersonaje() {
           {/* Carta de héroe: retrato, nombre, linaje y progreso */}
           <Marco brillo className="y3-carta">
             <div className="y3-carta-retrato" aria-hidden="true">
-              <SiluetaYugen className="y3-carta-silueta" />
+              <RetratoRaza src={imagenDeRaza(categorias, raza?.clave)} nombre={raza?.nombre} className="y3-carta-silueta" />
               <span className="y3-carta-emblema"><IconoYugen id={raza?.icono} size={40} /></span>
             </div>
             <div className="y3-carta-cuerpo">

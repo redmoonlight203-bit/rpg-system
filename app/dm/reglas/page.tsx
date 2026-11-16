@@ -1,5 +1,7 @@
 "use client";
 import {Cabecera} from "../../../components/layout/Cabecera";
+import { publicarArchivoImagen } from "../../../lib/imagenes-storage";
+import RetratoRaza from "../../../components/RetratoRaza";
 import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 
@@ -7,7 +9,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import ReglasCriaturas from "../../../components/ReglasCriaturas";
 import NaturalezasYugen from "../../../components/NaturalezasYugen";
-import { atributosEfectivos, linaje, padreValido } from "../../../lib/estadisticas";
+import { atributosEfectivos, linaje, padreValido, imagenDeRaza } from "../../../lib/estadisticas";
 import { supabase } from "../../../lib/supabase";
 import { PasivaRacial } from "../../../components/PasivaRacial";
 import IconoYugen from "../../../components/IconoYugen";
@@ -16,7 +18,7 @@ import {iconoCategoria} from "../../../lib/iconos-yugen";
 import "./estadisticas.css";
 import { ArrowRight, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
-type Categoria = { rangos_criatura?:Record<string,{min:number;max:number}>; id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null; pasiva_racial?: import("../../../components/PasivaRacial").DefinicionRacial | null };
+type Categoria = { rangos_criatura?:Record<string,{min:number;max:number}>; id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null; imagen_url?: string | null; pasiva_racial?: import("../../../components/PasivaRacial").DefinicionRacial | null };
 type Stat = { id: string; categoria: string; clave: string; etiqueta: string; descripcion: string | null; valor_defecto: number };
 type Editor = { tipo: "categoria"; original?: Categoria } | { tipo: "atributo"; original?: Stat };
 const claveDe = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -38,6 +40,7 @@ export default function Estadisticas() {
   const [valor, setValor] = useState("0");
   const [padre, setPadre] = useState("");
   const [icono,setIcono]=useState("");
+  const [imagenRazaEd,setImagenRazaEd]=useState(""),[subiendoImagen,setSubiendoImagen]=useState(false);
   const [buscarCategoria,setBuscarCategoria]=useState("");
   const [filtroAtributo,setFiltroAtributo]=useState("todos");
   const [herenciaDisponible, setHerenciaDisponible] = useState(false);
@@ -73,10 +76,25 @@ export default function Estadisticas() {
   const visibles = deCategoria.filter(s => (filtroAtributo==="todos" || (filtroAtributo==="propios" ? s.categoria===seleccion : s.categoria!==seleccion)) && coincide(`${s.etiqueta} ${s.clave} ${s.descripcion || ""}`));
   const huerfanos = stats.filter(s => !categorias.some(c => c.clave === s.categoria));
 
+  // Figura de raza (design.md v3): obligatoria al crear una raza, salvo que herede la de su raza superior.
+  const clavePadre = categorias.find(c => c.id === padre)?.clave || "";
+  const esRazaEditor = editor?.tipo === "categoria" && !!clavePadre && linaje(categorias, clavePadre).some(c => c.clave === "razas");
+  const imagenHeredada = esRazaEditor ? imagenDeRaza(categorias, clavePadre) : undefined;
+  const originalCat = editor?.tipo === "categoria" ? editor.original : undefined;
+  const imagenRazaRequerida = esRazaEditor && !imagenHeredada && (!originalCat || !!originalCat.imagen_url || (originalCat.parent_id || "") !== padre);
+  async function subirImagenRaza(file: File | undefined) {
+    if (!file) return;
+    setSubiendoImagen(true); setErrorEditor("");
+    try { setImagenRazaEd(await publicarArchivoImagen(file)); }
+    catch (e) { setErrorEditor(mensajeError(e, "No se pudo subir la imagen de la raza.")); }
+    finally { setSubiendoImagen(false); }
+  }
+
   function abrir(e: Editor, categoriaSuperior = "") {
     setEditor(e); setErrorEditor(""); setAviso("");
     setNombre(e.original ? (e.tipo === "categoria" ? e.original.nombre : e.original.etiqueta) : "");
     setIcono(e.tipo === "categoria" ? e.original?.icono || "" : "");
+    setImagenRazaEd(e.tipo === "categoria" ? e.original?.imagen_url || "" : "");
     setPadre(e.tipo === "categoria" ? e.original?.parent_id || categoriaSuperior : "");
     setClave(e.original?.clave || ""); setDescripcion(e.original?.descripcion || "");
     setValor(e.tipo === "atributo" ? String(e.original?.valor_defecto ?? 0) : "0");
@@ -90,12 +108,13 @@ export default function Estadisticas() {
       : stats.some(s => s.categoria === seleccion && s.clave === claveFinal && s.id !== editor.original?.id);
     if (editor.tipo === "categoria" && !padreValido(categorias, editor.original?.id, padre)) return setErrorEditor("El grupo elegido produciría una herencia circular.");
     if (duplicado) return setErrorEditor("Esta clave ya existe. Elige otra para evitar duplicados.");
+    if (imagenRazaRequerida && !imagenRazaEd) return setErrorEditor("Cada raza nueva necesita su imagen. Súbela antes de guardar.");
     if (editor.tipo === "atributo" && (!actual || valor.trim() === "" || !Number.isFinite(Number(valor)))) return setErrorEditor("Selecciona una categoría y un valor numérico válido.");
     setGuardando(true); setErrorEditor("");
     try {
       const tabla = editor.tipo === "categoria" ? "categorias_forja" : "config_estadisticas";
       const datos = editor.tipo === "categoria"
-        ? { nombre: nombreFinal, icono:icono||null, descripcion: descripcion.trim(), ...(herenciaDisponible ? { parent_id: padre || null } : {}) }
+        ? { nombre: nombreFinal, icono:icono||null, descripcion: descripcion.trim(), ...(herenciaDisponible ? { parent_id: padre || null } : {}), ...(esRazaEditor ? { imagen_url: imagenRazaEd || null } : {}) }
         : { etiqueta: nombreFinal, descripcion: descripcion.trim(), valor_defecto: Number(valor) };
       const consulta = editor.original
         ? supabase.from(tabla).update(datos).eq("id", editor.original.id).select("id").single()
@@ -202,6 +221,7 @@ export default function Estadisticas() {
           <p className="text-xs text-neutral-500">{editor.original ? "Se conserva para mantener conectadas las creaciones existentes." : `Clave que se guardará: ${claveDe(clave || nombre) || "—"}`}</p>
           {editor.tipo === "categoria" && <label className="block space-y-2 text-sm"><span>Categoría superior</span><select disabled={!herenciaDisponible} className={campo} value={padre} onChange={e => setPadre(e.target.value)}><option value="">Ninguna — categoría principal</option>{categorias.filter(c => padreValido(categorias, editor.original?.id, c.id)).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select><span className="block text-xs text-neutral-500">Al elegir una categoría superior, se convierte en subcategoría y comparte sus atributos generales.</span></label>}
           {editor.tipo==="categoria"&&<section className="st-icon-editor"><h3>Símbolo de {nombre||"la categoría"}</h3><p>Se comparte con sus creaciones sin imagen. Cada raza puede tener su propio emblema.</p><SelectorIconoYugen value={icono} onChange={setIcono} automatico={iconoCategoria(categorias.map(c=>c.id===editor.original?.id?{...c,icono:null}:c),editor.original?.clave||claveDe(nombre))} disabled={guardando}/></section>}
+          {esRazaEditor&&<section className="st-icon-editor st-raza-imagen"><h3>Figura de la raza{imagenRazaRequerida?" (obligatoria)":""}</h3><p>{imagenHeredada&&!imagenRazaEd?"Sin imagen propia usa la de su raza superior. Puedes subir una distinta.":"Se muestra en la carta de héroe y en el equipamiento. PNG, JPG o WebP; se publica como imagen pública."}</p><div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>{(imagenRazaEd||imagenHeredada)&&<span style={{display:"block",width:92,height:102,border:"1px solid var(--color-line)",overflow:"hidden"}}><RetratoRaza src={imagenRazaEd||imagenHeredada} nombre={nombre}/></span>}<label className={boton}>{subiendoImagen?"Subiendo…":imagenRazaEd?"Cambiar imagen":"Subir imagen"}<input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={guardando||subiendoImagen} onChange={e=>void subirImagenRaza(e.target.files?.[0])}/></label>{imagenRazaEd&&!imagenRazaRequerida&&<button type="button" className={boton} disabled={guardando} onClick={()=>setImagenRazaEd("")}>Quitar</button>}</div></section>}
           <label className="block space-y-2 text-sm"><span>Descripción</span><textarea maxLength={2000} rows={3} className={campo} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder={editor.tipo === "categoria" ? "Qué tipo de elementos agrupa" : "Qué representa y cómo se utiliza este atributo"}/></label>
           {editor.tipo === "atributo" && <><p className="text-sm text-neutral-400">Categoría: {actual?.nombre}</p><label className="block space-y-2 text-sm"><span>Valor predeterminado</span><input required type="number" step="any" className={campo} value={valor} onChange={e => setValor(e.target.value)}/></label></>}
           {errorEditor && <p role="alert" className="text-sm text-red-400">{errorEditor}</p>}
