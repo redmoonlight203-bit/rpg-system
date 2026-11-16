@@ -1,0 +1,519 @@
+{
+ "objeto": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": false,
+  "monstruo": null,
+  "nivelMaximo": 20,
+  "invocacion": null,
+  "requisitos_uso": {},
+  "consumible": false,
+  "nombre": "Lanza del Alba",
+  "tipo": "objeto",
+  "clasificacion": "armas",
+  "descripcion": "Una lanza ceremonial.",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "C",
+  "malla": false,
+  "slot": "mano_der",
+  "stats": {},
+  "rangos": {},
+  "efectos": [
+   {
+    "id": "e-lanzada",
+    "nombre": "Lanzada solar",
+    "efecto": "dano",
+    "cantidad": 1,
+    "caras": 8,
+    "modificador": 2,
+    "tipo_dano": "",
+    "estado": "",
+    "duracion": 0,
+    "coste_ph": 2,
+    "elemento": "fuego",
+    "tablero": {
+     "alcance": 3,
+     "forma": "linea",
+     "tamano": 3,
+     "afecta": "enemigos",
+     "color": "dorado"
+    },
+    "salvacion": {
+     "cd": 13,
+     "atributo": "salvacion",
+     "exito": "mitad"
+    },
+    "reaccion": {
+     "naturaleza": "fisica",
+     "principal": {
+      "reducir": {
+       "modo": "fijo",
+       "valor": 3
+      },
+      "animacion": "axioma-reaccion"
+     }
+    }
+   },
+   {
+    "id": "e-estocada",
+    "nombre": "Estocada",
+    "efecto": "dano",
+    "cantidad": 2,
+    "caras": 6,
+    "modificador": 2,
+    "tipo_dano": "",
+    "estado": "",
+    "duracion": 0,
+    "coste_ph": 0
+   }
+  ],
+  "habilidades": [],
+  "pasivas": [],
+  "reglas": [],
+  "reglas_pasivas": [],
+  "equipamiento": {},
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000001"
+ },
+ "habilidad": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": false,
+  "monstruo": null,
+  "nivelMaximo": 20,
+  "invocacion": {
+   "claseMaxima": "C",
+   "maxHabilidades": 2,
+   "modo": "plantilla_temporal",
+   "duracionTurnos": 3,
+   "maxActivas": 1
+  },
+  "requisitos_uso": {
+   "nivel_minimo": 5
+  },
+  "consumible": false,
+  "nombre": "Llamado del Lobo",
+  "tipo": "habilidad",
+  "clasificacion": "habilidades",
+  "descripcion": "",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "B",
+  "malla": false,
+  "slot": "ninguno",
+  "stats": {},
+  "rangos": {},
+  "efectos": [
+   {
+    "id": "h-llamado",
+    "nombre": "Llamado",
+    "efecto": "estado",
+    "cantidad": 0,
+    "caras": 0,
+    "modificador": 0,
+    "tipo_dano": "",
+    "estado": "Inspirado",
+    "duracion": 3,
+    "coste_ph": 4,
+    "estado_tipo": "narrativo"
+   }
+  ],
+  "habilidades": [],
+  "pasivas": [],
+  "reglas": [
+   {
+    "id": "r-herida",
+    "nombre": "Aliento de vida",
+    "evento": "impactar",
+    "condicion": {
+     "tipo": "comparar",
+     "sujeto": "objetivo",
+     "atributo": "vida",
+     "operador": "<",
+     "valor": 50,
+     "porcentaje": true
+    },
+    "efectos": [
+     {
+      "tipo": "curar",
+      "destino": "yo",
+      "valor": {
+       "dados": 1,
+       "caras": 6,
+       "bono": 2
+      }
+     },
+     {
+      "tipo": "estado",
+      "destino": "yo",
+      "clave": "inspirado",
+      "nombre": "Inspirado",
+      "duracion": 2
+     }
+    ],
+    "coste_ph": 0,
+    "coste_fatiga": 0,
+    "enfriamiento": 0,
+    "usos": 0,
+    "prioridad": 0,
+    "limite_por_turno": 0
+   }
+  ],
+  "reglas_pasivas": [],
+  "equipamiento": {},
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000002"
+ },
+ "pasiva": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": false,
+  "monstruo": null,
+  "nivelMaximo": 20,
+  "invocacion": null,
+  "requisitos_uso": {},
+  "consumible": false,
+  "nombre": "Piel de Roble",
+  "tipo": "pasiva",
+  "clasificacion": "pasivas",
+  "descripcion": "",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "D",
+  "malla": false,
+  "slot": "ninguno",
+  "stats": {},
+  "rangos": {},
+  "efectos": [],
+  "habilidades": [],
+  "pasivas": [],
+  "reglas": [],
+  "reglas_pasivas": [
+   {
+    "id": "p-corteza",
+    "nombre": "Corteza",
+    "condicion": "siempre",
+    "evento": "permanente",
+    "bonos": {
+     "armadura": 1
+    },
+    "curacion": 0,
+    "recuperar_ph": 0,
+    "reducir_fatiga": 0
+   },
+   {
+    "id": "p-savia",
+    "nombre": "Savia",
+    "condicion": "vida_mitad",
+    "evento": "inicio_turno",
+    "bonos": {},
+    "curacion": 3,
+    "recuperar_ph": 0,
+    "reducir_fatiga": 0
+   }
+  ],
+  "equipamiento": {},
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000003"
+ },
+ "personaje": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": false,
+  "monstruo": null,
+  "nivelMaximo": 20,
+  "invocacion": null,
+  "requisitos_uso": {},
+  "consumible": false,
+  "nombre": "Aldric",
+  "tipo": "personaje",
+  "clasificacion": "personajes",
+  "descripcion": "",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "C",
+  "malla": false,
+  "slot": "ninguno",
+  "stats": {
+   "vida": 40,
+   "ph": 12
+  },
+  "rangos": {},
+  "efectos": [],
+  "habilidades": [
+   "00000000-0000-4000-8000-000000000002"
+  ],
+  "pasivas": [
+   "00000000-0000-4000-8000-000000000003"
+  ],
+  "reglas": [],
+  "reglas_pasivas": [],
+  "equipamiento": {
+   "mano_der": "00000000-0000-4000-8000-000000000001"
+  },
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000004"
+ },
+ "monstruo": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": true,
+  "monstruo": {
+   "variantes": [
+    {
+     "id": "v1",
+     "nombre": "Común",
+     "peso": 1,
+     "bonos": {},
+     "habilidades": [
+      "00000000-0000-4000-8000-000000000002"
+     ],
+     "pasivas": [],
+     "equipamiento": {}
+    }
+   ]
+  },
+  "nivelMaximo": 20,
+  "invocacion": null,
+  "requisitos_uso": {},
+  "consumible": false,
+  "nombre": "Lobo Huargo",
+  "tipo": "personaje",
+  "clasificacion": "monstruos",
+  "descripcion": "",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "D",
+  "malla": false,
+  "slot": "ninguno",
+  "stats": {
+   "vida": 30
+  },
+  "rangos": {},
+  "efectos": [],
+  "habilidades": [
+   "00000000-0000-4000-8000-000000000002"
+  ],
+  "pasivas": [],
+  "reglas": [],
+  "reglas_pasivas": [],
+  "equipamiento": {},
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000005"
+ },
+ "titulo": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": false,
+  "monstruo": null,
+  "nivelMaximo": 20,
+  "invocacion": null,
+  "requisitos_uso": {},
+  "consumible": false,
+  "nombre": "Guardián del Paso",
+  "tipo": "titulo",
+  "clasificacion": "titulos",
+  "descripcion": "Honor concedido por la guardia.",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "D",
+  "malla": false,
+  "slot": "ninguno",
+  "stats": {},
+  "rangos": {},
+  "efectos": [],
+  "habilidades": [],
+  "pasivas": [],
+  "reglas": [
+   {
+    "id": "t-honor",
+    "nombre": "Honor",
+    "evento": "inicio_combate",
+    "condicion": {
+     "tipo": "siempre"
+    },
+    "efectos": [
+     {
+      "tipo": "atributo",
+      "destino": "yo",
+      "atributo": "armadura",
+      "operacion": "sumar",
+      "valor": 1
+     }
+    ],
+    "coste_ph": 0,
+    "coste_fatiga": 0,
+    "enfriamiento": 0,
+    "usos": 0,
+    "prioridad": 0,
+    "limite_por_turno": 0
+   }
+  ],
+  "reglas_pasivas": [],
+  "equipamiento": {},
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000006"
+ },
+ "otro": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": false,
+  "monstruo": null,
+  "nivelMaximo": 20,
+  "invocacion": null,
+  "requisitos_uso": {},
+  "consumible": false,
+  "nombre": "Reliquia sin nombre",
+  "tipo": "otro",
+  "clasificacion": "otros",
+  "descripcion": "Algo extraño.",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "D",
+  "malla": false,
+  "slot": "ninguno",
+  "stats": {},
+  "rangos": {},
+  "efectos": [],
+  "habilidades": [],
+  "pasivas": [],
+  "reglas": [],
+  "reglas_pasivas": [],
+  "equipamiento": {},
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000007"
+ },
+ "antigua": {
+  "formas": [],
+  "icono": "",
+  "naturalezaVinculo": {
+   "naturaleza_id": "",
+   "origen": "",
+   "bestia": "",
+   "sello": "",
+   "notas": ""
+  },
+  "ramaMonstruo": false,
+  "monstruo": null,
+  "nivelMaximo": 20,
+  "invocacion": null,
+  "requisitos_uso": {},
+  "consumible": false,
+  "nombre": "Escudo del Axioma",
+  "tipo": "objeto",
+  "clasificacion": "armas",
+  "descripcion": "",
+  "historia": "",
+  "requisitos": "",
+  "defectos": "",
+  "imagen": "",
+  "clase": "B",
+  "malla": false,
+  "slot": "mano_izq",
+  "stats": {},
+  "rangos": {},
+  "efectos": [
+   {
+    "id": "a-absorcion",
+    "nombre": "Absorción",
+    "efecto": "estado",
+    "cantidad": 0,
+    "caras": 0,
+    "modificador": 0,
+    "tipo_dano": "",
+    "estado": "Absorbiendo",
+    "duracion": 1,
+    "coste_ph": 0,
+    "estado_tipo": "narrativo",
+    "defensa": "absorcion"
+   }
+  ],
+  "habilidades": [],
+  "pasivas": [],
+  "reglas": [],
+  "reglas_pasivas": [],
+  "equipamiento": {},
+  "alma": false,
+  "venta": false,
+  "precio": "",
+  "id": "00000000-0000-4000-8000-000000000008"
+ }
+}
