@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   YUGEN REALM · SISTEMA DE DISEÑO  (negro · rojo · dorado)
+   YUGEN · SISTEMA DE DISEÑO v3  (noche pizarra-violeta · oro envejecido · pergamino · carmesí) — ver design.md
    --------------------------------------------------------------------------
    Base de la paleta:
-     rojo   #ad0013   dorado #a67d43   negro #121312
+     carmesí #b0172b   oro #b8925a   noche #14121f   pergamino #e9dcbf   arcano #9d8ae0
 
    TRUCO: Tailwind v4 permite redefinir su paleta. Aquí "re-pintamos" los
    colores que ya usan tus páginas (red, amber, purple, cyan, orange...)
@@ -16,73 +16,77 @@
 @theme {
   --text-xs: 0.8125rem;
   --text-xs--line-height: 1.5;
-  --color-well: #0a0b0a;
-  --color-canvas: #121312;
-  --color-raised: #1a1b19;
-  --color-overlay: #262725;
-  --color-gold-soft: #e2c292;
-  --color-gold-bright: #f1d5a7;
-  --color-ember: #38231b;
-  --color-line: rgb(166 125 67 / 0.22);
-  --color-line-strong: rgb(166 125 67 / 0.5);
-  --color-text: #e9e4d7;
-  --color-text-muted: #a9aaa5;
-  --color-danger-text: #f0606c;
-  --color-success-text: #62b393;
+  --color-well: #0b0a14;
+  --color-canvas: #14121f;
+  --color-raised: #1d1a2c;
+  --color-overlay: #29253b;
+  --color-gold-soft: #e3c58f;
+  --color-gold-bright: #f4dfae;
+  --color-ember: #3a2230;
+  --color-line: rgb(184 146 90 / 0.24);
+  --color-line-strong: rgb(184 146 90 / 0.55);
+  --color-text: #ebe5d6;
+  --color-text-muted: #a8a2bb;
+  --color-danger-text: #f2707d;
+  --color-success-text: #6cc3a0;
   /* ---- Nombres semánticos (úsalos de aquí en adelante) ---- */
-  --color-crimson: #ad0013;
-  --color-gold: #a67d43;
-  --color-ink: #121312;
+  --color-crimson: #b0172b;
+  --color-gold: #b8925a;
+  --color-ink: #14121f;
+  /* v3 · pergamino y halo arcano */
+  --color-parchment: #e9dcbf;
+  --color-arcane: #9d8ae0;
+  --font-display: var(--font-cinzel), var(--font-serif-kr), Georgia, serif;
 
   /* ---- NEGRO cálido (reemplaza neutral) ---- */
-  --color-neutral-50: #f8f6f0;
-  --color-neutral-100: #efede6;
-  --color-neutral-200: #e2e1dc;
-  --color-neutral-300: #c9c9c4;
-  --color-neutral-400: #a9aaa5;
-  --color-neutral-500: #82837e;
-  --color-neutral-600: #5a5b57;
-  --color-neutral-700: #3a3b38;
-  --color-neutral-800: #262725;
-  --color-neutral-900: #1a1b19;
-  --color-neutral-950: #121312;
+  --color-neutral-50: #f8f7fb;
+  --color-neutral-100: #efedf5;
+  --color-neutral-200: #e1dded;
+  --color-neutral-300: #c8c3d6;
+  --color-neutral-400: #a8a2bb;
+  --color-neutral-500: #7f7896;
+  --color-neutral-600: #5a5470;
+  --color-neutral-700: #3b3652;
+  --color-neutral-800: #29253b;
+  --color-neutral-900: #1d1a2c;
+  --color-neutral-950: #14121f;
 
   /* ---- ROJO carmesí (reemplaza red) ---- */
   --color-red-50: #fff1f2;
-  --color-red-100: #fde4e6;
-  --color-red-200: #fac6ca;
-  --color-red-300: #f69aa2;
-  --color-red-400: #f0606c;
-  --color-red-500: #e5283a;
-  --color-red-600: #cc0f22;
-  --color-red-700: #ad0013;
-  --color-red-800: #7d000d;
-  --color-red-900: #4a0008;
-  --color-red-950: #1c0003;
+  --color-red-100: #fde3e5;
+  --color-red-200: #f9c3c8;
+  --color-red-300: #f59aa3;
+  --color-red-400: #f2707d;
+  --color-red-500: #d93a4c;
+  --color-red-600: #b0172b;
+  --color-red-700: #8c1022;
+  --color-red-800: #650b19;
+  --color-red-900: #3f0610;
+  --color-red-950: #200308;
 
   /* ---- DORADO (reemplaza amber y yellow) ---- */
-  --color-amber-50: #fbf6ea;
-  --color-amber-100: #f4e9d0;
-  --color-amber-200: #e8d3a8;
-  --color-amber-300: #d8b97f;
-  --color-amber-400: #c49a5c;
-  --color-amber-500: #a67d43;
-  --color-amber-600: #8a6535;
-  --color-amber-700: #6e5029;
-  --color-amber-800: #523c1f;
-  --color-amber-900: #382916;
-  --color-amber-950: #1f160b;
-  --color-yellow-50: #fbf6ea;
-  --color-yellow-100: #f4e9d0;
-  --color-yellow-200: #e8d3a8;
-  --color-yellow-300: #d8b97f;
-  --color-yellow-400: #c49a5c;
-  --color-yellow-500: #a67d43;
-  --color-yellow-600: #8a6535;
-  --color-yellow-700: #6e5029;
-  --color-yellow-800: #523c1f;
-  --color-yellow-900: #382916;
-  --color-yellow-950: #1f160b;
+  --color-amber-50: #fcf7ec;
+  --color-amber-100: #f8edd6;
+  --color-amber-200: #f4dfae;
+  --color-amber-300: #e3c58f;
+  --color-amber-400: #cfa970;
+  --color-amber-500: #b8925a;
+  --color-amber-600: #9a7845;
+  --color-amber-700: #7a5e36;
+  --color-amber-800: #5a4528;
+  --color-amber-900: #3a2d1b;
+  --color-amber-950: #211a10;
+  --color-yellow-50: #fcf7ec;
+  --color-yellow-100: #f8edd6;
+  --color-yellow-200: #f4dfae;
+  --color-yellow-300: #e3c58f;
+  --color-yellow-400: #cfa970;
+  --color-yellow-500: #b8925a;
+  --color-yellow-600: #9a7845;
+  --color-yellow-700: #7a5e36;
+  --color-yellow-800: #5a4528;
+  --color-yellow-900: #3a2d1b;
+  --color-yellow-950: #211a10;
 
   /* ---- COBRE (reemplaza orange): puente entre rojo y dorado ---- */
   --color-orange-50: #fdf5ef;
@@ -98,28 +102,28 @@
   --color-orange-950: #200d05;
 
   /* ---- VINO / BORGOÑA (reemplaza purple, indigo, rose) ---- */
-  --color-purple-50: #fdf2f4;
-  --color-purple-100: #f9e3e6;
-  --color-purple-200: #f2c4cc;
-  --color-purple-300: #e697a6;
-  --color-purple-400: #d6687f;
-  --color-purple-500: #bf3d5c;
-  --color-purple-600: #a52a49;
-  --color-purple-700: #8a1f3a;
-  --color-purple-800: #67162a;
-  --color-purple-900: #3f0f1a;
-  --color-purple-950: #1c060b;
-  --color-indigo-50: #fdf2f4;
-  --color-indigo-100: #f9e3e6;
-  --color-indigo-200: #f2c4cc;
-  --color-indigo-300: #e697a6;
-  --color-indigo-400: #d6687f;
-  --color-indigo-500: #bf3d5c;
-  --color-indigo-600: #a52a49;
-  --color-indigo-700: #8a1f3a;
-  --color-indigo-800: #67162a;
-  --color-indigo-900: #3f0f1a;
-  --color-indigo-950: #1c060b;
+  --color-purple-50: #f5f2fd;
+  --color-purple-100: #ebe5fb;
+  --color-purple-200: #d9cef6;
+  --color-purple-300: #c3b6f0;
+  --color-purple-400: #ad9ee8;
+  --color-purple-500: #9d8ae0;
+  --color-purple-600: #7f6bc6;
+  --color-purple-700: #61509f;
+  --color-purple-800: #463a75;
+  --color-purple-900: #2d264b;
+  --color-purple-950: #1a1630;
+  --color-indigo-50: #f5f2fd;
+  --color-indigo-100: #ebe5fb;
+  --color-indigo-200: #d9cef6;
+  --color-indigo-300: #c3b6f0;
+  --color-indigo-400: #ad9ee8;
+  --color-indigo-500: #9d8ae0;
+  --color-indigo-600: #7f6bc6;
+  --color-indigo-700: #61509f;
+  --color-indigo-800: #463a75;
+  --color-indigo-900: #2d264b;
+  --color-indigo-950: #1a1630;
   --color-rose-50: #fdf2f4;
   --color-rose-100: #f9e3e6;
   --color-rose-200: #f2c4cc;
@@ -170,17 +174,17 @@
   --color-sky-900: #332d1d;
   --color-sky-950: #1a1710;
   /* violet: mismos tonos que purple para quedar dentro de la paleta Yugen */
-  --color-violet-50: #fdf2f4;
-  --color-violet-100: #f9e3e6;
-  --color-violet-200: #f2c4cc;
-  --color-violet-300: #e697a6;
-  --color-violet-400: #d6687f;
-  --color-violet-500: #bf3d5c;
-  --color-violet-600: #a52a49;
-  --color-violet-700: #8a1f3a;
-  --color-violet-800: #67162a;
-  --color-violet-900: #3f0f1a;
-  --color-violet-950: #1c060b;
+  --color-violet-50: #f5f2fd;
+  --color-violet-100: #ebe5fb;
+  --color-violet-200: #d9cef6;
+  --color-violet-300: #c3b6f0;
+  --color-violet-400: #ad9ee8;
+  --color-violet-500: #9d8ae0;
+  --color-violet-600: #7f6bc6;
+  --color-violet-700: #61509f;
+  --color-violet-800: #463a75;
+  --color-violet-900: #2d264b;
+  --color-violet-950: #1a1630;
   /* green: mismos tonos que emerald para quedar dentro de la paleta Yugen */
   --color-green-50: #f1f9f5;
   --color-green-100: #e0f2ea;

@@ -1,12 +1,16 @@
 'use client';
 import {useRef,type ReactNode} from 'react';
+import {usePathname} from 'next/navigation';
+import {Runa} from '../ui/Juego';
+import {RUNAS_DISPONIBLES,seccionDeRuta} from '../../lib/runas';
 import {Kintsugi} from '../ui/Signature';
 
 /** Cabecera común de pantalla (design.md §8): kanji índice, migas, título, subtítulo, acciones y kintsugi. */
 export function Cabecera({kanji,migas,titulo,subtitulo,acciones,children}:{kanji:string;migas?:string;titulo:ReactNode;subtitulo?:ReactNode;acciones?:ReactNode;children?:ReactNode}){
+ const seccion=seccionDeRuta(usePathname()||'');
  return <header className="y-cab">
   <div className="y-cab-fila">
-   <span className="y-cab-kanji" aria-hidden="true">{kanji}</span>
+   <span className="y-cab-kanji" aria-hidden="true">{RUNAS_DISPONIBLES[seccion]?<Runa seccion={seccion} size={40}/>:kanji}</span>
    <div className="y-cab-texto">
     {migas&&<p className="y-cab-migas">{migas}</p>}
     <h1>{titulo}</h1>

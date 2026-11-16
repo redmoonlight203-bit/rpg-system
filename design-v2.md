@@ -1,4 +1,6 @@
-# design.md — Yugen Realm 幽玄 · Dirección visual v2
+# design-v2.md — Yugen Realm 幽玄 · Dirección visual v2 (ARCHIVADA)
+
+> Sustituida el 16-11-2026 por `design.md` v3 («de formulario a juego»). Se conserva como referencia histórica; no aplicar sus reglas §1, §11 y §17 a trabajo nuevo.
 
 Versión 2.0 · 10 de noviembre de 2026
 Reemplaza a la v1 (queda una copia en `design-v1-paleta.md`).
