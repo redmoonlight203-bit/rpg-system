@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import {useTiempoReal} from "../lib/useTiempoReal";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
@@ -37,7 +38,7 @@ export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
    if(r.error)throw r.error;
    setOfertas(r.data as Oferta[]);
    if(gm){let consulta=supabase.from("forja_maestra").select("id,nombre,descripcion,tipo_creacion,clase").eq("estado","aprobado").order("nombre");if(almas)consulta=consulta.eq("tipo_creacion","personaje");const f=await consulta;if(f.error)throw f.error;setPlantillas(f.data||[]);if(inicial){const id=new URLSearchParams(window.location.search).get("forja");const p=(f.data||[]).find(p=>p.id===id);if(p){setElegida(p);setDescripcion(p.descripcion||"");}}}
-  }catch(e){setOfertas([]);setPermitido(false);setError(e instanceof Error?e.message:(e as {message?:string}).message||"No se pudo cargar la tienda.");}
+  }catch(e){setOfertas([]);setPermitido(false);setError(mensajeError(e,"No se pudo cargar la tienda."));}
   finally{if(inicial)setCargando(false);}
  },[gm,almas]);
  useTiempoReal(()=>{if(!bloqueo.current)return cargar();});

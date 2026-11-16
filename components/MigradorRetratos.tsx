@@ -1,5 +1,6 @@
 "use client";
 
+import {mensajeError} from '../lib/errores';
 import {useState} from "react";
 import {supabase} from "../lib/supabase";
 import {publicarDataImage} from "../lib/imagenes-storage";
@@ -38,12 +39,12 @@ export default function MigradorRetratos({onMigrado}:{onMigrado:()=>void|Promise
           setLinks(prev=>[...prev,{nombre:retrato.nombre,url}]);
           await onMigrado();
         } catch(e) {
-          errores.push(`${retrato.nombre}: ${e instanceof Error?e.message:"No se pudo migrar"}`);
+          errores.push(`${retrato.nombre}: ${mensajeError(e,"No se pudo migrar")}`);
         }
       }
       setMensaje(`Retratos migrados: ${migrados}/${pendientes.length}.${errores.length?" Fallos: "+errores.join(" · "):""}`);
     } catch(e) {
-      setMensaje(e instanceof Error?e.message:"Error al buscar retratos.");
+      setMensaje(mensajeError(e,"Error al buscar retratos."));
     } finally {
       setOcupado(false);
     }

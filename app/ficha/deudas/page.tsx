@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
+import { mensajeError } from "../../../lib/errores";
 import { 
   ArrowLeft, Handshake, Plus, Mail, Calendar, 
   Clock, CheckCircle2, AlertCircle, XCircle, Send, X, ShieldAlert 
@@ -106,7 +107,7 @@ export default function DeudasKuroi() {
       setMostrarFormulario(false);
       cargarYProcesarDeudas();
     } else {
-      alert("Error al intentar registrar el pacto.");
+      alert(mensajeError(error, "No se pudo registrar el pacto. Vuelve a intentarlo."));
     }
     setEnviando(false);
   };
@@ -123,6 +124,8 @@ export default function DeudasKuroi() {
       alert(aceptar ? "Deuda saldada oficialmente." : "Pago impugnado. La deuda permanece activa.");
       setDeudaDetalle(null);
       cargarYProcesarDeudas();
+    } else {
+      alert(mensajeError(error, "No se pudo registrar tu respuesta. Vuelve a intentarlo."));
     }
   };
 

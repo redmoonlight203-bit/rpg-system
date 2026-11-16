@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import {useEffect,useMemo,useRef,useState} from "react";
 import {supabase} from "../lib/supabase";
 import {Sparkles,X,Eye,Lightbulb,MessageCircle,Send,Loader2} from "lucide-react";
@@ -46,7 +47,7 @@ export default function NavyCompanera({contexto,activo}:{contexto:Contexto;activ
    if(typeof respuesta!=="string"||!respuesta.trim())throw Error("NAVY no devolvió una respuesta.");
    setHistorial(actual=>[...actual,{autor:"navy",texto:respuesta}]);
   }catch(e){
-   setErrorIA(e instanceof Error?e.message:"No se pudo consultar a NAVY.");
+   setErrorIA(mensajeError(e,"No se pudo consultar a NAVY."));
   }finally{bloqueo.current=false;setEnviando(false);}
  }
  if(!activo)return null;

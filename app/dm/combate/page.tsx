@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../../../lib/errores';
 import MetricasCombate from "../../../components/MetricasCombate";
 import EstadoAccionCombate from "../../../components/EstadoAccionCombate";
 import {useAccionSegura} from "../../../lib/useAccionSegura";
@@ -393,7 +394,7 @@ export default function CampoCombate() {
       setPartidas(b.data || []);
       if (inicial && b.data?.length) await abrir(b.data[0] as Guardado);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cargar.");
+      setError(mensajeError(e,"No se pudo cargar."));
     } finally {
       setCargando(false);
     }
@@ -410,7 +411,7 @@ export default function CampoCombate() {
     try {
       await fn();
     } catch (e) {
-      if(turnoEjecucion===ejecucion.current)setError(e instanceof Error ? e.message : "No se pudo guardar.");
+      if(turnoEjecucion===ejecucion.current)setError(mensajeError(e,"No se pudo guardar."));
     } finally {
       if(turnoEjecucion===ejecucion.current){bloqueo.current = false;setOcupado(false);}
     }

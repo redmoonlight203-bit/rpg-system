@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import {useState} from 'react';
 import {resumenMetricas,exportarMetricas,limpiarMetricas} from '../lib/metricas-combate';
 export default function MetricasCombate(){
@@ -9,7 +10,7 @@ export default function MetricasCombate(){
    setError('');const r=await fetch('/api/version',{cache:'no-store'});if(!r.ok)throw Error('No se pudo identificar la versión.');
    const reporte=exportarMetricas(await r.json()),url=URL.createObjectURL(new Blob([JSON.stringify(reporte,null,2)],{type:'application/json'}));
    const a=document.createElement('a');a.href=url;a.download=`yugen-metricas-${reporte.fecha.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-  }catch(e){setError(e instanceof Error?e.message:'No se pudo exportar.');}
+  }catch(e){setError(mensajeError(e,'No se pudo exportar.'));}
  }
  return <details className="my-4 rounded-xl border border-neutral-700 p-3 text-xs" onToggle={e=>{if(e.currentTarget.open)setDatos(resumenMetricas());}}><summary>Rendimiento del combate · diagnóstico local</summary>
  <p className="my-2">Tiempos de esta pestaña en milisegundos. Reúne al menos 30 acciones correctas. Los tamaños corresponden al JSON descomprimido; los errores se cuentan por separado.</p>

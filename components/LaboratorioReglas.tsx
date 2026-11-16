@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import {useState} from 'react';
 import type {Regla} from '../lib/reglas';
 import {validarReglas} from '../lib/reglas';
@@ -6,7 +7,7 @@ import {nuevoCombate,agregar,iniciar,siguiente,actuar,acciones,estadisticas,maxV
 export function LaboratorioReglas({reglas}:{reglas:Regla[]}){
  const [c,setC]=useState<Combate|null>(null),[error,setError]=useState(''),[objetivo,setObjetivo]=useState('prueba');
  const boton='rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-orange-500 disabled:opacity-40';
- function ejecutar(f:()=>Combate){try{setC(f());setError('');}catch(e){setError(e instanceof Error?e.message:'No se pudo probar.');}}
+ function ejecutar(f:()=>Combate){try{setC(f());setError('');}catch(e){setError(mensajeError(e,'No se pudo probar.'));}}
  function preparar(){const fallo=validarReglas(reglas);if(fallo){setError(fallo);return;}
   ejecutar(()=>{let b=nuevoCombate();b.regla='directo';for(const [id,nombre,bando,ini] of [['prueba','Portador de prueba','jugador',18],['rival','Enemigo de prueba','enemigo',5]] as const)b=agregar(b,{id,forja_id:null,nombre,stats:{vida:20,armadura:5,ph:20,fatiga:10,bono_impacto:3,salvacion:0},configuracion:{tipo_creacion:'personaje',reglas:id==='prueba'?structuredClone(reglas):[]}},bando,()=>ini);return iniciar(b);});
  }

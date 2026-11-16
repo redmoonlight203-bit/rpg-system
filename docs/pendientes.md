@@ -14,8 +14,18 @@
 - 1.3: resolver acción incierta para terminar/borrar. Descartar requiere serialización en servidor: una consulta sin recibo no demuestra que una petición en vuelo no vaya a confirmar después.
 - 1.4: una optimización por trigger, con antes/después.
 - 1.5–1.7: avisos dirigidos, regiones y sesión GM + dos jugadores, tres pasadas.
-- 2.1–2.7: completar revisión de triggers/RPC/índices/RLS, retención y despliegue reversible.
-- 3.1–3.8: auditoría funcional de pantallas, navegación, estados, consultas y móvil. No esconder reglas ni alma únicamente por la clasificación propuesta: son funciones actuales de creación y cuenta que requieren revisión de uso.
+- 2.1 hecho (16-11): propósito de cada trigger y propuestas de unión en base-de-datos.md.
+- 2.4 hecho (16-11): retención semanal aplicada, pg_cron activo, primera pasada: 27 recibos y 26 avisos borrados.
+- 2.2 hecho (16-11): funciones del combate consolidadas y verificadas en producción.
+- 2.3/2.6 (16-11): 4 avisos auth_rls_initplan resueltos; Security sin errores. Quedan 4 tablas con políticas permisivas múltiples (requiere pruebas por identidad).
+- 2.7: cronometrar la reversión.
+- Evidencia: docs/metricas/fase2-2026-11-16.md.
+- 3.1–3.4 hechos (16-11) con lo medible desde el código y la base: recorridos en ciclo-juego.md, clasificación, auditoría y decisión por pantalla en pantallas.md, menús reordenados.
+- 3.6 (16-11): errores traducidos y «Reintentar» en las pantallas núcleo. Faltan las de apoyo.
+- Decisiones del usuario (16-11): Pactos con Kuroi enlazado para el jugador; Guía visual se queda.
+- SEGURIDAD (prioridad): 17 tablas con «Permitir todo» siguen permitiendo escribir a cualquier usuario con sesión; ya no a anónimos. Ver pantallas.md → Seguridad.
+- 3.7–3.8: select * y móvil; tiempos reales requieren sesión con personas.
+- Nota: no esconder reglas ni alma únicamente por la clasificación propuesta: son funciones actuales de creación y cuenta que requieren revisión de uso.
 
 ## Más adelante
 

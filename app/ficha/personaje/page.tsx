@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -65,7 +66,7 @@ export default function FichaPersonaje() {
       setCategorias(c.data || []);
       setAtributos(a.data || []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cargar la ficha.");
+      setError(mensajeError(e,"No se pudo cargar la ficha."));
     }
   }, [router]);
   useTiempoReal(cargar);

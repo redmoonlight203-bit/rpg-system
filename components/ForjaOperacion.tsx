@@ -1,4 +1,5 @@
 "use client";
+import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
 import { formula, EFECTOS_NOMBRE, type Efecto } from "../lib/creacion";
 import { supabase } from "../lib/supabase";
@@ -137,7 +138,7 @@ export function ForjaOperacion({
       onDone();
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "No se pudo completar la operación.",
+        mensajeError(e,"No se pudo completar la operación."),
       );
     } finally {
       bloqueo.current = false;
@@ -310,7 +311,7 @@ export function ForjaInstancias({ revision }: { revision: number }) {
       .neq("estado", "finalizado")
       .order("created_at", { ascending: false })
       .limit(200);
-    if (r.error) setError(r.error.message);
+    if (r.error) setError(mensajeError(r.error, "No se pudo completar la acción."));
     else setFilas(r.data || []);
     setCargando(false);
   }
@@ -331,7 +332,7 @@ export function ForjaInstancias({ revision }: { revision: number }) {
       await cargar();
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "No se pudo actualizar la instancia.",
+        mensajeError(e,"No se pudo actualizar la instancia."),
       );
     } finally {
       setOcupado(false);
