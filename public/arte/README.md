@@ -40,6 +40,7 @@ Entregadas como una hoja de 40 runas: se recortaron como máscaras (`runas/<clav
 |---|---|---|---|
 | `escenas/entrada.webp` | 1920 × 1080 | WebP | Fondo de la escena de login (Kuroi en su vacío) |
 | `escenas/nexo.webp` | 800 × 800, fondo transparente | WebP o PNG | Ilustración del portal del Nexo (sustituye al emblema) |
+| `dolls/portador.webp`, `dolls/saco.webp` | ~200 × 560, fondo transparente | WebP | Doll portador y saco de golpes de la arena de pruebas del Yunque |
 | `razas/<clave>.webp` | ~1024 × 683 (se recorta la figura central) | WebP o PNG | Figura de cada raza, estilo hombre de Vitruvio. Desde el 16-11 también se pueden subir desde Estadísticas al crear o editar la raza. |
 
 ### Regla: cada raza nueva lleva su imagen
@@ -63,3 +64,5 @@ Al crear una raza en Estadísticas hay que subir su figura; sin ella no se puede
 | `razas/dragones.webp`, `razas/hadas.webp` | Propietario, 16-11-2026 (recortadas) | Del propietario | 16-11-2026 |
 | `runas/*.png` (21) | Hoja de 40 runas del propietario, recortadas como máscaras | Del propietario | 16-11-2026 |
 | `escenas/mapa-estelar.webp` | Mapa estelar del propietario (escala de grises, 552 px) | Del propietario | 16-11-2026 |
+| `dolls/portador.webp` | Propietario, 16-11-2026 (fondo blanco eliminado y recortado) | Del propietario | 16-11-2026 |
+| `dolls/saco.webp` | Propietario, 16-11-2026 (fondo blanco eliminado y recortado) | Del propietario | 16-11-2026 |
