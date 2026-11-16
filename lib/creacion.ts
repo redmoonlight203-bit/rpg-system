@@ -64,7 +64,33 @@ export type AlcanceHabilidad = {
   afecta_lanzador?: boolean;
   derribo?: 'siempre'|'fallo_salvacion';
 };
+/**
+ * Primitiva «Reacción» del Yunque general: responde a un impacto recibido.
+ * Una reacción principal intercepta el golpe (con salvación opcional) y reduce el daño;
+ * un seguimiento usa lo que detuvo la principal (devolverlo al atacante o guardarlo en una reserva).
+ */
+export type ReservaReaccion = { recurso: string; proporcion: number; maximo: number };
+export type ResultadoReaccion = { devolver?: { maximo?: number }; reservar?: ReservaReaccion };
+export type Reaccion = {
+  /** Las principales se prueban de mayor a menor prioridad; la primera que se paga resuelve el golpe. */
+  prioridad?: number;
+  /** Solo ante impactos mágicos (efecto mágico o con coste de PH) o solo físicos. */
+  naturaleza?: 'magica'|'fisica';
+  /** Requiere que el portador esté (o no esté) en esta forma de transformación. */
+  forma?: string;
+  sin_forma?: string;
+  principal?: ResultadoReaccion & {
+    salvacion?: { cd: number; atributo: string };
+    reducir: { modo: 'mitad'|'fijo'; valor?: number };
+    animacion?: string;
+    /** Tras una principal exitosa se ejecuta el primer seguimiento aplicable. */
+    permite_seguimiento?: boolean;
+  };
+  seguimiento?: ResultadoReaccion;
+};
 export type Efecto = {
+  /** Primitiva «Reacción» configurada en la Forja. Tiene prioridad sobre `defensa`. */
+  reaccion?: Reaccion;
   ley_limitless?:boolean;
   axioma?:boolean;
   suelo?:boolean;
@@ -190,6 +216,38 @@ function validarAnimacion(v:unknown):string|null {
  if(c.escala!==undefined&&(typeof c.escala!=='number'||!Number.isFinite(c.escala)||c.escala<0.5||c.escala>4))return 'Tamaño visual inválido (0.5–4 casillas).';
  return null;
 }
+/** Valida la primitiva «Reacción» (plan del Yunque general). */
+export function validarReaccion(r: unknown): string | null {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return 'Reacción inválida.';
+  const x = r as Reaccion;
+  const entero = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+  const claveForma = (v: unknown) => typeof v === 'string' && /^[a-z0-9_-]{1,64}$/i.test(v);
+  if (x.prioridad !== undefined && !entero(x.prioridad, -100, 100)) return 'Prioridad de reacción de -100 a 100.';
+  if (x.naturaleza !== undefined && !['magica', 'fisica'].includes(x.naturaleza)) return 'La reacción responde a golpes mágicos o físicos.';
+  for (const k of ['forma', 'sin_forma'] as const) if (x[k] !== undefined && !claveForma(x[k])) return 'Forma de la reacción inválida.';
+  if (!x.principal && !x.seguimiento) return 'Configura la reacción principal o un seguimiento.';
+  const resultado = (res: ResultadoReaccion | undefined): string | null => {
+    if (!res) return null;
+    if (res.devolver !== undefined && (typeof res.devolver !== 'object' || (res.devolver.maximo !== undefined && !entero(res.devolver.maximo, 1, 1000)))) return 'Máximo devuelto de 1 a 1000.';
+    if (res.reservar !== undefined) {
+      const v = res.reservar;
+      if (!v || typeof v.recurso !== 'string' || !v.recurso.trim() || v.recurso.length > 60) return 'Nombra el recurso de la reserva.';
+      if (typeof v.proporcion !== 'number' || !(v.proporcion > 0) || v.proporcion > 10) return 'Proporción de la reserva entre 0 y 10.';
+      if (!entero(v.maximo, 1, 1000000)) return 'Máximo de la reserva inválido.';
+    }
+    return null;
+  };
+  if (x.principal) {
+    const p = x.principal;
+    if (!p.reducir || !['mitad', 'fijo'].includes(p.reducir.modo)) return 'Elige cómo reduce el daño: a la mitad o una cantidad fija.';
+    if (p.reducir.modo === 'fijo' && !entero(p.reducir.valor, 1, 1000)) return 'Reducción fija de 1 a 1000.';
+    if (p.salvacion && (!entero(p.salvacion.cd, 1, 100) || !/^[a-z_][a-z0-9_]{0,63}$/.test(p.salvacion.atributo || ''))) return 'Salvación de la reacción inválida.';
+    if (p.animacion !== undefined && (typeof p.animacion !== 'string' || p.animacion.length > 60)) return 'Animación de la reacción inválida.';
+    if (p.permite_seguimiento !== undefined && typeof p.permite_seguimiento !== 'boolean') return 'Seguimiento inválido.';
+    const f = resultado(p); if (f) return f;
+  }
+  return resultado(x.seguimiento);
+}
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
@@ -245,6 +303,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
     }
 
     if (e.requisito_forma && (!/^[a-z_][a-z0-9_]*$/.test(e.requisito_forma.atributo) || !Number.isFinite(e.requisito_forma.minimo))) return 'Requisito de forma inválido.';
+    if (e.reaccion !== undefined) { const fallo = validarReaccion(e.reaccion); if (fallo) return `${e.nombre||'Reacción'}: ${fallo}`; }
     if (e.elemento && !ELEMENTOS.includes(e.elemento))
       return "Elemento inválido.";
     if (
