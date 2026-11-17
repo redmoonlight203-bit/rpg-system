@@ -172,3 +172,14 @@ test('leerPaso: lo absorbido sale de las líneas reales del registro',()=>{
  const salvada=falso(['Doll portador recibe 9 daño; vida 31.','Doll portador: salvación d20 (2) + salvacion (0) = 2, CD 14: fallida.','Doll portador activa Absorción (2 PH).','Daño: dados 9 + modificador 0 + bono 0 = 9.',...c.registro],31);
  assert.equal(A.leerPaso(base,salvada,5).flotantes.filter(f=>f.tipo==='absorbido').length,0,'una reacción con la salvación fallida no absorbe');
 });
+test('personaje con habilidad archivada arranca sin ella (como el grafo, que la marca rota)',()=>{
+ const b=clon(F.personaje);
+ const creaciones=CREACIONES.map(c=>c.tipo_creacion==='habilidad'?{...c,estado:'archivado'}:{...c,estado:'aprobado'});
+ const r=A.crearArena(b,ctx(b,creaciones));
+ assert.equal(r.error,undefined);
+ const d=m(r.combate,'doll');
+ assert.equal((d.configuracion.habilidades||[]).length,0);
+ assert.equal(d.configuracion.pasivas.length,1);
+ const g=aGrafo(b,{creaciones:creaciones.map(c=>({id:c.id,nombre:c.nombre,tipo_creacion:c.tipo_creacion,estado:c.estado}))});
+ assert.ok(g.nodos.some(n=>n.tipo==='vinculo'&&n.error==='Esta creación ya no está en La Creación.'));
+});

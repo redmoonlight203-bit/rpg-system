@@ -120,3 +120,28 @@ test('ids estables y aGrafo no muta el borrador',()=>{
   assert.equal(new Set(a.cables.map(x=>x.id)).size,a.cables.length,k+' cables únicos');
  }
 });
+test('un vínculo a una creación archivada se marca «ya no está en La Creación»',()=>{
+ const b=clon(F.personaje);
+ const archivado={creaciones:ctx.creaciones.map(c=>({...c,estado:c.id===F.habilidad.id?'archivado':'aprobado'}))};
+ const g=aGrafo(b,archivado);
+ const roto=g.nodos.find(n=>n.id===`vinculo:habilidad:${F.habilidad.id}`);
+ assert.ok(roto,'el vínculo sigue en el grafo');
+ assert.equal(roto.error,'Esta creación ya no está en La Creación.');
+ assert.equal(roto.titulo,'Creación desconocida');
+ const pasiva=g.nodos.find(n=>n.id===`vinculo:pasiva:${F.pasiva.id}`);
+ assert.equal(pasiva?.error,null,'las aprobadas siguen válidas');
+});
+test('un borrador malformado (datos antiguos) no rompe aGrafo',()=>{
+ const b=clon(F.habilidad);
+ b.nombre=undefined;
+ b.efectos=[{id:'e-viejo',efecto:'dano'},null];
+ b.reglas=[{id:'r-sin-nada',evento:'impactar'},{id:'r-todas',evento:'impactar',condicion:{tipo:'todas'},efectos:[{tipo:'salvacion'},null]},{id:'r-no',evento:'impactar',condicion:{tipo:'no'},efectos:[]},null];
+ b.reglas_pasivas=[{id:'p-vieja'}];
+ let g;
+ assert.doesNotThrow(()=>{g=aGrafo(b,ctx);});
+ assert.ok(g.nodos.some(n=>n.id==='accion:e-viejo'));
+ assert.ok(g.nodos.some(n=>n.id==='si:r-sin-nada'),'sin condición se trata como «siempre»');
+ assert.ok(g.nodos.some(n=>n.id==='si:r-no:0'),'«No» sin condición dentro no rompe');
+ assert.ok(g.nodos.some(n=>n.id==='pasiva:p-vieja'&&n.error),'la pasiva vieja se marca con error');
+ assert.equal(g.nodos.find(n=>n.id==='nucleo').titulo,'Sin nombre');
+});

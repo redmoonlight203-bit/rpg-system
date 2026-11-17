@@ -1,5 +1,5 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
-import type {Grafo} from "./yunque-grafo";
+import {vigente,type Grafo} from "./yunque-grafo";
 import {nuevoCombate,agregar,iniciar,siguiente,actuar,maxVida,dadoSeguro,reaccionDe,type Combate,type Config,type Fuente,type RNG} from "./combate";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
@@ -39,7 +39,8 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  const id=b.id||'borrador',nombre=b.nombre.trim()||'Creación en pruebas';
  const config:Config={tipo_creacion:'personaje'};
  if(b.tipo==='personaje'){
-  const buscar=(cid:string)=>ctx.creaciones.find(c=>c.id===cid);
+  // Solo lo que sigue en La Creación (aprobado): lo archivado se omite, como en el grafo.
+  const buscar=(cid:string)=>ctx.creaciones.find(c=>c.id===cid&&vigente(c));
   config.habilidades=b.habilidades.map(buscar).filter((c):c is Creacion=>!!c).map(fuenteObjeto);
   config.pasivas=b.pasivas.map(buscar).filter((c):c is Creacion=>!!c).map(c=>({id:c.id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]}));
   const equipo:Record<string,Fuente>={};

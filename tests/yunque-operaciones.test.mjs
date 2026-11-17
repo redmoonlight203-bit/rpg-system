@@ -184,3 +184,15 @@ test('estado/transformación/tabla_armas solo sobre acciones de daño y excluyen
  const r=aplicar(e,{op:'quitar',nodo:'estado:'+c.efectos[0].id});
  assert.equal(JSON.stringify(r.efectos[0]),JSON.stringify(c.efectos[0]));
 });
+test('quitar transformación o tabla de armas solo vuelve a «daño» la acción de ese tipo',()=>{
+ const conModulos=efecto=>{const b=base();b.efectos=[{...nuevoEfecto(),efecto,transformacion:{nombre:'Forma de lobo'},tabla_armas:{caras:4,armas:[]}}];return b;};
+ // Acción antigua de curación con módulos colgados: conserva su tipo.
+ let b=conModulos('curacion');const id=b.efectos[0].id;
+ b=aplicar(b,{op:'quitar',nodo:'transformacion:'+id});
+ assert.equal(b.efectos[0].efecto,'curacion');assert.equal(b.efectos[0].transformacion,undefined);
+ b=aplicar(b,{op:'quitar',nodo:'tabla_armas:'+id});
+ assert.equal(b.efectos[0].efecto,'curacion');assert.equal(b.efectos[0].tabla_armas,undefined);
+ // Las acciones del propio tipo del módulo sí vuelven a «daño».
+ const t=conModulos('transformacion');assert.equal(aplicar(t,{op:'quitar',nodo:'transformacion:'+t.efectos[0].id}).efectos[0].efecto,'dano');
+ const a=conModulos('crear_arma');assert.equal(aplicar(a,{op:'quitar',nodo:'tabla_armas:'+a.efectos[0].id}).efectos[0].efecto,'dano');
+});

@@ -231,10 +231,11 @@ export function aplicar(b:Borrador,o:Operacion):Borrador{
     case 'salvacion':delete e!.salvacion;return r;
     case 'estado':e!.efecto='dano';e!.estado='';e!.duracion=0;delete e!.estado_tipo;delete e!.bonos_estado;return r;
     case 'reaccion':delete e!.reaccion;delete e!.defensa;return r;
-    case 'transformacion':delete e!.transformacion;e!.efecto='dano';return r;
+    // Solo vuelve a «daño» la acción que era de ese tipo: una acción antigua de otro tipo lo conserva.
+    case 'transformacion':delete e!.transformacion;if(e!.efecto==='transformacion')e!.efecto='dano';return r;
     case 'recurso':delete e!.recurso;return r;
     case 'vfx':delete e!.vfx;return r;
-    case 'tabla_armas':delete e!.tabla_armas;e!.efecto='dano';return r;
+    case 'tabla_armas':delete e!.tabla_armas;if(e!.efecto==='crear_arma')e!.efecto='dano';return r;
     case 'invocacion':r.invocacion=null;return r;
     case 'requisitos':r.requisitos_uso={};return r;
     case 'vinculo':{
