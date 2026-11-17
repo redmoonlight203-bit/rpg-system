@@ -403,15 +403,32 @@ try{
   }
   const vozArea=await arena.locator('.yq-arena-kuroi').textContent().catch(()=>'');
   comprobar(areaDespues[0]<areaAntes[0]&&areaDespues[1]<areaAntes[1],`el área alcanza a los dos sacos (${areaAntes} → ${areaDespues})${vozArea?' · '+vozArea:''}`);
+  // «+ Saco» elige el saco nuevo; si se deshace, «Colocar» vuelve al primer saco en vez de quedarse sin ficha.
+  await arena.getByRole('button',{name:/^Saco \d\/3$/}).click().catch(()=>{});await pagina.waitForTimeout(250);
+  await arena.getByRole('button',{name:'Deshacer'}).click().catch(()=>{});await pagina.waitForTimeout(250);
+  await arena.getByRole('button',{name:'Colocar saco'}).click().catch(()=>{});await pagina.waitForTimeout(200);
+  const enRangoColocar=await arena.locator('.tactical-cell.spell-range').count();
+  await arena.locator('.tactical-cell[aria-label^="Casilla 8, 7"]').click().catch(()=>{});await pagina.waitForTimeout(250);
+  const sacoColocado=await casillaDe('Saco de golpes');
+  await arena.getByRole('button',{name:'Colocar saco'}).click().catch(()=>{});
+  comprobar(await celda(arena,'Saco de golpes 3').count()===0&&enRangoColocar>0&&sacoColocado===6*9+7,`tras «+ Saco» y «Deshacer», «Colocar» sigue funcionando con el primer saco (${enRangoColocar} casillas · casilla ${sacoColocado})`);
   // «Ampliar»: la arena cubre el Grimorio y el lienzo con un tablero de combate (el panel sigue a la vista); Escape la devuelve al panel.
   await arena.getByRole('button',{name:'Ampliar'}).click().catch(()=>{});await pagina.waitForTimeout(400);
   const ampliada=pagina.locator('.yq-arena-ampliada');
   const anchoCasilla=await ampliada.locator('.tactical-cell').first().evaluate(e=>e.getBoundingClientRect().width).catch(()=>0);
   const cubre=await pagina.evaluate(()=>{const a=document.querySelector('.yq-arena-ampliada')?.getBoundingClientRect(),g=document.querySelector('.yq-grimorio')?.getBoundingClientRect(),l=document.querySelector('.yq-centro')?.getBoundingClientRect(),p=document.querySelector('.yq-arena')?.getBoundingClientRect();return !!a&&!!g&&!!l&&!!p&&Math.abs(a.left-g.left)<2&&Math.abs(a.right-l.right)<2&&a.right<=p.left+1;});
   comprobar(await ampliada.count()===1&&anchoCasilla>=60&&cubre,`«Ampliar» abre la arena sobre el Grimorio y el lienzo con casillas grandes (${Math.round(anchoCasilla)} px${cubre?'':', no cubre el lienzo'})`);
+  const dialogo=await ampliada.getAttribute('role')==='dialog'&&await ampliada.getAttribute('aria-modal')==='true';
+  const inertes=await pagina.evaluate(()=>['.yq-grimorio','.yq-centro'].every(q=>document.querySelector(q)?.inert===true));
+  comprobar(dialogo&&inertes,`la vista ampliada es un diálogo y deja inertes el Grimorio y el lienzo (${dialogo} · ${inertes})`);
   await pagina.screenshot({path:`${SALIDA}/yunque-arena-ampliada-${ANCHO}.png`});
+  // Escape primero cancela «Mover»; el segundo cierra.
+  await ampliada.locator('.tactical-slots button',{hasText:'Mover'}).first().click().catch(()=>{});await pagina.waitForTimeout(150);
+  const moviendoAntes=await ampliada.locator('.tactical-cell.reachable').count();
+  await pagina.keyboard.press('Escape');await pagina.waitForTimeout(250);
+  comprobar(moviendoAntes>0&&await ampliada.count()===1&&await ampliada.locator('.tactical-cell.reachable').count()===0,`Escape cancela «Mover» sin cerrar la vista ampliada (${moviendoAntes} casillas)`);
   await pagina.keyboard.press('Escape');await pagina.waitForTimeout(300);
-  comprobar(await ampliada.count()===0&&await pagina.evaluate(()=>document.activeElement?.textContent==='Ampliar'),'Escape cierra la arena ampliada y el foco vuelve a «Ampliar»');
+  comprobar(await ampliada.count()===0&&await pagina.evaluate(()=>document.activeElement?.textContent==='Ampliar'&&!document.querySelector('.yq-centro')?.inert&&!document.querySelector('.yq-grimorio')?.inert),'Escape cierra la arena ampliada, el lienzo deja de estar inerte y el foco vuelve a «Ampliar»');
   // Si «Golpéame» tumba al doll, la barra se retira y se ofrece reiniciar.
   await arena.locator('.yq-arena-ajustes summary').click().catch(()=>{});
   await arena.locator('input[aria-label="Vida del doll"]').fill('1').catch(()=>{});await pagina.waitForTimeout(600);
@@ -420,6 +437,10 @@ try{
   const reiniciarCaido=arena.getByRole('button',{name:'Reiniciar la prueba'});
   comprobar(await arena.locator('.yq-arena-fin').count()===1&&await reiniciarCaido.count()===1&&await arena.locator('.tactical-hud').count()===0,'con el doll caído se retira la barra de acciones y se ofrece «Reiniciar la prueba»');
   await pagina.screenshot({path:`${SALIDA}/yunque-arena-caido-${ANCHO}.png`});
+  // El golpe mortal se puede deshacer; luego vuelve a caer para probar «Reiniciar la prueba».
+  await arena.getByRole('button',{name:'Deshacer el golpe'}).click().catch(()=>{});await pagina.waitForTimeout(250);
+  comprobar(await vidaDe('Doll portador')===1&&await arena.locator('.tactical-hud').count()===1,'«Deshacer el golpe» devuelve al doll caído a la prueba');
+  for(let k=0;k<3&&await arena.locator('.yq-arena-fin').count()===0;k++){await arena.getByRole('button',{name:/^Golpéame/}).first().click().catch(()=>{});await pagina.waitForTimeout(250);}
   await reiniciarCaido.click().catch(()=>{});await pagina.waitForTimeout(250);
   comprobar(await vidaDe('Doll portador')===1&&await arena.locator('.tactical-hud').count()===1&&await celda(arena,'Saco de golpes 2').count()===1,'«Reiniciar la prueba» vuelve a poner en pie al doll con sus ajustes y conserva los sacos');
   if(process.env.REDUCIDO==='1'){

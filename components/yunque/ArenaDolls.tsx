@@ -121,13 +121,26 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   return ()=>window.clearTimeout(t);
  },[reinicio]);
  // «Ampliar»: la arena cubre el Grimorio y el lienzo (se monta en .yq-taller); Escape (o «Volver») la devuelve al panel con el foco en «Ampliar».
+ // Mientras está abierta, el Grimorio y el lienzo que cubre quedan inertes (ni foco ni clics por debajo).
+ useEffect(()=>{
+  if(!ampliada||!raiz)return;
+  botonVolver.current?.focus();
+  const tapados=[...raiz.querySelectorAll<HTMLElement>(':scope>.yq-grimorio,:scope>.yq-centro')].filter(el=>!el.inert);
+  for(const el of tapados)el.inert=true;
+  return ()=>{for(const el of tapados)el.inert=false;};
+ },[ampliada,raiz]);
+ // Escape primero cancela «Colocar saco» o «Mover»; si no hay ningún modo activo, cierra la vista ampliada.
  useEffect(()=>{
   if(!ampliada)return;
-  botonVolver.current?.focus();
-  const tecla=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!e.defaultPrevented)cerrarAmpliada();};
+  const tecla=(e:KeyboardEvent)=>{
+   if(e.key!=='Escape'||e.defaultPrevented)return;
+   if(colocando)setColocando(false);
+   else if(moviendo)setMoviendo(false);
+   else cerrarAmpliada();
+  };
   window.addEventListener('keydown',tecla);
   return ()=>window.removeEventListener('keydown',tecla);
- },[ampliada]);
+ },[ampliada,colocando,moviendo]);
  function abrirAmpliada(){setRaiz(caja.current?.closest<HTMLElement>('.yq-taller')||document.body);setAmpliada(true);}
  function cerrarAmpliada(){setAmpliada(false);window.requestAnimationFrame(()=>botonAmpliar.current?.focus());}
 
@@ -158,6 +171,10 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const mapa=useMemo(()=>columnas&&filas?{id:'arena-yunque',version:1 as const,nombre:'Arena del Yunque',columnas,filas,celdas:{},procedural:sueloArena(columnas,filas)}:undefined,[columnas,filas]);
  const alcanzables=useMemo(()=>c&&enCurso&&moviendo?seguro(()=>casillasAlcanzables(c,DOLL),{}):{},[c,enCurso,moviendo]);
  const sacos=c?.miembros.filter(m=>esSaco(m.id))||[];
+ // El saco elegido para colocar puede haber desaparecido (Deshacer, Reiniciar, «Quitar saco»): entonces, el primero.
+ const elegido=c?.miembros.some(m=>m.id===sacoElegido)?sacoElegido:SACO;
+ // Lo que la barra lee del doll; si el motor lanzara, la barra se retira en vez de dejar el taller en blanco.
+ const barra=useMemo(()=>portador?seguro(()=>({ph:phDisponibles(portador),stats:estadisticas(portador),max_vida:maxVida(portador),movimiento:movimientoRestante(portador)}),null):null,[portador]);
  const reaccionSinEfecto=b.tipo!=='habilidad'&&b.tipo!=='personaje'&&b.efectos.some(e=>e.reaccion||e.defensa);
 
  /** Un paso de la prueba: aplica, recoge los dados para la barra y enciende los nodos que actuaron. */
@@ -191,8 +208,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  function alApuntar(p:Posicion,id?:string){
   if(!colocando){setCentro(p);setObjetivo(id||'');return;}
   if(id){if(esSaco(id))setSacoElegido(id);return;}
-  const quien=c?.miembros.some(m=>m.id===sacoElegido)?sacoElegido:SACO;
-  paso(x=>colocar(x,quien,p),'Ese saco no se pudo colocar.',recordar);
+  paso(x=>colocar(x,elegido,p),'Ese saco no se pudo colocar.',recordar);
  }
  function nuevoSaco(){
   paso(x=>agregarSaco(x,saco),'No caben más sacos.',n=>{recordar(n);const id=SACOS.find(s=>n.miembros.some(m=>m.id===s)&&!c?.miembros.some(m=>m.id===s));if(id)setSacoElegido(id);});
@@ -214,8 +230,9 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   if(b.tipo==='personaje'){const v=valoresBorrador(b,ctx)[clave];return typeof v==='number'?v:0;}
   return DOLL_BASE[clave];
  };
- const deshacible=!!c&&!caido&&(c.historial?.length||0)>0;
- const nombreElegido=miembro(c,sacoElegido)?.nombre||'el saco';
+ // Con el doll caído el motor sigue en curso: un golpe mortal se puede deshacer (no solo reiniciar).
+ const deshacible=!!c&&c.fase!=='finalizado'&&(c.historial?.length||0)>0;
+ const nombreElegido=miembro(c,elegido)?.nombre||'el saco';
 
  // «Golpéame», junto a la barra con los dados, la naturaleza y el elemento del golpe (siempre a la vista, sin desplazar las ranuras).
  const botonGolpe=<button type="button" className="yq-arena-golpeame" onClick={()=>paso((x,rng)=>golpeame(x,golpe,rng),'El saco no pudo golpear.',()=>{setCentro(null);setObjetivo('');})}>
@@ -238,25 +255,29 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   <div className="yq-arena-tablero">
    {/* El aviso de reinicio flota sobre el tablero: no empuja la barra ni los botones mientras se juega. */}
    {reinicio&&<p key={reinicio.n} role="status" className="yq-arena-reinicio">{reinicio.texto}</p>}
-   <TableroCombate mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?sacoElegido:DOLL}
+   <TableroCombate mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?elegido:DOLL}
     centro={colocando?null:centro} puedeApuntar={enCurso&&(colocando||!portador?.accion_usada)} onApuntar={alApuntar}
     evento={c.evento_visual} fichas={fichas} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino}
     moviendo={moviendo&&enCurso&&!colocando} alcanzables={alcanzables} ocupado={!enCurso}
     onObjetivo={id=>{if(colocando&&esSaco(id))setSacoElegido(id);else setObjetivo(id);}}
     onMover={p=>paso(x=>mover(x,p),'El doll no puede moverse ahí.')}/>
-   {caido&&<div className="yq-arena-fin" role="status"><strong>El doll cayó</strong><span>Reinicia para seguir probando.</span>
-    <button type="button" className="yq-arena-reiniciar is-grande" onClick={reiniciar}><RotateCcw size={16} aria-hidden="true"/>Reiniciar la prueba</button></div>}
+   {caido&&<div className="yq-arena-fin" role="status"><strong>El doll cayó</strong><span>Deshaz el golpe o reinicia para seguir probando.</span>
+    <div className="yq-arena-fin-botones">
+     {deshacible&&<button type="button" className="yq-arena-reiniciar is-grande is-secundario" onClick={atras}><Undo2 size={16} aria-hidden="true"/>Deshacer el golpe</button>}
+     <button type="button" className="yq-arena-reiniciar is-grande" onClick={reiniciar}><RotateCcw size={16} aria-hidden="true"/>Reiniciar la prueba</button>
+    </div></div>}
   </div>
   <div className="yq-arena-lado">
   {voz&&<div className="yq-arena-kuroi is-breve" role="alert"><LogoYugen size={32}/><p><b>Kuroi detiene la prueba.</b>{voz}</p></div>}
-  {enCurso&&portador&&<>
-   <BarraCombate actor={{...portador,ph:phDisponibles(portador),derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(portador),max_vida:maxVida(portador),imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
+  {enCurso&&portador&&!barra&&<p className="yq-panel-voz">Kuroi no puede leer las estadísticas del doll: revisa sus ajustes o reinicia la prueba.</p>}
+  {enCurso&&portador&&barra&&<>
+   <BarraCombate actor={{...portador,ph:barra.ph,derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:barra.stats,max_vida:barra.max_vida,imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
     acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(portador.motor?.proximos[a.regla]||0)-portador.turnos):portador.cooldowns[a.id]||0}))}
     seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setMoviendo(false);setColocando(false);}}
     onResolver={resolver} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>{limpiarJugada();setForzar(false);})}
     onInventario={abrirAjustes} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):miembro(c,destino)?.nombre}
     puede={portador.vida>0&&c.actual===DOLL} ocupado={false} moviendo={moviendo} onMovimiento={()=>{setMoviendo(v=>!v);setColocando(false);}}
-    movimiento={movimientoRestante(portador)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados} resultado={c.evento_visual?.resultado}
+    movimiento={barra.movimiento} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados} resultado={c.evento_visual?.resultado}
     onLevantarse={()=>paso(x=>levantar(x),'El doll no puede levantarse.')}
     />
    <div className="yq-arena-golpe" role="group" aria-label="Golpe del saco">
@@ -285,7 +306,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   </div>:<>
    {ampliada&&raiz?<>
     <div className="yq-arena-en-lienzo"><p>La arena está ampliada sobre el lienzo.</p><button type="button" onClick={cerrarAmpliada}><Minimize2 size={14} aria-hidden="true"/>Volver al panel</button></div>
-    {createPortal(<section className="yq-arena-ampliada" aria-label="Arena ampliada">
+    {createPortal(<section className="yq-arena-ampliada" role="dialog" aria-modal="true" aria-label="Arena ampliada">
      <header><h2><IconoYugen id="espada" size={18}/>Arena de dolls</h2><small>Escape vuelve al panel</small></header>
      {combate}
     </section>,raiz)}

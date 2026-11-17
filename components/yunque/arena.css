@@ -47,6 +47,8 @@
 .yq-taller .yq-arena-fin{position:absolute;z-index:40;inset:0;display:grid;place-content:center;justify-items:center;gap:6px;padding:12px;background:color-mix(in srgb,#000 62%,transparent);text-align:center}
 .yq-taller .yq-arena-fin strong{font:600 18px var(--font-display);letter-spacing:.12em;text-transform:uppercase;color:var(--color-gold-bright)}
 .yq-taller .yq-arena-fin span{font:italic 13px var(--font-serif);color:var(--color-parchment)}
+.yq-taller .yq-arena-fin-botones{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.yq-taller .yq-arena-reiniciar.is-grande.is-secundario{background:var(--color-well);color:var(--color-parchment);border-color:var(--color-line-strong)}
 .yq-taller .yq-arena-reiniciar.is-grande{margin-top:6px;padding:10px 14px;border-color:var(--color-gold-bright);background:linear-gradient(180deg,var(--color-gold-soft),var(--color-gold));color:var(--color-ink)}
 
 /* Vista compacta (panel de 320 px): el tablero entero sin desplazamiento, como «Ver mapa completo». */

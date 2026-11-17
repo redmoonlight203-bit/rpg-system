@@ -315,3 +315,20 @@ test('flujo de turno del combate: actuar, moverse con lo que queda y «Terminar 
  assert.deepEqual(pos(deshacer(movido),'doll'),pos(golpe,'doll'));
  assert.equal(m(deshacer(golpe),'doll').accion_usada,false);
 });
+
+test('con el doll a 0 de vida, turno y los sacos terminan (acotado) sin que ningún saco actúe',()=>{
+ const c=A.agregarSaco(arena(clon(F.objeto),{vida:1}));
+ const caido=A.golpeame(c,{cantidad:20,caras:6,naturaleza:'fisica'},()=>6);
+ assert.equal(m(caido,'doll').vida,0);
+ assert.equal(caido.fase,'en_curso','sin cierre automático: la prueba sigue y se puede deshacer');
+ const inicio=Date.now();
+ const n=A.turno(caido);
+ assert.ok(Date.now()-inicio<2000,'no se queda colgado');
+ assert.ok(n.fase==='finalizado'||A.esSaco(n.actual)||n.actual===null||n.actual==='doll');
+ const nuevas=n.registro.slice(0,n.registro.length-caido.registro.length);
+ assert.ok(nuevas.length<=30,`pasos acotados (${nuevas.length})`);
+ assert.ok(!nuevas.some(l=>/Saco de golpes( \d)? · |recibe/.test(l)),nuevas.join(' | '));
+ // Un segundo «Terminar turno» tampoco cuelga, y el golpe mortal se deshace.
+ A.turno(n);
+ assert.equal(m(deshacer(caido),'doll').vida,1);
+});
