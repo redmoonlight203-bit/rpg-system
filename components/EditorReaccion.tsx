@@ -1,25 +1,9 @@
 'use client';
 import type {Reaccion,ResultadoReaccion} from '../lib/creacion';
+import {describirReaccion} from '../lib/descripciones';
 import {PLANTILLAS_REACCION} from '../lib/combate';
 
 const NOMBRES_PLANTILLA:Record<string,string>={inercia:'Inercia (Kion)',absorcion:'Absorción (Kion)',reflejo:'Reflejo (Kion)',reciproco:'Recíproco (Kion)',ancla:'Ancla (Kion)'};
-
-/** Frase en vivo de la reacción, en el idioma de la mesa. */
-export function describirReaccion(r:Reaccion):string{
- const partes:string[]=[];
- const ante=r.naturaleza==='magica'?'un golpe mágico':r.naturaleza==='fisica'?'un golpe físico':'cualquier golpe';
- const forma=r.forma?` estando en la forma «${r.forma}»`:r.sin_forma?` si no está en la forma «${r.sin_forma}»`:'';
- const res=(x:ResultadoReaccion|undefined,que:string)=>{const f:string[]=[];if(x?.devolver)f.push(`devuelve ${x.devolver.maximo?`hasta ${x.devolver.maximo} de `:''}${que} al atacante`);if(x?.reservar)f.push(`guarda ${Math.round(x.reservar.proporcion*100)} % de ${que} en «${x.reservar.recurso}» (máximo ${x.reservar.maximo})`);return f;};
- if(r.principal){
-  const p=r.principal;
-  partes.push(`Al recibir ${ante}${forma}, ${p.salvacion?`tira salvación de ${p.salvacion.atributo} CD ${p.salvacion.cd} y, si la supera, `:''}${p.reducir.modo==='mitad'?'detiene la mitad del daño':`detiene hasta ${p.reducir.valor||0} de daño`}`);
-  partes.push(...res(p,'lo detenido'));
-  if(p.permite_seguimiento)partes.push('y da paso a una reacción de seguimiento');
- }else if(r.seguimiento){
-  partes.push(`Tras otra reacción que detuvo ${ante}${forma}`);partes.push(...res(r.seguimiento,'lo detenido'));
- }
- return partes.join(', ')+'.';
-}
 
 /** Sección «Reacción» de una acción del Yunque (primitiva del Yunque general). */
 export default function EditorReaccion({valor,onChange}:{valor?:Reaccion;onChange:(r:Reaccion|undefined)=>void}){

@@ -53,3 +53,7 @@ baseline.json
 
 # Respaldo privado del 14 de noviembre: no publicar en el repositorio.
 /respaldos/2026-11-14/baseline.pgp.b64.parte-*
+
+# Espacio de trabajo de los planes ejecutados por agentes
+.superpowers/
+capturas/

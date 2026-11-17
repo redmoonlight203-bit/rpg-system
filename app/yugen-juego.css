@@ -185,8 +185,6 @@
 .y3-constelacion-vacio{position:absolute;left:10%;right:10%;bottom:64px;background:color-mix(in srgb,var(--color-well) 85%,transparent)}
 @media(max-width:767px){.y3-estrella{width:46%;gap:8px;padding-right:8px}.y3-estrella-astro{width:38px;height:38px}.y3-estrella-texto strong{font-size:12px}.y3-constelacion-figura{width:62%}}
 @media (prefers-reduced-motion:reduce){.y3-estrella .y3-estrella-astro::after{animation:none}}
-/* Vista de equipo del Yunque: figura neutra en lugar de la silueta antigua */
-.vy-body>.vy-figura{position:absolute;inset:0 6%;width:88%;height:100%;object-fit:contain;object-position:center;opacity:.85;pointer-events:none}
 .yugen-page button.y3-estrella{border-radius:999px}
 /* Cabeceras heredadas de las pantallas del jugador (.y-page) en el idioma v3: sin monoespaciada ni Georgia. */
 .yugen-page :is(.y-breadcrumb,.y-eyebrow,.y-count,.y-panel-title,.y-home-number){font-family:var(--font-sans);letter-spacing:.06em}
