@@ -2,7 +2,7 @@
 // Arena de dolls del Yunque: el doll portador lleva la creación del borrador y el saco de golpes solo recibe
 // (o devuelve un golpe cuando se pulsa «Golpéame»). Todo vive en el navegador sobre `lib/yunque-arena.ts`;
 // nunca guarda nada. Cada paso enciende en el lienzo los nodos que actuaron (`activados`).
-import {useEffect,useMemo,useRef,useState,useSyncExternalStore,type CSSProperties} from 'react';
+import {memo,useEffect,useMemo,useRef,useState,useSyncExternalStore,type CSSProperties} from 'react';
 import Image from 'next/image';
 import {RotateCcw,SkipForward,Undo2} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
@@ -55,7 +55,7 @@ function eventoArena(ev:EventoVisual|undefined,c:Combate):EventoVisual|undefined
 }
 const etiquetaDados=(e:Efecto)=>e.cantidad&&e.caras?`${e.cantidad}d${e.caras}${e.modificador?(e.modificador>0?'+':'')+e.modificador:''}`:'';
 
-export default function ArenaDolls({b,ctx,grafo,onEncender}:Props){
+function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const [doll,setDoll]=useState<Ajustes>(SIN_AJUSTES);
  const [saco,setSaco]=useState<Ajustes>(SIN_AJUSTES);
  const [estado,setEstado]=useState<Estado>(()=>construir({b,creaciones:ctx.creaciones,doll:SIN_AJUSTES,saco:SIN_AJUSTES},ctx));
@@ -68,7 +68,8 @@ export default function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const ctxRef=useRef(ctx);
  useEffect(()=>{ctxRef.current=ctx;},[ctx]);
 
- // Cada cambio del borrador o de los ajustes reconstruye la prueba a los 300 ms.
+ // Un borrador nuevo llega ya con su pausa (ArenaPausada): la prueba se reconstruye enseguida. Los ajustes de los dolls,
+ // a los 300 ms.
  useEffect(()=>{
   if(estado.b===b&&estado.creaciones===ctx.creaciones&&estado.doll===doll&&estado.saco===saco)return;
   const borrador=estado.b!==b;
@@ -77,7 +78,7 @@ export default function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    setEscena(null);setVoz('');
    const n=++contador.current;
    setReinicio({n,texto:borrador?'La prueba se reinició con los cambios':'Los dolls se ajustaron: la prueba empieza de nuevo'});
-  },300);
+  },borrador?0:300);
   return ()=>window.clearTimeout(t);
  },[b,ctx.creaciones,doll,saco,estado.b,estado.creaciones,estado.doll,estado.saco]);
  useEffect(()=>{
@@ -227,4 +228,26 @@ export default function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    </>}
   </>}
  </div>;
+}
+
+const Arena=memo(ArenaDolls);
+/**
+ * La arena recibe el borrador cuando se deja de teclear (350 ms) y el navegador está libre (como mucho 300 ms más):
+ * con creaciones grandes, repintarla y reconstruir el combate en cada tecla frenaba la escritura en el lienzo.
+ */
+export default function ArenaPausada({b,ctx,grafo,onEncender}:Props){
+ const [vista,setVista]=useState({b,grafo});
+ // Solo el grafo cambió (p. ej. otra lista de creaciones): se pasa sin esperar.
+ if(vista.b===b&&vista.grafo!==grafo)setVista({b,grafo});
+ useEffect(()=>{
+  if(vista.b===b)return;
+  let ocioso=0;
+  const pasar=()=>setVista({b,grafo});
+  const t=window.setTimeout(()=>{
+   if(typeof window.requestIdleCallback==='function')ocioso=window.requestIdleCallback(pasar,{timeout:300});
+   else pasar();
+  },350);
+  return ()=>{window.clearTimeout(t);if(ocioso)window.cancelIdleCallback(ocioso);};
+ },[b,grafo,vista]);
+ return <Arena b={vista.b} ctx={ctx} grafo={vista.grafo} onEncender={onEncender}/>;
 }

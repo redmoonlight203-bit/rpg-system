@@ -63,10 +63,12 @@
 .yq-taller .yq-centro{position:relative;grid-row:3;min-width:0;min-height:0}
 .yq-taller .yq-lienzo{position:absolute;inset:0;overflow:clip;background:var(--color-well);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
 .yq-taller .yq-lienzo.is-desplazando{cursor:grabbing}
-.yq-taller .yq-lienzo-rejilla{position:absolute;inset:0;pointer-events:none;
+/* La rejilla es más grande que el lienzo y se desplaza con transform (módulo una baldosa, en Lienzo.tsx): desplazar la
+   vista ya no repinta todo el fondo en cada fotograma. Solo el zoom (--yq-z) la vuelve a pintar. */
+.yq-taller .yq-lienzo-rejilla{position:absolute;inset:-240px;pointer-events:none;will-change:transform;
  background-image:radial-gradient(circle,color-mix(in srgb,var(--color-gold) 38%,transparent) 1.4px,transparent 1.9px),radial-gradient(circle,color-mix(in srgb,var(--color-gold) 16%,transparent) 1px,transparent 1.4px);
  background-size:calc(120px * var(--yq-z)) calc(120px * var(--yq-z)),calc(24px * var(--yq-z)) calc(24px * var(--yq-z));
- background-position:var(--yq-x) var(--yq-y),var(--yq-x) var(--yq-y)}
+ background-position:0 0}
 .yq-taller .yq-lienzo-vineta{position:absolute;inset:0;pointer-events:none;background:
  radial-gradient(ellipse 70% 45% at 50% 112%,color-mix(in srgb,#d0582c 22%,transparent),transparent 70%),
  radial-gradient(ellipse 40% 30% at 12% -10%,color-mix(in srgb,var(--color-arcane) 12%,transparent),transparent 70%),
@@ -77,10 +79,12 @@
 @keyframes yq-brasa{0%{transform:translate3d(0,0,0);opacity:0}12%{opacity:.85}55%{transform:translate3d(22px,-46vh,0);opacity:.6}100%{transform:translate3d(-8px,-92vh,0);opacity:0}}
 @keyframes yq-brasa-b{0%{transform:translate3d(0,0,0);opacity:0}15%{opacity:.7}50%{transform:translate3d(-26px,-40vh,0);opacity:.5}100%{transform:translate3d(14px,-86vh,0);opacity:0}}
 .yq-taller .yq-mundo{position:absolute;z-index:1;left:0;top:0;width:0;height:0;transform-origin:0 0;will-change:transform}
-.yq-taller .yq-mundo.is-suave{transition:transform .38s cubic-bezier(.2,.7,.2,1)}
+.yq-taller .yq-mundo-escala{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
+.yq-taller .yq-mundo.is-suave,.yq-taller .yq-mundo.is-suave>.yq-mundo-escala{transition:transform .38s cubic-bezier(.2,.7,.2,1)}
 
 /* ── Cables ── */
-.yq-taller .yq-cables{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+/* Capa propia: el flujo animado de los cables repinta solo los cables, no los nodos (sombras, degradados) de debajo. */
+.yq-taller .yq-cables{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;will-change:transform}
 .yq-taller .yq-cables path{fill:none}
 .yq-taller .yq-cable-aura{stroke:var(--color-gold);stroke-width:9;opacity:.07;transition:opacity .2s ease}
 .yq-taller .yq-cable{stroke-width:2.2;stroke-linecap:round;transition:opacity .2s ease}
@@ -93,19 +97,36 @@
 .yq-taller .yq-cable-grupo.is-encendido .yq-cable-flujo{animation-duration:.5s}
 .yq-taller .yq-cable-nuevo{stroke:var(--color-arcane);stroke-width:2.2;stroke-dasharray:7 6;stroke-linecap:round;animation:yq-flujo .6s linear infinite;filter:drop-shadow(0 0 4px var(--color-arcane))}
 @keyframes yq-flujo{to{stroke-dashoffset:-26}}
+/* Rendimiento: con muchos cables (MAX_FLUJO en Lienzo.tsx) solo fluyen los del nodo elegido o encendidos; mientras se
+   desplaza la vista, se arrastra un nodo o se escribe en un editor, el flujo y las brasas se detienen
+   (cada fotograma animado repintaba todos los trazos). */
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo:not(.is-elegido,.is-encendido) .yq-cable-flujo{animation:none}
+/* Con muchos cables, la transparencia va en cada trazo (stroke-opacity) y no en el grupo: `opacity` en un grupo SVG obliga
+   a pintarlo en una capa aparte, y con 150+ cables atenuados el lienzo no llegaba a 40 fps al desplazarse. */
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo{transition:none}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo.is-tenue{opacity:1}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-aura{opacity:1;stroke-opacity:.07}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-flujo{opacity:1;stroke-opacity:.95}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo.is-tenue .yq-cable-aura{stroke-opacity:.028}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo.is-tenue .yq-cable{stroke-opacity:.4}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo.is-tenue .yq-cable-flujo{stroke-opacity:.38}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo.is-encendido .yq-cable-aura{stroke-opacity:.45}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo.is-tenue.is-encendido .yq-cable-aura{stroke-opacity:.18}
+.yq-taller .yq-lienzo.is-muchos .yq-cable-grupo.is-tenue .yq-cable-pulso{stroke-opacity:.4}
+.yq-taller .yq-lienzo:is(.is-desplazando,.is-moviendo,[data-escribiendo]) :is(.yq-cable-flujo,.yq-brasas span){animation-play-state:paused}
 
 /* ── Nodos ── */
 .yq-taller .yq-nodo-pos{position:absolute;left:0;top:0;z-index:1;transition:opacity .18s ease}
 .yq-taller .yq-nodo-pos.is-encima{z-index:5}
-.yq-taller .yq-nodo-pos.is-arrastrado{z-index:6}
+.yq-taller .yq-nodo-pos.is-arrastrado{z-index:6;will-change:transform}
 .yq-taller .yq-nodo-pos.is-arrastrado .yq-nodo{box-shadow:0 0 0 1px var(--color-arcane),0 30px 60px -18px #000;cursor:grabbing}
 .yq-taller .yq-lienzo.is-cableando .yq-nodo-pos[data-cable=incompatible]{opacity:.3}
 .yq-taller .yq-nodo{position:relative;width:260px;color:var(--color-text);border:1px solid color-mix(in srgb,var(--yq-tinte) 38%,var(--color-line));border-radius:3px;
  background:linear-gradient(172deg,color-mix(in srgb,var(--color-raised) 90%,var(--yq-tinte)),var(--color-raised) 38%,color-mix(in srgb,var(--color-well) 70%,var(--color-raised)));
  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-well) 70%,transparent),0 18px 40px -22px #000,0 2px 0 -1px color-mix(in srgb,var(--yq-tinte) 20%,transparent);
  transition:box-shadow .2s ease,border-color .2s ease;transform-origin:30px 20px}
-.yq-taller .yq-nodo-esquina{position:absolute;width:18px;height:18px;color:var(--yq-tinte);pointer-events:none;opacity:.85;z-index:1}
-.yq-taller .yq-nodo-esquina.is-ti{top:-2px;left:-2px}.yq-nodo-esquina.is-bd{bottom:-2px;right:-2px;transform:scale(-1)}
+.yq-taller .yq-nodo-esquina{position:absolute;width:18px;height:18px;color:color-mix(in srgb,var(--yq-tinte) 85%,transparent);pointer-events:none;z-index:1}
+.yq-taller .yq-nodo-esquina.is-ti{top:-2px;left:-2px}.yq-nodo-esquina.is-bd{bottom:-2px;right:-2px}
 .yq-taller .yq-nodo-cab{display:flex;align-items:center;gap:9px;height:40px;padding:0 10px 0 9px;border-bottom:1px solid color-mix(in srgb,var(--yq-tinte) 35%,transparent);cursor:grab;
  background:linear-gradient(95deg,color-mix(in srgb,var(--yq-tinte) 30%,transparent),color-mix(in srgb,var(--yq-tinte) 9%,transparent) 62%,transparent)}
 .yq-taller .yq-nodo-icono{display:grid;place-items:center;flex:none;width:28px;height:28px;color:var(--yq-tinte);border:1px solid color-mix(in srgb,var(--yq-tinte) 60%,transparent);border-radius:50%;background:radial-gradient(circle at 40% 35%,color-mix(in srgb,var(--yq-tinte) 22%,var(--color-raised)),var(--color-well));box-shadow:0 0 12px -3px var(--yq-tinte)}
@@ -260,7 +281,7 @@
 @media (prefers-reduced-motion:reduce){
  .yq-taller .yq-brasas{display:none}
  .yq-taller .yq-cable-flujo,.yq-taller .yq-cable-nuevo,.yq-taller .yq-nodo.is-nuevo,.yq-taller .yq-nodo.is-nuevo::after,.yq-taller .yq-puerto::after,.yq-taller .yq-menu-forja,.yq-taller .yq-menu-forja li,.yq-taller .yq-aviso{animation:none!important}
- .yq-taller .yq-mundo.is-suave,.yq-taller .yq-nodo,.yq-taller .yq-nodo-pos,.yq-taller .yq-fichas button,.yq-taller .yq-cartas button,.yq-taller .yq-grimorio-piezas button,.yq-taller .yq-forjar,.yq-taller .yq-rueda,.yq-taller .yq-conmutador>span,.yq-taller .yq-conmutador>span::after,.yq-taller .yq-puerto,.yq-taller .yq-cable-grupo,.yq-taller .yq-cable,.yq-taller .yq-cable-aura,.yq-taller .yq-forjar-rapido button{transition:none}
+ .yq-taller .yq-mundo.is-suave,.yq-taller .yq-mundo.is-suave>.yq-mundo-escala,.yq-taller .yq-nodo,.yq-taller .yq-nodo-pos,.yq-taller .yq-fichas button,.yq-taller .yq-cartas button,.yq-taller .yq-grimorio-piezas button,.yq-taller .yq-forjar,.yq-taller .yq-rueda,.yq-taller .yq-conmutador>span,.yq-taller .yq-conmutador>span::after,.yq-taller .yq-puerto,.yq-taller .yq-cable-grupo,.yq-taller .yq-cable,.yq-taller .yq-cable-aura,.yq-taller .yq-forjar-rapido button{transition:none}
  .yq-taller .yq-fichas button:hover,.yq-taller .yq-cartas button:hover,.yq-taller .yq-grimorio-piezas button:hover,.yq-taller .yq-forjar-rapido button:hover{transform:none}
 }
 .yugen-page .yq-taller .yq-campo input::placeholder{color:var(--color-text-muted);opacity:.55;font-family:var(--font-sans);font-weight:400;letter-spacing:0;font-size:15px}
@@ -323,7 +344,7 @@
 .yq-taller .yq-nodo.is-suelto .yq-puerto--entrada{border-style:dashed;background:var(--color-well);box-shadow:none}
 .yq-taller .yq-nodo-pos:not([data-cable]) .yq-nodo.is-suelto .yq-puerto--entrada{background:var(--color-well);box-shadow:none}
 .yq-taller .yq-nodo-suelto{flex:none;padding:2px 8px;border:1px dashed color-mix(in srgb,var(--color-crimson) 70%,transparent);border-radius:999px;background:color-mix(in srgb,var(--color-crimson) 14%,transparent);color:var(--color-danger-text);font:600 11px var(--font-sans);letter-spacing:.04em;white-space:nowrap}
-.yq-taller .yq-nodo.is-suelto .yq-nodo-esquina{opacity:.4}
+.yq-taller .yq-nodo.is-suelto .yq-nodo-esquina{color:color-mix(in srgb,var(--yq-tinte) 40%,transparent)}
 /* Ramas: salida de éxito en verde, de fallo en carmesí. */
 .yq-taller .yq-nodo-salidas li[data-salida=exito]{--yq-tinte:var(--color-success-text)}
 .yq-taller .yq-nodo-salidas li[data-salida=fallo]{--yq-tinte:#e0485b}

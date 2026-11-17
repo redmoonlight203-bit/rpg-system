@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cargarDependencia} from './helpers/cargar-ts.mjs';
-const {aGrafo}=cargarDependencia('yunque-grafo');
+const {aGrafo,estabilizar}=cargarDependencia('yunque-grafo');
 const {describirEfecto,describirReaccion}=cargarDependencia('descripciones');
 const {PLANTILLAS_REACCION}=cargarDependencia('combate');
 const F=JSON.parse(readFileSync(new URL('./fixtures/yunque-borradores.json',import.meta.url),'utf8'));
@@ -144,4 +144,24 @@ test('un borrador malformado (datos antiguos) no rompe aGrafo',()=>{
  assert.ok(g.nodos.some(n=>n.id==='si:r-no:0'),'«No» sin condición dentro no rompe');
  assert.ok(g.nodos.some(n=>n.id==='pasiva:p-vieja'&&n.error),'la pasiva vieja se marca con error');
  assert.equal(g.nodos.find(n=>n.id==='nucleo').titulo,'Sin nombre');
+});
+
+test('estabilizar conserva los nodos y cables sin cambios y devuelve el mismo grafo si nada cambió',()=>{
+ const b=clon(F.objeto),g1=aGrafo(b,ctx);
+ assert.equal(estabilizar(null,g1),g1);
+ assert.equal(estabilizar(g1,aGrafo(clon(b),ctx)),g1);
+ const c=clon(b);c.efectos[0].nombre='Otro nombre';
+ const g2=estabilizar(g1,aGrafo(c,ctx));
+ assert.notEqual(g2,g1);
+ assert.deepEqual(json(g2),json(aGrafo(c,ctx)));
+ const id='accion:'+c.efectos[0].id;
+ for(const n of g2.nodos){const previo=g1.nodos.find(x=>x.id===n.id);if(n.id===id||n.id==='nucleo')continue;assert.equal(n,previo,n.id);}
+ assert.notEqual(g2.nodos.find(n=>n.id===id),g1.nodos.find(n=>n.id===id));
+ assert.equal(g2.nodos.find(n=>n.id===id).titulo,'Otro nombre');
+ g2.cables.forEach((k,i)=>assert.equal(k,g1.cables[i]));
+ // Quitar una acción: el grafo cambia de tamaño y los nodos que quedan conservan su objeto.
+ const d=clon(b);d.efectos.splice(1,1);
+ const g3=estabilizar(g1,aGrafo(d,ctx));
+ assert.deepEqual(json(g3),json(aGrafo(d,ctx)));
+ assert.equal(g3.nodos.find(n=>n.id===id),g1.nodos.find(n=>n.id===id));
 });

@@ -123,3 +123,18 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
 }
 /** Valor del borrador en una ruta de nodo (o `undefined` si la ruta ya no existe). */
 export const leerRuta=(b:unknown,ruta:Ruta):unknown=>ruta.reduce<unknown>((x,k)=>x!==null&&typeof x==='object'?(x as Record<string|number,unknown>)[k]:undefined,b);
+const mismoNodo=(a:Nodo,b:Nodo)=>a.id===b.id&&a.tipo===b.tipo&&a.titulo===b.titulo&&a.frase===b.frase&&a.error===b.error
+ &&a.ruta.length===b.ruta.length&&a.ruta.every((k,i)=>k===b.ruta[i])&&JSON.stringify(a.puertos)===JSON.stringify(b.puertos);
+/**
+ * Reutiliza los nodos y cables de `previo` que no cambiaron (mismos datos) y, si nada cambió, devuelve `previo` tal cual.
+ * Así la interfaz puede memorizar por identidad: al escribir en un nodo, los demás conservan su objeto y no se repintan.
+ */
+export function estabilizar(previo:Grafo|null|undefined,nuevo:Grafo):Grafo{
+ if(!previo)return nuevo;
+ const nodos=new Map(previo.nodos.map(n=>[n.id,n])),cables=new Map(previo.cables.map(c=>[c.id,c]));
+ let igual=previo.nodos.length===nuevo.nodos.length&&previo.cables.length===nuevo.cables.length;
+ const ns=nuevo.nodos.map((n,i)=>{const p=nodos.get(n.id);const r=p&&mismoNodo(p,n)?p:n;if(r!==previo.nodos[i])igual=false;return r;});
+ // El id de un cable ya dice qué une: el mismo id es el mismo cable.
+ const cs=nuevo.cables.map((c,i)=>{const r=cables.get(c.id)??c;if(r!==previo.cables[i])igual=false;return r;});
+ return igual?previo:{nodos:ns,cables:cs};
+}
