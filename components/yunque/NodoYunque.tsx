@@ -31,8 +31,10 @@ export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=fals
  const duplicable=['accion','cuando','pasiva','entonces'].includes(nodo.tipo)||(nodo.tipo==='si'&&!(nodo.ruta.length===3&&nodo.ruta[2]==='condicion'));
  return <article data-nodo={nodo.id} data-familia={familia} data-tipo={nodo.tipo} aria-label={`${NOMBRE_TIPO[nodo.tipo]}: ${nodo.titulo}${suelto?' (sin conectar)':''}`} aria-current={seleccionado||undefined} data-encendido={encendido||undefined} tabIndex={0}
   className={['yq-nodo',`yq-nodo--${familia}`,seleccionado&&'is-seleccionado',encendido&&'is-encendido',nuevo&&'is-nuevo',nodo.error&&'is-error',suelto&&'is-suelto'].filter(Boolean).join(' ')}>
-  <svg className="yq-nodo-esquina is-ti" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 17V7Q1 1 7 1h10" fill="none" stroke="currentColor" strokeWidth="1.2"/><rect x="2.4" y="2.4" width="3" height="3" transform="rotate(45 3.9 3.9)" fill="currentColor"/></svg>
-  <svg className="yq-nodo-esquina is-bd" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 17V7Q1 1 7 1h10" fill="none" stroke="currentColor" strokeWidth="1.2"/><rect x="2.4" y="2.4" width="3" height="3" transform="rotate(45 3.9 3.9)" fill="currentColor"/></svg>
+  {/* Esquinas sin transform ni opacity propios (el rombo y la esquina opuesta ya van dibujados): con 150+ nodos, cada
+      transform u opacity era una capa más de propiedades que el navegador recomponía en cada fotograma. */}
+  <svg className="yq-nodo-esquina is-ti" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 17V7Q1 1 7 1h10" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M3.9 1.78 6.02 3.9 3.9 6.02 1.78 3.9Z" fill="currentColor"/></svg>
+  <svg className="yq-nodo-esquina is-bd" viewBox="0 0 18 18" aria-hidden="true"><path d="M17 1V11Q17 17 11 17H1" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M14.1 11.98 16.22 14.1 14.1 16.22 11.98 14.1Z" fill="currentColor"/></svg>
   <header className="yq-nodo-cab" data-asa="">
    <span className="yq-nodo-icono"><IconoYugen id={icono||ICONO_TIPO[nodo.tipo]} size={22}/></span>
    <span className="yq-nodo-titulos"><small>{NOMBRE_TIPO[nodo.tipo]}</small><strong>{nodo.titulo}</strong></span>

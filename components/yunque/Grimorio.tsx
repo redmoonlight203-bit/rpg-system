@@ -28,13 +28,14 @@ type Props={
 };
 const SIN_PIEZAS:Pieza[]=[];
 const normal=(s:string)=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const porDefecto=(f:FamiliaGrimorio,conColeccion:boolean)=>f==='acciones'||f==='eventos'||f==='plantillas'||(f==='coleccion'&&conColeccion);
 const tinte=(p:Pieza)=>p.familia==='coleccion'?'vinculo':familiaDe(p.tipo);
 
 export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZAS,onSoltar,onArrastrar,pista,children}:Props){
  const [busqueda,setBusqueda]=useState('');
  // Familias abiertas: las que el GM abrió o cerró y, si no las tocó, acciones, eventos y (en personajes) la colección.
  const [abiertas,setAbiertas]=useState<Partial<Record<FamiliaGrimorio,boolean>>>({});
- const abiertaPorDefecto=(f:FamiliaGrimorio)=>f==='acciones'||f==='eventos'||f==='plantillas'||(f==='coleccion'&&enlazar.length>0);
+ const abiertaPorDefecto=(f:FamiliaGrimorio)=>porDefecto(f,enlazar.length>0);
  const [flotante,setFlotante]=useState<{pieza:Pieza;x:number;y:number}|null>(null);
  const gesto=useRef<{pieza:Pieza;x0:number;y0:number;activo:boolean}|null>(null);
  const sinClic=useRef(false);
@@ -43,7 +44,7 @@ export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZA
   return [...PIEZAS,...enlazar,...piezasColeccion(creaciones.filter(c=>c.id!==excluir&&c.estado!=='rechazado'&&!enlazadas.has(c.id)),filtro)].filter(p=>piezaPermitida(p,filtro));
  },[creaciones,excluir,filtro,enlazar]);
  const q=normal(busqueda.trim());
- const grupos=FAMILIAS_GRIMORIO.map(f=>({...f,piezas:piezas.filter(p=>p.familia===f.clave&&(!q||normal(`${p.nombre} ${p.ayuda}`).includes(q)))})).filter(g=>g.piezas.length||(!q&&g.clave==='coleccion'&&filtro.length>0));
+ const grupos=useMemo(()=>FAMILIAS_GRIMORIO.map(f=>({...f,piezas:piezas.filter(p=>p.familia===f.clave&&(!q||normal(`${p.nombre} ${p.ayuda}`).includes(q)))})).filter(g=>g.piezas.length||(!q&&g.clave==='coleccion'&&filtro.length>0)),[piezas,q,filtro]);
  const total=grupos.reduce((n,g)=>n+g.piezas.length,0);
 
  // Escape cancela el arrastre en curso.
@@ -75,26 +76,24 @@ export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZA
  }
  function cancelar(){if(gesto.current?.activo){setFlotante(null);onArrastrar?.(null,null);}gesto.current=null;}
  const alternar=(f:FamiliaGrimorio)=>setAbiertas(s=>({...s,[f]:!(s[f]??abiertaPorDefecto(f))}));
-
- return <aside className="yq-panel yq-grimorio" aria-label="Grimorio">
-  <h2><IconoYugen id="libro" size={18}/>Grimorio</h2>
-  <p className="yq-panel-voz">Arrastra una pieza hasta un nodo para engancharla, o al vacío para dejarla a mano.</p>
-  <label className="yq-busqueda"><Search size={15} aria-hidden="true"/><input type="search" placeholder="Buscar pieza…" aria-label="Buscar en el Grimorio" value={busqueda} onChange={e=>setBusqueda(e.target.value)}/>
-   {busqueda&&<button type="button" aria-label="Borrar búsqueda" onClick={()=>setBusqueda('')}><X size={14}/></button>}</label>
-  {q&&!total&&<p className="yq-panel-voz">Kuroi no encuentra «{busqueda}» en el Grimorio.</p>}
-  <div className="yq-familias">
+ // Las piezas no dependen del borrador: se memorizan y los botones llaman a los gestores del último render
+ // (el taller se repinta en cada tecla; antes, con él, cientos de piezas e iconos del Grimorio).
+ const gestores=useRef({abajo,mover,arriba,cancelar,alternar,onSoltar});
+ useEffect(()=>{gestores.current={abajo,mover,arriba,cancelar,alternar,onSoltar};});
+ const arrastrada=flotante?.pieza.clave,conColeccion=enlazar.length>0;
+ const familias=useMemo(()=><div className="yq-familias">
    {grupos.map(g=>{
-    const abierta=!!q||(abiertas[g.clave]??abiertaPorDefecto(g.clave));
+    const abierta=!!q||(abiertas[g.clave]??porDefecto(g.clave,conColeccion));
     const muestra=g.piezas[0];
     return <section key={g.clave} className="yq-familia" data-familia={muestra?tinte(muestra):'vinculo'} data-grimorio={g.clave}>
-     <h3><button type="button" aria-expanded={abierta} onClick={()=>alternar(g.clave)}>
+     <h3><button type="button" aria-expanded={abierta} onClick={()=>gestores.current.alternar(g.clave)}>
       <ChevronRight size={14} className="yq-familia-flecha" aria-hidden="true"/><span>{g.nombre}</span><small>{g.piezas.length}</small>
      </button></h3>
      {abierta&&(g.piezas.length?<ul className="yq-grimorio-piezas">{g.piezas.map(p=><li key={p.clave}>
       <button type="button" data-pieza={p.clave} data-familia={tinte(p)} title={`${p.ayuda}. Arrástrala al lienzo o pulsa para añadirla.`}
-       className={flotante?.pieza.clave===p.clave?'is-arrastrada':undefined}
-       onPointerDown={e=>abajo(e,p)} onPointerMove={mover} onPointerUp={arriba} onPointerCancel={cancelar}
-       onClick={()=>{if(sinClic.current)return;onSoltar(p,null);}}>
+       className={arrastrada===p.clave?'is-arrastrada':undefined}
+       onPointerDown={e=>gestores.current.abajo(e,p)} onPointerMove={e=>gestores.current.mover(e)} onPointerUp={e=>gestores.current.arriba(e)} onPointerCancel={()=>gestores.current.cancelar()}
+       onClick={()=>{if(sinClic.current)return;gestores.current.onSoltar(p,null);}}>
        <span className="yq-pieza-icono"><IconoYugen id={p.icono} size={18}/></span>
        <span className="yq-pieza-texto"><strong>{p.nombre}</strong><small>{p.ayuda}</small></span>
        <span className="yq-pieza-asa" aria-hidden="true"/>
@@ -102,7 +101,15 @@ export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZA
      </li>)}</ul>:<p className="yq-familia-vacia">Ninguna creación de La Creación tiene piezas que copiar aquí.</p>)}
     </section>;
    })}
-  </div>
+  </div>,[grupos,q,abiertas,arrastrada,conColeccion]);
+
+ return <aside className="yq-panel yq-grimorio" aria-label="Grimorio">
+  <h2><IconoYugen id="libro" size={18}/>Grimorio</h2>
+  <p className="yq-panel-voz">Arrastra una pieza hasta un nodo para engancharla, o al vacío para dejarla a mano.</p>
+  <label className="yq-busqueda"><Search size={15} aria-hidden="true"/><input type="search" placeholder="Buscar pieza…" aria-label="Buscar en el Grimorio" value={busqueda} onChange={e=>setBusqueda(e.target.value)}/>
+   {busqueda&&<button type="button" aria-label="Borrar búsqueda" onClick={()=>setBusqueda('')}><X size={14}/></button>}</label>
+  {q&&!total&&<p className="yq-panel-voz">Kuroi no encuentra «{busqueda}» en el Grimorio.</p>}
+  {familias}
   {children}
   {/* En el cuerpo del documento: un ancestro con transform convertiría `position:fixed` en relativo a él. */}
   {flotante&&createPortal(<div className="yq-pieza-flotante" data-familia={tinte(flotante.pieza)} style={{left:flotante.x,top:flotante.y}} aria-hidden="true">

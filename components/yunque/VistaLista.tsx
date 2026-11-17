@@ -1,7 +1,7 @@
 'use client';
 // Vista de lista del Yunque: los mismos nodos del grafo como bloques ordenados (núcleo, acciones con sus módulos,
 // reglas, pasivas, vínculos, requisitos), editables con los mismos editores. Para pantallas estrechas, teclado y lectores.
-import {useEffect,useRef} from 'react';
+import {memo,useCallback,useEffect,useRef,type ReactNode} from 'react';
 import {ChevronDown,Copy,Trash2} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import {AGREGABLES,AYUDA,type ContenidoNodo} from './Lienzo';
@@ -32,6 +32,11 @@ const duplicable=(n:Nodo)=>['accion','cuando','pasiva','entonces'].includes(n.ti
 
 export default function VistaLista({grafo,seleccion,onSeleccionar,contenido,operar,encendidos,nuevos,guia}:Props){
  const raiz=useRef<HTMLDivElement>(null);
+ // Callbacks estables para los bloques memorizados (solo se repinta el bloque cuyos datos cambian).
+ const ultimos=useRef({seleccion,onSeleccionar,operar});
+ useEffect(()=>{ultimos.current={seleccion,onSeleccionar,operar};},[seleccion,onSeleccionar,operar]);
+ const alternar=useCallback((id:string)=>{const u=ultimos.current;u.onSeleccionar(u.seleccion===id?null:id);},[]);
+ const operarBloque=useCallback((o:Operacion)=>ultimos.current.operar(o),[]);
  // Al elegir un nodo (índice, nodo recién creado), el bloque se trae a la vista.
  // Al montar no se desplaza (en un móvil la barra superior debe seguir a la vista): solo al cambiar la elección o crear nodos.
  const previa=useRef(seleccion);
@@ -51,13 +56,15 @@ export default function VistaLista({grafo,seleccion,onSeleccionar,contenido,oper
     <h2 id={`yq-vlista-${s.clave}`}><IconoYugen id={s.icono} size={16}/>{s.titulo}<small>{nodos.length}</small></h2>
     <ol>{nodos.map(n=><Bloque key={n.id} n={n} abierto={seleccion===n.id} encendido={!!encendidos?.has(n.id)} nuevo={!!nuevos?.has(n.id)}
      guia={guia?(n.id===guia.sobre?(guia.compatibles.has(n.id)?'destino':'rechazo'):guia.compatibles.has(n.id)?'compatible':'incompatible'):undefined}
-     c={contenido(n)} onAlternar={()=>onSeleccionar(seleccion===n.id?null:n.id)} operar={operar}/>)}</ol>
+     {...piezas(contenido(n))} onAlternar={alternar} operar={operarBloque}/>)}</ol>
    </section>;
   })}
  </div>;
 }
 
-function Bloque({n,abierto,encendido,nuevo,guia,c,onAlternar,operar}:{n:Nodo;abierto:boolean;encendido:boolean;nuevo:boolean;guia?:string;c:ContenidoNodo;onAlternar:()=>void;operar:(o:Operacion)=>void}){
+const piezas=(c:ContenidoNodo)=>({icono:c.icono,pie:c.pie,editor:c.editor});
+type PropsBloque={n:Nodo;abierto:boolean;encendido:boolean;nuevo:boolean;guia?:string;icono?:string;pie?:ReactNode;editor?:ReactNode;onAlternar:(id:string)=>void;operar:(o:Operacion)=>void};
+const Bloque=memo(function Bloque({n,abierto,encendido,nuevo,guia,icono,pie,editor,onAlternar,operar}:PropsBloque){
  const familia=familiaDe(n.tipo);
  const editable=n.tipo!=='nucleo';
  const añadir=n.tipo==='nucleo'?[]:n.puertos.filter(p=>p.lado==='salida').flatMap(p=>p.acepta.filter(t=>AGREGABLES.includes(t)).map(t=>({t,puerto:p})));
@@ -65,8 +72,8 @@ function Bloque({n,abierto,encendido,nuevo,guia,c,onAlternar,operar}:{n:Nodo;abi
  return <li className={['yq-bloque',abierto&&'is-abierto',n.error&&'is-error',encendido&&'is-encendido',nuevo&&'is-nuevo'].filter(Boolean).join(' ')}
   data-bloque={n.id} data-guia={guia} data-familia={familia} data-tipo={n.tipo} data-encendido={encendido||undefined} data-nivel={Math.min(4,nivel(n))} style={{['--yq-nivel' as string]:Math.min(4,nivel(n))}}>
   <div className="yq-bloque-cab">
-   <button type="button" className="yq-bloque-boton" aria-expanded={abierto} aria-controls={panel} onClick={onAlternar}>
-    <span className="yq-nodo-icono"><IconoYugen id={c.icono||ICONO_TIPO[n.tipo]} size={20}/></span>
+   <button type="button" className="yq-bloque-boton" aria-expanded={abierto} aria-controls={panel} onClick={()=>onAlternar(n.id)}>
+    <span className="yq-nodo-icono"><IconoYugen id={icono||ICONO_TIPO[n.tipo]} size={20}/></span>
     <span className="yq-bloque-titulos"><small>{NOMBRE_TIPO[n.tipo]}</small><strong>{n.titulo}</strong><em>{n.frase||'—'}</em></span>
     {n.error&&<span className="yq-nodo-sello" role="img" aria-label={`Error: ${n.error}`}>!</span>}
     <ChevronDown size={16} className="yq-bloque-flecha" aria-hidden="true"/>
@@ -77,9 +84,9 @@ function Bloque({n,abierto,encendido,nuevo,guia,c,onAlternar,operar}:{n:Nodo;abi
    </span>}
   </div>
   {n.error&&<p className="yq-nodo-error">{n.error}</p>}
-  {c.pie&&<div className="yq-bloque-pie">{c.pie}</div>}
+  {pie&&<div className="yq-bloque-pie">{pie}</div>}
   {abierto&&<div id={panel} className="yq-bloque-editor">
-   {c.editor}
+   {editor}
    {añadir.length>0&&<div className="yq-bloque-anadir" role="group" aria-label={`Añadir a ${n.titulo}`}>
     <span>Añadir</span>
     {añadir.map(({t,puerto})=><button type="button" key={`${puerto.id}:${t}`} data-familia={familiaDe(t)} title={AYUDA[t]}
@@ -89,4 +96,4 @@ function Bloque({n,abierto,encendido,nuevo,guia,c,onAlternar,operar}:{n:Nodo;abi
    </div>}
   </div>}
  </li>;
-}
+});

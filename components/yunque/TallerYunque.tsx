@@ -1,7 +1,7 @@
 'use client';
 // Taller del Yunque: barra superior + tres paneles (grimorio, lienzo, arena). El Borrador es la única fuente
 // de verdad; cada gesto es una Operacion pura (`aplicar`) y sus errores se muestran como aviso, nunca rompen.
-import {useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore,type Dispatch,type SetStateAction} from 'react';
+import {memo,useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore,type Dispatch,type SetStateAction} from 'react';
 import {BookOpen,Hammer,LayoutList,Redo2,Undo2,Workflow} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import {Runa,Sello} from '../ui/Juego';
@@ -27,7 +27,7 @@ import type {CondicionRegla,EfectoRegla} from '../../lib/reglas';
 import {ICONO_EFECTO_REGLA,ICONO_EVENTO,enlazableDe,piezasVinculo,planSoltar,probarSoltar,tipoPermitido,type Destino,type Pieza} from '../../lib/yunque-grimorio';
 import {nombreHueco,planEnlazar,type Enlazable} from '../../lib/yunque-vinculos';
 import {mensajeError} from '../../lib/errores';
-import {aGrafo,leerRuta,type Nodo,type TipoNodo} from '../../lib/yunque-grafo';
+import {aGrafo,estabilizar,leerRuta,type Grafo,type Nodo,type TipoNodo} from '../../lib/yunque-grafo';
 import {aplicar,copiar,type Fragmento,type Operacion} from '../../lib/yunque-operaciones';
 import {NODO,disponer,guardarPosiciones,leerPosiciones,type Punto} from '../../lib/yunque-disposicion';
 import type {Borrador} from '../../lib/yunque-borrador';
@@ -85,7 +85,13 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  const porId=useMemo(()=>new Map<string,EnlazableVista>(piezasEnlace.map(p=>[p.id,p])),[piezasEnlace]);
  // Solo lo que sigue en La Creación (aprobado): un vínculo a algo archivado se ve roto.
  const contextoGrafo=useMemo(()=>({creaciones:activas(ctx)}),[ctx]);
- const grafo=useMemo(()=>aGrafo(b,contextoGrafo),[b,contextoGrafo]);
+ // El grafo conserva los nodos que no cambiaron (misma identidad): los nodos memorizados del lienzo no se repintan.
+ const [derivado,setDerivado]=useState<{b:Borrador;ctx:typeof contextoGrafo;grafo:Grafo}>(()=>({b,ctx:contextoGrafo,grafo:aGrafo(b,contextoGrafo)}));
+ let grafo=derivado.grafo;
+ if(derivado.b!==b||derivado.ctx!==contextoGrafo){
+  grafo=estabilizar(derivado.grafo,aGrafo(b,contextoGrafo));
+  setDerivado({b,ctx:contextoGrafo,grafo});
+ }
  const clave=claveDe(b,hijo);
  // `persistir`: la disposición cambió y se escribe en localStorage (en un efecto, nunca dentro de un actualizador).
  const [guardadas,setGuardadas]=useState(()=>({clave,p:leerPosiciones(clave),persistir:false}));
@@ -424,7 +430,9 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   return alNucleo?{texto:'Se une al núcleo',tono:'bien'}:{texto:vista==='lista'?'Suéltala sobre un bloque':'Quedará sin conectar',tono:'neutro'};
  },[arrastre,b,grafo,vista,ctx.creaciones,faltantes]);
 
+ /** Icono, pie y editor de un nodo. El editor solo se crea para el nodo elegido (el único que lo muestra). */
  const contenido=(n:Nodo):ContenidoNodo=>{
+  const conEditor=n.id===seleccion;
   if(n.tipo==='nucleo')return {
    icono:b.icono||(b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]),
    pie:<>
@@ -436,18 +444,18 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
      {esMonstruoB(b,ctx)&&<button type="button" data-familia="vinculo" onClick={()=>abrirFicha('yq-ficha-especie')}>Especie y variantes</button>}
     </div>
    </>,
-   editor:<EditorNucleo b={b} nodo={n} operar={o=>operar(o)} ejecutar={ops=>ejecutar(ops)} reemplazar={reemplazar} hijo={hijo} guardando={guardando} ctx={ctx}/>,
+   editor:!conEditor?undefined:<EditorNucleo b={b} nodo={n} operar={o=>operar(o)} ejecutar={ops=>ejecutar(ops)} reemplazar={reemplazar} hijo={hijo} guardando={guardando} ctx={ctx}/>,
   };
   if(n.id.startsWith('suelto:')){const s=sueltos.find(x=>x.id===n.id);return {icono:s?.pieza.icono,pie:<button type="button" className="yq-boton is-peligro" onClick={()=>setSueltos(l=>l.filter(x=>x.id!==n.id))}>Descartar</button>};}
   const props={b,nodo:n,operar:(o:Operacion)=>operar(o)};
   switch(n.tipo){
-   case 'accion':{const e=b.efectos[n.ruta[1] as number];return {icono:e?ICONO_EFECTO[e.efecto]:undefined,editor:<EditorAccion {...props}/>};}
-   case 'cuando':{const r=b.reglas[n.ruta[1] as number];return {icono:r?ICONO_EVENTO[r.evento]:undefined,editor:<EditorCuando {...props}/>};}
-   case 'si':{const c=leer(b,n.ruta) as CondicionRegla|undefined;return {icono:c?ICONO_SI[c.tipo]:undefined,editor:<EditorSi {...props}/>};}
-   case 'entonces':{const e=leer(b,n.ruta) as EfectoRegla|undefined;return {icono:e?ICONO_EFECTO_REGLA[e.tipo]:undefined,editor:<EditorEntonces {...props} avisar={t=>avisar(t)}/>};}
-   case 'pasiva':return {editor:<EditorPasivaNodo {...props}/>};
-   case 'vinculo':{const p=porId.get(idDeVinculo(n.id));return {icono:iconoEnlazable(p),editor:<EditorVinculo b={b} nodo={n} ctx={ctx} ejecutar={ops=>ejecutar(ops)} avisar={t=>avisar(t)} faltantes={faltantes} onCrear={crear}/>};}
-   default:return {editor:<EditorModulo {...props} ctx={ctx} avisar={avisoInfo}/>};
+   case 'accion':{const e=b.efectos[n.ruta[1] as number];return {icono:e?ICONO_EFECTO[e.efecto]:undefined,editor:!conEditor?undefined:<EditorAccion {...props}/>};}
+   case 'cuando':{const r=b.reglas[n.ruta[1] as number];return {icono:r?ICONO_EVENTO[r.evento]:undefined,editor:!conEditor?undefined:<EditorCuando {...props}/>};}
+   case 'si':{const c=leer(b,n.ruta) as CondicionRegla|undefined;return {icono:c?ICONO_SI[c.tipo]:undefined,editor:!conEditor?undefined:<EditorSi {...props}/>};}
+   case 'entonces':{const e=leer(b,n.ruta) as EfectoRegla|undefined;return {icono:e?ICONO_EFECTO_REGLA[e.tipo]:undefined,editor:!conEditor?undefined:<EditorEntonces {...props} avisar={t=>avisar(t)}/>};}
+   case 'pasiva':return {editor:!conEditor?undefined:<EditorPasivaNodo {...props}/>};
+   case 'vinculo':{const p=porId.get(idDeVinculo(n.id));return {icono:iconoEnlazable(p),editor:!conEditor?undefined:<EditorVinculo b={b} nodo={n} ctx={ctx} ejecutar={ops=>ejecutar(ops)} avisar={t=>avisar(t)} faltantes={faltantes} onCrear={crear}/>};}
+   default:return {editor:!conEditor?undefined:<EditorModulo {...props} ctx={ctx} avisar={avisoInfo}/>};
   }
  };
 
@@ -473,9 +481,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   {error&&<p role="alert" className="yq-error-global">{error}</p>}
   <Grimorio filtro={lleva} creaciones={ctx.creaciones} excluir={b.id} enlazar={piezasColeccion} onSoltar={alSoltar} onArrastrar={alArrastrar} pista={pista}>
    <h3 className="yq-indice-titulo">{vista==='lista'?'En la lista':'En el lienzo'}</h3>
-   <ol className="yq-indice">{grafo.nodos.map(n=><li key={n.id}><button type="button" data-indice={n.id} aria-current={seleccion===n.id||undefined} data-familia={familiaDe(n.tipo)} onClick={()=>setSeleccion(n.id)} style={{paddingLeft:8+Math.min(3,n.ruta.length>2?2:n.tipo==='nucleo'?0:1)*12}}>
-    <span className="yq-indice-punto" aria-hidden="true"/><span>{n.titulo}</span>{n.error&&<b aria-label="con error">!</b>}
-   </button></li>)}
+   <ol className="yq-indice">{grafo.nodos.map(n=><EntradaIndice key={n.id} nodo={n} actual={seleccion===n.id} onElegir={setSeleccion}/>)}
     {vista==='lienzo'&&sueltos.map(s=><li key={s.id}><button type="button" className="is-suelto" aria-current={seleccion===s.id||undefined} data-familia={familiaDe(s.pieza.tipo)} onClick={()=>setSeleccion(s.id)} style={{paddingLeft:20}}>
      <span className="yq-indice-punto" aria-hidden="true"/><span>{s.pieza.nombre}</span><i>sin conectar</i>
     </button></li>)}</ol>
@@ -484,8 +490,9 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
    {vista==='lienzo'?<Lienzo api={lienzo} onTamanos={setTamanos} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
     onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
     :<div ref={listaCaja} className="yq-vlista-caja"><VistaLista grafo={grafo} seleccion={seleccion} onSeleccionar={setSeleccion} contenido={contenido} operar={o=>operar(o)} encendidos={encendidos} nuevos={nuevos} guia={guiaLista}/></div>}
-   {aviso&&<p key={aviso.n} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
-   {sello&&<div key={sello} className="yq-sello" aria-hidden="true"><Sello texto="Creación forjada" runa="/arte/runas/forja.png" celebrar/></div>}
+   {/* Aviso y sello pueden nacer en el mismo milisegundo (al forjar): claves con prefijo para que no choquen. */}
+   {aviso&&<p key={`aviso:${aviso.n}`} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
+   {sello&&<div key={`sello:${sello}`} className="yq-sello" aria-hidden="true"><Sello texto="Creación forjada" runa="/arte/runas/forja.png" celebrar/></div>}
   </section>
   <aside className="yq-panel yq-arena" aria-label="Arena de dolls">
    <h2><IconoYugen id="espada" size={18}/>Arena de dolls</h2>
@@ -495,3 +502,10 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   <CajonFicha ancla={anclaFicha} b={b} patch={patchFicha} ctx={ctx} abierto={ficha} onCerrar={cerrarCajon}/>
  </div>;
 }
+
+/** Entrada del índice del Grimorio. Memorizada: al escribir en un nodo solo se repinta su propia entrada. */
+const EntradaIndice=memo(function EntradaIndice({nodo:n,actual,onElegir}:{nodo:Nodo;actual:boolean;onElegir:(id:string)=>void}){
+ return <li><button type="button" data-indice={n.id} aria-current={actual||undefined} data-familia={familiaDe(n.tipo)} onClick={()=>onElegir(n.id)} style={{paddingLeft:8+Math.min(3,n.ruta.length>2?2:n.tipo==='nucleo'?0:1)*12}}>
+  <span className="yq-indice-punto" aria-hidden="true"/><span>{n.titulo}</span>{n.error&&<b aria-label="con error">!</b>}
+ </button></li>;
+});

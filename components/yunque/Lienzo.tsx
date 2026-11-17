@@ -1,7 +1,7 @@
 'use client';
 // Lienzo del Yunque: desplazar arrastrando el fondo, zoom con la rueda (0.4–2) alrededor del cursor,
 // nodos que se arrastran con transform y cables Bézier que se dibujan arrastrando desde un puerto de salida.
-import {useCallback,useEffect,useImperativeHandle,useMemo,useRef,useState,type PointerEvent as PE,type KeyboardEvent,type FocusEvent,type ReactNode,type Ref} from 'react';
+import {memo,useCallback,useEffect,useImperativeHandle,useMemo,useRef,useState,type PointerEvent as PE,type KeyboardEvent,type FocusEvent,type ReactNode,type Ref} from 'react';
 import {Maximize,Minus,Plus,X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import NodoYunque,{familiaDe,puertoLocal,ICONO_TIPO,NOMBRE_TIPO,type Familia} from './NodoYunque';
@@ -47,6 +47,11 @@ export const AYUDA:Partial<Record<TipoNodo,string>>={accion:'Algo que se usa en 
 const COLOR:Record<Familia,string>={nucleo:'var(--color-gold-bright)',accion:'var(--color-gold)',modulo:'var(--color-arcane)',regla:'var(--color-crimson)',pasiva:'var(--color-success-text)',vinculo:'var(--color-parchment)'};
 // Brasas deterministas (sin Math.random en el render).
 const BRASAS=Array.from({length:22},(_,i)=>({x:(i*37+11)%100,d:9+(i*7)%9,r:-((i*13)%17),s:2+(i%3)}));
+/** Con más cables que esto, solo fluyen los del nodo elegido o encendidos (el resto queda quieto): pintar cientos de
+ *  trazos animados en cada fotograma ahogaba el lienzo en creaciones grandes. */
+export const MAX_FLUJO=24;
+/** La rejilla (240 px más grande por cada lado) se mueve con transform, módulo una baldosa de 120 px × zoom. */
+const rejilla=(v:Vista)=>{const t=120*v.z,m=(n:number)=>((n+240)%t+t)%t;return {['--yq-z' as string]:v.z,transform:`translate3d(${m(v.x)}px,${m(v.y)}px,0)`};};
 const curva=(a:Punto,b:Punto)=>{const dx=Math.max(48,Math.abs(b.x-a.x)*.5);return `M${a.x} ${a.y}C${a.x+dx} ${a.y},${b.x-dx} ${b.y},${b.x} ${b.y}`;};
 
 /** Encuadre de la vista: como `encuadre`, pero sin acercar por encima del 100 % (un núcleo solo no llena la pantalla). */
@@ -99,6 +104,13 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   return p&&a?{x:p.x+a.x,y:p.y+a.y}:p;
  },[arrastre,posiciones,apartes]);
  const ancho=(id:string)=>tam[id]?.w??NODO.ancho;
+ // Callbacks estables para los nodos memorizados: un nodo solo se vuelve a pintar si cambian sus propios datos.
+ const operarRef=useRef(onOperar);
+ useEffect(()=>{operarRef.current=onOperar;},[onOperar]);
+ const operarNodo=useCallback((o:Operacion)=>operarRef.current(o),[]);
+ // El contenido (icono, pie, editor) solo cambia cuando el taller lo pide; desplazar o arrastrar no lo rehace.
+ const contenidos=useMemo(()=>new Map(todos.map(n=>[n.id,contenido(n)])),[todos,contenido]);
+ const conectadosDe=useMemo(()=>{const m=new Map<string,string>();for(const [id,s] of conectados)m.set(id,[...s].sort().join('|'));return m;},[conectados]);
 
  /** Desplaza la vista (suave) lo justo para que el nodo se vea entero, priorizando su esquina superior izquierda. */
  const asegurarVisible=useCallback((id:string)=>{
@@ -243,7 +255,15 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
  }
  /** Teclado: Tab llega a cada nodo; Intro o Espacio sobre el nodo lo elige (y la vista lo sigue). */
  const nodoDe=(t:EventTarget)=>t instanceof HTMLElement&&t.matches('.yq-nodo[data-nodo]')?t.dataset.nodo!:null;
+ // Mientras se escribe en un editor del lienzo, el flujo de los cables y las brasas se detienen (atributo fuera de React:
+ // escribir no repinta el lienzo). Vuelven 1,2 s después de la última tecla.
+ const escribiendo=useRef(0);
+ useEffect(()=>()=>window.clearTimeout(escribiendo.current),[]);
  function tecla(e:KeyboardEvent<HTMLDivElement>){
+  if(e.target instanceof HTMLElement&&e.target.matches('input,textarea,[contenteditable]')&&caja.current){
+   const el=caja.current;el.dataset.escribiendo='';
+   window.clearTimeout(escribiendo.current);escribiendo.current=window.setTimeout(()=>{delete el.dataset.escribiendo;},1200);
+  }
   const id=nodoDe(e.target);
   if(id&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(seleccion!==id)onSeleccionar(id);else asegurarVisible(id);}
   if(e.key==='Escape'&&menu){e.preventDefault();setMenu(null);}
@@ -284,48 +304,39 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   return {desde:{x:b.x+l.x,y:b.y+l.y},hasta:guia.punto};
  })();
 
- return <div ref={caja} className={`yq-lienzo${cable||guia||sueltoMovido?' is-cableando':''}${guia?' is-guiando':''}${desplazando?' is-desplazando':''}`}
-  style={{['--yq-x' as string]:`${vista.x}px`,['--yq-y' as string]:`${vista.y}px`,['--yq-z' as string]:vista.z}}
+ return <div ref={caja} className={`yq-lienzo${cable||guia||sueltoMovido?' is-cableando':''}${guia?' is-guiando':''}${desplazando?' is-desplazando':''}${arrastre?' is-moviendo':''}${grafo.cables.length>MAX_FLUJO?' is-muchos':''}`}
   onPointerDown={abajo} onPointerMove={mover} onPointerUp={arriba} onPointerCancel={cancelar} onKeyDown={tecla} onFocus={enfocar}
   role="region" aria-label="Lienzo de nodos del Yunque" aria-roledescription="lienzo">
-  <div className="yq-lienzo-rejilla" aria-hidden="true"/>
+  {/* La vista va solo en la rejilla (antes, sus variables en el lienzo recalculaban el estilo de todos los nodos al desplazar). */}
+  <div className="yq-lienzo-rejilla" aria-hidden="true" style={rejilla(vista)}/>
   <div className="yq-lienzo-vineta" aria-hidden="true"/>
   <div className="yq-brasas" aria-hidden="true">{BRASAS.map((b,i)=><span key={i} style={{left:`${b.x}%`,width:b.s,height:b.s,animationDuration:`${b.d}s`,animationDelay:`${b.r}s`}}/>)}</div>
-  <div className={`yq-mundo${suave?' is-suave':''}`} style={{transform:`translate(${vista.x}px,${vista.y}px) scale(${vista.z})`}} onTransitionEnd={e=>{if(e.target===e.currentTarget&&e.propertyName==='transform')setSuave(false);}}>
-   <svg className="yq-cables" width="1" height="1" aria-hidden="true">
-    <defs>{grafo.cables.map(c=>{
-     const a=porId.get(c.desde.nodo),b=porId.get(c.hasta.nodo),pa=pos(c.desde.nodo),pb=pos(c.hasta.nodo);if(!a||!b||!pa||!pb)return null;
-     const la=puertoLocal(a,c.desde.puerto,ancho(a.id));
-     return <linearGradient key={c.id} id={`yq-g-${c.id.replace(/[^a-zA-Z0-9_-]/g,'_')}`} gradientUnits="userSpaceOnUse" x1={pa.x+la.x} y1={pa.y+la.y} x2={pb.x} y2={pb.y+20}>
-      <stop offset="0" stopColor={COLOR[familiaDe(a.tipo)]}/><stop offset="1" stopColor={COLOR[familiaDe(b.tipo)]}/>
-     </linearGradient>;
-    })}</defs>
-    {grafo.cables.map(c=>{
-     const a=porId.get(c.desde.nodo),b=porId.get(c.hasta.nodo),pa=pos(c.desde.nodo),pb=pos(c.hasta.nodo);if(!a||!b||!pa||!pb)return null;
-     const la=puertoLocal(a,c.desde.puerto,ancho(a.id)),lb=puertoLocal(b,c.hasta.puerto,ancho(b.id));
-     const d=curva({x:pa.x+la.x,y:pa.y+la.y},{x:pb.x+lb.x,y:pb.y+lb.y});
-     const vivo=encendidos?.has(c.desde.nodo)||encendidos?.has(c.hasta.nodo);
-     const elegido=!!seleccion&&(seleccion===c.desde.nodo||seleccion===c.hasta.nodo);
-     return <g key={c.id} className={`yq-cable-grupo${vivo?' is-encendido':''}${seleccion&&!elegido?' is-tenue':''}${elegido?' is-elegido':''}`} data-cable={c.id}>
-      <path className="yq-cable-aura" d={d}/>
-      <path className="yq-cable" d={d} stroke={`url(#yq-g-${c.id.replace(/[^a-zA-Z0-9_-]/g,'_')})`}/>
-      <path className="yq-cable-flujo" d={d}/>
-      {vivo&&<path className="yq-cable-pulso" d={d} pathLength={100}/>}
-     </g>;
+  {/* Desplazamiento y zoom en dos capas: al desplazar solo cambia una traslación, que el navegador aplica sin
+      recomponer las capas de los 150+ nodos (con translate+scale juntos lo hacía en cada fotograma). */}
+  <div className={`yq-mundo${suave?' is-suave':''}`} style={{transform:`translate3d(${vista.x}px,${vista.y}px,0)`}} onTransitionEnd={e=>{if((e.target===e.currentTarget||(e.target as HTMLElement).parentElement===e.currentTarget)&&e.propertyName==='transform')setSuave(false);}}>
+   <div className="yq-mundo-escala" style={{transform:`scale(${vista.z})`}}>
+    <svg className="yq-cables" width="1" height="1" aria-hidden="true">
+     {grafo.cables.map(c=>{
+      const a=porId.get(c.desde.nodo),b=porId.get(c.hasta.nodo),pa=pos(c.desde.nodo),pb=pos(c.hasta.nodo);if(!a||!b||!pa||!pb)return null;
+      const la=puertoLocal(a,c.desde.puerto,ancho(a.id)),lb=puertoLocal(b,c.hasta.puerto,ancho(b.id));
+      const vivo=!!(encendidos?.has(c.desde.nodo)||encendidos?.has(c.hasta.nodo));
+      const elegido=!!seleccion&&(seleccion===c.desde.nodo||seleccion===c.hasta.nodo);
+      return <CableLienzo key={c.id} id={c.id} desde={{x:pa.x+la.x,y:pa.y+la.y}} hasta={{x:pb.x+lb.x,y:pb.y+lb.y}} y2={pb.y+20}
+       color1={COLOR[familiaDe(a.tipo)]} color2={COLOR[familiaDe(b.tipo)]} vivo={vivo} elegido={elegido} tenue={!!seleccion&&!elegido}/>;
+     })}
+     {cable&&<path className="yq-cable-nuevo" d={curva(cable.desde,cable.hasta)}/>}
+     {guiaCable&&<path className="yq-cable-nuevo is-guia" d={curva(guiaCable.desde,guiaCable.hasta)}/>}
+    </svg>
+    {todos.map(n=>{
+     const p=pos(n.id);if(!p)return null;
+     const c=contenidos.get(n.id),sel=seleccion===n.id;
+     const estado=cable?(n.id===cable.origen.nodo?'origen':compatible(n.id,cable.puerto,cable.origen.nodo)?'compatible':'incompatible')
+      :guia?(n.id===guia.sobre?(guia.compatibles.has(n.id)?'destino':'rechazo'):guia.compatibles.has(n.id)?'compatible':'incompatible')
+      :sueltoMovido?(n.id===sueltoMovido.id?'origen':(compatiblesSuelto?.[sueltoMovido.id]?.has(n.id)??n.puertos.some(q=>q.lado==='salida'&&q.acepta.includes(sueltoMovido.tipo)))?'compatible':'incompatible'):undefined;
+     return <NodoLienzo key={n.id} nodo={n} x={p.x} y={p.y} estado={estado} sel={sel} arrastrado={arrastre?.id===n.id} encendido={!!encendidos?.has(n.id)} nuevo={!!nuevos?.has(n.id)}
+      icono={c?.icono} conectados={conectadosDe.get(n.id)} pie={c?.pie} editor={sel?c?.editor:undefined} observar={observar} onOperar={operarNodo}/>;
     })}
-    {cable&&<path className="yq-cable-nuevo" d={curva(cable.desde,cable.hasta)}/>}
-    {guiaCable&&<path className="yq-cable-nuevo is-guia" d={curva(guiaCable.desde,guiaCable.hasta)}/>}
-   </svg>
-   {todos.map(n=>{
-    const p=pos(n.id);if(!p)return null;
-    const c=contenido(n),sel=seleccion===n.id;
-    const estado=cable?(n.id===cable.origen.nodo?'origen':compatible(n.id,cable.puerto,cable.origen.nodo)?'compatible':'incompatible')
-     :guia?(n.id===guia.sobre?(guia.compatibles.has(n.id)?'destino':'rechazo'):guia.compatibles.has(n.id)?'compatible':'incompatible')
-     :sueltoMovido?(n.id===sueltoMovido.id?'origen':(compatiblesSuelto?.[sueltoMovido.id]?.has(n.id)??n.puertos.some(q=>q.lado==='salida'&&q.acepta.includes(sueltoMovido.tipo)))?'compatible':'incompatible'):undefined;
-    return <div key={n.id} ref={observar} data-id={n.id} data-cable={estado} className={`yq-nodo-pos${sel?' is-encima':''}${arrastre?.id===n.id?' is-arrastrado':''}`} style={{transform:`translate(${p.x}px,${p.y}px)`}}>
-     <NodoYunque nodo={n} seleccionado={sel} encendido={encendidos?.has(n.id)} nuevo={nuevos?.has(n.id)} icono={c.icono} conectados={conectados.get(n.id)} pie={c.pie} onOperar={o=>onOperar(o)}>{c.editor}</NodoYunque>
-    </div>;
-   })}
+   </div>
   </div>
   {menu&&<div className="yq-menu-forja" style={{left:menu.pantalla.x,top:menu.pantalla.y}} role="dialog" aria-label="Forjar una pieza conectada" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setMenu(null);}}}>
    <header><span>Forjar desde «{menu.puerto.etiqueta||menu.puerto.id}»</span><button type="button" aria-label="Cerrar" onClick={()=>setMenu(null)}><X size={14}/></button></header>
@@ -342,3 +353,31 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   <p className="yq-lienzo-pista" aria-hidden="true">Arrastra el fondo para moverte · rueda para acercar · arrastra desde un <i/> para forjar una pieza conectada</p>
  </div>;
 }
+
+type PropsNodoLienzo={nodo:Nodo;x:number;y:number;estado?:string;sel:boolean;arrastrado:boolean;encendido:boolean;nuevo:boolean;icono?:string;
+ /** Salidas con cable, como «a|b»: una cadena para que el nodo memorizado no se repinte por un Set nuevo con lo mismo. */
+ conectados?:string;pie?:ReactNode;editor?:ReactNode;observar:(el:HTMLDivElement|null)=>void|(()=>void);onOperar:(o:Operacion)=>void};
+/** Un nodo colocado en el lienzo. Memorizado: escribir en un nodo, arrastrar otro o desplazar la vista no repinta los demás. */
+const NodoLienzo=memo(function NodoLienzo({nodo,x,y,estado,sel,arrastrado,encendido,nuevo,icono,conectados,pie,editor,observar,onOperar}:PropsNodoLienzo){
+ const salidas=useMemo(()=>conectados?new Set(conectados.split('|')):undefined,[conectados]);
+ return <div ref={observar} data-id={nodo.id} data-cable={estado} className={`yq-nodo-pos${sel?' is-encima':''}${arrastrado?' is-arrastrado':''}`} style={{left:x,top:y}}>
+  <NodoYunque nodo={nodo} seleccionado={sel} encendido={encendido} nuevo={nuevo} icono={icono} conectados={salidas} pie={pie} onOperar={onOperar}>{editor}</NodoYunque>
+ </div>;
+});
+
+type PropsCable={id:string;desde:Punto;hasta:Punto;y2:number;color1:string;color2:string;vivo:boolean;elegido:boolean;tenue:boolean};
+const mismoCable=(a:PropsCable,b:PropsCable)=>a.id===b.id&&a.desde.x===b.desde.x&&a.desde.y===b.desde.y&&a.hasta.x===b.hasta.x&&a.hasta.y===b.hasta.y&&a.y2===b.y2
+ &&a.color1===b.color1&&a.color2===b.color2&&a.vivo===b.vivo&&a.elegido===b.elegido&&a.tenue===b.tenue;
+/** Un cable con su degradado. Memorizado por geometría: al arrastrar un nodo solo se redibujan sus cables. */
+const CableLienzo=memo(function CableLienzo({id,desde,hasta,y2,color1,color2,vivo,elegido,tenue}:PropsCable){
+ const g=`yq-g-${id.replace(/[^a-zA-Z0-9_-]/g,'_')}`,d=curva(desde,hasta);
+ return <g className={`yq-cable-grupo${vivo?' is-encendido':''}${tenue?' is-tenue':''}${elegido?' is-elegido':''}`} data-cable={id}>
+  <defs><linearGradient id={g} gradientUnits="userSpaceOnUse" x1={desde.x} y1={desde.y} x2={hasta.x} y2={y2}>
+   <stop offset="0" stopColor={color1}/><stop offset="1" stopColor={color2}/>
+  </linearGradient></defs>
+  <path className="yq-cable-aura" d={d}/>
+  <path className="yq-cable" d={d} stroke={`url(#${g})`}/>
+  <path className="yq-cable-flujo" d={d}/>
+  {vivo&&<path className="yq-cable-pulso" d={d} pathLength={100}/>}
+ </g>;
+},mismoCable);

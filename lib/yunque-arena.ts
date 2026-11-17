@@ -1,13 +1,15 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {vigente,type Grafo} from "./yunque-grafo";
-import {nuevoCombate,agregar,iniciar,siguiente,actuar,maxVida,dadoSeguro,reaccionDe,type Combate,type Config,type Fuente,type RNG} from "./combate";
+import {nuevoCombate,agregar,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG} from "./combate";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
 /**
  * Arena de dolls del Yunque: un combate aislado en el navegador sobre `lib/combate.ts`.
  * Nunca guarda nada ni toca la red. El portador («doll») lleva la creación del borrador;
- * el saco de golpes no actúa nunca por su cuenta, solo cuando se pulsa «Golpéame».
+ * los sacos de golpes (hasta tres: «saco», «saco-2», «saco-3») no actúan nunca por su cuenta; el primero devuelve
+ * un golpe solo cuando se pulsa «Golpéame». Todo ocurre en un tablero pequeño (ARENA) con las mismas reglas de
+ * alcance, áreas, empujes y movimiento que el combate de la app.
  */
 export type AjustesDoll={vida:number;ph:number;fatiga:number;armadura:number;salvacion:number};
 export const DOLL_BASE:AjustesDoll={vida:40,ph:20,fatiga:10,armadura:0,salvacion:0};
@@ -15,6 +17,27 @@ export const SACO_BASE:AjustesDoll={vida:60,ph:0,fatiga:0,armadura:0,salvacion:0
 export type ContextoArena={creaciones:Creacion[];stats:Record<string,number>}; // stats: valores del borrador ya resueltos (valoresBorrador)
 export type Golpe={cantidad:number;caras:number;naturaleza:'fisica'|'magica';elemento?:string};
 const DOLL='doll',SACO='saco',NOMBRE_SACO='Saco de golpes';
+/** Tablero de la arena: 9×7 cabe en el panel (casillas de ~32 px) y deja sitio a empujes, conos y áreas de radio 3. */
+export const ARENA={columnas:9,filas:7} as const;
+export const SACOS=[SACO,'saco-2','saco-3'] as const;
+export const esSaco=(id:string|null|undefined)=>!!id&&(SACOS as readonly string[]).includes(id);
+export const POSICION_DOLL:Posicion={x:2,y:3};
+/** Dónde entra cada saco nuevo si la casilla está libre: el primero junto al doll; los demás, a su alrededor (para áreas). */
+const PREFERIDAS:Posicion[]=[{x:3,y:3},{x:4,y:2},{x:4,y:4},{x:5,y:3},{x:4,y:3},{x:5,y:1},{x:5,y:5}];
+const MAPA:MapaCombate={id:'arena-yunque',version:1,nombre:'Arena del Yunque',columnas:ARENA.columnas,filas:ARENA.filas,celdas:{}};
+const nombreSaco=(id:string)=>id===SACO?NOMBRE_SACO:`${NOMBRE_SACO} ${id.slice(SACO.length+1)}`;
+const dentro=(p:Posicion|undefined):p is Posicion=>!!p&&Number.isInteger(p.x)&&Number.isInteger(p.y)&&p.x>=0&&p.y>=0&&p.x<ARENA.columnas&&p.y<ARENA.filas;
+const clave=(p:Posicion)=>`${p.x},${p.y}`;
+function fuenteSaco(id:string,saco:Partial<AjustesDoll>){
+ return {id,forja_id:null,nombre:nombreSaco(id),stats:{...SACO_BASE,...saco},configuracion:{tipo_creacion:'personaje' as const}};
+}
+/** Primera casilla libre: la pedida si vale; si no, la siguiente preferida; si no, cualquiera. */
+function libre(ocupadas:Set<string>,pedida?:Posicion):Posicion{
+ if(dentro(pedida)&&!ocupadas.has(clave(pedida)))return {x:pedida.x,y:pedida.y};
+ const p=PREFERIDAS.find(q=>!ocupadas.has(clave(q)));if(p)return {...p};
+ for(let y=0;y<ARENA.filas;y++)for(let x=0;x<ARENA.columnas;x++)if(!ocupadas.has(`${x},${y}`))return {x,y};
+ throw Error('No queda sitio en la arena.');
+}
 const GOLPE_HABILIDAD='golpeame',GOLPE_EFECTO='golpeame';
 // Mismas exclusiones que lib/monstruos.ts al sumar el equipo a los atributos.
 const SIN_BONO=['peso','durabilidad','dados_dano','caras_dano','dano','nivel'];
@@ -63,7 +86,9 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  config.stats_base=base;config.bonos_equipamiento=bonos;
  return {id:DOLL,forja_id:null,nombre:'Doll portador',stats,configuracion:config};
 }
-export function crearArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>={},saco:Partial<AjustesDoll>={}):{combate:Combate}|{error:string}{
+/** Disposición de la arena que sobrevive a los reinicios: dónde está cada saco (uno por posición, como mucho tres). */
+export type Disposicion={sacos?:Posicion[]};
+export function crearArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>={},saco:Partial<AjustesDoll>={},disposicion:Disposicion={}):{combate:Combate}|{error:string}{
  try{
   const fallo=validarEfectos(b.efectos||[])||validarReglas(b.reglas||[])||validarPasivas(b.reglas_pasivas||[]);
   if(fallo)return {error:PREFIJO+fallo};
@@ -72,25 +97,34 @@ export function crearArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll
   let c=nuevoCombate();
   c.regla='directo';
   c.politica={...c.politica!,modo:'entrenamiento',automatico:false};
+  c.mapa={...MAPA,celdas:{}};
   c=agregar(c,portador(b,ctx,doll),'jugador',iniciativa(20));
-  c=agregar(c,{id:SACO,forja_id:null,nombre:NOMBRE_SACO,stats:{...SACO_BASE,...saco},configuracion:{tipo_creacion:'personaje'}},'enemigo',iniciativa(1));
-  const d=c.miembros.find(m=>m.id===DOLL)!,s=c.miembros.find(m=>m.id===SACO)!;
-  if(d.iniciativa<=s.iniciativa)d.iniciativa=s.iniciativa+1;
-  d.posicion={x:4,y:3};s.posicion={x:5,y:3};
+  const pedidas=(disposicion.sacos?.length?disposicion.sacos:[undefined]).slice(0,SACOS.length);
+  const ocupadas=new Set([clave(POSICION_DOLL)]);
+  for(const [i,pedida] of pedidas.entries()){
+   c=agregar(c,fuenteSaco(SACOS[i],saco),'enemigo',iniciativa(1));
+   const s=c.miembros.find(m=>m.id===SACOS[i])!;
+   s.posicion=libre(ocupadas,pedida);ocupadas.add(clave(s.posicion));
+  }
+  const d=c.miembros.find(m=>m.id===DOLL)!;
+  d.iniciativa=Math.max(d.iniciativa,...c.miembros.filter(m=>m.id!==DOLL).map(m=>m.iniciativa+1));
+  d.posicion={...POSICION_DOLL};
   const n=iniciar(c);
   recomponer(n);
   return {combate:{...n,historial:[]}};
  }catch(e){return {error:PREFIJO+(e instanceof Error?e.message:String(e))};}
 }
 function recomponer(c:Combate){
- const s=c.miembros.find(m=>m.id===SACO);
- if(!s||s.vida>0)return;
- s.vida=maxVida(s);if(s.situacion)s.situacion='activo';
- c.registro=['El saco se recompone.',...c.registro].slice(0,300);
+ for(const s of c.miembros){
+  if(!esSaco(s.id)||s.vida>0)continue;
+  s.vida=maxVida(s);if(s.situacion)s.situacion='activo';
+  c.registro=[`El ${s.id===SACO?'saco':'saco '+s.id.slice(SACO.length+1)} se recompone.`,...c.registro].slice(0,300);
+ }
 }
+/** Ningún saco juega su turno: se pasan todos hasta que vuelve a tocarle al portador. */
 function pasarSaco(c:Combate,rng:RNG){
  let n=c;
- for(let i=0;i<4&&n.fase==='en_curso'&&n.actual===SACO;i++){n=siguiente(n,rng);recomponer(n);}
+ for(let i=0;i<2*SACOS.length+2&&n.fase==='en_curso'&&esSaco(n.actual);i++){n=siguiente(n,rng);recomponer(n);}
  return n;
 }
 /** Todo un paso de la arena es un único punto de «deshacer» del motor. */
@@ -98,17 +132,84 @@ function unPaso(antes:Combate,despues:Combate,visual:Combate):Combate{
  const {historial,...previo}=antes;
  return {...despues,evento_visual:visual.evento_visual,historial:[...(historial||[]),copia(previo) as Combate].slice(-10)};
 }
-/** Acción del portador; tras ella pasa los turnos del saco. */
-export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dadoSeguro):Combate{
- const hecho=actuar(c,DOLL,accionId,objetivo,rng);
+/**
+ * Acción del portador, por el mismo `actuar` que el combate de la app (con la casilla apuntada para áreas y
+ * movimientos del lanzador). Como en el combate, el turno sigue: el doll puede moverse con lo que le quede y el
+ * turno termina con «Terminar turno» (`turno`). Solo si el motor ya pasó el turno a un saco, los sacos pasan solos.
+ */
+export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dadoSeguro,forzar=false,centro?:Posicion):Combate{
+ const hecho=actuar(c,DOLL,accionId,objetivo,rng,forzar,centro);
  recomponer(hecho);
- const n=hecho.fase==='en_curso'&&hecho.actual===DOLL?pasarSaco(siguiente(hecho,rng),rng):pasarSaco(hecho,rng);
+ const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng):hecho;
  return unPaso(c,n,hecho);
 }
-/** «Turno»: el portador pasa sin actuar; el saco pasa también y vuelve a tocarle al portador. Un único paso de deshacer. */
+/** «Terminar turno» (`siguiente`, como en el combate): los sacos pasan sin actuar y vuelve a tocarle al portador. Un único paso de deshacer. */
 export function turno(c:Combate,rng:RNG=dadoSeguro):Combate{
  const n=pasarSaco(siguiente(c,rng),rng);
  return unPaso(c,n,n);
+}
+/** Movimiento del portador (el mismo `desplazar` del combate): conserva su acción y su turno. */
+export function mover(c:Combate,p:Posicion):Combate{
+ const n=desplazar(c,DOLL,p);
+ return unPaso(c,n,n);
+}
+/** El portador derribado se levanta (gasta la mitad de su movimiento), como en el combate. */
+export function levantar(c:Combate):Combate{
+ const n=levantarse(c,DOLL);
+ return unPaso(c,n,n);
+}
+/** Posiciones de los sacos en orden («saco», «saco-2», «saco-3»): la disposición que se conserva al reiniciar. */
+export function sacosDe(c:Combate):Posicion[]{
+ const p=posicionesTablero(c);
+ return SACOS.filter(id=>p[id]).map(id=>({...p[id]}));
+}
+/** Añade el siguiente saco (hasta tres) en una casilla libre; nunca actúa, como el primero. Un paso de deshacer. */
+export function agregarSaco(c:Combate,saco:Partial<AjustesDoll>={},donde?:Posicion):Combate{
+ if(c.fase!=='en_curso')throw Error('La prueba no está en curso.');
+ const id=SACOS.find(x=>!c.miembros.some(m=>m.id===x));
+ if(!id)throw Error(`Como mucho ${SACOS.length} sacos en la arena.`);
+ const posiciones=posicionesTablero(c);
+ const ocupadas=new Set(Object.values(posiciones).map(clave));
+ // El saco se prepara aparte (agregar solo admite la preparación) y entra ya en pie, con iniciativa por debajo del portador.
+ const solo=agregar({...nuevoCombate(),mapa:{...MAPA,celdas:{}}},fuenteSaco(id,saco),'enemigo',()=>1);
+ const s=solo.miembros[0] as Combatiente;
+ const n=copia({...c,historial:[]}) as Combate;
+ for(const m of n.miembros)m.posicion=posiciones[m.id];
+ s.posicion=libre(ocupadas,donde);
+ s.iniciativa=Math.min(...n.miembros.filter(m=>m.id!==DOLL).map(m=>m.iniciativa))-1;
+ n.miembros.push(s);
+ n.registro=[`${s.nombre} entra en la arena en (${s.posicion.x+1}, ${s.posicion.y+1}).`,...n.registro].slice(0,300);
+ const v=registrarCambiosVida(c,n);
+ return unPaso(c,v,v);
+}
+/** Retira un saco añadido («saco-2» o «saco-3»); el primero siempre se queda. */
+export function quitarSaco(c:Combate,id:string):Combate{
+ if(!esSaco(id)||id===SACO)throw Error('El primer saco no se puede retirar.');
+ const s=c.miembros.find(m=>m.id===id);
+ if(!s)throw Error('Ese saco no está en la arena.');
+ if(c.actual===id)throw Error('Ese saco está en su turno.');
+ const posiciones=posicionesTablero(c);
+ const n=copia({...c,historial:[]}) as Combate;
+ n.miembros=n.miembros.filter(m=>m.id!==id);
+ for(const m of n.miembros)m.posicion=posiciones[m.id];
+ n.registro=[`${s.nombre} sale de la arena.`,...n.registro].slice(0,300);
+ const v=registrarCambiosVida(c,n);
+ return unPaso(c,v,v);
+}
+/** Coloca un saco en una casilla libre del tablero (preparar una prueba de área); el portador se mueve jugando. */
+export function colocar(c:Combate,id:string,p:Posicion):Combate{
+ if(!esSaco(id))throw Error('Solo se colocan sacos: el doll se mueve con «Mover».');
+ const s=c.miembros.find(m=>m.id===id);
+ if(!s)throw Error('Ese saco no está en la arena.');
+ if(!dentro(p))throw Error('Esa casilla no está en la arena.');
+ const posiciones=posicionesTablero(c);
+ if(Object.entries(posiciones).some(([k,q])=>k!==id&&q.x===p.x&&q.y===p.y))throw Error('Esa casilla está ocupada.');
+ const n=copia({...c,historial:[]}) as Combate;
+ for(const m of n.miembros)m.posicion=posiciones[m.id];
+ n.miembros.find(m=>m.id===id)!.posicion={x:p.x,y:p.y};
+ n.registro=[`${s.nombre} se coloca en (${p.x+1}, ${p.y+1}).`,...n.registro].slice(0,300);
+ const v=registrarCambiosVida(c,n);
+ return unPaso(c,v,v);
 }
 function efectoGolpe(g:Golpe):Efecto{
  return {id:GOLPE_EFECTO,nombre:`Golpéame ${g.cantidad}d${g.caras}`,efecto:'dano',cantidad:g.cantidad,caras:g.caras,modificador:0,tipo_dano:g.naturaleza==='magica'?'mágico':'físico',estado:'',duracion:0,coste_ph:0,
