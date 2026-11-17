@@ -22,7 +22,7 @@ const atr=[...['vida','ph','fuerza','destreza','mente'].map((c,i)=>({id:'a'+i,ca
 const forja=[{id:'f1',nombre:'Espada de ceniza',tipo:'espadas',tipo_creacion:'objeto',estado:'aprobado',clase:'C',stats:{filo:3},descripcion:'',created_at:ahora,habilidades:[],pasivas:[],equipamiento:{},configuracion_dados:[{id:'e-ceniza',nombre:'Tajo de ceniza',efecto:'dano',cantidad:1,caras:8,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0}],reglas:[],slot_tipo:'mano',ligado_al_alma:false,es_grupo:false,stats_rango:{},requisitos_uso:{}}];
 const perfiles=[{id:GM,rol:'KUROI',estado:'aprobado',nombre:'Kuroi',email:'kuroi@ejemplo.test',mente_colmena:false,lugares_conocidos:[],created_at:ahora}];
 const tablas={categorias_forja:cat,config_estadisticas:atr,forja_maestra:forja,perfiles,creaciones_forja:[],naturalezas:[],forja_almas_unicas:[]};
-let guardados=0;
+let guardados=0,demoraEscritura=0;
 /** Escrituras de la Forja: insertar o actualizar en forja_maestra devuelve la fila guardada (y la colección la recoge). */
 function escribir(tabla,url,metodo,cuerpo){
  if(tabla!=='forja_maestra')return [];
@@ -58,7 +58,8 @@ try{
   if(p.startsWith('/auth/v1/user'))return json(user);
   if(p.startsWith('/auth/v1/'))return json(sesion);
   if(p.startsWith('/rest/v1/rpc/'))return json(null);
-  if(p.startsWith('/rest/v1/')){const t=p.split('/').pop();const filas=req.method()==='GET'||req.method()==='HEAD'?filtrar(t,url):escribir(t,url,req.method(),req.postDataJSON());
+  if(p.startsWith('/rest/v1/')){const t=p.split('/').pop();
+   if(demoraEscritura&&t==='forja_maestra'&&!['GET','HEAD'].includes(req.method()))await new Promise(r=>setTimeout(r,demoraEscritura));const filas=req.method()==='GET'||req.method()==='HEAD'?filtrar(t,url):escribir(t,url,req.method(),req.postDataJSON());
    const uno=(req.headers()['accept']||'').includes('vnd.pgrst.object');return json(uno?(filas[0]??null):filas);}
   return json({});};
  const ctx=await contexto(ANCHO,ALTO);
@@ -287,7 +288,16 @@ try{
   const taller=pagina.locator('.yq-taller');
   const idGuardada=await taller.getAttribute('data-creacion');
   await pagina.locator('.yq-indice [data-indice="nucleo"]').click();await pagina.waitForTimeout(400);
-  await pagina.locator('[data-nodo="nucleo"] .yq-cartas button',{hasText:'Monstruos'}).first().click().catch(()=>{});await pagina.waitForTimeout(400);
+  // Con un guardado en curso, «Monstruos» está desactivado: el id de la fila guardada no puede acabar en el monstruo.
+  const cartaMonstruos=pagina.locator('[data-nodo="nucleo"] .yq-cartas button',{hasText:'Monstruos'}).first();
+  demoraEscritura=1500;
+  await pagina.getByRole('button',{name:/Forjar/}).click();await pagina.waitForTimeout(250);
+  const bloqueada=await cartaMonstruos.isDisabled().catch(()=>false);
+  await cartaMonstruos.click({force:true,timeout:1000}).catch(()=>{});
+  await pagina.getByRole('button',{name:'Forjar',exact:true}).waitFor({timeout:8000}).catch(()=>{});await pagina.waitForTimeout(400);
+  demoraEscritura=0;
+  comprobar(bloqueada&&await taller.getAttribute('data-creacion')===idGuardada&&/Objeto/.test(await pagina.locator('.yq-barra-tipo').textContent()||''),`mientras se forja, «Monstruos» está desactivado y el borrador conserva su id (${await taller.getAttribute('data-creacion')})`);
+  await cartaMonstruos.click().catch(()=>{});await pagina.waitForTimeout(400);
   const idMonstruo=await taller.getAttribute('data-creacion'),tipoMonstruo=await pagina.locator('.yq-barra-tipo').textContent();
   comprobar(/^guardada-/.test(idGuardada||'')&&idMonstruo==='nueva'&&/Monstruo/.test(tipoMonstruo||'')&&await pagina.locator('[data-nodo^="accion:"]').count()===0,`«Monstruos» abre un borrador nuevo sin id (${idGuardada} → ${idMonstruo} · ${tipoMonstruo})`);
   await pagina.locator('[data-nodo="nucleo"]').focus();

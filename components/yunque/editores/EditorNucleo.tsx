@@ -21,9 +21,11 @@ type Props=EditorNodoProps&{ctx:ContextoTaller;
  /** Empieza un borrador nuevo (un paso del historial: Ctrl+Z vuelve al anterior). */
  reemplazar:(nuevo:Borrador,info?:string)=>void;
  /** Pieza creada dentro de un personaje: no puede convertirse en otra creación. */
- hijo?:boolean};
+ hijo?:boolean;
+ /** Hay un guardado en curso: no se puede empezar otro borrador. */
+ guardando?:boolean};
 
-export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo}:Props){
+export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:Props){
  const fijar=(p:Partial<Borrador>)=>{const ops:Operacion[]=Object.entries(p).map(([k,v])=>({op:'fijar',ruta:[k],valor:v}));if(ops.length)ejecutar(ops);};
  const monstruo=esMonstruoB(b,ctx),malla=mallaActiva(b,ctx);
  const familias=clasificacionesPara(b.tipo,ctx.categorias).filter(c=>b.tipo!=='personaje'||esMonstruo(ctx.categorias,c.clave)===b.ramaMonstruo);
@@ -34,7 +36,7 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo}:Props){
    slot:tipo==='objeto'?b.slot:tipo==='titulo'?'titulo':'ninguno',habilidades:tipo==='personaje'?b.habilidades:[],equipamiento:tipo==='personaje'?b.equipamiento:{},efectos:tipo==='personaje'?[]:b.efectos});
  }
  function elegirMonstruos(){
-  if(hijo||b.ramaMonstruo)return;
+  if(hijo||guardando||b.ramaMonstruo)return;
   // Un monstruo es una creación nueva: borrador limpio (sin `id` ni petición), así «Forjar» nunca pisa la fila abierta.
   const base:Borrador={...vacio(),nombre:b.nombre,imagen:b.imagen,icono:b.icono,tipo:'personaje',ramaMonstruo:true,malla:true};
   const c=clasificacionesPara('personaje',ctx.categorias).find(c=>esMonstruo(ctx.categorias,c.clave));
@@ -47,7 +49,7 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo}:Props){
    {TIPOS.map(t=><button type="button" key={t.valor} aria-pressed={b.tipo===t.valor&&!b.ramaMonstruo} onClick={()=>cambiarTipo(t.valor)}>
     <span className="yq-carta-icono"><IconoCarta id={ICONO_CREACION[t.valor]}/></span><strong>{t.nombre}</strong><small>{GUIA[t.valor]}</small>
    </button>)}
-   <button type="button" aria-pressed={b.ramaMonstruo} disabled={hijo} title={hijo?'Esta pieza se crea para el personaje: no puede ser un monstruo.':undefined} onClick={elegirMonstruos}><span className="yq-carta-icono"><IconoCarta id="bestia"/></span><strong>Monstruos</strong><small>Especie con variantes y apariciones por nivel.</small></button>
+   <button type="button" aria-pressed={b.ramaMonstruo} disabled={hijo||guardando} title={hijo?'Esta pieza se crea para el personaje: no puede ser un monstruo.':guardando?'Espera a que termine de forjarse.':undefined} onClick={elegirMonstruos}><span className="yq-carta-icono"><IconoCarta id="bestia"/></span><strong>Monstruos</strong><small>Especie con variantes y apariciones por nivel.</small></button>
   </div></fieldset>
   <label className="yq-campo yq-campo--nombre"><span>Nombre</span><input aria-label="Nombre de la creación" maxLength={160} value={b.nombre} placeholder="Espada de Mao, Kion, Bola de fuego…" onChange={e=>fijar({nombre:e.target.value})}/></label>
   {familias.length?<Fichas etiqueta="Familia" opciones={familias.map(c=>({valor:c.clave,nombre:c.nombre}))} valor={b.clasificacion} onChange={clave=>fijar(cambiosClasificacion(b,ctx,clave))} tono="oro"/>

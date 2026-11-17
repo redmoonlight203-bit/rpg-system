@@ -41,6 +41,8 @@ type Props={b:Borrador;setB:Dispatch<SetStateAction<Borrador>>;ctx:ContextoTalle
  crearDentro?:(tipo:Creable,slot?:string)=>void;
  /** El borrador es una pieza nueva creada dentro de un personaje (flujo `padre`): disposición propia y sin «Monstruos». */
  hijo?:boolean;
+ /** Avisa a la Forja de que empieza otro borrador (p. ej. «Monstruos»): un guardado en curso ya no le da su `id`. */
+ onNuevaSesion?:()=>void;
  /** Requisitos que el personaje no cumple para una creación de la colección (por defecto, el cálculo de la Forja). */
  faltantes?:(id:string)=>string[]};
 type Vista='lienzo'|'lista';
@@ -70,7 +72,7 @@ const escribiendo=(t:EventTarget|null)=>{
 };
 const PASO_FLECHA=20;
 
-export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crearDentro,hijo=false,faltantes:faltantesProp}:Props){
+export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crearDentro,hijo=false,onNuevaSesion,faltantes:faltantesProp}:Props){
  // Lista por defecto en pantallas estrechas (sigue al ancho hasta que el GM elige una vista).
  const estrecha=useSyncExternalStore(suscribirAncho,esEstrecha,()=>false);
  const [vistaElegida,setVista]=useState<Vista|null>(null);
@@ -171,6 +173,9 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  const operar=(o:Operacion,punto?:Punto)=>ejecutar([o],punto);
  /** Empieza un borrador nuevo como un único paso del historial (Ctrl+Z vuelve al anterior, con su `id`). */
  function reemplazar(nuevo:Borrador,info?:string){
+  // Con un guardado en curso no se cambia de borrador: su `id` podría acabar en el nuevo.
+  if(guardando)return;
+  onNuevaSesion?.();
   const antes=bRef.current;
   bRef.current=nuevo;historial.confirmar(antes,nuevo,null,true);
   setSeleccion('nucleo');
@@ -430,7 +435,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
      {esMonstruoB(b,ctx)&&<button type="button" data-familia="vinculo" onClick={()=>abrirFicha('yq-ficha-especie')}>Especie y variantes</button>}
     </div>
    </>,
-   editor:<EditorNucleo b={b} nodo={n} operar={o=>operar(o)} ejecutar={ops=>ejecutar(ops)} reemplazar={reemplazar} hijo={hijo} ctx={ctx}/>,
+   editor:<EditorNucleo b={b} nodo={n} operar={o=>operar(o)} ejecutar={ops=>ejecutar(ops)} reemplazar={reemplazar} hijo={hijo} guardando={guardando} ctx={ctx}/>,
   };
   if(n.id.startsWith('suelto:')){const s=sueltos.find(x=>x.id===n.id);return {icono:s?.pieza.icono,pie:<button type="button" className="yq-boton is-peligro" onClick={()=>setSueltos(l=>l.filter(x=>x.id!==n.id))}>Descartar</button>};}
   const props={b,nodo:n,operar:(o:Operacion)=>operar(o)};
