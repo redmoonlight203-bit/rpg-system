@@ -21,6 +21,7 @@ import GaleriaCreacion from "../../../components/GaleriaCreacion";
 import {evaluarInvocacion} from "../../../lib/invocaciones";
 import NavyCompanera from "../../../components/NavyCompanera";
 import TallerYunque from "../../../components/yunque/TallerYunque";
+import LimiteYunque from "../../../components/yunque/LimiteYunque";
 import {iconoCreacion,iconoValido} from "../../../lib/iconos-yugen";
 import {validarPortada} from "../../../lib/imagenes-creacion";
 import {esMonstruo} from "../../../lib/progresion";
@@ -142,7 +143,7 @@ export default function Forja(){
  onNueva={()=>nuevo()} onEditar={editar} onEntregar={f=>setOperacion({item:f,modo:"inventario"})}
  onBatalla={f=>setOperacion({item:f,modo:"batalla"})} onEliminar={eliminar} onRestablecer={restablecer} onImagen={guardarImagen}
  />:<div ref={yunque} className="forja-yunque">{padre&&<aside className="yunque-resumen"><p>Creando para {padre.b.nombre||"el personaje"}. Su borrador está conservado.</p><button type="button" disabled={guardando} onClick={volverPadre}>Cancelar y volver al personaje</button></aside>}
- <TallerYunque b={b} setB={setB} ctx={ctxTaller} onGuardar={guardar} guardando={guardando||imagenProcesando} error={error} crearDentro={crearDentro}/>
+ <LimiteYunque onVolver={()=>{volverPadre();setPestana("creacion");}}><TallerYunque b={b} setB={setB} ctx={ctxTaller} onGuardar={guardar} guardando={guardando||imagenProcesando} error={error} crearDentro={crearDentro} hijo={!!padre}/></LimiteYunque>
  </div>}
  <NavyCompanera activo={pestana==="yunque"} contexto={{nombre:b.nombre,tipo:b.tipo,clasificacion:b.clasificacion,descripcion:b.descripcion,efectos:b.efectos.length,reglas:b.reglas.length,pasivas:b.reglas_pasivas.length,requisitos:Object.keys(b.requisitos_uso||{}).length>0,guardando}}/>
  </div></main>;

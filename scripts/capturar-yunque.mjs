@@ -1,6 +1,13 @@
 // Capturas del lienzo del Yunque (pestaña «El yunque» de /dm/forja) con una sesión de GM simulada y Supabase interceptado.
-// Uso: node scripts/capturar-yunque.mjs   (servidor de desarrollo en el puerto 3100 con
-// NEXT_PUBLIC_SUPABASE_URL=https://ejemplo.supabase.co). Escribe en capturas/ y sale con código 1 si algo falta.
+// Requisitos: Playwright con Chromium instalados de forma GLOBAL (no es una dependencia de package.json;
+// el proyecto no añade dependencias para esto). Por ejemplo: `npm i -g playwright && npx playwright install chromium`,
+// y que Node los encuentre: `NODE_PATH="$(npm root -g)"` (o la carpeta global donde esté `playwright`).
+// Uso:
+//   1. Servidor de desarrollo en el puerto 3100 con un Supabase de mentira (todas sus peticiones se interceptan):
+//      NEXT_PUBLIC_SUPABASE_URL=https://ejemplo.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=clave-publica-de-prueba npx next dev -p 3100
+//   2. NODE_PATH="$(npm root -g)" node scripts/capturar-yunque.mjs
+//      Variables opcionales: ANCHO/ALTO (1440×900 por defecto), REDUCIDO=1 (movimiento reducido), BASE, SALIDA.
+// Escribe en capturas/ y sale con código 1 si algo falta.
 import {createRequire} from 'node:module';import {mkdirSync} from 'node:fs';
 const {chromium}=createRequire(import.meta.url)('playwright');
 const BASE=process.env.BASE||'http://localhost:3100',SALIDA=process.env.SALIDA||'capturas';
@@ -276,6 +283,22 @@ try{
   comprobar(/Creación guardada/.test(await pagina.locator('[role="status"]',{hasText:'Creación guardada'}).first().textContent().catch(()=>'')||''),'aparece el aviso «Creación guardada…»');
   await pagina.waitForTimeout(1500);
   comprobar(await pagina.locator('.yq-sello').count()===0&&await pagina.locator('[data-nodo="nucleo"]').count()===1,'el sello se va y el taller sigue abierto con la creación guardada');
+  // «Monstruos» empieza un borrador limpio (sin id: «Forjar» no pisaría la creación guardada) y un solo Ctrl+Z la recupera.
+  const taller=pagina.locator('.yq-taller');
+  const idGuardada=await taller.getAttribute('data-creacion');
+  await pagina.locator('.yq-indice [data-indice="nucleo"]').click();await pagina.waitForTimeout(400);
+  await pagina.locator('[data-nodo="nucleo"] .yq-cartas button',{hasText:'Monstruos'}).first().click().catch(()=>{});await pagina.waitForTimeout(400);
+  const idMonstruo=await taller.getAttribute('data-creacion'),tipoMonstruo=await pagina.locator('.yq-barra-tipo').textContent();
+  comprobar(/^guardada-/.test(idGuardada||'')&&idMonstruo==='nueva'&&/Monstruo/.test(tipoMonstruo||'')&&await pagina.locator('[data-nodo^="accion:"]').count()===0,`«Monstruos» abre un borrador nuevo sin id (${idGuardada} → ${idMonstruo} · ${tipoMonstruo})`);
+  await pagina.locator('[data-nodo="nucleo"]').focus();
+  await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(400);
+  const idDeshecho=await taller.getAttribute('data-creacion');
+  comprobar(idDeshecho===idGuardada&&/Objeto/.test(await pagina.locator('.yq-barra-tipo').textContent()||'')&&await pagina.locator('.yq-barra-titulo h1').textContent()==='Espada de Mao'&&await pagina.locator('[data-nodo^="accion:"]').count()>0,`un solo Ctrl+Z vuelve a la creación guardada con su id (${idDeshecho})`);
+  // Cambiar el tipo en el núcleo toca varios campos, pero es un solo paso del historial.
+  await pagina.locator('[data-nodo="nucleo"] .yq-cartas button',{hasText:/^Habilidad/}).first().click().catch(()=>{});await pagina.waitForTimeout(300);
+  const tipoCambiado=await pagina.locator('.yq-barra-tipo').textContent();
+  await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(350);
+  comprobar(/Habilidad/.test(tipoCambiado||'')&&/Objeto/.test(await pagina.locator('.yq-barra-tipo').textContent()||''),`cambiar el tipo en el núcleo se deshace con un solo Ctrl+Z (${tipoCambiado} → Objeto)`);
   // Tarea 8: arena de dolls. «Tajo de brasas» pasa a 2d8; «Usar» baja la vida del saco y enciende su nodo; «Golpéame» baja la del doll.
   await pagina.locator('.yq-indice button',{hasText:/^Tajo de brasas$/}).first().click().catch(()=>{});await pagina.waitForTimeout(450);
   const tajo=await pagina.locator('[data-nodo^="accion:"][aria-current]').first().getAttribute('data-nodo').catch(()=>null);

@@ -20,7 +20,7 @@ import EditorSi from './editores/EditorSi';
 import EditorEntonces from './editores/EditorEntonces';
 import EditorPasivaNodo from './editores/EditorPasivaNodo';
 import EditorModulo from './editores/EditorModulo';
-import {claseDe,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
+import {activas,claseDe,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
 import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
 import type {CondicionRegla,EfectoRegla} from '../../lib/reglas';
@@ -39,6 +39,8 @@ type Props={b:Borrador;setB:Dispatch<SetStateAction<Borrador>>;ctx:ContextoTalle
  onGuardar:()=>Promise<boolean>|boolean;
  /** Crear una pieza nueva dentro del personaje (flujo `padre` de la Forja). */
  crearDentro?:(tipo:Creable,slot?:string)=>void;
+ /** El borrador es una pieza nueva creada dentro de un personaje (flujo `padre`): disposición propia y sin «Monstruos». */
+ hijo?:boolean;
  /** Requisitos que el personaje no cumple para una creación de la colección (por defecto, el cálculo de la Forja). */
  faltantes?:(id:string)=>string[]};
 type Vista='lienzo'|'lista';
@@ -48,10 +50,11 @@ const esEstrecha=()=>window.innerWidth<ANCHO_LISTA;
 const ICONO_EFECTO:Record<Efecto['efecto'],string>={dano:'espada',curacion:'pocion',estado:'fuego',crear_arma:'arco',transformacion:'alma',recuperar_ph:'agua',reducir_fatiga:'vida'};
 const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
 const NUCLEO_LLEVA:Record<string,TipoNodo[]>={personaje:['cuando','vinculo'],pasiva:['pasiva','cuando'],objeto:['accion','cuando','pasiva'],habilidad:['accion','cuando'],titulo:['accion','cuando'],otro:['accion','cuando','pasiva']};
-const claveDe=(b:Borrador)=>`yunque:posiciones:${b.id||'nuevo'}`;
-const CLAVE_NUEVA=claveDe({id:undefined} as Borrador);
+/** Disposición guardada por creación; una pieza nueva creada dentro de un personaje no comparte la del personaje nuevo. */
+const claveDe=(b:Borrador,hijo=false)=>`yunque:posiciones:${b.id||(hijo?'nuevo:hijo':'nuevo')}`;
+const CLAVE_NUEVA=claveDe({id:undefined} as Borrador),CLAVE_HIJO=claveDe({id:undefined} as Borrador,true);
 /** Una creación nueva que se acaba de guardar recibe su `id`, pero sigue siendo la misma sesión de trabajo. */
-const mismaSesion=(desde:string,hasta:string)=>desde===hasta||desde===CLAVE_NUEVA;
+const mismaSesion=(desde:string,hasta:string)=>desde===hasta||(desde===CLAVE_NUEVA&&hasta!==CLAVE_HIJO);
 const ICONO_SI:Record<CondicionRegla['tipo'],string>={siempre:'yugen',comparar:'vida',estado:'alma',elemento:'fuego',probabilidad:'ojo',estado_terminado:'libro',todas:'corona',alguna:'corona',no:'ojo'};
 const leer=leerRuta;
 /** Pieza soltada en el vacío que aún no puede vivir en el borrador: solo existe en la interfaz hasta que se conecta. */
@@ -67,7 +70,7 @@ const escribiendo=(t:EventTarget|null)=>{
 };
 const PASO_FLECHA=20;
 
-export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crearDentro,faltantes:faltantesProp}:Props){
+export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crearDentro,hijo=false,faltantes:faltantesProp}:Props){
  // Lista por defecto en pantallas estrechas (sigue al ancho hasta que el GM elige una vista).
  const estrecha=useSyncExternalStore(suscribirAncho,esEstrecha,()=>false);
  const [vistaElegida,setVista]=useState<Vista|null>(null);
@@ -78,17 +81,19 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  const listaCaja=useRef<HTMLDivElement>(null);
  const piezasEnlace=useMemo(()=>enlazables(ctx,b.id),[ctx,b.id]);
  const porId=useMemo(()=>new Map<string,EnlazableVista>(piezasEnlace.map(p=>[p.id,p])),[piezasEnlace]);
- const contextoGrafo=useMemo(()=>({creaciones:ctx.creaciones}),[ctx.creaciones]);
+ // Solo lo que sigue en La Creación (aprobado): un vínculo a algo archivado se ve roto.
+ const contextoGrafo=useMemo(()=>({creaciones:activas(ctx)}),[ctx]);
  const grafo=useMemo(()=>aGrafo(b,contextoGrafo),[b,contextoGrafo]);
- const clave=claveDe(b);
- const [guardadas,setGuardadas]=useState(()=>({clave,p:leerPosiciones(clave),heredadas:false}));
+ const clave=claveDe(b,hijo);
+ // `persistir`: la disposición cambió y se escribe en localStorage (en un efecto, nunca dentro de un actualizador).
+ const [guardadas,setGuardadas]=useState(()=>({clave,p:leerPosiciones(clave),persistir:false}));
  // Al guardar por primera vez, la disposición de la creación nueva pasa a su `id` (si ese id aún no tenía una).
  if(guardadas.clave!==clave){
   const propias=leerPosiciones(clave);
   const heredar=mismaSesion(guardadas.clave,clave)&&!Object.keys(propias).length&&Object.keys(guardadas.p).length>0;
-  setGuardadas({clave,p:heredar?guardadas.p:propias,heredadas:heredar});
+  setGuardadas({clave,p:heredar?guardadas.p:propias,persistir:heredar});
  }
- useEffect(()=>{if(guardadas.heredadas)guardarPosiciones(guardadas.clave,guardadas.p);},[guardadas]);
+ useEffect(()=>{if(guardadas.persistir)guardarPosiciones(guardadas.clave,guardadas.p);},[guardadas]);
  // Tamaño real (sin el editor desplegado) de cada nodo, medido por el lienzo: la disposición no los solapa.
  const [tamanos,setTamanos]=useState<Record<string,{w:number;h:number}>>({});
  const posiciones=useMemo(()=>disponer(grafo,guardadas.p,tamanos),[grafo,guardadas.p,tamanos]);
@@ -124,7 +129,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   setSueltosDe({clave,lista:[]});
  },[descartadas,clave,avisar]);
  const fijarPosicion=useCallback((cambios:Record<string,Punto>)=>{
-  setGuardadas(g=>{const p={...g.p,...cambios};guardarPosiciones(g.clave,p);return {clave:g.clave,p,heredadas:false};});
+  setGuardadas(g=>({clave:g.clave,p:{...g.p,...cambios},persistir:true}));
  },[]);
  const mover=useCallback((id:string,p:Punto)=>{
   if(id.startsWith('suelto:'))setSueltos(l=>l.map(x=>x.id===id?{...x,p}:x));else fijarPosicion({[id]:p});
@@ -164,6 +169,13 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   return true;
  }
  const operar=(o:Operacion,punto?:Punto)=>ejecutar([o],punto);
+ /** Empieza un borrador nuevo como un único paso del historial (Ctrl+Z vuelve al anterior, con su `id`). */
+ function reemplazar(nuevo:Borrador,info?:string){
+  const antes=bRef.current;
+  bRef.current=nuevo;historial.confirmar(antes,nuevo,null,true);
+  setSeleccion('nucleo');
+  if(info)avisar(info,'info');
+ }
 
  /** Soltar una pieza del Grimorio: sobre un nodo, se engancha; en el vacío, se une al núcleo o queda suelta. */
  function soltarPieza(pieza:Pieza,destino:Destino|null,punto:Punto|null,puntoSuelto=punto){
@@ -418,7 +430,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
      {esMonstruoB(b,ctx)&&<button type="button" data-familia="vinculo" onClick={()=>abrirFicha('yq-ficha-especie')}>Especie y variantes</button>}
     </div>
    </>,
-   editor:<EditorNucleo b={b} nodo={n} operar={o=>operar(o)} ctx={ctx}/>,
+   editor:<EditorNucleo b={b} nodo={n} operar={o=>operar(o)} ejecutar={ops=>ejecutar(ops)} reemplazar={reemplazar} hijo={hijo} ctx={ctx}/>,
   };
   if(n.id.startsWith('suelto:')){const s=sueltos.find(x=>x.id===n.id);return {icono:s?.pieza.icono,pie:<button type="button" className="yq-boton is-peligro" onClick={()=>setSueltos(l=>l.filter(x=>x.id!==n.id))}>Descartar</button>};}
   const props={b,nodo:n,operar:(o:Operacion)=>operar(o)};
@@ -434,7 +446,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  };
 
  const guiaLista=arrastre&&vista==='lista'?{compatibles:arrastre.compatibles,sobre:arrastre.sobre?.nodo??null}:null;
- return <div className={`yq-taller is-${vista}`}>
+ return <div className={`yq-taller is-${vista}`} data-creacion={b.id||'nueva'}>
   <header className="yq-barra">
    <span className="yq-barra-runa"><Runa seccion="forja" size={30}/></span>
    <div className="yq-barra-titulo"><small>El Yunque</small><h1>{b.nombre.trim()||'Nueva creación'}</h1></div>
