@@ -11,7 +11,9 @@ import type {Borrador,Creacion} from '../../lib/yunque-borrador';
 
 export type AtributoForja={id:string;categoria:string;clave:string;etiqueta:string;valor_defecto:number;descripcion?:string};
 export type NaturalezaCatalogo={id:string;nombre:string;descripcion:string;clave:string};
-export type ContextoTaller={creaciones:Creacion[];categorias:CategoriaBase[];atributos:AtributoForja[];naturalezas?:NaturalezaCatalogo[]};
+export type ContextoTaller={creaciones:Creacion[];categorias:CategoriaBase[];atributos:AtributoForja[];naturalezas?:NaturalezaCatalogo[];
+ /** Avisa mientras se prepara la imagen de portada (la Forja no guarda hasta que termina). */
+ onProcesandoImagen?:(procesando:boolean)=>void};
 export type Creable='objeto'|'titulo'|'habilidad'|'pasiva';
 const TECNICOS=['dados_dano','caras_dano'];
 

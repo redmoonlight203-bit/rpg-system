@@ -1,4 +1,4 @@
-// Capturas del lienzo del Yunque con una sesión de GM simulada y Supabase interceptado.
+// Capturas del lienzo del Yunque (pestaña «El yunque» de /dm/forja) con una sesión de GM simulada y Supabase interceptado.
 // Uso: node scripts/capturar-yunque.mjs   (servidor de desarrollo en el puerto 3100 con
 // NEXT_PUBLIC_SUPABASE_URL=https://ejemplo.supabase.co). Escribe en capturas/ y sale con código 1 si algo falta.
 import {createRequire} from 'node:module';import {mkdirSync} from 'node:fs';
@@ -14,7 +14,17 @@ const atr=[...['vida','ph','fuerza','destreza','mente'].map((c,i)=>({id:'a'+i,ca
  ...['filo','peso','durabilidad'].map((c,i)=>({id:'b'+i,categoria:'armas',clave:c,etiqueta:c[0].toUpperCase()+c.slice(1),descripcion:'',valor_defecto:3}))];
 const forja=[{id:'f1',nombre:'Espada de ceniza',tipo:'espadas',tipo_creacion:'objeto',estado:'aprobado',clase:'C',stats:{filo:3},descripcion:'',created_at:ahora,habilidades:[],pasivas:[],equipamiento:{},configuracion_dados:[{id:'e-ceniza',nombre:'Tajo de ceniza',efecto:'dano',cantidad:1,caras:8,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0}],reglas:[],slot_tipo:'mano',ligado_al_alma:false,es_grupo:false,stats_rango:{},requisitos_uso:{}}];
 const perfiles=[{id:GM,rol:'KUROI',estado:'aprobado',nombre:'Kuroi',email:'kuroi@ejemplo.test',mente_colmena:false,lugares_conocidos:[],created_at:ahora}];
-const tablas={categorias_forja:cat,config_estadisticas:atr,forja_maestra:forja,perfiles};
+const tablas={categorias_forja:cat,config_estadisticas:atr,forja_maestra:forja,perfiles,creaciones_forja:[],naturalezas:[],forja_almas_unicas:[]};
+let guardados=0;
+/** Escrituras de la Forja: insertar o actualizar en forja_maestra devuelve la fila guardada (y la colección la recoge). */
+function escribir(tabla,url,metodo,cuerpo){
+ if(tabla!=='forja_maestra')return [];
+ const datos=Array.isArray(cuerpo)?cuerpo[0]:cuerpo||{};
+ if(metodo==='POST'){const fila={...datos,id:`guardada-${++guardados}`,created_at:ahora};tablas.forja_maestra=[fila,...tablas.forja_maestra];return [fila];}
+ const id=/^eq\.(.*)$/.exec(url.searchParams.get('id')||'')?.[1];
+ tablas.forja_maestra=tablas.forja_maestra.map(f=>f.id===id?{...f,...datos}:f);
+ return tablas.forja_maestra.filter(f=>f.id===id);
+}
 function filtrar(tabla,url){let filas=tablas[tabla];if(!filas)return [];
  for(const [k,v] of url.searchParams){if(['select','order','limit','offset','on_conflict','columns'].includes(k))continue;const m=/^(eq|neq|in)\.(.*)$/.exec(v);if(!m)continue;
   const [,op,val]=m;filas=filas.filter(f=>{const x=String(f[k]);return op==='eq'?x===val:op==='neq'?x!==val:val.replace(/[()]/g,'').split(',').includes(x);});}
@@ -28,25 +38,40 @@ try{
   await c.route('https://ejemplo.supabase.co/**',interceptar);
   return c;
  };
+ /** Abre /dm/forja y entra en la pestaña «El yunque». */
+ const abrirYunque=async pag=>{
+  const r=await pag.goto(BASE+'/dm/forja',{waitUntil:'networkidle',timeout:90000});
+  const pestana=pag.getByRole('button',{name:'El yunque',exact:true});
+  await pestana.waitFor({timeout:20000});await pestana.click();
+  return r;
+ };
  const interceptar=async route=>{const req=route.request(),url=new URL(req.url());const p=url.pathname;
   const json=(b,s=200)=>route.fulfill({status:s,contentType:'application/json',headers:{'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*','content-range':'0-0/*'},body:JSON.stringify(b)});
   if(req.method()==='OPTIONS')return json({});
   if(p.startsWith('/auth/v1/user'))return json(user);
   if(p.startsWith('/auth/v1/'))return json(sesion);
   if(p.startsWith('/rest/v1/rpc/'))return json(null);
-  if(p.startsWith('/rest/v1/')){const t=p.split('/').pop();const filas=req.method()==='GET'||req.method()==='HEAD'?filtrar(t,url):[];
+  if(p.startsWith('/rest/v1/')){const t=p.split('/').pop();const filas=req.method()==='GET'||req.method()==='HEAD'?filtrar(t,url):escribir(t,url,req.method(),req.postDataJSON());
    const uno=(req.headers()['accept']||'').includes('vnd.pgrst.object');return json(uno?(filas[0]??null):filas);}
   return json({});};
  const ctx=await contexto(ANCHO,ALTO);
  const pagina=await ctx.newPage();const errores=[];pagina.on('pageerror',e=>errores.push(e.message));
- const r=await pagina.goto(BASE+'/dm/forja/taller',{waitUntil:'networkidle',timeout:90000}).catch(e=>{fallos.push('No se pudo abrir la página: '+e.message);return null;});
- comprobar(!!r&&r.ok(),`la ruta /dm/forja/taller responde (${r?.status()})`);
+ const r=await abrirYunque(pagina).catch(e=>{fallos.push('No se pudo abrir la página: '+e.message);return null;});
+ comprobar(!!r&&r.ok(),`la ruta /dm/forja responde (${r?.status()})`);
  if(r&&r.ok()){
   const nucleo=pagina.locator('[data-nodo="nucleo"]');
   await nucleo.waitFor({timeout:20000}).catch(()=>{});
-  comprobar(await nucleo.count()===1,'existe el nodo núcleo');
+  comprobar(await nucleo.count()===1,'desde /dm/forja → «El yunque» se ve el lienzo con el núcleo');
+  comprobar(await pagina.locator('form.yunque-form').count()===0,'el formulario antiguo ya no está');
   await pagina.waitForTimeout(600);
   await pagina.screenshot({path:`${SALIDA}/yunque-inicio-${ANCHO}.png`});
+  // Tarea 11: «Forjar» con el nombre vacío no guarda: lleva el foco al núcleo y muestra el error.
+  await pagina.getByRole('button',{name:/Forjar/}).click();await pagina.waitForTimeout(400);
+  const focoNucleo=await pagina.evaluate(()=>document.activeElement?.closest('[data-nodo]')?.getAttribute('data-nodo')??null);
+  const errorVacio=await pagina.locator('.yq-error-global').textContent().catch(()=>'');
+  comprobar(focoNucleo==='nucleo'&&/nombre/i.test(errorVacio||''),`«Forjar» sin nombre lleva el foco al núcleo y muestra el error (${focoNucleo} · ${errorVacio})`);
+  comprobar(await pagina.locator('.yq-sello').count()===0,'sin guardar no aparece el sello');
+  await pagina.screenshot({path:`${SALIDA}/yunque-forjar-error-${ANCHO}.png`});
   // Teclado: Tab llega a un nodo (no elegido) e Intro lo elige.
   await pagina.locator('.yq-indice button').last().focus();
   let alcanzado=null;
@@ -240,9 +265,17 @@ try{
   comprobar(await suelto.count()===0&&await pagina.locator(`[data-nodo="entonces:${rid}:1"]`).count()===1,'un cable hasta la pieza suelta la convierte en parte de la regla');
   await arrastrar('modulo:alcance','alcance',vacio);
   const antesForjar=await pagina.locator('.yq-nodo.is-suelto').count();
-  await pagina.getByRole('button',{name:/Forjar/}).click();await pagina.waitForTimeout(200);
+  await pagina.getByRole('button',{name:/Forjar/}).click();
+  // El guardado pasa por la red (simulada): se espera al sello antes de mirar el aviso.
+  await pagina.locator('.yq-sello').waitFor({timeout:8000}).catch(()=>{});await pagina.waitForTimeout(150);
   const avisoForjar=await pagina.locator('.yq-aviso').textContent().catch(()=>'');
-  comprobar(antesForjar===1&&await pagina.locator('.yq-nodo.is-suelto').count()===0&&/descart/i.test(avisoForjar||''),`al forjar, las piezas sueltas se descartan con un aviso (${avisoForjar})`);
+  const sello=await pagina.locator('.yq-sello .y3-sello').count();
+  await pagina.screenshot({path:`${SALIDA}/yunque-sello-${ANCHO}.png`});
+  comprobar(antesForjar===1&&await pagina.locator('.yq-nodo.is-suelto').count()===0&&/descart/i.test(avisoForjar||''),`al forjar, las piezas sueltas se descartan con un aviso (${avisoForjar} · ${await pagina.locator('.yq-error-global').textContent().catch(()=>'')})`);
+  comprobar(sello===1&&tablas.forja_maestra.some(f=>f.nombre==='Espada de Mao'),'forjar guarda la creación y muestra el sello');
+  comprobar(/Creación guardada/.test(await pagina.locator('[role="status"]',{hasText:'Creación guardada'}).first().textContent().catch(()=>'')||''),'aparece el aviso «Creación guardada…»');
+  await pagina.waitForTimeout(1500);
+  comprobar(await pagina.locator('.yq-sello').count()===0&&await pagina.locator('[data-nodo="nucleo"]').count()===1,'el sello se va y el taller sigue abierto con la creación guardada');
   // Tarea 8: arena de dolls. «Tajo de brasas» pasa a 2d8; «Usar» baja la vida del saco y enciende su nodo; «Golpéame» baja la del doll.
   await pagina.locator('.yq-indice button',{hasText:/^Tajo de brasas$/}).first().click().catch(()=>{});await pagina.waitForTimeout(450);
   const tajo=await pagina.locator('[data-nodo^="accion:"][aria-current]').first().getAttribute('data-nodo').catch(()=>null);
@@ -335,7 +368,7 @@ try{
   comprobar(desborde<=0,`sin desborde horizontal (${desborde}px)`);
   // A 390 px la lista es la vista por defecto y no hay desplazamiento horizontal, ni con el núcleo abierto.
   const movil=await (await contexto(390,844)).newPage();movil.on('pageerror',e=>errores.push(e.message));
-  await movil.goto(BASE+'/dm/forja/taller',{waitUntil:'networkidle',timeout:90000}).catch(()=>{});
+  await abrirYunque(movil).catch(()=>{});
   await movil.locator('.yq-vlista [data-bloque="nucleo"]').waitFor({timeout:20000}).catch(()=>{});
   comprobar(await movil.locator('.yq-vlista').count()===1&&await movil.locator('.yq-lienzo').count()===0,'a 390 px se ve la lista por defecto');
   const ancho390=await movil.evaluate(()=>document.documentElement.scrollWidth);

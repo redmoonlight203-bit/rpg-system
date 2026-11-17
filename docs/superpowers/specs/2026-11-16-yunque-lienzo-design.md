@@ -54,11 +54,11 @@ Se elige **A** porque el propietario trabaja en PC y pidió la versión más int
 
 ## 5. Modelo: de la creación al grafo y de vuelta
 
-El corazón técnico es un módulo puro `lib/yunque-grafo.ts`:
+**El borrador es la fuente de verdad; el grafo se deriva de él.** (Sustituye al diseño inicial de ida y vuelta `aGrafo`/`aBorrador`.)
 
-- `aGrafo(borrador) → Grafo` convierte el borrador actual del Yunque (el tipo `Borrador` de `app/dm/forja/page.tsx`) en nodos y conexiones.
-- `aBorrador(grafo, borradorBase) → Borrador` hace la conversión inversa.
-- **Garantía:** `aBorrador(aGrafo(b), b)` es idéntico a `b` para cualquier creación (prueba de ida y vuelta con creaciones reales y fixtures; §8).
+- `aGrafo(borrador) → Grafo` (`lib/yunque-grafo.ts`) convierte el `Borrador` (`lib/yunque-borrador.ts`) en nodos y conexiones de solo lectura. No existe la conversión inversa: el lienzo nunca reconstruye el borrador a partir del grafo.
+- Cada gesto del lienzo, la lista o la Ficha es una **operación pura** sobre el borrador (`aplicar(b, op)` en `lib/yunque-operaciones.ts`: agregar, fijar, quitar, duplicar, pegar…). Una operación inválida lanza un error que el taller muestra como aviso, sin cambiar nada. Deshacer y rehacer guardan borradores enteros.
+- **Garantía:** como lo que se guarda es el mismo `Borrador` que usaba el formulario, guardar desde el lienzo produce los mismos datos (pruebas de las operaciones y del grafo con fixtures de todos los tipos; §8).
 
 Las posiciones de los nodos **no** forman parte de la creación. Se calculan con una disposición automática determinista y, si el GM mueve nodos, la disposición se guarda en `localStorage` por id de creación (con `try/catch`; si no hay almacenamiento, se usa la automática).
 
@@ -133,14 +133,14 @@ Cuando en la arena se ejecuta una acción, una reacción, una regla o una pasiva
 - Desde la colección: arrastrar una creación existente copia sus nodos como punto de partida.
 
 ### 6.6 Guardar
-«Forjar ⚒» valida todo el grafo, convierte a borrador y llama a la misma función `guardar` de hoy. Si sale bien, muestra un sello con destello (celebración breve de `design.md` §5). Si falla, lleva el foco al primer nodo con error. Se mantienen el flujo «crear dentro de un personaje» (`padre` / `volverPadre`) y abrir peticiones en el yunque.
+«Forjar ⚒» llama a la misma validación y guardado de la Forja (`guardar`, que ya no necesita un evento de formulario y resuelve `true` solo si la fila quedó guardada). Si sale bien, muestra un sello con destello de 600 ms (celebración breve de `design.md` §5), descarta las piezas sin conectar con un aviso y la creación sigue abierta en el yunque con su `id` (deshacer no se lo quita). Si falla, lleva el foco al primer nodo con error o, si el fallo es de la ficha (nombre, familia…), al núcleo, y el motivo se ve bajo la barra. Se mantienen el flujo «crear dentro de un personaje» (`padre` / `volverPadre`) y abrir peticiones en el yunque.
 
 ### 6.7 Vista de lista y pantallas estrechas
 Hay un conmutador «Lienzo / Lista». La lista muestra los mismos nodos como bloques ordenados y editables con los mismos editores de nodo. Por debajo de 1024 px la lista es la vista por defecto. Sirve también para teclado y lectores de pantalla.
 
 ## 7. Qué se elimina
 
-Cuando el taller cubra todos los campos (comprobado por la prueba de ida y vuelta), se elimina el formulario actual del Yunque y los editores quedan solo como piezas internas de los nodos, o se borran si dejan de usarse. La pestaña «La creación» (galería), «Preparados para batalla» y «Peticiones» no cambian, salvo el estilo.
+Cuando el taller cubra todos los campos (comprobado por la prueba de ida y vuelta), se elimina el formulario actual del Yunque y los editores quedan solo como piezas internas de los nodos, o se borran si dejan de usarse. **Hecho (Tarea 11):** la pestaña «El yunque» monta `TallerYunque`; se borraron el formulario, la ruta de pruebas `/dm/forja/taller` y `VinculosYunque` (con su CSS). `AyudaYunque`, `SelectorCreacionVisual`, `EditorDados`, `EditorReglas`, `EditorPasivas`, `RequisitosYunque`, `EditorMonstruo` y `EditorInvocacion` siguen en uso dentro de los nodos u otras pantallas. La pestaña «La creación» (galería), «Preparados para batalla» y «Peticiones» no cambian, salvo el estilo.
 
 ## 8. Verificación
 
@@ -157,7 +157,7 @@ Cuando el taller cubra todos los campos (comprobado por la prueba de ida y vuelt
 2. **Saco de golpes**: mismo formato.
 3. Opcional: textura o fondo del taller del herrero para el lienzo. Si no llega, el fondo se hace con CSS.
 
-Mientras no lleguen, el portador usa la figura de su raza (`public/arte/razas/`) y el saco, un marcador CSS sencillo que no sea la silueta antigua.
+**Entregado (16-11):** `public/arte/dolls/portador.webp` y `public/arte/dolls/saco.webp`, que usa la arena. La textura del taller no llegó: el fondo del lienzo es CSS (rejilla de puntos, viñeta y brasas). En personajes, el núcleo muestra la figura de su raza (`public/arte/razas/`).
 
 ## 10. Lo que decide el constructor
 

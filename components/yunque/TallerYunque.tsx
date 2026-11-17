@@ -4,7 +4,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore,type Dispatch,type SetStateAction} from 'react';
 import {BookOpen,Hammer,LayoutList,Redo2,Undo2,Workflow} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
-import {Runa} from '../ui/Juego';
+import {Runa,Sello} from '../ui/Juego';
 import Lienzo,{type ContenidoNodo,type GuiaPieza,type LienzoAPI} from './Lienzo';
 import Grimorio,{type PistaSoltar} from './Grimorio';
 import ArenaDolls from './ArenaDolls';
@@ -34,7 +34,9 @@ import type {Borrador} from '../../lib/yunque-borrador';
 import './yunque.css';
 
 export type {ContextoTaller,Creable} from './contexto';
-type Props={b:Borrador;setB:Dispatch<SetStateAction<Borrador>>;ctx:ContextoTaller;onGuardar:()=>void|Promise<void>;guardando:boolean;error:string;
+type Props={b:Borrador;setB:Dispatch<SetStateAction<Borrador>>;ctx:ContextoTaller;guardando:boolean;error:string;
+ /** Guarda el borrador; resuelve `true` solo si la fila quedó guardada (si no, muestra su error en `error`). */
+ onGuardar:()=>Promise<boolean>|boolean;
  /** Crear una pieza nueva dentro del personaje (flujo `padre` de la Forja). */
  crearDentro?:(tipo:Creable,slot?:string)=>void;
  /** Requisitos que el personaje no cumple para una creación de la colección (por defecto, el cálculo de la Forja). */
@@ -47,6 +49,9 @@ const ICONO_EFECTO:Record<Efecto['efecto'],string>={dano:'espada',curacion:'poci
 const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
 const NUCLEO_LLEVA:Record<string,TipoNodo[]>={personaje:['cuando','vinculo'],pasiva:['pasiva','cuando'],objeto:['accion','cuando','pasiva'],habilidad:['accion','cuando'],titulo:['accion','cuando'],otro:['accion','cuando','pasiva']};
 const claveDe=(b:Borrador)=>`yunque:posiciones:${b.id||'nuevo'}`;
+const CLAVE_NUEVA=claveDe({id:undefined} as Borrador);
+/** Una creación nueva que se acaba de guardar recibe su `id`, pero sigue siendo la misma sesión de trabajo. */
+const mismaSesion=(desde:string,hasta:string)=>desde===hasta||desde===CLAVE_NUEVA;
 const ICONO_SI:Record<CondicionRegla['tipo'],string>={siempre:'yugen',comparar:'vida',estado:'alma',elemento:'fuego',probabilidad:'ojo',estado_terminado:'libro',todas:'corona',alguna:'corona',no:'ojo'};
 const leer=leerRuta;
 /** Pieza soltada en el vacío que aún no puede vivir en el borrador: solo existe en la interfaz hasta que se conecta. */
@@ -76,8 +81,14 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  const contextoGrafo=useMemo(()=>({creaciones:ctx.creaciones}),[ctx.creaciones]);
  const grafo=useMemo(()=>aGrafo(b,contextoGrafo),[b,contextoGrafo]);
  const clave=claveDe(b);
- const [guardadas,setGuardadas]=useState(()=>({clave,p:leerPosiciones(clave)}));
- if(guardadas.clave!==clave)setGuardadas({clave,p:leerPosiciones(clave)});
+ const [guardadas,setGuardadas]=useState(()=>({clave,p:leerPosiciones(clave),heredadas:false}));
+ // Al guardar por primera vez, la disposición de la creación nueva pasa a su `id` (si ese id aún no tenía una).
+ if(guardadas.clave!==clave){
+  const propias=leerPosiciones(clave);
+  const heredar=mismaSesion(guardadas.clave,clave)&&!Object.keys(propias).length&&Object.keys(guardadas.p).length>0;
+  setGuardadas({clave,p:heredar?guardadas.p:propias,heredadas:heredar});
+ }
+ useEffect(()=>{if(guardadas.heredadas)guardarPosiciones(guardadas.clave,guardadas.p);},[guardadas]);
  // Tamaño real (sin el editor desplegado) de cada nodo, medido por el lienzo: la disposición no los solapa.
  const [tamanos,setTamanos]=useState<Record<string,{w:number;h:number}>>({});
  const posiciones=useMemo(()=>disponer(grafo,guardadas.p,tamanos),[grafo,guardadas.p,tamanos]);
@@ -85,8 +96,8 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  const [eleccion,setSeleccion]=useState<string|null>('nucleo');
  // Piezas sueltas (por creación): se descartan al cambiar de creación o al forjar.
  const [sueltosDe,setSueltosDe]=useState<{clave:string;lista:Suelto[]}>({clave,lista:[]});
- const sueltos=useMemo(()=>sueltosDe.clave===clave?sueltosDe.lista:[],[sueltosDe,clave]);
- const setSueltos=useCallback((f:(l:Suelto[])=>Suelto[])=>setSueltosDe(s=>({clave,lista:f(s.clave===clave?s.lista:[])})),[clave]);
+ const sueltos=useMemo(()=>mismaSesion(sueltosDe.clave,clave)?sueltosDe.lista:[],[sueltosDe,clave]);
+ const setSueltos=useCallback((f:(l:Suelto[])=>Suelto[])=>setSueltosDe(s=>({clave,lista:f(mismaSesion(s.clave,clave)?s.lista:[])})),[clave]);
  const contador=useRef(0);
  const seleccion=eleccion&&(grafo.nodos.some(n=>n.id===eleccion)||sueltos.some(x=>x.id===eleccion))?eleccion:null;
  const lienzo=useRef<LienzoAPI>(null);
@@ -95,6 +106,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  // Nodos que actuaron en la arena: se encienden 900 ms (si se repiten, el halo vuelve a empezar).
  const [encendidos,setEncendidos]=useState<ReadonlySet<string>>(new Set());
  const [aviso,setAviso]=useState<{texto:string;tono:'error'|'info';n:number}|null>(null);
+ const [sello,setSello]=useState<number|null>(null);
  const bRef=useRef(b);
  useEffect(()=>{bRef.current=b;},[b]);
  const temporizadores=useRef<number[]>([]);
@@ -105,14 +117,14 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   temporizadores.current.push(window.setTimeout(()=>setAviso(a=>a?.n===n?null:a),4200));
  },[]);
  // Al pasar a otra creación, las piezas sueltas de la anterior se descartan con un aviso.
- const descartadas=sueltosDe.clave!==clave?sueltosDe.lista.length:0;
+ const descartadas=mismaSesion(sueltosDe.clave,clave)?0:sueltosDe.lista.length;
  useEffect(()=>{
   if(!descartadas)return;
   avisar(`${descartadas===1?'Se descartó 1 pieza':`Se descartaron ${descartadas} piezas`} sin conectar de la creación anterior.`,'info');
   setSueltosDe({clave,lista:[]});
  },[descartadas,clave,avisar]);
  const fijarPosicion=useCallback((cambios:Record<string,Punto>)=>{
-  setGuardadas(g=>{const p={...g.p,...cambios};guardarPosiciones(g.clave,p);return {clave:g.clave,p};});
+  setGuardadas(g=>{const p={...g.p,...cambios};guardarPosiciones(g.clave,p);return {clave:g.clave,p,heredadas:false};});
  },[]);
  const mover=useCallback((id:string,p:Punto)=>{
   if(id.startsWith('suelto:'))setSueltos(l=>l.map(x=>x.id===id?{...x,p}:x));else fijarPosicion({[id]:p});
@@ -231,11 +243,27 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   if(!ops)return;
   if(ejecutar(ops,s.p,undefined,destino.nodo))setSueltos(l=>l.filter(x=>x.id!==id));
  }
- /** Forjar: las piezas sin conectar no pertenecen a ninguna regla ni acción y se descartan con un aviso. */
+ /** Lleva la vista y el foco a un nodo (en el lienzo o en la lista) en cuanto se pinta elegido. */
+ function enfocarNodo(id:string){
+  setSeleccion(id);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   const el=vista==='lista'
+    ?document.querySelector<HTMLElement>(`.yq-vlista [data-bloque="${CSS.escape(id)}"] .yq-bloque-boton`)
+    :document.querySelector<HTMLElement>(`.yq-lienzo .yq-nodo[data-nodo="${CSS.escape(id)}"]`);
+   el?.focus({preventScroll:true});
+  }));
+ }
+ /**
+  * Forjar: guarda con la función de la Forja. Si sale bien, sello con destello y las piezas sin conectar
+  * (que no pertenecen a ninguna regla ni acción) se descartan con un aviso. Si falla, el foco va al primer
+  * nodo con error o, si el fallo es de la ficha (nombre, familia…), al núcleo; el error se ve arriba.
+  */
  async function forjar(){
   const lista=sueltos;
-  // Solo tras guardar con éxito: si el guardado falla, las piezas sueltas siguen ahí.
-  try{await onGuardar();}catch{return;}
+  let guardado=false;
+  try{guardado=await onGuardar();}catch(e){avisar(mensajeError(e,'No se pudo forjar.'));}
+  if(!guardado){enfocarNodo(errores[0]?.id??'nucleo');return;}
+  const n=Date.now();setSello(n);despues(1200,()=>setSello(s=>s===n?null:s));
   if(lista.length){
    const ids=new Set(lista.map(x=>x.id));
    setSueltos(l=>l.filter(x=>!ids.has(x.id)));
@@ -439,6 +467,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
     onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
     :<div ref={listaCaja} className="yq-vlista-caja"><VistaLista grafo={grafo} seleccion={seleccion} onSeleccionar={setSeleccion} contenido={contenido} operar={o=>operar(o)} encendidos={encendidos} nuevos={nuevos} guia={guiaLista}/></div>}
    {aviso&&<p key={aviso.n} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
+   {sello&&<div key={sello} className="yq-sello" aria-hidden="true"><Sello texto="Creación forjada" runa="/arte/runas/forja.png" celebrar/></div>}
   </section>
   <aside className="yq-panel yq-arena" aria-label="Arena de dolls">
    <h2><IconoYugen id="espada" size={18}/>Arena de dolls</h2>

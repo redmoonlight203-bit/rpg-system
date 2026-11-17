@@ -45,7 +45,7 @@ export default function EditorNucleo({b,operar,ctx}:EditorNodoProps&{ctx:Context
    <Fichas etiqueta="Dónde se equipa" opciones={RANURAS} valor={b.slot} onChange={slot=>fijar({slot})}/>
    <label className="yq-conmutador"><input type="checkbox" role="switch" checked={b.consumible} onChange={e=>fijar({consumible:e.target.checked})}/><span aria-hidden="true"/>Se consume al usarlo</label>
   </>}
-  <div className="yq-portada"><PortadaYunque key={`${b.id||'nuevo'}:${b.tipo}`} nombre={b.nombre} imagen={b.imagen} icono={b.icono} onChange={fijar}/></div>
+  <div className="yq-portada"><PortadaYunque key={`${b.id||'nuevo'}:${b.tipo}`} nombre={b.nombre} imagen={b.imagen} icono={b.icono} onChange={fijar} onProcesando={ctx.onProcesandoImagen}/></div>
   {b.clasificacion&&<section className="yq-atributos" aria-label="Atributos">
    <header>
     <span>Atributos</span>

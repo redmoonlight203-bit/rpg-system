@@ -610,3 +610,10 @@
  .yq-taller .yq-hueco::after,.yq-taller .yq-hueco-detalle,.yq-taller .yq-bloque.is-nuevo,.yq-taller .yq-bloque-editor{animation:none!important}
  .yq-taller .yq-hueco:hover,.yq-taller .yq-hueco[data-estado=destino],.yq-taller .yq-vlista.is-guiando .yq-bloque[data-guia=destino],.yq-taller .yq-bloque-anadir button:hover{transform:none}
 }
+
+/* ── Sello al forjar: lacre con destello de 600 ms sobre el lienzo (solo si se guardó) ── */
+.yq-taller .yq-sello{position:absolute;inset:0;z-index:13;display:grid;place-items:center;pointer-events:none}
+.yq-taller .yq-sello::before{content:'';position:absolute;left:50%;top:50%;width:420px;height:420px;margin:-210px 0 0 -210px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--color-gold-bright) 40%,transparent),transparent 65%);opacity:0;animation:yq-destello .6s ease-out both}
+.yq-taller .yq-sello .y3-sello{position:relative;padding:14px 22px;border:1px solid var(--color-gold);background:color-mix(in srgb,var(--color-overlay) 94%,transparent);box-shadow:0 18px 40px -16px #000}
+@keyframes yq-destello{0%{opacity:0;transform:scale(.4)}35%{opacity:1}100%{opacity:0;transform:scale(1.4)}}
+@media (prefers-reduced-motion:reduce){.yq-taller .yq-sello::before{display:none;animation:none}}
