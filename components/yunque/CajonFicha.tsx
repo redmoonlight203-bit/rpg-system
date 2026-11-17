@@ -34,14 +34,21 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla}:Props){
   });
   return ()=>cancelAnimationFrame(raf);
  },[abierto,ancla]);
+ // Escape lo cierra esté donde esté el foco (también en el lienzo), salvo que otro control ya lo haya usado.
+ const cerrarRef=useRef(onCerrar);
+ useEffect(()=>{cerrarRef.current=onCerrar;},[onCerrar]);
+ useEffect(()=>{
+  if(!abierto)return;
+  const tecla=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!e.defaultPrevented){e.preventDefault();cerrarRef.current();}};
+  window.addEventListener('keydown',tecla);return ()=>window.removeEventListener('keydown',tecla);
+ },[abierto]);
  const clase=claseDe(b,ctx);
  const i=CLASES_YUGEN.indexOf(clase.clase as typeof CLASES_YUGEN[number]),siguiente=UMBRALES_CLASE[i+1];
  const monstruo=esMonstruoB(b,ctx);
  // En el cuerpo del documento: la página del taller lleva un `transform` (entrada de escena) que anclaría `position:fixed` a ella.
  const cliente=useSyncExternalStore(sinCambios,()=>true,()=>false);
  if(!cliente)return null;
- return createPortal(<aside id="yq-ficha" className={`yq-cajon${abierto?' is-abierto':''}`} aria-label="Ficha de la creación" inert={!abierto} aria-hidden={!abierto}
-  onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();onCerrar();}}}>
+ return createPortal(<aside id="yq-ficha" className={`yq-cajon${abierto?' is-abierto':''}`} aria-label="Ficha de la creación" inert={!abierto} aria-hidden={!abierto}>
   <header className="yq-cajon-cab">
    <IconoYugen id="libro" size={20}/>
    <div><small>Ficha</small><h2>{b.nombre.trim()||'Nueva creación'}</h2></div>

@@ -1,10 +1,11 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {nuevoEfecto,type Efecto} from "./creacion";
-import {EVENTOS,EFECTOS_REGLA,nuevaRegla,receta,type Regla,type EfectoRegla,type CondicionRegla,type EventoRegla} from "./reglas";
+import {EVENTOS,EFECTOS_REGLA,nuevaRegla,type Regla,type EfectoRegla,type CondicionRegla,type EventoRegla} from "./reglas";
 import type {ReglaPasiva} from "./pasivas";
 import {aGrafo,leerRuta,type Nodo,type Ruta,type TipoNodo} from "./yunque-grafo";
 import {aplicar,type Fragmento,type Operacion} from "./yunque-operaciones";
 import type {Enlazable} from "./yunque-vinculos";
+import {PLANTILLAS} from "./yunque-plantillas";
 /**
  * Piezas del Grimorio del Yunque y qué operaciones produce soltarlas en el lienzo. Puro: nunca toca el Borrador;
  * `planSoltar` devuelve las `Operacion` que el taller pasa a `aplicar` (o `null` si la pieza queda sin conectar).
@@ -17,7 +18,7 @@ export const FAMILIAS_GRIMORIO:{clave:FamiliaGrimorio;nombre:string;ayuda:string
  {clave:'condiciones',nombre:'Condiciones',ayuda:'Qué debe cumplirse'},
  {clave:'efectos',nombre:'Efectos de regla',ayuda:'Qué ocurre entonces'},
  {clave:'pasivas',nombre:'Pasivas',ayuda:'Funcionan solas'},
- {clave:'plantillas',nombre:'Plantillas',ayuda:'Reglas listas para usar'},
+ {clave:'plantillas',nombre:'Plantillas',ayuda:'Mecánicas listas para usar'},
  {clave:'coleccion',nombre:'Colección',ayuda:'Copia piezas de otra creación'},
 ];
 export type Pieza={clave:string;familia:FamiliaGrimorio;tipo:TipoNodo;nombre:string;ayuda:string;icono:string;fragmentos:Fragmento[]};
@@ -113,14 +114,10 @@ const PASIVAS_PIEZAS:Pieza[]=[
  una('pasiva:escamas','pasivas','pasiva','Escamas de dragón','Resiste la magia','dragon',pasiva({nombre:'Escamas de dragón',condicion:'ataque_magico',evento:'recibir_ataque',bonos:{armadura:5},reduccion_pct:50})),
  una('pasiva:aliento','pasivas','pasiva','Último aliento','Más daño con poca vida','fuego',pasiva({nombre:'Último aliento',condicion:'vida_mitad',bonos:{dano:2}})),
 ];
-// ---- Plantillas: las recetas de reglas ya existentes ----
-const PLANTILLAS:Pieza[]=([
- ['crecimiento','Ganar vida al matar','Vida máxima permanente al matar','espectro'],
- ['furia','Furia con voluntad','Forma, salvación cada turno y salida','alma'],
- ['objeto','Objeto de transformación','Activa una forma desde un objeto','anillo'],
-] as const).map(([k,nombre,ayuda,icono])=>({clave:'plantilla:'+k,familia:'plantillas',tipo:'cuando',nombre,ayuda,icono,fragmentos:receta(k).map(r=>({tipo:'cuando' as TipoNodo,datos:r}))}));
+// ---- Plantillas: subgrafos listos para usar (lib/yunque-plantillas.ts) ----
+const PLANTILLAS_PIEZAS:Pieza[]=PLANTILLAS.map(p=>({clave:'plantilla:'+p.id,familia:'plantillas',tipo:p.fragmentos[0].tipo,nombre:p.nombre,ayuda:p.descripcion,icono:p.icono,fragmentos:p.fragmentos}));
 
-export const PIEZAS:Pieza[]=[...ACCIONES,...MODULOS_PIEZAS,...EVENTOS_PIEZAS,...CONDICIONES_PIEZAS,...EFECTOS_PIEZAS,...PASIVAS_PIEZAS,...PLANTILLAS];
+export const PIEZAS:Pieza[]=[...ACCIONES,...MODULOS_PIEZAS,...EVENTOS_PIEZAS,...CONDICIONES_PIEZAS,...EFECTOS_PIEZAS,...PASIVAS_PIEZAS,...PLANTILLAS_PIEZAS];
 
 /** Tipos de nodo que el núcleo puede llevar → si la creación admite el tipo `t`. */
 export function tipoPermitido(t:TipoNodo,lleva:readonly TipoNodo[]):boolean{

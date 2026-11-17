@@ -141,5 +141,34 @@ test('turno pasa sin actuar y vuelve al portador en un solo paso',()=>{
  const n=A.turno(c);
  assert.equal(n.actual,'doll');assert.equal(n.ronda,c.ronda+1);
  assert.equal(m(n,'saco').vida,60);
+ assert.equal(m(n,'doll').vida,m(c,'doll').vida,'el doll no pierde ni gana vida');
  assert.equal(deshacer(n).ronda,c.ronda,'turno se deshace en un solo paso');
+});
+
+test('leerPaso: lo absorbido sale de las líneas reales del registro',()=>{
+ const b=clon(F.antigua);b.tipo='habilidad';
+ const c=arena(b);
+ // Absorción (Kion): detiene 6 fijos de un golpe mágico de 12.
+ const n=A.golpeame(c,{cantidad:2,caras:8,naturaleza:'magica'},()=>6);
+ const r=A.leerPaso(c,n,1);
+ const de=(tipo,quien='doll')=>r.flotantes.filter(f=>f.tipo===tipo&&f.quien===quien).map(f=>f.valor);
+ assert.deepEqual(clon(de('dano')),[40-m(n,'doll').vida]);
+ assert.deepEqual(clon(de('absorbido')),[12-(40-m(n,'doll').vida)]);
+ assert.ok(r.dados.length>0&&r.dados.every(d=>d.caras===8||d.caras===20),'dados del golpe');
+ // Golpe que tumba al doll: lo recibido se topa en su vida, pero lo absorbido sigue siendo lo que detuvo la reacción.
+ const bajo=arena(b,{vida:3});
+ const k=A.golpeame(bajo,{cantidad:2,caras:8,naturaleza:'magica'},()=>6);
+ assert.equal(m(k,'doll').vida,0);
+ const rk=A.leerPaso(bajo,k,2);
+ assert.deepEqual(clon(rk.flotantes.filter(f=>f.tipo==='dano').map(f=>f.valor)),[3]);
+ assert.deepEqual(clon(rk.flotantes.filter(f=>f.tipo==='absorbido').map(f=>f.valor)),[6],'no 9: el exceso no lo absorbió nadie');
+ // Totales intermedios: × 2 y «Tras ARM» cambian el total antes de la reacción.
+ const falso=(registro,vida)=>({...c,registro,miembros:c.miembros.map(x=>x.id==='doll'?{...x,vida}:x)});
+ const base=falso([...c.registro],40);
+ const doble=falso(['Doll portador recibe 10 daño; vida 30.','Doll portador activa Absorción (2 PH).','Superconducción: daño principal × 2.','Daño: dados 8 + modificador 0 + bono 0 = 8.',...c.registro],30);
+ assert.deepEqual(clon(A.leerPaso(base,doble,3).flotantes.filter(f=>f.tipo==='absorbido').map(f=>f.valor)),[6],'16 tras × 2, recibe 10');
+ const arm=falso(['Doll portador recibe 4 daño; vida 36.','Doll portador activa Absorción (2 PH).','Tras ARM: 7.','Daño: dados 9 + modificador 0 + bono 0 = 9.',...c.registro],36);
+ assert.deepEqual(clon(A.leerPaso(base,arm,4).flotantes.filter(f=>f.tipo==='absorbido').map(f=>f.valor)),[3],'7 tras ARM, recibe 4');
+ const salvada=falso(['Doll portador recibe 9 daño; vida 31.','Doll portador: salvación d20 (2) + salvacion (0) = 2, CD 14: fallida.','Doll portador activa Absorción (2 PH).','Daño: dados 9 + modificador 0 + bono 0 = 9.',...c.registro],31);
+ assert.equal(A.leerPaso(base,salvada,5).flotantes.filter(f=>f.tipo==='absorbido').length,0,'una reacción con la salvación fallida no absorbe');
 });

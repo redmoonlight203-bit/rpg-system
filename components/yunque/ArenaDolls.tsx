@@ -10,7 +10,7 @@ import LogoYugen from '../LogoYugen';
 import Dado3D from '../Dado3D';
 import EfectosCombate from '../EfectosCombate';
 import {BarraVital} from '../ui/Juego';
-import {crearArena,usar,golpeame,turno,activados,lineasNuevas,DOLL_BASE,SACO_BASE,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
+import {crearArena,usar,golpeame,turno,activados,leerPaso,DOLL_BASE,SACO_BASE,type AjustesDoll,type ContextoArena,type Flotante,type Golpe} from '../../lib/yunque-arena';
 import {acciones,deshacer,estadisticas,maxVida,type Accion,type Combate,type Combatiente,type EventoVisual} from '../../lib/combate';
 import type {Efecto} from '../../lib/creacion';
 import {mensajeError} from '../../lib/errores';
@@ -24,7 +24,6 @@ type Props={b:Borrador;ctx:ContextoTaller;grafo:Grafo;onEncender:(ids:string[])=
 type Ajustes=Partial<AjustesDoll>;
 type Entrada={b:Borrador;creaciones:ContextoTaller['creaciones'];doll:Ajustes;saco:Ajustes};
 type Estado=Entrada&{combate:Combate|null;error:string};
-type Flotante={id:string;quien:'doll'|'saco';tipo:'dano'|'cura'|'absorbido';valor:number};
 type Escena={n:number;tipo:'usar'|'golpe'|'turno';flotantes:Flotante[];dados:{caras:number;valor:number}[];evento?:EventoVisual};
 
 const DOLL='doll',SACO='saco';
@@ -47,34 +46,6 @@ function construir(e:Entrada,ctx:ContextoTaller):Estado{
 const miembro=(c:Combate|null,id:string)=>c?.miembros.find(m=>m.id===id);
 const kuroi=(e:unknown,respaldo:string)=>mensajeError(e,respaldo).replace(/\.?$/,'.');
 
-/**
- * Lee del registro lo que pasó en un paso: daño recibido por cada uno, lo que una reacción detuvo («absorbido»),
- * la curación del doll y los dados tirados. Solo interpreta frases que escribe `lib/combate.ts`.
- */
-function leerPaso(antes:Combate,despues:Combate,n:number){
- const lineas=lineasNuevas(antes,despues).slice().reverse();
- const doll=miembro(antes,DOLL),saco=miembro(antes,SACO);
- const quien=(nombre:string)=>nombre===doll?.nombre?'doll':nombre===saco?.nombre?'saco':null;
- const flotantes:Flotante[]=[],dados:{caras:number;valor:number}[]=[];
- const recibido={doll:0,saco:0};
- let total:number|null=null,reaccion=false,k=0;
- const poner=(q:Flotante['quien'],tipo:Flotante['tipo'],valor:number)=>{if(valor>0)flotantes.push({id:`${n}:${k++}`,quien:q,tipo,valor});};
- for(const l of lineas){
-  const t=/^Daño: .*= (-?\d+)\.$/.exec(l);if(t){total=Number(t[1]);reaccion=false;continue;}
-  if(total!==null&&/ activa .+ \(/.test(l)){reaccion=true;continue;}
-  const r=/^(.+) recibe (\d+) daño; vida/.exec(l);
-  if(r){
-   const q=quien(r[1]),v=Number(r[2]);
-   if(q){recibido[q]+=v;poner(q,'dano',v);if(reaccion&&total!==null&&total>v)poner(q,'absorbido',total-v);}
-   total=null;reaccion=false;continue;
-  }
-  const d=/: \d+d(\d+) \[([^\]]*)\]/.exec(l);
-  if(d)for(const v of d[2].split(',').map(x=>Number(x.trim())).filter(Number.isFinite))if(dados.length<8)dados.push({caras:Number(d[1]),valor:v});
- }
- const vidaAntes=miembro(antes,DOLL)?.vida??0,vidaDespues=miembro(despues,DOLL)?.vida??0;
- poner('doll','cura',vidaDespues-vidaAntes+recibido.doll);
- return {flotantes,dados};
-}
 /** Lleva el evento visual del motor a una rejilla de 2×1: doll a la izquierda, saco a la derecha. */
 function eventoArena(ev:EventoVisual|undefined,c:Combate):EventoVisual|undefined{
  if(!ev)return undefined;
@@ -250,7 +221,9 @@ export default function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    </details>
    {c&&<>
     <h3>Registro</h3>
-    <ol className="yq-arena-registro" aria-live="polite">{c.registro.slice(0,REGISTRO).map((l,i)=><li key={`${c.registro.length-i}`} className={i===0?'is-reciente':undefined}>{l}</li>)}</ol>
+    <ol className="yq-arena-registro">{c.registro.slice(0,REGISTRO).map((l,i)=><li key={`${c.registro.length-i}`} className={i===0?'is-reciente':undefined}>{l}</li>)}</ol>
+    {/* Solo se anuncia la entrada más reciente, no la lista entera. */}
+    <p className="sr-only" aria-live="polite">{c.registro[0]??''}</p>
    </>}
   </>}
  </div>;

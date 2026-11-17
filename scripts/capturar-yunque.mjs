@@ -12,7 +12,7 @@ const sesion={access_token:'x.eyJzdWIiOiJ4In0.x',token_type:'bearer',expires_in:
 const cat=[{id:'c1',clave:'razas',nombre:'Razas',parent_id:null,created_at:ahora},{id:'c2',clave:'humano',nombre:'Humano',parent_id:'c1',created_at:ahora},{id:'c4',clave:'monstruos',nombre:'Monstruos',parent_id:null,created_at:ahora},{id:'c5',clave:'goblin',nombre:'Goblin',parent_id:'c4',created_at:ahora},{id:'c6',clave:'armas',nombre:'Armas',parent_id:null,created_at:ahora},{id:'c7',clave:'espadas',nombre:'Espadas',parent_id:'c6',created_at:ahora},{id:'c8',clave:'hachas',nombre:'Hachas',parent_id:'c6',created_at:ahora}];
 const atr=[...['vida','ph','fuerza','destreza','mente'].map((c,i)=>({id:'a'+i,categoria:'razas',clave:c,etiqueta:c[0].toUpperCase()+c.slice(1),descripcion:'',valor_defecto:10})),
  ...['filo','peso','durabilidad'].map((c,i)=>({id:'b'+i,categoria:'armas',clave:c,etiqueta:c[0].toUpperCase()+c.slice(1),descripcion:'',valor_defecto:3}))];
-const forja=[{id:'f1',nombre:'Espada de ceniza',tipo:'espadas',tipo_creacion:'objeto',estado:'aprobado',clase:'C',stats:{filo:3},descripcion:'',created_at:ahora,habilidades:[],pasivas:[],equipamiento:{},configuracion_dados:[],reglas:[],slot_tipo:'mano',ligado_al_alma:false,es_grupo:false,stats_rango:{},requisitos_uso:{}}];
+const forja=[{id:'f1',nombre:'Espada de ceniza',tipo:'espadas',tipo_creacion:'objeto',estado:'aprobado',clase:'C',stats:{filo:3},descripcion:'',created_at:ahora,habilidades:[],pasivas:[],equipamiento:{},configuracion_dados:[{id:'e-ceniza',nombre:'Tajo de ceniza',efecto:'dano',cantidad:1,caras:8,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0}],reglas:[],slot_tipo:'mano',ligado_al_alma:false,es_grupo:false,stats_rango:{},requisitos_uso:{}}];
 const perfiles=[{id:GM,rol:'KUROI',estado:'aprobado',nombre:'Kuroi',email:'kuroi@ejemplo.test',mente_colmena:false,lugares_conocidos:[],created_at:ahora}];
 const tablas={categorias_forja:cat,config_estadisticas:atr,forja_maestra:forja,perfiles};
 function filtrar(tabla,url){let filas=tablas[tabla];if(!filas)return [];
@@ -73,6 +73,43 @@ try{
   await pagina.waitForTimeout(300);
   comprobar(await pagina.locator('[data-nodo^="accion:"]').count()>=1,'se añadió un nodo de acción');
   comprobar(await pagina.locator('path.yq-cable').count()>=1,'hay al menos un cable');
+  /** Un punto vacío del lienzo (sin nodos, barra ni avisos alrededor). */
+  const vacio=()=>pagina.evaluate(()=>{const l=document.querySelector('.yq-lienzo').getBoundingClientRect();
+   for(let fy=.7;fy>.1;fy-=.07)for(let fx=.08;fx<.9;fx+=.07){const x=l.left+l.width*fx,y=l.top+l.height*fy;
+    // Con margen: al arrastrar, los nodos compatibles crecen un poco y no deben quedar bajo el cursor.
+    if([[0,0],[-28,0],[28,0],[0,-28],[0,28]].every(([dx,dy])=>!document.elementsFromPoint(x+dx,y+dy).some(e=>e.closest('.yq-nodo-pos,.yq-lienzo-barra,.yq-aviso,.yq-menu-forja'))))return {x,y};}return null;});
+  // Tarea 10: Ctrl+D duplica la acción elegida y Ctrl+Z la quita (el foco en el nodo, no en un campo).
+  const acciones=()=>pagina.locator('[data-nodo^="accion:"]').count();
+  const nAcciones=await acciones();
+  await pagina.locator('[data-nodo^="accion:"] .yq-nodo-cab').first().click({position:{x:40,y:10}}).catch(()=>{});
+  await pagina.keyboard.press('Control+d');await pagina.waitForTimeout(350);
+  const duplicadas=await acciones();
+  await pagina.screenshot({path:`${SALIDA}/yunque-duplicar-${ANCHO}.png`});
+  comprobar(duplicadas===nAcciones+1,`Ctrl+D duplica la acción (${nAcciones} → ${duplicadas})`);
+  comprobar(await pagina.getByRole('button',{name:'Deshacer',exact:true}).isEnabled().catch(()=>false),'el botón «Deshacer» de la barra se activa');
+  await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(350);
+  comprobar(await acciones()===nAcciones,`Ctrl+Z quita la acción duplicada (${await acciones()})`);
+  await pagina.keyboard.press('Control+y');await pagina.waitForTimeout(250);
+  const rehecha=await acciones();
+  await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(250);
+  comprobar(rehecha===nAcciones+1&&await acciones()===nAcciones,'Ctrl+Y rehace y Ctrl+Z vuelve a deshacer');
+  // Las flechas mueven el nodo enfocado (y guardan su posición).
+  const idAccion=await pagina.locator('[data-nodo^="accion:"]').first().getAttribute('data-nodo');
+  await pagina.locator(`[data-nodo="${idAccion}"]`).focus();
+  const posAntes=await pagina.locator(`.yq-nodo-pos[data-id="${idAccion}"]`).getAttribute('style');
+  await pagina.keyboard.press('ArrowDown');await pagina.keyboard.press('ArrowRight');await pagina.waitForTimeout(200);
+  const posDespues=await pagina.locator(`.yq-nodo-pos[data-id="${idAccion}"]`).getAttribute('style');
+  comprobar(posAntes!==posDespues&&(await pagina.evaluate(()=>localStorage.getItem('yunque:posiciones:nuevo')||'')).includes(idAccion),'las flechas mueven el nodo enfocado');
+  // Una plantilla del Grimorio se suma al núcleo con sus nodos; Ctrl+Z la retira entera.
+  const plantilla=pagina.locator('.yq-grimorio [data-pieza="plantilla:furia-temporal"]');
+  comprobar(await plantilla.count()===1,'el Grimorio ofrece la plantilla «Furia temporal»');
+  const reglasAntes=await pagina.locator('[data-nodo^="cuando:"]').count();
+  await plantilla.click().catch(()=>{});await pagina.waitForTimeout(600);
+  const reglasPlantilla=await pagina.locator('[data-nodo^="cuando:"]').count();
+  await pagina.screenshot({path:`${SALIDA}/yunque-plantilla-${ANCHO}.png`});
+  await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(350);
+  comprobar(reglasPlantilla===reglasAntes+2&&await pagina.locator('[data-nodo^="cuando:"]').count()===reglasAntes,`la plantilla añade sus 2 reglas y Ctrl+Z las quita (${reglasAntes} → ${reglasPlantilla})`);
+  await pagina.locator('.yq-indice [data-indice^="accion:"]').first().click().catch(()=>{});await pagina.waitForTimeout(400);
   // Editar la acción desde sus fichas: nombre, dados con la rueda y elemento.
   const accionNombre=pagina.getByLabel('Nombre de la acción');
   if(await accionNombre.count())await accionNombre.fill('Tajo de brasas');
@@ -95,7 +132,8 @@ try{
    const caja=await salida.boundingBox();
    await pagina.mouse.move(caja.x+caja.width/2,caja.y+caja.height/2);await pagina.mouse.down();
    const lienzo=await pagina.locator('.yq-lienzo').boundingBox();
-   await pagina.mouse.move(lienzo.x+170,lienzo.y+lienzo.height-170,{steps:10});
+   const hueco=await vacio()??{x:lienzo.x+170,y:lienzo.y+lienzo.height-170};
+   await pagina.mouse.move(hueco.x,hueco.y,{steps:10});
    const atenuados=await pagina.locator('.yq-nodo-pos[data-cable="incompatible"]').count();
    comprobar(atenuados>=1,`al arrastrar un cable se atenúan los nodos incompatibles (${atenuados})`);
    await pagina.screenshot({path:`${SALIDA}/yunque-cable-${ANCHO}.png`});
@@ -113,8 +151,9 @@ try{
    await pagina.locator('[data-nodo^="accion:"] .yq-nodo-cab').last().click({position:{x:40,y:10}}).catch(()=>{});
    const ob=await otra.boundingBox().catch(()=>null);
    if(ob){
+    const hueco2=await vacio()??{x:lienzo.x+30,y:lienzo.y+lienzo.height/2};
     await pagina.mouse.move(ob.x+6,ob.y+6);await pagina.mouse.down();
-    await pagina.mouse.move(lienzo.x+30,lienzo.y+lienzo.height/2,{steps:10});await pagina.mouse.up();
+    await pagina.mouse.move(hueco2.x,hueco2.y,{steps:10});await pagina.mouse.up();
     const repetir=pagina.locator('.yq-menu-forja').getByRole('button',{name:/Salvación/});
     if(await repetir.count())await repetir.first().click();
     await pagina.waitForTimeout(200);
@@ -134,7 +173,8 @@ try{
   // La rueda sobre el fondo cambia el zoom.
   const antes=await pagina.locator('.yq-lienzo-barra output').textContent();
   const lz=await pagina.locator('.yq-lienzo').boundingBox();
-  await pagina.mouse.move(lz.x+40,lz.y+40);await pagina.mouse.wheel(0,300);await pagina.waitForTimeout(150);
+  const fondo=await vacio()??{x:lz.x+40,y:lz.y+40};
+  await pagina.mouse.move(fondo.x,fondo.y);await pagina.mouse.wheel(0,300);await pagina.waitForTimeout(150);
   const despues=await pagina.locator('.yq-lienzo-barra output').textContent();
   comprobar(antes!==despues,`la rueda sobre el fondo cambia el zoom (${antes} → ${despues})`);
   const encuadrar=pagina.getByRole('button',{name:'Encuadrar todo'});
@@ -143,10 +183,6 @@ try{
   await pagina.screenshot({path:`${SALIDA}/yunque-encuadre-${ANCHO}.png`});
   // Tarea 7: una regla arrastrando «Al impactar», «Vida < 50 %» y «Curar» desde el Grimorio.
   const busqueda=pagina.getByLabel('Buscar en el Grimorio');
-  const vacio=()=>pagina.evaluate(()=>{const l=document.querySelector('.yq-lienzo').getBoundingClientRect();
-   for(let fy=.7;fy>.1;fy-=.07)for(let fx=.08;fx<.9;fx+=.07){const x=l.left+l.width*fx,y=l.top+l.height*fy;
-    // Con margen: al arrastrar, los nodos compatibles crecen un poco y no deben quedar bajo el cursor.
-    if([[0,0],[-28,0],[28,0],[0,-28],[0,28]].every(([dx,dy])=>!document.elementsFromPoint(x+dx,y+dy).some(e=>e.closest('.yq-nodo-pos,.yq-lienzo-barra,.yq-aviso,.yq-menu-forja'))))return {x,y};}return null;});
   /** Centro de la cabecera de un nodo; si queda fuera de la vista, se elige desde el índice para traerlo. */
   const visible=async id=>{
    const caja=await pagina.locator(`[data-nodo="${id}"]`).boundingBox().catch(()=>null),l=await pagina.locator('.yq-lienzo').boundingBox();
@@ -264,8 +300,9 @@ try{
   const equipada=await arrastrar('vinculo:f1','ceniza',async()=>{const c=await pagina.locator('[data-nodo="nucleo"] [data-hueco="mano_der"]').boundingBox();return c&&{x:c.x+c.width/2,y:c.y+c.height/2};},'yunque-equipar');
   comprobar(equipada&&await pagina.locator('[data-nodo="vinculo:mano_der:f1"]').count()===1,'arrastrar la espada al hueco de la mano derecha crea vinculo:mano_der:f1');
   comprobar(await pagina.locator('[data-nodo="nucleo"] [data-hueco="mano_der"].is-lleno').count()===1,'el hueco de la mano derecha queda lleno');
-  await pagina.waitForTimeout(300);
+  await pagina.waitForTimeout(600);
   await pagina.screenshot({path:`${SALIDA}/yunque-personaje-${ANCHO}.png`});
+  comprobar(await pagina.locator('.yq-arena [data-accion="equipo:mano_der:e-ceniza"]',{hasText:'Tajo de ceniza'}).count()===1,'la arena ofrece el ataque de la espada equipada («Tajo de ceniza»)');
   // Cajón Ficha: se abre con el foco dentro, guarda la descripción y se cierra con Escape.
   const botonFicha=pagina.locator('.yq-barra-ficha');
   await botonFicha.click();await pagina.waitForTimeout(400);
@@ -280,6 +317,13 @@ try{
   const guardada=await pagina.locator('.yq-cajon').getByLabel('Descripción').inputValue().catch(()=>'');
   comprobar(cerrada&&guardada==='Un guardián de ceniza.',`Escape cierra la Ficha y la descripción se conserva (${guardada})`);
   await pagina.keyboard.press('Escape');await pagina.waitForTimeout(300);
+  comprobar(await pagina.evaluate(()=>document.activeElement?.classList.contains('yq-barra-ficha')),'al cerrar la Ficha el foco vuelve a su botón');
+  // Escape también la cierra con el foco en el lienzo.
+  await botonFicha.click();await pagina.waitForTimeout(350);
+  await pagina.locator('[data-nodo="nucleo"]').focus().catch(()=>{});
+  const focoLienzo=await pagina.evaluate(()=>!!document.activeElement?.closest('.yq-lienzo'));
+  await pagina.keyboard.press('Escape');await pagina.waitForTimeout(350);
+  comprobar(focoLienzo&&await pagina.locator('.yq-cajon.is-abierto').count()===0,'Escape cierra la Ficha aunque el foco esté en el lienzo');
   // Conmutador Lienzo/Lista: la lista muestra los mismos nodos como bloques editables.
   await pagina.locator('.yq-conmutador-vista').getByRole('button',{name:'Lista'}).click();await pagina.waitForTimeout(400);
   comprobar(await pagina.locator('.yq-vlista [data-bloque="vinculo:mano_der:f1"]').count()===1&&await pagina.locator('.yq-vlista [data-bloque]').count()===await pagina.locator('.yq-indice [data-indice]').count(),'la vista de lista tiene un bloque por nodo');

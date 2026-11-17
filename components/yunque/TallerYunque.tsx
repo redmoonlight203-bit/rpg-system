@@ -2,7 +2,7 @@
 // Taller del Yunque: barra superior + tres paneles (grimorio, lienzo, arena). El Borrador es la única fuente
 // de verdad; cada gesto es una Operacion pura (`aplicar`) y sus errores se muestran como aviso, nunca rompen.
 import {useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore,type Dispatch,type SetStateAction} from 'react';
-import {BookOpen,Hammer,LayoutList,Workflow} from 'lucide-react';
+import {BookOpen,Hammer,LayoutList,Redo2,Undo2,Workflow} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import {Runa} from '../ui/Juego';
 import Lienzo,{type ContenidoNodo,type GuiaPieza,type LienzoAPI} from './Lienzo';
@@ -10,6 +10,7 @@ import Grimorio,{type PistaSoltar} from './Grimorio';
 import ArenaDolls from './ArenaDolls';
 import VistaLista from './VistaLista';
 import CajonFicha from './CajonFicha';
+import {claveDe as claveHistorial,useHistorial} from './useHistorial';
 import EditorVinculo,{FiguraEquipo,iconoEnlazable,idDeVinculo,type EnlazableVista} from './editores/EditorVinculo';
 import {NOMBRE_TIPO,familiaDe} from './NodoYunque';
 import EditorNucleo,{ICONO_CREACION} from './editores/EditorNucleo';
@@ -23,11 +24,11 @@ import {claseDe,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Crea
 import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
 import type {CondicionRegla,EfectoRegla} from '../../lib/reglas';
-import {ICONO_EFECTO_REGLA,ICONO_EVENTO,enlazableDe,piezasVinculo,planSoltar,probarSoltar,type Destino,type Pieza} from '../../lib/yunque-grimorio';
+import {ICONO_EFECTO_REGLA,ICONO_EVENTO,enlazableDe,piezasVinculo,planSoltar,probarSoltar,tipoPermitido,type Destino,type Pieza} from '../../lib/yunque-grimorio';
 import {nombreHueco,planEnlazar,type Enlazable} from '../../lib/yunque-vinculos';
 import {mensajeError} from '../../lib/errores';
 import {aGrafo,leerRuta,type Nodo,type TipoNodo} from '../../lib/yunque-grafo';
-import {aplicar,copiar,type Operacion} from '../../lib/yunque-operaciones';
+import {aplicar,copiar,type Fragmento,type Operacion} from '../../lib/yunque-operaciones';
 import {NODO,disponer,guardarPosiciones,leerPosiciones,type Punto} from '../../lib/yunque-disposicion';
 import type {Borrador} from '../../lib/yunque-borrador';
 import './yunque.css';
@@ -51,6 +52,15 @@ const leer=leerRuta;
 /** Pieza soltada en el vacío que aún no puede vivir en el borrador: solo existe en la interfaz hasta que se conecta. */
 type Suelto={id:string;pieza:Pieza;p:Punto};
 const FRASE_SUELTO='Sin conectar: arrastra un cable desde un puerto compatible hasta aquí, o arrastra esta pieza sobre su nodo.';
+/** Portapapeles del Yunque: vive mientras la página esté abierta, así Ctrl+C / Ctrl+V copian entre creaciones. */
+let portapapeles:{fragmento:Fragmento;nombre:string}|null=null;
+/** Los atajos se ignoran mientras se escribe en un campo. */
+const escribiendo=(t:EventTarget|null)=>{
+ if(!(t instanceof HTMLElement))return false;
+ if(t.isContentEditable||t instanceof HTMLTextAreaElement||t instanceof HTMLSelectElement)return true;
+ return t instanceof HTMLInputElement&&!['checkbox','radio','button','submit','reset'].includes(t.type);
+};
+const PASO_FLECHA=20;
 
 export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crearDentro,faltantes:faltantesProp}:Props){
  // Lista por defecto en pantallas estrechas (sigue al ancho hasta que el GM elige una vista).
@@ -68,7 +78,10 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  const clave=claveDe(b);
  const [guardadas,setGuardadas]=useState(()=>({clave,p:leerPosiciones(clave)}));
  if(guardadas.clave!==clave)setGuardadas({clave,p:leerPosiciones(clave)});
- const posiciones=useMemo(()=>disponer(grafo,guardadas.p),[grafo,guardadas.p]);
+ // Tamaño real (sin el editor desplegado) de cada nodo, medido por el lienzo: la disposición no los solapa.
+ const [tamanos,setTamanos]=useState<Record<string,{w:number;h:number}>>({});
+ const posiciones=useMemo(()=>disponer(grafo,guardadas.p,tamanos),[grafo,guardadas.p,tamanos]);
+ const historial=useHistorial(b,setB);
  const [eleccion,setSeleccion]=useState<string|null>('nucleo');
  // Piezas sueltas (por creación): se descartan al cambiar de creación o al forjar.
  const [sueltosDe,setSueltosDe]=useState<{clave:string;lista:Suelto[]}>({clave,lista:[]});
@@ -112,7 +125,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  function ejecutar(ops:Operacion[],punto?:Punto,info?:string,marcar?:string):boolean{
   const antes=bRef.current;let nuevo=antes;
   try{for(const o of ops)nuevo=aplicar(nuevo,o);}catch(e){avisar(mensajeError(e,'No se pudo hacer ese cambio.'));return false;}
-  bRef.current=nuevo;setB(nuevo);
+  bRef.current=nuevo;historial.confirmar(antes,nuevo,claveHistorial(ops));
   if(info)avisar(info,'info');
   if(!marcar&&ops.every(o=>o.op==='fijar'))return true;
   const previos=new Set(aGrafo(antes,contextoGrafo).nodos.map(n=>n.id));
@@ -122,14 +135,15 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   if(punto&&creados[0]!==marcar){
    // Los nodos nuevos conservan entre sí la disposición automática, con el primero en el punto de destino.
    // Los demás bajan lo justo para no caer encima de otro nodo.
-   const auto=disponer(aGrafo(nuevo,contextoGrafo),guardadas.p),a0=auto[creados[0]];
-   const ocupados=Object.entries(posiciones).filter(([id])=>!creados.includes(id)).map(([,p])=>p);
-   const choca=(p:Punto)=>ocupados.some(q=>Math.abs(q.x-p.x)<NODO.ancho+20&&Math.abs(q.y-p.y)<NODO.alto);
+   const auto=disponer(aGrafo(nuevo,contextoGrafo),guardadas.p,tamanos),a0=auto[creados[0]];
+   const tam=(id:string)=>tamanos[id]??{w:NODO.ancho,h:NODO.alto};
+   const ocupados=Object.entries(posiciones).filter(([id])=>!creados.includes(id)).map(([id,p])=>({...p,...tam(id)}));
+   const choca=(p:Punto,t:{w:number;h:number})=>ocupados.some(q=>p.x<q.x+q.w+20&&q.x<p.x+t.w+20&&p.y<q.y+q.h&&q.y<p.y+t.h);
    const sitio:Record<string,Punto>={};
    creados.forEach((id,k)=>{
     let p=k===0||!a0||!auto[id]?punto:{x:Math.round(auto[id].x-a0.x+punto.x),y:Math.round(auto[id].y-a0.y+punto.y)};
-    for(let n=0;k>0&&n<30&&choca(p);n++)p={x:p.x,y:p.y+NODO.alto/2};
-    sitio[id]=p;ocupados.push(p);
+    for(let n=0;k>0&&n<30&&choca(p,tam(id));n++)p={x:p.x,y:p.y+NODO.alto/2};
+    sitio[id]=p;ocupados.push({...p,...tam(id)});
    });
    fijarPosicion(sitio);
   }
@@ -239,19 +253,89 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   ejecutar([{op:'pegar',fragmento,padre:origen.nodo},{op:'quitar',nodo:destino}],undefined,`${NOMBRE_TIPO[n.tipo]} pasa a «${o.titulo}».`);
  }
 
+ /** Deshacer / rehacer: el borrador vuelve atrás entero; la arena se reinicia sola con el cambio. */
+ function deshacer(){const r=historial.deshacer();if(r){bRef.current=r;avisar('Cambio deshecho.','info');}}
+ function rehacer(){const r=historial.rehacer();if(r){bRef.current=r;avisar('Cambio rehecho.','info');}}
+ /** Ctrl+C: el nodo elegido al portapapeles del Yunque (sirve también en otra creación). */
+ function copiarNodo(id:string){
+  const n=grafo.nodos.find(x=>x.id===id);if(!n)return;
+  try{portapapeles={fragmento:copiar(bRef.current,id),nombre:n.titulo};}catch(e){avisar(mensajeError(e,'Ese nodo no se puede copiar.'));return;}
+  avisar(`«${n.titulo}» copiado: pulsa Ctrl+V para pegarlo aquí o en otra creación.`,'info');
+ }
+ /** Ctrl+V: lo que cuelga del núcleo va al núcleo; el resto, al nodo elegido (con las mismas reglas que soltar una pieza). */
+ function pegarNodo(){
+  if(!portapapeles){avisar('No hay nada copiado: elige un nodo y pulsa Ctrl+C.','info');return;}
+  const {fragmento,nombre}=portapapeles;
+  if(!tipoPermitido(fragmento.tipo,lleva)){avisar(`«${nombre}» no cabe en ${b.tipo==='personaje'?'un personaje':'esta creación'}.`);return;}
+  const pieza:Pieza={clave:'portapapeles',familia:'acciones',tipo:fragmento.tipo,nombre,ayuda:'',icono:'',fragmentos:[fragmento]};
+  const alNucleo=['accion','cuando','pasiva'].includes(fragmento.tipo);
+  const destino=alNucleo||!seleccion||seleccion.startsWith('suelto:')?null:{nodo:seleccion};
+  let ops:Operacion[]|null;
+  try{ops=planSoltar(bRef.current,pieza,destino);}catch(e){avisar(mensajeError(e,'No se puede pegar ahí.'));return;}
+  if(!ops){avisar(`Elige primero dónde pegar «${nombre}» (${fragmento.tipo==='si'?'una regla':fragmento.tipo==='entonces'?'una regla o un efecto':'una acción'}).`,'info');return;}
+  ejecutar(ops,undefined,undefined,destino?.nodo??'nucleo');
+ }
+ // Atajos de teclado (ignorados mientras se escribe en un campo).
+ const teclas=useRef<(e:KeyboardEvent)=>void>(()=>{});
+ useEffect(()=>{
+  teclas.current=(e:KeyboardEvent)=>{
+   if(e.defaultPrevented||e.altKey||escribiendo(e.target))return;
+   const ctrl=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();
+   if(ctrl&&(k==='z'&&!e.shiftKey)){e.preventDefault();deshacer();return;}
+   if(ctrl&&(k==='y'||(k==='z'&&e.shiftKey))){e.preventDefault();rehacer();return;}
+   // El resto actúa sobre el nodo elegido: solo con el foco en el lienzo, la lista o fuera de los paneles.
+   const t=e.target instanceof HTMLElement?e.target:null;
+   if(ficha||(t&&t!==document.body&&!t.closest('.yq-centro')))return;
+   // El nodo con el foco de teclado manda sobre el elegido.
+   const sel=t?.matches('.yq-nodo[data-nodo]')?t.dataset.nodo!:seleccion;
+   if(ctrl&&k==='v'){e.preventDefault();pegarNodo();return;}
+   if(!sel)return;
+   // Con texto seleccionado, Ctrl+C copia el texto como siempre.
+   if(ctrl&&k==='c'){if(sel.startsWith('suelto:')||window.getSelection()?.toString())return;e.preventDefault();copiarNodo(sel);return;}
+   if(ctrl&&k==='d'){e.preventDefault();if(!sel.startsWith('suelto:')&&sel!=='nucleo')ejecutar([{op:'duplicar',nodo:sel}]);return;}
+   if(ctrl)return;
+   if(e.key==='Delete'){
+    e.preventDefault();
+    if(sel.startsWith('suelto:')){setSueltos(l=>l.filter(x=>x.id!==sel));return;}
+    if(sel!=='nucleo'&&ejecutar([{op:'quitar',nodo:sel}]))setSeleccion('nucleo');
+    return;
+   }
+   const flecha:Record<string,Punto>={ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1}};
+   // Las flechas mueven el nodo solo con el foco en un nodo o en el fondo (no en los controles de su editor).
+   if(flecha[e.key]&&vista==='lienzo'&&(!t||t===document.body||t.matches('.yq-nodo[data-nodo],.yq-lienzo'))){
+    const p=posicionesLienzo[sel];if(!p)return;
+    e.preventDefault();
+    const paso=e.shiftKey?PASO_FLECHA*4:PASO_FLECHA;
+    mover(sel,{x:p.x+flecha[e.key].x*paso,y:p.y+flecha[e.key].y*paso});
+   }
+  };
+ });
+ useEffect(()=>{const f=(e:KeyboardEvent)=>teclas.current(e);window.addEventListener('keydown',f);return ()=>window.removeEventListener('keydown',f);},[]);
+
  const clase=claseDe(b,ctx);
- /** Abre el cajón Ficha y lleva el foco dentro (o a la sección `ancla`). */
- function abrirFicha(ancla?:string){setFicha(true);setAnclaFicha(ancla??null);}
- function cerrarCajon(){setFicha(false);botonFicha.current?.focus();}
+ /** Abre el cajón Ficha y lleva el foco dentro (o a la sección `ancla`); al cerrarlo, el foco vuelve a quien lo abrió. */
+ const abridor=useRef<HTMLElement|null>(null);
+ function abrirFicha(ancla?:string){
+  if(!ficha)abridor.current=document.activeElement instanceof HTMLElement&&!document.activeElement.closest('#yq-ficha')?document.activeElement:null;
+  setFicha(true);setAnclaFicha(ancla??null);
+ }
+ function cerrarCajon(){
+  setFicha(false);
+  const a=abridor.current;abridor.current=null;
+  (a?.isConnected?a:botonFicha.current)?.focus();
+ }
  const patchFicha=(p:Partial<Borrador>)=>{ejecutar(Object.entries(p).map(([k,v])=>({op:'fijar',ruta:[k],valor:v})));};
  const piezasColeccion=useMemo(()=>b.tipo==='personaje'?piezasVinculo(piezasEnlace):[],[b.tipo,piezasEnlace]);
  const errores=grafo.nodos.filter(n=>n.error);
  const lleva=NUCLEO_LLEVA[b.tipo]||[];
  const agregar=(tipo:TipoNodo)=>operar({op:'agregar',tipo,padre:'nucleo'});
+ const marco=useRef(0);
+ useEffect(()=>()=>cancelAnimationFrame(marco.current),[]);
  const encender=useCallback((ids:string[])=>{
   const conjunto=new Set(ids);
   setEncendidos(new Set());
-  requestAnimationFrame(()=>{
+  cancelAnimationFrame(marco.current);
+  marco.current=requestAnimationFrame(()=>{
    setEncendidos(conjunto);
    temporizadores.current.push(window.setTimeout(()=>setEncendidos(s=>s===conjunto?new Set():s),900));
   });
@@ -329,6 +413,10 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
    <span className="yq-barra-tipo"><IconoYugen id={b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]} size={16}/>{b.ramaMonstruo?'Monstruo':TIPOS.find(t=>t.valor===b.tipo)?.nombre}</span>
    <button type="button" className="yq-barra-clase" onClick={()=>abrirFicha()} title="Clase calculada con los atributos, la acción más potente, los bonos pasivos y las reglas. Pulsa para ver cómo se calcula."><b>{clase.clase}</b><span>Clase · {clase.puntuacion} pts</span></button>
    {errores.length>0&&<button type="button" className="yq-barra-errores" onClick={()=>setSeleccion(errores[0].id)}><span aria-hidden="true">!</span>{errores.length===1?'1 nodo por revisar':`${errores.length} nodos por revisar`}</button>}
+   <div className="yq-historial" role="group" aria-label="Historial">
+    <button type="button" onClick={deshacer} disabled={!historial.puedeDeshacer} aria-label="Deshacer" title="Deshacer (Ctrl+Z)" aria-keyshortcuts="Control+Z"><Undo2 size={15} aria-hidden="true"/></button>
+    <button type="button" onClick={rehacer} disabled={!historial.puedeRehacer} aria-label="Rehacer" title="Rehacer (Ctrl+Y)" aria-keyshortcuts="Control+Y"><Redo2 size={15} aria-hidden="true"/></button>
+   </div>
    <div className="yq-conmutador-vista" role="group" aria-label="Vista">
     <button type="button" aria-pressed={vista==='lienzo'} onClick={()=>setVista('lienzo')}><Workflow size={15} aria-hidden="true"/>Lienzo</button>
     <button type="button" aria-pressed={vista==='lista'} onClick={()=>setVista('lista')}><LayoutList size={15} aria-hidden="true"/>Lista</button>
@@ -347,7 +435,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
     </button></li>)}</ol>
   </Grimorio>
   <section className="yq-centro" aria-label={vista==='lista'?'Lista':'Lienzo'}>
-   {vista==='lienzo'?<Lienzo api={lienzo} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
+   {vista==='lienzo'?<Lienzo api={lienzo} onTamanos={setTamanos} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
     onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
     :<div ref={listaCaja} className="yq-vlista-caja"><VistaLista grafo={grafo} seleccion={seleccion} onSeleccionar={setSeleccion} contenido={contenido} operar={o=>operar(o)} encendidos={encendidos} nuevos={nuevos} guia={guiaLista}/></div>}
    {aviso&&<p key={aviso.n} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}

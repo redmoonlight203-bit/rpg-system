@@ -35,7 +35,10 @@ type Props={
  compatiblesSuelto?:Record<string,ReadonlySet<string>>;
  /** Un nodo suelto arrastrado y soltado sobre otro nodo. */
  onSoltarSuelto?:(id:string,destino:{nodo:string;puerto?:string})=>void;
+ /** Tamaño medido de cada nodo sin su editor desplegado (para la disposición y el encuadre). */
+ onTamanos?:(t:Record<string,Tam>)=>void;
 };
+type Tam={w:number;h:number};
 const Z_MIN=0.4,Z_MAX=2;
 const acotar=(z:number)=>Math.min(Z_MAX,Math.max(Z_MIN,z));
 /** Tipos que el menú de forja puede crear al soltar un cable en el vacío. */
@@ -47,20 +50,24 @@ const BRASAS=Array.from({length:22},(_,i)=>({x:(i*37+11)%100,d:9+(i*7)%9,r:-((i*
 const curva=(a:Punto,b:Punto)=>{const dx=Math.max(48,Math.abs(b.x-a.x)*.5);return `M${a.x} ${a.y}C${a.x+dx} ${a.y},${b.x-dx} ${b.y},${b.x} ${b.y}`;};
 
 /** Encuadre de la vista: como `encuadre`, pero sin acercar por encima del 100 % (un núcleo solo no llena la pantalla). */
-export function encuadrar(pos:Record<string,Punto>,ancho:number,alto:number):Vista{
- const e=encuadre(pos,{ancho,alto});
+export function encuadrar(pos:Record<string,Punto>,ancho:number,alto:number,tam:Record<string,Tam>={}):Vista{
+ const e=encuadre(pos,{ancho,alto},tam);
  if(e.zoom<=1)return {x:e.x,y:e.y,z:e.zoom};
- const v=Object.values(pos);
- const x1=Math.min(...v.map(q=>q.x)),y1=Math.min(...v.map(q=>q.y));
- const w=Math.max(...v.map(q=>q.x))+NODO.ancho-x1,h=Math.max(...v.map(q=>q.y))+NODO.alto-y1;
+ const v=Object.entries(pos);
+ const x1=Math.min(...v.map(([,q])=>q.x)),y1=Math.min(...v.map(([,q])=>q.y));
+ const w=Math.max(...v.map(([id,q])=>q.x+(tam[id]?.w??NODO.ancho)))-x1,h=Math.max(...v.map(([id,q])=>q.y+(tam[id]?.h??NODO.alto)))-y1;
  return {x:Math.max(40,(ancho-w)/2)-x1,y:Math.max(40,(alto-h)/2)-y1,z:1};
 }
 
-export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onMover,onSeleccionar,onConectar,onOperar,contenido,sueltos,guia,api,onSoltarSuelto,compatiblesSuelto}:Props){
+export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onMover,onSeleccionar,onConectar,onOperar,contenido,sueltos,guia,api,onSoltarSuelto,compatiblesSuelto,onTamanos}:Props){
  const caja=useRef<HTMLDivElement>(null);
  const [vista,setVista]=useState<Vista>({x:80,y:80,z:1});
  const [suave,setSuave]=useState(false),[desplazando,setDesplazando]=useState(false);
- const [tam,setTam]=useState<Record<string,{w:number;h:number}>>({});
+ const [tam,setTam]=useState<Record<string,Tam>>({});
+ // Tamaño «en reposo»: alto sin el editor y ancho medido sin seleccionar (al elegirlo, el nodo se ensancha).
+ const [base,setBase]=useState<Record<string,Tam>>({});
+ const baseRef=useRef(base);
+ useEffect(()=>{baseRef.current=base;onTamanos?.(base);},[base,onTamanos]);
  const [arrastre,setArrastre]=useState<{id:string;p:Punto}|null>(null);
  const [cable,setCable]=useState<{origen:Extremo;puerto:Puerto;desde:Punto;hasta:Punto}|null>(null);
  const [menu,setMenu]=useState<{origen:Extremo;puerto:Puerto;punto:Punto;pantalla:Punto}|null>(null);
@@ -111,11 +118,27 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
  const observador=useRef<ResizeObserver|null>(null);
  const observar=useCallback((el:HTMLDivElement|null)=>{
   if(!el)return;
-  observador.current??=new ResizeObserver(entradas=>setTam(prev=>{
-   let cambio=false;const sig={...prev};
-   for(const e of entradas){const id=(e.target as HTMLElement).dataset.id!;const w=(e.target as HTMLElement).offsetWidth,h=(e.target as HTMLElement).offsetHeight;if(!sig[id]||sig[id].w!==w||sig[id].h!==h){sig[id]={w,h};cambio=true;}}
-   return cambio?sig:prev;
-  }));
+  observador.current??=new ResizeObserver(entradas=>{
+   const medidas=entradas.map(e=>{
+    const el=e.target as HTMLElement,editor=el.querySelector<HTMLElement>('.yq-nodo-editor');
+    const elegido=!!el.querySelector('.yq-nodo.is-seleccionado');
+    return {id:el.dataset.id!,w:el.offsetWidth,h:el.offsetHeight,bh:el.offsetHeight-(editor?.offsetHeight??0),elegido};
+   });
+   setTam(prev=>{
+    let cambio=false;const sig={...prev};
+    for(const m of medidas)if(!sig[m.id]||sig[m.id].w!==m.w||sig[m.id].h!==m.h){sig[m.id]={w:m.w,h:m.h};cambio=true;}
+    return cambio?sig:prev;
+   });
+   setBase(prev=>{
+    let cambio=false;const sig={...prev};
+    for(const m of medidas){
+     if(m.id.startsWith('suelto:'))continue;
+     const w=m.elegido?prev[m.id]?.w??NODO.ancho:m.w;
+     if(!sig[m.id]||sig[m.id].w!==w||sig[m.id].h!==m.bh){sig[m.id]={w,h:m.bh};cambio=true;}
+    }
+    return cambio?sig:prev;
+   });
+  });
   const o=observador.current;o.observe(el);
   return ()=>o.unobserve(el);
  },[]);
@@ -123,7 +146,7 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   const el=caja.current;if(!el)return;
   const ro=new ResizeObserver(()=>{
    if(encuadrado.current||!Object.keys(posRef.current).length)return;
-   encuadrado.current=true;const v=encuadrar(posRef.current,el.clientWidth,el.clientHeight);vistaRef.current=v;setVista(v);
+   encuadrado.current=true;const v=encuadrar(posRef.current,el.clientWidth,el.clientHeight,baseRef.current);vistaRef.current=v;setVista(v);
    if(selRef.current)requestAnimationFrame(()=>asegurarVisible(selRef.current!));
   });
   ro.observe(el);return ()=>ro.disconnect();
@@ -171,7 +194,8 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   centro:()=>{const el=caja.current,v=vistaRef.current;return el?{x:(el.clientWidth/2-v.x)/v.z,y:(el.clientHeight/2-v.y)/v.z}:{x:0,y:0};},
  }));
  function zoomCentro(f:number){const el=caja.current;if(!el)return;const cx=el.clientWidth/2,cy=el.clientHeight/2;setSuave(true);setVista(v=>{const z=acotar(v.z*f),k=z/v.z;return {x:cx-(cx-v.x)*k,y:cy-(cy-v.y)*k,z};});}
- function encuadrarTodo(){const el=caja.current;if(!el)return;setSuave(true);setVista(encuadrar(posiciones,el.clientWidth,el.clientHeight));}
+ /** «Encuadrar todo» usa el tamaño real de cada nodo, también el del elegido con su editor abierto. */
+ function encuadrarTodo(){const el=caja.current;if(!el)return;setSuave(true);setVista(encuadrar(posiciones,el.clientWidth,el.clientHeight,{...base,...tam}));}
 
  function abajo(e:PE<HTMLDivElement>){
   if(e.button!==0)return;
@@ -222,9 +246,10 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
  function tecla(e:KeyboardEvent<HTMLDivElement>){
   const id=nodoDe(e.target);
   if(id&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(seleccion!==id)onSeleccionar(id);else asegurarVisible(id);}
-  if(e.key==='Escape'&&menu)setMenu(null);
+  if(e.key==='Escape'&&menu){e.preventDefault();setMenu(null);}
  }
- function enfocar(e:FocusEvent<HTMLDivElement>){const id=nodoDe(e.target);if(id)requestAnimationFrame(()=>asegurarVisible(id));}
+ /** Solo el foco de teclado (`:focus-visible`) mueve la vista; pulsar un nodo con el ratón no la desplaza. */
+ function enfocar(e:FocusEvent<HTMLDivElement>){const id=nodoDe(e.target);if(id&&(e.target as HTMLElement).matches(':focus-visible'))requestAnimationFrame(()=>asegurarVisible(id));}
  function arriba(e:PE<HTMLDivElement>){
   const g=gesto.current;gesto.current=null;if(!g)return;
   if(caja.current?.hasPointerCapture(e.pointerId))caja.current.releasePointerCapture(e.pointerId);
@@ -280,8 +305,8 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
      const la=puertoLocal(a,c.desde.puerto,ancho(a.id)),lb=puertoLocal(b,c.hasta.puerto,ancho(b.id));
      const d=curva({x:pa.x+la.x,y:pa.y+la.y},{x:pb.x+lb.x,y:pb.y+lb.y});
      const vivo=encendidos?.has(c.desde.nodo)||encendidos?.has(c.hasta.nodo);
-     const tenue=!!seleccion&&seleccion!==c.desde.nodo&&seleccion!==c.hasta.nodo;
-     return <g key={c.id} className={`yq-cable-grupo${vivo?' is-encendido':''}${tenue?' is-tenue':''}`} data-cable={c.id}>
+     const elegido=!!seleccion&&(seleccion===c.desde.nodo||seleccion===c.hasta.nodo);
+     return <g key={c.id} className={`yq-cable-grupo${vivo?' is-encendido':''}${seleccion&&!elegido?' is-tenue':''}${elegido?' is-elegido':''}`} data-cable={c.id}>
       <path className="yq-cable-aura" d={d}/>
       <path className="yq-cable" d={d} stroke={`url(#yq-g-${c.id.replace(/[^a-zA-Z0-9_-]/g,'_')})`}/>
       <path className="yq-cable-flujo" d={d}/>
@@ -302,7 +327,7 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
     </div>;
    })}
   </div>
-  {menu&&<div className="yq-menu-forja" style={{left:menu.pantalla.x,top:menu.pantalla.y}} role="dialog" aria-label="Forjar una pieza conectada" onKeyDown={e=>{if(e.key==='Escape')setMenu(null);}}>
+  {menu&&<div className="yq-menu-forja" style={{left:menu.pantalla.x,top:menu.pantalla.y}} role="dialog" aria-label="Forjar una pieza conectada" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setMenu(null);}}}>
    <header><span>Forjar desde «{menu.puerto.etiqueta||menu.puerto.id}»</span><button type="button" aria-label="Cerrar" onClick={()=>setMenu(null)}><X size={14}/></button></header>
    {opciones.length?<ul>{opciones.map((t,i)=><li key={t} style={{animationDelay:`${i*25}ms`}}><button type="button" autoFocus={i===0} data-familia={familiaDe(t)} onClick={()=>{const m=menu;setMenu(null);onOperar({op:'agregar',tipo:t,padre:m.origen.nodo,...(m.origen.puerto==='exito'||m.origen.puerto==='fallo'?{rama:m.origen.puerto}:{})},{x:m.punto.x,y:m.punto.y-20});}}>
     <IconoYugen id={ICONO_TIPO[t]} size={20}/><span><strong>{NOMBRE_TIPO[t]}</strong><small>{AYUDA[t]}</small></span>

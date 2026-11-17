@@ -84,7 +84,9 @@
 .yq-taller .yq-cables path{fill:none}
 .yq-taller .yq-cable-aura{stroke:var(--color-gold);stroke-width:9;opacity:.07;transition:opacity .2s ease}
 .yq-taller .yq-cable{stroke-width:2.2;stroke-linecap:round;transition:opacity .2s ease}
-.yq-taller .yq-cable-flujo{stroke:var(--color-gold-bright);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:.1 26;opacity:.95;animation:yq-flujo 1.6s linear infinite;filter:drop-shadow(0 0 3px var(--color-gold-bright))}
+.yq-taller .yq-cable-flujo{stroke:var(--color-gold-bright);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:.1 26;opacity:.95;animation:yq-flujo 1.6s linear infinite}
+/* El resplandor (filter) cuesta mucho en cables animados: solo en los del nodo elegido o encendidos. */
+.yq-taller .yq-cable-grupo:is(.is-elegido,.is-encendido) .yq-cable-flujo{filter:drop-shadow(0 0 3px var(--color-gold-bright))}
 .yq-taller .yq-cable-grupo{transition:opacity .2s ease}
 .yq-taller .yq-cable-grupo.is-tenue{opacity:.4}
 .yq-taller .yq-cable-grupo.is-encendido .yq-cable-aura{opacity:.45;stroke:var(--color-gold-bright)}
@@ -436,6 +438,12 @@
 .yq-taller button.yq-barra-clase:hover b{border-color:var(--color-gold-bright)}
 .yq-taller button.yq-barra-clase:focus-visible,.yq-taller .yq-barra-ficha:focus-visible,.yq-taller .yq-conmutador-vista button:focus-visible{outline:2px solid var(--color-arcane);outline-offset:3px}
 .yq-taller .yq-conmutador-vista{display:inline-flex;padding:3px;border:1px solid var(--color-line);background:var(--color-well)}
+/* Deshacer / rehacer del borrador (la arena tiene el suyo). */
+.yq-taller .yq-historial{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--color-line);background:var(--color-well)}
+.yq-taller .yq-historial button{display:grid;place-items:center;width:32px;height:30px;border:0;background:transparent;color:var(--color-text-muted);cursor:pointer;transition:color .15s ease,background-color .15s ease}
+.yq-taller .yq-historial button:hover:not(:disabled){color:var(--color-gold-bright);background:color-mix(in srgb,var(--color-gold) 12%,transparent)}
+.yq-taller .yq-historial button:disabled{opacity:.35;cursor:default}
+.yq-taller .yq-historial button:focus-visible{outline:2px solid var(--color-arcane);outline-offset:2px}
 .yq-taller .yq-conmutador-vista button{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:0;background:transparent;color:var(--color-text-muted);font:600 13px var(--font-sans);cursor:pointer;transition:color .15s ease}
 .yq-taller .yq-conmutador-vista button:hover{color:var(--color-text)}
 .yq-taller .yq-conmutador-vista button[aria-pressed=true]{background:linear-gradient(180deg,color-mix(in srgb,var(--color-gold) 28%,var(--color-raised)),color-mix(in srgb,var(--color-gold) 10%,var(--color-well)));color:var(--color-gold-bright);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-gold) 55%,transparent)}
@@ -585,7 +593,7 @@
  .yq-taller .yq-barra{gap:10px;padding:10px 12px}
  .yq-taller .yq-barra-tipo{display:none}
  .yq-taller .yq-barra-titulo{flex-basis:calc(100% - 60px)}
- .yq-taller .yq-conmutador-vista{order:5}
+ .yq-taller .yq-conmutador-vista,.yq-taller .yq-historial{order:5}
  .yq-taller .yq-forjar{margin-left:auto;padding:10px 16px}
 }
 @media(max-width:560px){
@@ -598,7 +606,7 @@
 }
 
 @media (prefers-reduced-motion:reduce){
- .yq-cajon,.yq-cajon.is-abierto,.yq-taller .yq-hueco,.yq-taller .yq-bloque,.yq-taller .yq-bloque-flecha,.yq-taller .yq-conmutador-vista button,.yq-taller .yq-barra-ficha,.yq-taller .yq-bloque-anadir button,.yq-cajon .yq-conmutador>span,.yq-cajon .yq-conmutador>span::after{transition:none}
+ .yq-cajon,.yq-cajon.is-abierto,.yq-taller .yq-hueco,.yq-taller .yq-bloque,.yq-taller .yq-bloque-flecha,.yq-taller .yq-conmutador-vista button,.yq-taller .yq-historial button,.yq-taller .yq-barra-ficha,.yq-taller .yq-bloque-anadir button,.yq-cajon .yq-conmutador>span,.yq-cajon .yq-conmutador>span::after{transition:none}
  .yq-taller .yq-hueco::after,.yq-taller .yq-hueco-detalle,.yq-taller .yq-bloque.is-nuevo,.yq-taller .yq-bloque-editor{animation:none!important}
  .yq-taller .yq-hueco:hover,.yq-taller .yq-hueco[data-estado=destino],.yq-taller .yq-vlista.is-guiando .yq-bloque[data-guia=destino],.yq-taller .yq-bloque-anadir button:hover{transform:none}
 }

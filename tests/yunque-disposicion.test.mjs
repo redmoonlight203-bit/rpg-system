@@ -104,3 +104,26 @@ test('guardar y leer round-trip',()=>{
  d.guardarPosiciones('yugen_yunque_pos_nuevo',{a:{x:3,y:4}});
  assert.deepEqual(json(d.leerPosiciones('yugen_yunque_pos_nuevo')),{a:{x:3,y:4}});
 });
+test('con tamaños medidos, un nodo alto empuja a los de su columna y a los huérfanos, y el encuadre lo incluye',()=>{
+ const g=aGrafo(F.habilidad,ctx);
+ const col1=g.nodos.filter(n=>['accion','requisitos'].includes(n.tipo)).map(n=>n.id);
+ assert.ok(col1.length>=2);
+ const tam={nucleo:{w:280,h:470},[col1[0]]:{w:420,h:400}};
+ const p=disponer(g,{},tam);
+ // Sin medidas, el resultado no cambia.
+ assert.deepEqual(json(disponer(g,{},{})),json(disponer(g)));
+ const caja=id=>({...p[id],w:tam[id]?.w??NODO.ancho,h:tam[id]?.h??NODO.alto});
+ const solapa=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+ const ids=g.nodos.map(n=>n.id);
+ for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)assert.ok(!solapa(caja(ids[i]),caja(ids[j])),ids[i]+' / '+ids[j]);
+ assert.ok(p[col1[1]].y>=p[col1[0]].y+400,'el siguiente de la columna baja lo que mide el alto');
+ // La columna siguiente empieza tras el nodo más ancho de la anterior.
+ const col2=g.nodos.filter(n=>n.tipo==='cuando').map(n=>p[n.id].x);
+ assert.ok(Math.min(...col2)>=p[col1[0]].x+420);
+ // Huérfanos: debajo del núcleo de 470 px.
+ const solo=json(g);solo.cables=[];
+ const q=disponer(solo,{},tam);
+ for(const id of ids.filter(x=>x!=='nucleo'))assert.ok(q[id].y>=470,id);
+ const e=encuadre({nucleo:{x:0,y:0}},{ancho:800,alto:400},{nucleo:{w:280,h:470}});
+ assert.ok(470*e.zoom+e.y<=400+1e-6&&e.y+0*e.zoom>=-1e-6,'el núcleo alto cabe entero en la vista');
+});

@@ -2,11 +2,18 @@ import type {Grafo,TipoNodo} from "./yunque-grafo";
 /** Disposición automática del lienzo del Yunque. Pura y determinista; sin React. */
 export type Punto={x:number;y:number};
 export const NODO={ancho:260,alto:140,separacionX:80,separacionY:40};
-const PASO_X=NODO.ancho+NODO.separacionX,PASO_Y=NODO.alto+NODO.separacionY;
+/** Tamaño medido de un nodo; sin medida se usa `NODO`. */
+export type Tamano={w:number;h:number};
+export type Tamanos=Record<string,Tamano>;
 const BASE:Record<TipoNodo,number>={nucleo:0,accion:1,pasiva:1,vinculo:1,requisitos:1,invocacion:1,
  alcance:2,salvacion:2,estado:2,reaccion:2,transformacion:2,recurso:2,vfx:2,tabla_armas:2,cuando:2,si:3,entonces:4};
 const finito=(n:unknown)=>typeof n==='number'&&Number.isFinite(n);
-export function disponer(g:Grafo,guardadas:Record<string,Punto>={}):Record<string,Punto>{
+const medida=(tam:Tamanos,id:string):Tamano=>{const t=tam[id];return {w:t&&finito(t.w)&&t.w>0?t.w:NODO.ancho,h:t&&finito(t.h)&&t.h>0?t.h:NODO.alto};};
+/**
+ * Posición automática de cada nodo (las guardadas se respetan). Con `tam`, cada columna es tan ancha como su nodo
+ * más ancho y los nodos de una columna se apilan según su alto real (el núcleo de un personaje mide ~470 px).
+ */
+export function disponer(g:Grafo,guardadas:Record<string,Punto>={},tam:Tamanos={}):Record<string,Punto>{
  const col:Record<string,number>={};
  for(const n of g.nodos)col[n.id]=BASE[n.tipo]??1;
  const tipo:Record<string,TipoNodo>={};for(const n of g.nodos)tipo[n.id]=n.tipo;
@@ -31,29 +38,34 @@ export function disponer(g:Grafo,guardadas:Record<string,Punto>={}):Record<strin
  const cuenta:Record<number,number>={};
  for(const n of alcanzables)cuenta[col[n.id]]=(cuenta[col[n.id]]||0)+1;
  // Cada columna se parte en subcolumnas si es muy alta; las siguientes se desplazan.
- const sub:Record<number,number>={},x0:Record<number,number>={};
+ const sub:Record<number,number>={},x0:Record<number,number>={},anchoCol:Record<number,number>={};
+ for(const n of g.nodos)anchoCol[col[n.id]]=Math.max(anchoCol[col[n.id]]??NODO.ancho,medida(tam,n.id).w);
+ const pasoX=(c:number)=>anchoCol[c]+NODO.separacionX;
  let x=0;
- for(const c of columnas){sub[c]=Math.max(1,Math.ceil((cuenta[c]||0)/filas));x0[c]=x;x+=sub[c]*PASO_X;}
+ for(const c of columnas){sub[c]=Math.max(1,Math.ceil((cuenta[c]||0)/filas));x0[c]=x;x+=sub[c]*pasoX(c);}
  const validas:Record<string,Punto>={};
  for(const n of g.nodos){const p=guardadas[n.id];if(p&&finito(p.x)&&finito(p.y))validas[n.id]={x:p.x,y:p.y};}
  const res:Record<string,Punto>={};
  for(const id in validas)res[id]=validas[id];
  const siguiente:Record<number,number>={};
+ // Alto ya ocupado en cada subcolumna («columna:subcolumna»).
+ let ocupado:Record<string,number>={};
  const colocar=(n:{id:string},c:number,envolver:boolean,yBase:number)=>{
   // El hueco se consume aunque el nodo tenga posición guardada: mover uno no recoloca a los demás.
   const k=siguiente[c]||0;siguiente[c]=k+1;
+  const s=envolver?Math.floor(k/filas):0,clave=`${c}:${s}`,y=ocupado[clave]||0;
+  ocupado[clave]=y+medida(tam,n.id).h+NODO.separacionY;
   if(res[n.id])return;
-  const s=envolver?Math.floor(k/filas):0,r=envolver?k%filas:k;
-  res[n.id]={x:x0[c]+s*PASO_X,y:yBase+r*PASO_Y};
+  res[n.id]={x:x0[c]+s*pasoX(c),y:yBase+y};
  };
  // Núcleo y alcanzables primero en el orden del grafo, luego huérfanos bajo ellos.
  const nucleo=alcanzables.filter(n=>n.id==='nucleo'),resto=alcanzables.filter(n=>n.id!=='nucleo');
  for(const n of nucleo)colocar(n,col[n.id],true,0);
  for(const n of resto)colocar(n,col[n.id],true,0);
- const usadas=Math.min(filas,Math.max(0,...Object.values(cuenta)));
- let yMax=usadas*PASO_Y;
- for(const p of Object.values(res))yMax=Math.max(yMax,p.y+PASO_Y);
+ let yMax=Math.max(0,...Object.values(ocupado));
+ for(const [id,p] of Object.entries(res))yMax=Math.max(yMax,p.y+medida(tam,id).h+NODO.separacionY);
  for(const k of Object.keys(siguiente))delete siguiente[+k];
+ ocupado={};
  for(const n of huerfanos)colocar(n,col[n.id],false,yMax);
  return res;
 }
@@ -72,12 +84,12 @@ export function leerPosiciones(clave:string):Record<string,Punto>{
 export function guardarPosiciones(clave:string,p:Record<string,Punto>):void{
  try{if(typeof globalThis.localStorage!=='undefined')globalThis.localStorage.setItem(clave,JSON.stringify(p));}catch{/* almacenamiento lleno o bloqueado */}
 }
-export function encuadre(p:Record<string,Punto>,vista:{ancho:number;alto:number}):{x:number;y:number;zoom:number}{
- const v=Object.values(p);
+export function encuadre(p:Record<string,Punto>,vista:{ancho:number;alto:number},tam:Tamanos={}):{x:number;y:number;zoom:number}{
+ const v=Object.entries(p);
  if(!v.length)return {x:0,y:0,zoom:1};
  const margen=40;
- const x1=Math.min(...v.map(q=>q.x))-margen,y1=Math.min(...v.map(q=>q.y))-margen;
- const x2=Math.max(...v.map(q=>q.x))+NODO.ancho+margen,y2=Math.max(...v.map(q=>q.y))+NODO.alto+margen;
+ const x1=Math.min(...v.map(([,q])=>q.x))-margen,y1=Math.min(...v.map(([,q])=>q.y))-margen;
+ const x2=Math.max(...v.map(([id,q])=>q.x+medida(tam,id).w))+margen,y2=Math.max(...v.map(([id,q])=>q.y+medida(tam,id).h))+margen;
  const w=x2-x1,h=y2-y1;
  const zoom=Math.min(2,Math.max(0.4,Math.min(vista.ancho/w,vista.alto/h)));
  // Si con el zoom mínimo un eje no cabe, se ancla arriba a la izquierda (donde está el núcleo) en vez de centrar.

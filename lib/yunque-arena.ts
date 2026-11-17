@@ -1,6 +1,6 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import type {Grafo} from "./yunque-grafo";
-import {nuevoCombate,agregar,iniciar,siguiente,actuar,maxVida,dadoSeguro,type Combate,type Config,type Fuente,type RNG} from "./combate";
+import {nuevoCombate,agregar,iniciar,siguiente,actuar,maxVida,dadoSeguro,reaccionDe,type Combate,type Config,type Fuente,type RNG} from "./combate";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
@@ -170,4 +170,56 @@ export function activados(antes:Combate,despues:Combate,g:Grafo):string[]{
   }
  }
  return [...ids];
+}
+export type Flotante={id:string;quien:'doll'|'saco';tipo:'dano'|'cura'|'absorbido';valor:number};
+/** Lo que una reacción detendría de `total` según su configuración (sin contar una salvación fallida). */
+function detenidoPor(c:Combate,quien:string,nombre:string,total:number):number{
+ const m=c.miembros.find(x=>x.id===quien);
+ const e=(m?.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).find(x=>x.nombre===nombre);
+ const r=e?reaccionDe(e)?.principal:undefined;
+ if(!r)return 0;
+ return r.reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,r.reducir.valor||0);
+}
+/**
+ * Lee del registro lo que pasó en un paso: daño recibido por cada uno, lo que una reacción detuvo («absorbido»),
+ * la curación del doll y los dados tirados. Solo interpreta frases que escribe `lib/combate.ts`: el total del golpe
+ * («Daño: … = N.»), lo que lo cambia antes de llegar al blanco (× 2, «Tras ARM», reducciones de pasivas), la reacción
+ * que se activa (y su salvación) y lo recibido. Si el golpe deja al blanco a 0, lo recibido está topado por su vida:
+ * entonces lo absorbido es lo que la reacción detiene según su configuración, nunca más que la diferencia.
+ */
+export function leerPaso(antes:Combate,despues:Combate,n:number):{flotantes:Flotante[];dados:{caras:number;valor:number}[]}{
+ const lineas=lineasNuevas(antes,despues).slice().reverse();
+ const doll=antes.miembros.find(m=>m.id===DOLL),saco=antes.miembros.find(m=>m.id===SACO);
+ const quien=(nombre:string)=>nombre===doll?.nombre?'doll':nombre===saco?.nombre?'saco':null;
+ const flotantes:Flotante[]=[],dados:{caras:number;valor:number}[]=[];
+ const recibido={doll:0,saco:0};
+ let total:number|null=null,reaccion:{nombre:string;fallida:boolean}|null=null,k=0;
+ const poner=(q:Flotante['quien'],tipo:Flotante['tipo'],valor:number)=>{if(valor>0)flotantes.push({id:`${n}:${k++}`,quien:q,tipo,valor});};
+ for(const l of lineas){
+  const t=/^Daño: .*= (-?\d+)\.$/.exec(l);if(t){total=Number(t[1]);reaccion=null;continue;}
+  if(total!==null){
+   if(/× 2\.$/.test(l)&&!l.startsWith('Daño:')){total*=2;continue;}
+   const arm=/^Tras ARM: (-?\d+)\.$/.exec(l);if(arm){total=Number(arm[1]);continue;}
+   const red=/: reducción \d+% \((-?\d+) → (-?\d+)\)/.exec(l);if(red){total=Number(red[2]);continue;}
+   const act=/ activa (.+) \(\d+ PH\)\.$/.exec(l);if(act){reaccion??={nombre:act[1],fallida:false};continue;}
+   if(reaccion&&/: salvación d20 .*: fallida\.$/.test(l)){reaccion.fallida=true;continue;}
+  }
+  const r=/^(.+) recibe (\d+) daño; vida (-?\d+)\.$/.exec(l);
+  if(r){
+   const q=quien(r[1]),v=Number(r[2]),vida=Number(r[3]);
+   if(q){
+    recibido[q]+=v;poner(q,'dano',v);
+    if(reaccion&&!reaccion.fallida&&total!==null&&total>v){
+     const id=q==='doll'?DOLL:SACO;
+     poner(q,'absorbido',vida>0?total-v:Math.min(total-v,detenidoPor(antes,id,reaccion.nombre,total)));
+    }
+   }
+   total=null;reaccion=null;continue;
+  }
+  const d=/: \d+d(\d+) \[([^\]]*)\]/.exec(l);
+  if(d)for(const v of d[2].split(',').map(x=>Number(x.trim())).filter(Number.isFinite))if(dados.length<8)dados.push({caras:Number(d[1]),valor:v});
+ }
+ const vidaAntes=doll?.vida??0,vidaDespues=despues.miembros.find(m=>m.id===DOLL)?.vida??0;
+ poner('doll','cura',vidaDespues-vidaAntes+recibido.doll);
+ return {flotantes,dados};
 }

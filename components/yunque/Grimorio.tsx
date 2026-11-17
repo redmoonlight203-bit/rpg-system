@@ -1,7 +1,7 @@
 'use client';
 // Grimorio del Yunque: piezas por familia con búsqueda. Una pieza se arrastra (eventos de puntero) hasta el lienzo:
 // sobre un nodo compatible se conecta; en el vacío se une al núcleo o queda «sin conectar». Un clic (o Intro) la añade
-// al nodo elegido si la admite, o al núcleo.
+// al nodo elegido si la admite, o al núcleo. Las plantillas (mecánicas listas) se suman siempre al núcleo.
 import {useEffect,useMemo,useRef,useState,type PointerEvent as PE,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 import {ChevronRight,Search,X} from 'lucide-react';
@@ -34,7 +34,7 @@ export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZA
  const [busqueda,setBusqueda]=useState('');
  // Familias abiertas: las que el GM abrió o cerró y, si no las tocó, acciones, eventos y (en personajes) la colección.
  const [abiertas,setAbiertas]=useState<Partial<Record<FamiliaGrimorio,boolean>>>({});
- const abiertaPorDefecto=(f:FamiliaGrimorio)=>f==='acciones'||f==='eventos'||(f==='coleccion'&&enlazar.length>0);
+ const abiertaPorDefecto=(f:FamiliaGrimorio)=>f==='acciones'||f==='eventos'||f==='plantillas'||(f==='coleccion'&&enlazar.length>0);
  const [flotante,setFlotante]=useState<{pieza:Pieza;x:number;y:number}|null>(null);
  const gesto=useRef<{pieza:Pieza;x0:number;y0:number;activo:boolean}|null>(null);
  const sinClic=useRef(false);
@@ -49,7 +49,7 @@ export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZA
  // Escape cancela el arrastre en curso.
  useEffect(()=>{
   if(!flotante)return;
-  const tecla=(e:KeyboardEvent)=>{if(e.key==='Escape'){gesto.current=null;setFlotante(null);onArrastrar?.(null,null);}};
+  const tecla=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();gesto.current=null;setFlotante(null);onArrastrar?.(null,null);}};
   window.addEventListener('keydown',tecla);return ()=>window.removeEventListener('keydown',tecla);
  },[flotante,onArrastrar]);
 
