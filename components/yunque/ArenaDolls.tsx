@@ -11,7 +11,7 @@ import IconoYugen from '../IconoYugen';
 import LogoYugen from '../LogoYugen';
 import {TableroCombate,BarraCombate,type FichaTablero} from '../TableroCombate';
 import type {TiradaVisual} from '../AnimacionDados';
-import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,
+import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,
  type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
 import {acciones,deshacer,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
  type Accion,type Combate,type Posicion,type RNG} from '../../lib/combate';
@@ -175,6 +175,8 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const elegido=c?.miembros.some(m=>m.id===sacoElegido)?sacoElegido:SACO;
  // Lo que la barra lee del doll; si el motor lanzara, la barra se retira en vez de dejar el taller en blanco.
  const barra=useMemo(()=>portador?seguro(()=>({ph:phDisponibles(portador),stats:estadisticas(portador),max_vida:maxVida(portador),movimiento:movimientoRestante(portador)}),null):null,[portador]);
+ // Habilidad, pasiva, personaje u otro: nada que quitar o poner (null) y el control se oculta.
+ const equipada=c?seguro(()=>piezaEquipada(c),null):null;
  const reaccionSinEfecto=b.tipo!=='habilidad'&&b.tipo!=='personaje'&&b.efectos.some(e=>e.reaccion||e.defensa);
 
  /** Un paso de la prueba: aplica, recoge los dados para la barra y enciende los nodos que actuaron. */
@@ -216,10 +218,6 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  function retirarSaco(){
   const id=[...SACOS].reverse().find(s=>s!==SACO&&c?.miembros.some(m=>m.id===s));
   if(id)paso(x=>quitarSaco(x,id),'Ese saco no se pudo retirar.',n=>{recordar(n);setSacoElegido(SACO);});
- }
- function abrirAjustes(){
-  const d=ajustesRef.current;if(!d)return;
-  d.open=true;d.scrollIntoView({block:'nearest'});d.querySelector('summary')?.focus();
  }
  const ajustar=(quien:'doll'|'saco',clave:keyof AjustesDoll,valor:string)=>{
   const set=quien==='doll'?setDoll:setSaco;
@@ -275,7 +273,8 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
     acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(portador.motor?.proximos[a.regla]||0)-portador.turnos):portador.cooldowns[a.id]||0}))}
     seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setMoviendo(false);setColocando(false);}}
     onResolver={resolver} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>{limpiarJugada();setForzar(false);})}
-    onInventario={abrirAjustes} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):miembro(c,destino)?.nombre}
+    onInventario={()=>paso((x,rng)=>alternarPieza(x,rng),'No se pudo cambiar la pieza.')}
+    inventario={equipada===null?{nombre:'Inventario',detalle:'',oculto:true}:{nombre:equipada?'Quitar':'Equipar',detalle:`«${nombrePieza(c)}»`,titulo:`${equipada?'Quitar':'Equipar'} «${nombrePieza(c)}»`}} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):miembro(c,destino)?.nombre}
     puede={portador.vida>0&&c.actual===DOLL} ocupado={false} moviendo={moviendo} onMovimiento={()=>{setMoviendo(v=>!v);setColocando(false);}}
     movimiento={barra.movimiento} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados} resultado={c.evento_visual?.resultado}
     onLevantarse={()=>paso(x=>levantar(x),'El doll no puede levantarse.')}

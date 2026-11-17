@@ -316,6 +316,8 @@ try{
   // Cambiar el tipo en el núcleo toca varios campos, pero es un solo paso del historial.
   await pagina.locator('[data-nodo="nucleo"] .yq-cartas button',{hasText:/^Habilidad/}).first().click().catch(()=>{});await pagina.waitForTimeout(300);
   const tipoCambiado=await pagina.locator('.yq-barra-tipo').textContent();
+  await pagina.waitForTimeout(500);
+  comprobar(await pagina.locator('.yq-arena .tactical-hud').count()===1&&await pagina.locator('.yq-arena .tactical-slots button',{hasText:/^(Quitar|Equipar|Inventario)/}).count()===0,'con una habilidad en el núcleo la barra no ofrece quitar/poner pieza ni inventario');
   await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(350);
   comprobar(/Habilidad/.test(tipoCambiado||'')&&/Objeto/.test(await pagina.locator('.yq-barra-tipo').textContent()||''),`cambiar el tipo en el núcleo se deshace con un solo Ctrl+Z (${tipoCambiado} → Objeto)`);
   // Tarea 8: arena de dolls. «Tajo de brasas» pasa a 2d8; usarla contra el saco en el tablero baja su vida y enciende su nodo.
@@ -379,6 +381,17 @@ try{
   await terminar();
   const trasTerminar=await estadoAccion();
   comprobar(/utilizada/i.test(antesTerminar||'')&&/1 acción disponible/.test(trasTerminar||'')&&/Ronda \d+ · Turno de Doll portador/.test(await arena.locator('.yq-arena-registro li').first().textContent().catch(()=>'')||''),`actuar no termina el turno; «Terminar turno» devuelve la acción al doll (${antesTerminar} → ${trasTerminar})`);
+  // Quitar/Equipar: el botón de inventario de la barra quita y pone la pieza que se crea (un paso, con «Al desequipar»).
+  const alternar=arena.locator('.tactical-slots button',{hasText:/^(Quitar|Equipar)/});
+  const rotulo=async()=>(await alternar.first().textContent().catch(()=>''))||'';
+  const rotuloAntes=await rotulo(),estadoPrevio=await estadoAccion();
+  comprobar(await alternar.count()===1&&/^Quitar/.test(rotuloAntes)&&await arena.locator('.tactical-slots button',{hasText:/^Inventario/}).count()===0,`para un objeto la barra ofrece un único botón «Quitar …» (${rotuloAntes})`);
+  await alternar.first().click().catch(()=>{});await pagina.waitForTimeout(300);
+  const rotuloDespues=await rotulo();
+  const registroPieza=(await arena.locator('.yq-arena-registro').textContent().catch(()=>''))||'';
+  comprobar(/^Equipar/.test(rotuloDespues)&&/cambia su equipamiento/.test(registroPieza),`pulsarlo cambia el rótulo (${rotuloAntes} → ${rotuloDespues}) y el registro lo anota [${estadoPrevio}]${/Kuroi/.test(await arena.locator('.yq-arena-kuroi').textContent().catch(()=>''))?' [Kuroi: '+await arena.locator('.yq-arena-kuroi').textContent()+']':''}${/desequip/i.test(registroPieza)?' con la regla «Al desequipar»':''}`);
+  await arena.getByRole('button',{name:'Deshacer'}).click().catch(()=>{});await pagina.waitForTimeout(250);
+  comprobar(/^Quitar/.test(await rotulo()),'«Deshacer» devuelve la pieza al doll en un solo paso');
   // Área: «Tajo de brasas» pasa a círculo de radio 2; con un segundo saco, un solo golpe alcanza a los dos.
   const grupoModulos=pagina.locator('.yq-grimorio [data-grimorio="modulos"] h3 button');
   if(await grupoModulos.getAttribute('aria-expanded').catch(()=>null)==='false')await grupoModulos.click().catch(()=>{});

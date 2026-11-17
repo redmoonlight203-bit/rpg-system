@@ -332,3 +332,57 @@ test('con el doll a 0 de vida, turno y los sacos terminan (acotado) sin que ning
  A.turno(n);
  assert.equal(m(deshacer(caido),'doll').vida,1);
 });
+
+// El botón «Inventario» de la arena quita y pone la pieza que se está creando (cambiarEquipo del motor).
+const {estadisticas}=cargarDependencia('combate');
+const regla=(id,evento,efectos)=>({id,nombre:id,evento,condicion:{tipo:'siempre'},efectos,coste_ph:0,coste_fatiga:0,enfriamiento:0,usos:0,prioridad:0,limite_por_turno:0});
+function objetoConReglas(){
+ const b=clon(F.objeto);
+ b.reglas=[regla('r-pon','equipar',[{tipo:'atributo',destino:'yo',atributo:'armadura',operacion:'sumar',valor:3}]),
+  regla('r-quita','desequipar',[{tipo:'dano',destino:'yo',valor:5}])];
+ return b;
+}
+const arm=c=>estadisticas(m(c,'doll')).armadura||0;
+
+test('alternar pieza: quitar dispara «Al desequipar», retira sus modificadores y se puede deshacer en un paso',()=>{
+ const b=objetoConReglas();
+ let c=arena(b);
+ assert.equal(A.piezaEquipada(c),true);assert.equal(A.nombrePieza(c),'Lanza del Alba');
+ assert.equal(arm(c),3);const vida0=m(c,'doll').vida;
+ const pasos=(c.historial||[]).length;
+ const n=A.alternarPieza(c,()=>10);
+ assert.equal(A.piezaEquipada(n),false);
+ assert.equal(m(n,'doll').configuracion.equipamiento.mano_der,undefined);
+ assert.equal(m(n,'doll').vida,vida0-5,'desequipar aplicado');
+ assert.equal(arm(n),0,'el modificador de la pieza se retira');
+ assert.equal((n.historial||[]).length,pasos+1);
+ assert.equal(n.actual,'doll');assert.equal(m(n,'saco').vida,60,'el saco no actúa');
+ const v=deshacer(n);
+ assert.equal(A.piezaEquipada(v),true);assert.equal(m(v,'doll').vida,vida0);assert.equal(arm(v),3);
+});
+
+test('alternar pieza: sin acción no se puede, y en el turno siguiente se vuelve a equipar con «Al equipar»',()=>{
+ let c=A.alternarPieza(arena(objetoConReglas()),()=>10);
+ assert.throws(()=>A.alternarPieza(c,()=>10),/acción disponible|turno/);
+ c=A.turno(c,()=>10);
+ assert.equal(c.actual,'doll');assert.equal(m(c,'saco').vida,60);
+ const n=A.alternarPieza(c,()=>10);
+ assert.equal(A.piezaEquipada(n),true);assert.equal(arm(n),3,'equipar aplicado');
+ assert.equal(m(n,'doll').configuracion.equipamiento.mano_der.id,F.objeto.id);
+ assert.equal(m(n,'saco').vida,60);
+});
+
+test('alternar pieza: habilidad, pasiva, personaje y otro no tienen pieza que alternar',()=>{
+ for(const k of ['habilidad','pasiva','personaje','otro']){
+  const c=arena(clon(F[k]));
+  assert.equal(A.piezaEquipada(c),null,k);
+  assert.throws(()=>A.alternarPieza(c),/no es una pieza/,k);
+ }
+});
+
+test('alternar pieza: el título también se quita y se pone',()=>{
+ const c=arena(clon(F.titulo));
+ assert.equal(A.piezaEquipada(c),true);
+ const n=A.alternarPieza(c,()=>10);
+ assert.equal(A.piezaEquipada(n),false);
+});

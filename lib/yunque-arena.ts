@@ -1,6 +1,6 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {vigente,type Grafo} from "./yunque-grafo";
-import {nuevoCombate,agregar,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG} from "./combate";
+import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG} from "./combate";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
@@ -43,11 +43,12 @@ const GOLPE_HABILIDAD='golpeame',GOLPE_EFECTO='golpeame';
 const SIN_BONO=['peso','durabilidad','dados_dano','caras_dano','dano','nivel'];
 const copia=<T>(v:T):T=>JSON.parse(JSON.stringify(v));
 const PREFIJO='La prueba no puede empezar: ';
-function ranura(b:Borrador):string{
- if(b.tipo==='titulo')return 'titulo';
- if(SLOTS.some(s=>s.clave===b.slot))return b.slot;
- return SLOTS.find(s=>s.tipos.includes(b.slot))?.clave||b.slot||'ninguno';
+function ranuraDe(tipo:string|undefined,slot:string):string{
+ if(tipo==='titulo')return 'titulo';
+ if(SLOTS.some(s=>s.clave===slot))return slot;
+ return SLOTS.find(s=>s.tipos.includes(slot))?.clave||slot||'ninguno';
 }
+const ranura=(b:Borrador)=>ranuraDe(b.tipo,b.slot);
 function fuenteObjeto(c:Creacion):Fuente{
  return {id:c.id,forja_id:c.id,nombre:c.nombre,stats:{...(c.stats||{})},efectos:c.configuracion_dados||[],slot_tipo:c.slot_tipo,tipo_creacion:c.tipo_creacion,consumible:c.consumible,reglas:c.reglas||[],reglas_pasivas:c.reglas_pasivas||[],requisitos_uso:c.requisitos_uso};
 }
@@ -80,7 +81,10 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  else if(b.tipo==='pasiva')config.pasivas=[{id,nombre,reglas:b.reglas_pasivas,reglas_motor:b.reglas}];
  else{
   // objeto, título u otro: la pieza va en su ranura.
-  config.equipamiento={[ranura(b)]:{id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,slot_tipo:b.slot,tipo_creacion:b.tipo,consumible:b.consumible,reglas:b.reglas,reglas_pasivas:b.reglas_pasivas}};
+  // El motor solo acepta tipos de pieza en `slot_tipo`: si el borrador guarda la ranura (mano_der), se pasa a su tipo y la ranura queda aparte para volver a equiparla.
+  const sitio=ranura(b),espacio=SLOTS.find(s=>s.clave===b.slot);
+  const pieza:Fuente&{ranura:string}={ranura:sitio,id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,slot_tipo:espacio?espacio.tipos[0]:b.slot,tipo_creacion:b.tipo,consumible:b.consumible,reglas:b.reglas,reglas_pasivas:b.reglas_pasivas};
+  config.equipamiento={[sitio]:pieza};
  }
  const {stats,bonos}=conEquipo(base,config.equipamiento||{});
  config.stats_base=base;config.bonos_equipamiento=bonos;
@@ -147,6 +151,37 @@ export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dado
 export function turno(c:Combate,rng:RNG=dadoSeguro):Combate{
  const n=pasarSaco(siguiente(c,rng),rng);
  return unPaso(c,n,n);
+}
+/** La pieza de la creación en pruebas (objeto o título) del portador, equipada o en reserva; null si la creación no es una pieza equipable. */
+function piezaDe(c:Combate):{pieza:Fuente&{ranura?:string};equipada:boolean}|null{
+ const d=c.miembros.find(m=>m.id===DOLL);if(!d)return null;
+ // Solo las creaciones que son una pieza (el portador de un objeto o título no lleva habilidades ni pasivas; el de un personaje, sí).
+ if(d.configuracion.habilidades!==undefined||d.configuracion.pasivas!==undefined)return null;
+ const eq=Object.values(d.configuracion.equipamiento||{}).find(p=>p.id&&['objeto','titulo'].includes(p.tipo_creacion||''));
+ if(eq)return {pieza:eq,equipada:true};
+ const r=(d.configuracion.reserva||[]).find(p=>p.id&&['objeto','titulo'].includes(p.tipo_creacion||''));
+ return r?{pieza:r,equipada:false}:null;
+}
+/** ¿Está puesta la pieza que se crea? null si la creación no es una pieza (habilidad, pasiva, personaje u otro). */
+export function piezaEquipada(c:Combate):boolean|null{return piezaDe(c)?.equipada??null;}
+/** Nombre de la pieza que alterna `alternarPieza`, o null. */
+export function nombrePieza(c:Combate):string|null{return piezaDe(c)?.pieza.nombre??null;}
+/**
+ * Quita o pone la pieza en pruebas (el «Inventario» de la barra) con `cambiarEquipo` del motor: dispara «Al desequipar» /
+ * «Al equipar», retira los modificadores que vinieron de ella y consume la acción. Los errores del motor (no es tu turno,
+ * sin acción) se propagan tal cual. Un único paso de deshacer.
+ */
+export function alternarPieza(c:Combate,rng:RNG=dadoSeguro):Combate{
+ const p=piezaDe(c);
+ if(!p)throw Error('Esta creación no es una pieza que se pueda quitar o poner.');
+ const d=c.miembros.find(m=>m.id===DOLL)!;
+ const sel=seleccionEquipo(d);
+ if(p.equipada){for(const [k,id] of Object.entries(sel))if(id===p.pieza.id)delete sel[k];}
+ else sel[p.pieza.ranura||ranuraDe(p.pieza.tipo_creacion,p.pieza.slot_tipo||'')]=p.pieza.id!;
+ const hecho=cambiarEquipo(c,DOLL,sel,rng);
+ recomponer(hecho);
+ const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng):hecho;
+ return unPaso(c,n,hecho);
 }
 /** Movimiento del portador (el mismo `desplazar` del combate): conserva su acción y su turno. */
 export function mover(c:Combate,p:Posicion):Combate{
