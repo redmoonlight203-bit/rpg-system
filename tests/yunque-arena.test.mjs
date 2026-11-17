@@ -183,3 +183,108 @@ test('personaje con habilidad archivada arranca sin ella (como el grafo, que la 
  const g=aGrafo(b,{creaciones:creaciones.map(c=>({id:c.id,nombre:c.nombre,tipo_creacion:c.tipo_creacion,estado:c.estado}))});
  assert.ok(g.nodos.some(n=>n.tipo==='vinculo'&&n.error==='Esta creación ya no está en La Creación.'));
 });
+
+// ── Mini combate: tablero, sacos y movimiento ──
+const {dimensionesTablero,posicionesTablero,casillasAlcanzables}=cargarDependencia('combate');
+const pos=(c,id)=>clon(posicionesTablero(c)[id]);
+/** Estocada convertida en un área: círculo de radio 1, alcance 3, solo enemigos. */
+const conArea=(tablero={alcance:3,forma:'circulo',tamano:1,afecta:'enemigos'})=>{const b=clon(F.objeto);b.efectos.find(e=>e.id==='e-estocada').tablero=tablero;return b;};
+const ESTOCADA='equipo:mano_der:e-estocada';
+
+test('la arena es un tablero de 9×7 con el doll y el saco en casillas vecinas',()=>{
+ const c=arena(clon(F.objeto));
+ assert.deepEqual(clon(A.ARENA),{columnas:9,filas:7});
+ assert.deepEqual(clon(dimensionesTablero(c)),{columnas:9,filas:7});
+ assert.deepEqual(pos(c,'doll'),{x:2,y:3});assert.deepEqual(pos(c,'saco'),{x:3,y:3});
+ assert.equal(c.politica.automatico,false);
+});
+
+test('crearArena respeta la disposición de los sacos y corrige casillas inválidas',()=>{
+ const b=clon(F.objeto);
+ const r=A.crearArena(b,ctx(b),{},{vida:30},{sacos:[{x:6,y:1},{x:6,y:1},{x:2,y:3},{x:0,y:0}]});
+ assert.ok(r.combate,r.error);
+ const c=r.combate;
+ assert.deepEqual(c.miembros.map(x=>x.id),['doll','saco','saco-2','saco-3'],'como mucho tres sacos');
+ assert.deepEqual(pos(c,'saco'),{x:6,y:1});
+ const otros=[pos(c,'saco-2'),pos(c,'saco-3')].map(p=>`${p.x},${p.y}`);
+ assert.ok(!otros.includes('6,1')&&!otros.includes('2,3'),'ni repetidas ni sobre el doll: '+otros);
+ assert.ok(c.miembros.filter(x=>A.esSaco(x.id)).every(x=>x.vida===30&&x.nombre.startsWith('Saco de golpes')));
+ assert.equal(c.actual,'doll');
+ assert.deepEqual(clon(A.sacosDe(c)),[{x:6,y:1},...otros.map(k=>{const [x,y]=k.split(',').map(Number);return {x,y};})]);
+ // Fuera del tablero se usa la casilla preferida.
+ const f=A.crearArena(b,ctx(b),{},{},{sacos:[{x:20,y:1}]}).combate;
+ assert.deepEqual(pos(f,'saco'),{x:3,y:3});
+});
+
+test('agregarSaco añade hasta tres sacos que nunca actúan, en un paso de deshacer',()=>{
+ const c=arena(clon(F.objeto));
+ const dos=A.agregarSaco(c,{vida:20});
+ const tres=A.agregarSaco(dos,{},{x:7,y:6});
+ assert.deepEqual(tres.miembros.map(x=>x.id),['doll','saco','saco-2','saco-3']);
+ assert.equal(m(dos,'saco-2').vida,20);assert.equal(m(tres,'saco-2').nombre,'Saco de golpes 2');
+ assert.deepEqual(pos(tres,'saco-3'),{x:7,y:6});
+ assert.throws(()=>A.agregarSaco(tres),/Como mucho 3 sacos/);
+ assert.equal(deshacer(dos).miembros.length,2,'añadir se deshace');
+ // Turno: los tres sacos pasan sin actuar y vuelve el portador.
+ const n=A.turno(tres);
+ assert.equal(n.actual,'doll');assert.equal(n.ronda,tres.ronda+1);
+ const nuevas=n.registro.slice(0,n.registro.length-tres.registro.length);
+ assert.ok(!nuevas.some(l=>/Saco de golpes( \d)? · |Golpéame|recibe/.test(l)),nuevas.join(' | '));
+ assert.ok(['saco','saco-2','saco-3'].every(id=>(m(n,id).configuracion.habilidades||[]).length===0));
+ assert.equal(deshacer(n).ronda,tres.ronda);
+});
+
+test('colocar mueve un saco a una casilla libre; quitarSaco retira los añadidos',()=>{
+ const c=A.agregarSaco(arena(clon(F.objeto)));
+ const n=A.colocar(c,'saco-2',{x:8,y:0});
+ assert.deepEqual(pos(n,'saco-2'),{x:8,y:0});
+ assert.ok(n.evento_visual.movimientos.some(v=>v.id==='saco-2'),'el saco se desliza en el tablero');
+ assert.deepEqual(pos(deshacer(n),'saco-2'),pos(c,'saco-2'));
+ assert.throws(()=>A.colocar(n,'saco-2',{x:2,y:3}),/ocupada/);
+ assert.throws(()=>A.colocar(n,'saco',{x:9,y:0}),/no está en la arena/);
+ assert.throws(()=>A.colocar(n,'doll',{x:5,y:5}),/Solo se colocan sacos/);
+ assert.throws(()=>A.colocar(n,'saco-3',{x:5,y:5}),/no está en la arena/);
+ const sin=A.quitarSaco(n,'saco-2');
+ assert.deepEqual(sin.miembros.map(x=>x.id),['doll','saco']);
+ assert.throws(()=>A.quitarSaco(sin,'saco'),/primer saco/);
+ assert.equal(deshacer(sin).miembros.length,3);
+});
+
+test('un área apuntada a una casilla golpea a dos sacos y no al doll',()=>{
+ const b=conArea();
+ const c=A.colocar(A.agregarSaco(arena(b)),'saco-2',{x:4,y:2});
+ const n=A.usar(c,ESTOCADA,'',()=>3,false,{x:4,y:3});
+ assert.equal(m(n,'saco').vida,60-(3+3+2));assert.equal(m(n,'saco-2').vida,60-(3+3+2));
+ assert.equal(m(n,'doll').vida,m(c,'doll').vida);
+ assert.equal(n.actual,'doll');
+ assert.ok(A.activados(c,n,aGrafo(b,ctxGrafo)).includes('accion:e-estocada'));
+ assert.equal(deshacer(n).miembros.find(x=>x.id==='saco-2').vida,60);
+ // Fuera del alcance, como en el combate.
+ assert.throws(()=>A.usar(c,ESTOCADA,'',()=>3,false,{x:8,y:3}),/fuera del alcance/);
+});
+
+test('empujes y movimiento del doll siguen las reglas del tablero',()=>{
+ const b=conArea({alcance:1,forma:'individual',tamano:0,afecta:'enemigos',desplazamiento:{tipo:'empujar',casillas:2,cuando:'siempre'}});
+ const c=arena(b);
+ const n=A.usar(c,ESTOCADA,'saco',()=>3,false,pos(c,'saco'));
+ assert.deepEqual(pos(n,'saco'),{x:5,y:3},'empujado dos casillas');
+ // Ahora el saco está lejos: hay que acercarse con «Mover».
+ assert.throws(()=>A.usar(n,ESTOCADA,'saco',()=>3,false,pos(n,'saco')),/fuera del alcance/);
+ const alcanzables=casillasAlcanzables(n,'doll');
+ assert.ok(alcanzables['4,3']>0);
+ const cerca=A.mover(n,{x:4,y:3});
+ assert.deepEqual(pos(cerca,'doll'),{x:4,y:3});
+ assert.equal(m(cerca,'doll').accion_usada,false);assert.equal(cerca.actual,'doll');
+ assert.ok(m(A.usar(cerca,ESTOCADA,'saco',()=>3,false,pos(cerca,'saco')),'saco').vida<60);
+ assert.deepEqual(pos(deshacer(cerca),'doll'),{x:2,y:3},'mover se deshace');
+ assert.throws(()=>A.mover(n,{x:5,y:3}),/ocupada|fuera/);
+});
+
+test('cada saco a 0 de vida se recompone',()=>{
+ const b=conArea();
+ const c=A.colocar(A.agregarSaco(arena(b,undefined,{vida:5}),{vida:5}),'saco-2',{x:4,y:2});
+ const n=A.usar(c,ESTOCADA,'',()=>6,false,{x:4,y:3});
+ assert.equal(n.fase,'en_curso');
+ assert.equal(m(n,'saco').vida,5);assert.equal(m(n,'saco-2').vida,5);
+ assert.ok(n.registro.includes('El saco se recompone.')&&n.registro.includes('El saco 2 se recompone.'));
+});

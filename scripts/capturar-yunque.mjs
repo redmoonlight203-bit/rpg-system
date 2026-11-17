@@ -316,7 +316,7 @@ try{
   const tipoCambiado=await pagina.locator('.yq-barra-tipo').textContent();
   await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(350);
   comprobar(/Habilidad/.test(tipoCambiado||'')&&/Objeto/.test(await pagina.locator('.yq-barra-tipo').textContent()||''),`cambiar el tipo en el núcleo se deshace con un solo Ctrl+Z (${tipoCambiado} → Objeto)`);
-  // Tarea 8: arena de dolls. «Tajo de brasas» pasa a 2d8; «Usar» baja la vida del saco y enciende su nodo; «Golpéame» baja la del doll.
+  // Tarea 8: arena de dolls. «Tajo de brasas» pasa a 2d8; usarla contra el saco en el tablero baja su vida y enciende su nodo.
   await pagina.locator('.yq-indice button',{hasText:/^Tajo de brasas$/}).first().click().catch(()=>{});await pagina.waitForTimeout(450);
   const tajo=await pagina.locator('[data-nodo^="accion:"][aria-current]').first().getAttribute('data-nodo').catch(()=>null);
   const carasTajo=pagina.locator(`[data-nodo="${tajo}"] [data-rueda="caras"]`);
@@ -326,37 +326,91 @@ try{
   await pagina.waitForTimeout(700);
   const dadosTajo=`${await cantidadTajo.inputValue().catch(()=>'?')}d${await pagina.locator(`[data-nodo="${tajo}"] [data-rueda="caras"] input`).first().inputValue().catch(()=>'?')}`;
   comprobar(dadosTajo==='2d8',`la acción de la arena es de 2d8 (${dadosTajo})`);
+  // La arena es un mini combate con el tablero y la barra del combate de la app (TableroCombate + BarraCombate).
   const arena=pagina.locator('.yq-arena');
-  const usar=arena.locator('[data-accion]',{hasText:'Tajo de brasas'}).first();
-  comprobar(await usar.count()===1,'la arena ofrece «Usar» para «Tajo de brasas»');
-  const vidaDe=async nombre=>Number(await arena.getByRole('progressbar',{name:nombre}).first().getAttribute('aria-valuenow').catch(()=>NaN));
-  const sacoAntes=await vidaDe('Vida del saco');
+  const celda=(raiz,nombre)=>raiz.locator(`.tactical-cell[aria-label^="${nombre},"]`);
+  const vidaDe=async(nombre,raiz=arena)=>{const l=await celda(raiz,nombre).first().getAttribute('aria-label').catch(()=>'');return Number(/vida (-?[\d.]+)\//.exec(l||'')?.[1]??NaN);};
+  const casillaDe=async(nombre,raiz=arena)=>celda(raiz,nombre).first().evaluate(b=>[...b.parentElement.querySelectorAll('.tactical-cell')].indexOf(b)).catch(()=>-1);
+  comprobar(await arena.locator('.tactical-board .tactical-cell').count()===63,`la arena es un tablero de 9×7 (${await arena.locator('.tactical-board .tactical-cell').count()} casillas)`);
+  comprobar(await celda(arena,'Doll portador').locator('.tactical-token .battle-portrait img[src*="portador"]').count()===1&&await celda(arena,'Saco de golpes').locator('img[src*="saco"]').count()===1,'el doll y el saco son fichas redondas con su imagen');
+  const desbordeArena=await arena.locator('.tactical-scroll').evaluate(e=>[e.querySelector('.tactical-board').getBoundingClientRect().width,e.clientWidth,getComputedStyle(e).overflowX]).catch(()=>[0,-1]);
+  comprobar(desbordeArena[0]<=desbordeArena[1]+1&&desbordeArena[2]==='hidden',`el tablero compacto cabe en el panel sin desplazamiento horizontal (${desbordeArena.join(' / ')})`);
+  const ranura=nombre=>arena.locator('.tactical-slots button',{hasText:nombre}).first();
+  comprobar(await ranura('Tajo de brasas').count()===1,'la barra de acciones ofrece «Tajo de brasas»');
+  const confirmar=()=>arena.getByRole('button',{name:'Confirmar acción'}).click({timeout:3000}).catch(()=>{});
+  const sacoAntes=await vidaDe('Saco de golpes');
   let sacoDespues=sacoAntes,encendido=false;
-  for(let k=0;k<4&&sacoDespues>=sacoAntes;k++){
-   await usar.click().catch(()=>{});await pagina.waitForTimeout(120);
+  for(let k=0;k<4&&!(sacoDespues<sacoAntes);k++){
+   await ranura('Tajo de brasas').click().catch(()=>{});
+   await celda(arena,'Saco de golpes').first().click().catch(()=>{});await pagina.waitForTimeout(80);
+   await confirmar();await pagina.waitForTimeout(150);
    encendido||=await pagina.locator(`[data-nodo="${tajo}"][data-encendido="true"]`).count()===1;
-   sacoDespues=await vidaDe('Vida del saco');
+   sacoDespues=await vidaDe('Saco de golpes');
   }
-  comprobar(sacoDespues<sacoAntes,`«Usar» baja la vida del saco (${sacoAntes} → ${sacoDespues})`);
+  comprobar(sacoDespues<sacoAntes,`elegir «Tajo de brasas», tocar el saco y confirmar baja su vida (${sacoAntes} → ${sacoDespues})`);
   comprobar(encendido,'el nodo de la acción usada se enciende (data-encendido="true")');
   await pagina.waitForTimeout(350);
   await pagina.screenshot({path:`${SALIDA}/yunque-arena-${ANCHO}.png`});
-  const dollAntes=await vidaDe('Vida del doll');
-  await arena.getByRole('button',{name:/^Golpéame/}).first().click().catch(()=>{});await pagina.waitForTimeout(200);
-  const dollDespues=await vidaDe('Vida del doll');
+  // «Golpéame» (en la barra) baja la vida del doll.
+  const dollAntes=await vidaDe('Doll portador');
+  await arena.getByRole('button',{name:/^Golpéame/}).first().click().catch(()=>{});await pagina.waitForTimeout(250);
+  const dollDespues=await vidaDe('Doll portador');
   comprobar(dollDespues<dollAntes,`«Golpéame» baja la vida del doll (${dollAntes} → ${dollDespues})`);
   await pagina.waitForTimeout(300);
   await pagina.screenshot({path:`${SALIDA}/yunque-arena-golpe-${ANCHO}.png`});
-  // Si «Golpéame» tumba al doll, las acciones se retiran y se ofrece reiniciar.
+  // «Mover»: casillas alcanzables y doble clic mueve al doll; conserva su acción.
+  const dollCasilla=await casillaDe('Doll portador');
+  await ranura('Mover').click().catch(()=>{});await pagina.waitForTimeout(150);
+  const alcanzables=await arena.locator('.tactical-cell.reachable').count();
+  await arena.locator('.tactical-cell[aria-label="Casilla 3, 6, 2 pasos"]').dblclick().catch(()=>{});await pagina.waitForTimeout(300);
+  const dollMovido=await casillaDe('Doll portador');
+  comprobar(alcanzables>0&&dollMovido!==dollCasilla&&dollMovido===5*9+2,`«Mover» marca casillas (${alcanzables}) y mueve al doll (casilla ${dollCasilla} → ${dollMovido})`);
+  await pagina.screenshot({path:`${SALIDA}/yunque-arena-mover-${ANCHO}.png`});
+  await ranura('Mover').click().catch(()=>{});
+  await arena.getByRole('button',{name:'Deshacer'}).click().catch(()=>{});await pagina.waitForTimeout(250);
+  comprobar(await casillaDe('Doll portador')===dollCasilla,'«Deshacer» devuelve al doll a su casilla');
+  // Área: «Tajo de brasas» pasa a círculo de radio 2; con un segundo saco, un solo golpe alcanza a los dos.
+  const grupoModulos=pagina.locator('.yq-grimorio [data-grimorio="modulos"] h3 button');
+  if(await grupoModulos.getAttribute('aria-expanded').catch(()=>null)==='false')await grupoModulos.click().catch(()=>{});
+  await pagina.locator('.yq-grimorio [data-pieza="modulo:circulo"]').click().catch(()=>{});await pagina.waitForTimeout(1600);
+  comprobar(await pagina.locator(`[data-nodo="${(tajo||'').replace('accion:','alcance:')}"]`).count()===1,'«Área en círculo» del Grimorio se engancha a «Tajo de brasas»');
+  await arena.getByRole('button',{name:/^Saco \d\/3$/}).click().catch(()=>{});await pagina.waitForTimeout(250);
+  comprobar(await celda(arena,'Saco de golpes 2').count()===1,'«+ Saco» añade un segundo saco al tablero');
+  // «Colocar saco»: el segundo saco entra en (5, 3) y se lleva a la casilla 5·5 (x 4, y 4), a dos casillas del centro del área.
+  await arena.getByRole('button',{name:'Colocar saco'}).click().catch(()=>{});
+  await arena.locator('.tactical-cell[aria-label^="Casilla 5, 5"]').click().catch(()=>{});await pagina.waitForTimeout(250);
+  await arena.getByRole('button',{name:'Colocar saco'}).click().catch(()=>{});
+  comprobar(await casillaDe('Saco de golpes 2')===4*9+4,`«Colocar saco» lleva el saco 2 a la casilla elegida (${await casillaDe('Saco de golpes 2')})`);
+  const areaAntes=[await vidaDe('Saco de golpes'),await vidaDe('Saco de golpes 2')];
+  let areaDespues=areaAntes;
+  for(let k=0;k<3&&!(areaDespues[0]<areaAntes[0]&&areaDespues[1]<areaAntes[1]);k++){
+   await ranura('Tajo de brasas').click().catch(()=>{});
+   await arena.locator('.tactical-cell[aria-label^="Casilla 6, 4"]').click().catch(()=>{});await pagina.waitForTimeout(120);
+   if(k===0)await pagina.screenshot({path:`${SALIDA}/yunque-arena-area-${ANCHO}.png`});
+   await confirmar();await pagina.waitForTimeout(200);
+   areaDespues=[await vidaDe('Saco de golpes'),await vidaDe('Saco de golpes 2')];
+  }
+  const vozArea=await arena.locator('.yq-arena-kuroi').textContent().catch(()=>'');
+  comprobar(areaDespues[0]<areaAntes[0]&&areaDespues[1]<areaAntes[1],`el área alcanza a los dos sacos (${areaAntes} → ${areaDespues})${vozArea?' · '+vozArea:''}`);
+  // «Ampliar»: la arena cubre el Grimorio y el lienzo con un tablero de combate (el panel sigue a la vista); Escape la devuelve al panel.
+  await arena.getByRole('button',{name:'Ampliar'}).click().catch(()=>{});await pagina.waitForTimeout(400);
+  const ampliada=pagina.locator('.yq-arena-ampliada');
+  const anchoCasilla=await ampliada.locator('.tactical-cell').first().evaluate(e=>e.getBoundingClientRect().width).catch(()=>0);
+  const cubre=await pagina.evaluate(()=>{const a=document.querySelector('.yq-arena-ampliada')?.getBoundingClientRect(),g=document.querySelector('.yq-grimorio')?.getBoundingClientRect(),l=document.querySelector('.yq-centro')?.getBoundingClientRect(),p=document.querySelector('.yq-arena')?.getBoundingClientRect();return !!a&&!!g&&!!l&&!!p&&Math.abs(a.left-g.left)<2&&Math.abs(a.right-l.right)<2&&a.right<=p.left+1;});
+  comprobar(await ampliada.count()===1&&anchoCasilla>=60&&cubre,`«Ampliar» abre la arena sobre el Grimorio y el lienzo con casillas grandes (${Math.round(anchoCasilla)} px${cubre?'':', no cubre el lienzo'})`);
+  await pagina.screenshot({path:`${SALIDA}/yunque-arena-ampliada-${ANCHO}.png`});
+  await pagina.keyboard.press('Escape');await pagina.waitForTimeout(300);
+  comprobar(await ampliada.count()===0&&await pagina.evaluate(()=>document.activeElement?.textContent==='Ampliar'),'Escape cierra la arena ampliada y el foco vuelve a «Ampliar»');
+  // Si «Golpéame» tumba al doll, la barra se retira y se ofrece reiniciar.
   await arena.locator('.yq-arena-ajustes summary').click().catch(()=>{});
-  await arena.locator('input[aria-label="Vida del doll"]').fill('1').catch(()=>{});await pagina.waitForTimeout(500);
+  await arena.locator('input[aria-label="Vida del doll"]').fill('1').catch(()=>{});await pagina.waitForTimeout(600);
   await arena.getByLabel('Cuántos dados').fill('20').catch(()=>{});
   await arena.getByRole('button',{name:/^Golpéame/}).first().click().catch(()=>{});await pagina.waitForTimeout(250);
   const reiniciarCaido=arena.getByRole('button',{name:'Reiniciar la prueba'});
-  comprobar(await arena.locator('.yq-escenario-fin').count()===1&&await reiniciarCaido.count()===1&&await arena.locator('[data-accion]').count()===0,'con el doll caído se retiran las acciones y se ofrece «Reiniciar la prueba»');
+  comprobar(await arena.locator('.yq-arena-fin').count()===1&&await reiniciarCaido.count()===1&&await arena.locator('.tactical-hud').count()===0,'con el doll caído se retira la barra de acciones y se ofrece «Reiniciar la prueba»');
   await pagina.screenshot({path:`${SALIDA}/yunque-arena-caido-${ANCHO}.png`});
   await reiniciarCaido.click().catch(()=>{});await pagina.waitForTimeout(250);
-  comprobar(await vidaDe('Vida del doll')===1&&await arena.locator('[data-accion]').count()>0,'«Reiniciar la prueba» vuelve a poner en pie al doll con sus ajustes');
+  comprobar(await vidaDe('Doll portador')===1&&await arena.locator('.tactical-hud').count()===1&&await celda(arena,'Saco de golpes 2').count()===1,'«Reiniciar la prueba» vuelve a poner en pie al doll con sus ajustes y conserva los sacos');
   if(process.env.REDUCIDO==='1'){
    await pagina.waitForTimeout(500);
    const vivas=await pagina.evaluate(()=>document.getAnimations().filter(a=>a.effect?.target?.closest?.('.yq-taller')).length);
@@ -375,7 +429,7 @@ try{
   comprobar(await pagina.locator('[data-nodo="nucleo"] [data-hueco="mano_der"].is-lleno').count()===1,'el hueco de la mano derecha queda lleno');
   await pagina.waitForTimeout(600);
   await pagina.screenshot({path:`${SALIDA}/yunque-personaje-${ANCHO}.png`});
-  comprobar(await pagina.locator('.yq-arena [data-accion="equipo:mano_der:e-ceniza"]',{hasText:'Tajo de ceniza'}).count()===1,'la arena ofrece el ataque de la espada equipada («Tajo de ceniza»)');
+  comprobar(await pagina.locator('.yq-arena .tactical-slots button',{hasText:'Tajo de ceniza'}).count()===1,'la arena ofrece el ataque de la espada equipada («Tajo de ceniza»)');
   // Cajón Ficha: se abre con el foco dentro, guarda la descripción y se cierra con Escape.
   const botonFicha=pagina.locator('.yq-barra-ficha');
   await botonFicha.click();await pagina.waitForTimeout(400);
