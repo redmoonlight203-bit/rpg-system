@@ -490,8 +490,9 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
    {vista==='lienzo'?<Lienzo api={lienzo} onTamanos={setTamanos} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
     onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
     :<div ref={listaCaja} className="yq-vlista-caja"><VistaLista grafo={grafo} seleccion={seleccion} onSeleccionar={setSeleccion} contenido={contenido} operar={o=>operar(o)} encendidos={encendidos} nuevos={nuevos} guia={guiaLista}/></div>}
-   {aviso&&<p key={aviso.n} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
-   {sello&&<div key={sello} className="yq-sello" aria-hidden="true"><Sello texto="Creación forjada" runa="/arte/runas/forja.png" celebrar/></div>}
+   {/* Aviso y sello pueden nacer en el mismo milisegundo (al forjar): claves con prefijo para que no choquen. */}
+   {aviso&&<p key={`aviso:${aviso.n}`} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
+   {sello&&<div key={`sello:${sello}`} className="yq-sello" aria-hidden="true"><Sello texto="Creación forjada" runa="/arte/runas/forja.png" celebrar/></div>}
   </section>
   <aside className="yq-panel yq-arena" aria-label="Arena de dolls">
    <h2><IconoYugen id="espada" size={18}/>Arena de dolls</h2>

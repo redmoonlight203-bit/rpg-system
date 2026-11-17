@@ -118,7 +118,7 @@
 /* ── Nodos ── */
 .yq-taller .yq-nodo-pos{position:absolute;left:0;top:0;z-index:1;transition:opacity .18s ease}
 .yq-taller .yq-nodo-pos.is-encima{z-index:5}
-.yq-taller .yq-nodo-pos.is-arrastrado{z-index:6;will-change:transform}
+.yq-taller .yq-nodo-pos.is-arrastrado{z-index:6}
 .yq-taller .yq-nodo-pos.is-arrastrado .yq-nodo{box-shadow:0 0 0 1px var(--color-arcane),0 30px 60px -18px #000;cursor:grabbing}
 .yq-taller .yq-lienzo.is-cableando .yq-nodo-pos[data-cable=incompatible]{opacity:.3}
 .yq-taller .yq-nodo{position:relative;width:260px;color:var(--color-text);border:1px solid color-mix(in srgb,var(--yq-tinte) 38%,var(--color-line));border-radius:3px;

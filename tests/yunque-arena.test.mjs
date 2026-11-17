@@ -57,7 +57,9 @@ test('usar una acción de daño baja la vida del saco y el saco nunca actúa',()
  const c=arena(b);
  const n=A.usar(c,'equipo:mano_der:e-estocada','saco',()=>3);
  assert.equal(m(n,'saco').vida,60-(3+3+2));
- assert.equal(n.actual,'doll');assert.equal(n.ronda,c.ronda+1);assert.equal(m(n,'doll').accion_usada,false);
+ // Como en el combate: la acción no termina el turno; el doll conserva su movimiento.
+ assert.equal(n.actual,'doll');assert.equal(n.ronda,c.ronda);assert.equal(m(n,'doll').accion_usada,true);
+ assert.throws(()=>A.usar(n,'equipo:mano_der:e-estocada','saco',()=>3),/Ya utilizó su acción/);
  const nuevas=n.registro.slice(0,n.registro.length-c.registro.length);
  assert.equal(nuevas.filter(l=>/: coste \d+ PH/.test(l)).length,1,'solo actúa el portador');
  assert.ok(!nuevas.some(l=>l.startsWith('Saco de golpes ·')||/Golpéame/.test(l)));
@@ -268,16 +270,17 @@ test('empujes y movimiento del doll siguen las reglas del tablero',()=>{
  const c=arena(b);
  const n=A.usar(c,ESTOCADA,'saco',()=>3,false,pos(c,'saco'));
  assert.deepEqual(pos(n,'saco'),{x:5,y:3},'empujado dos casillas');
- // Ahora el saco está lejos: hay que acercarse con «Mover».
- assert.throws(()=>A.usar(n,ESTOCADA,'saco',()=>3,false,pos(n,'saco')),/fuera del alcance/);
- const alcanzables=casillasAlcanzables(n,'doll');
+ // Ahora el saco está lejos: en el turno siguiente hay que acercarse con «Mover».
+ const t=A.turno(n);
+ assert.throws(()=>A.usar(t,ESTOCADA,'saco',()=>3,false,pos(t,'saco')),/fuera del alcance/);
+ const alcanzables=casillasAlcanzables(t,'doll');
  assert.ok(alcanzables['4,3']>0);
- const cerca=A.mover(n,{x:4,y:3});
+ const cerca=A.mover(t,{x:4,y:3});
  assert.deepEqual(pos(cerca,'doll'),{x:4,y:3});
  assert.equal(m(cerca,'doll').accion_usada,false);assert.equal(cerca.actual,'doll');
  assert.ok(m(A.usar(cerca,ESTOCADA,'saco',()=>3,false,pos(cerca,'saco')),'saco').vida<60);
  assert.deepEqual(pos(deshacer(cerca),'doll'),{x:2,y:3},'mover se deshace');
- assert.throws(()=>A.mover(n,{x:5,y:3}),/ocupada|fuera/);
+ assert.throws(()=>A.mover(t,{x:5,y:3}),/ocupada|fuera/);
 });
 
 test('cada saco a 0 de vida se recompone',()=>{
@@ -287,4 +290,28 @@ test('cada saco a 0 de vida se recompone',()=>{
  assert.equal(n.fase,'en_curso');
  assert.equal(m(n,'saco').vida,5);assert.equal(m(n,'saco-2').vida,5);
  assert.ok(n.registro.includes('El saco se recompone.')&&n.registro.includes('El saco 2 se recompone.'));
+});
+
+test('flujo de turno del combate: actuar, moverse con lo que queda y «Terminar turno»',()=>{
+ const b=clon(F.objeto);
+ const c=A.agregarSaco(arena(b));
+ const golpe=A.usar(c,ESTOCADA,'saco',()=>3,false,pos(c,'saco'));
+ assert.equal(golpe.actual,'doll');assert.equal(m(golpe,'doll').accion_usada,true);
+ assert.ok(A.activados(c,golpe,aGrafo(b,ctxGrafo)).includes('accion:e-estocada'),'el nodo se enciende al actuar');
+ const quedan=casillasAlcanzables(golpe,'doll');
+ assert.ok(Object.keys(quedan).length>0,'tras actuar aún puede moverse');
+ const movido=A.mover(golpe,{x:2,y:5});
+ assert.deepEqual(pos(movido,'doll'),{x:2,y:5});assert.equal(movido.actual,'doll');
+ // «Terminar turno»: los dos sacos pasan sin actuar y el doll vuelve con su acción y su movimiento.
+ const fin=A.turno(movido);
+ assert.equal(fin.actual,'doll');assert.equal(fin.ronda,c.ronda+1);
+ assert.equal(m(fin,'doll').accion_usada,false);
+ assert.ok(Object.keys(casillasAlcanzables(fin,'doll')).length>Object.keys(casillasAlcanzables(movido,'doll')).length,'movimiento renovado');
+ const nuevas=fin.registro.slice(0,fin.registro.length-movido.registro.length);
+ assert.ok(!nuevas.some(l=>/recibe|Golpéame|Saco de golpes( \d)? · /.test(l)),nuevas.join(' | '));
+ assert.equal(m(fin,'doll').vida,m(movido,'doll').vida);
+ // Cada paso se deshace por separado.
+ assert.equal(deshacer(fin).actual,'doll');assert.deepEqual(pos(deshacer(fin),'doll'),{x:2,y:5});
+ assert.deepEqual(pos(deshacer(movido),'doll'),pos(golpe,'doll'));
+ assert.equal(m(deshacer(golpe),'doll').accion_usada,false);
 });

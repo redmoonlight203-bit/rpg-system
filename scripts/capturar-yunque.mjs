@@ -64,6 +64,8 @@ try{
   return json({});};
  const ctx=await contexto(ANCHO,ALTO);
  const pagina=await ctx.newPage();const errores=[];pagina.on('pageerror',e=>errores.push(e.message));
+ // Los errores de consola (claves repetidas, hidratación…) también cuentan; el websocket de Supabase de mentira no.
+ pagina.on('console',m=>{if(m.type()==='error'&&!/WebSocket|realtime/i.test(m.text()))errores.push('consola: '+m.text().slice(0,200));});
  const r=await abrirYunque(pagina).catch(e=>{fallos.push('No se pudo abrir la página: '+e.message);return null;});
  comprobar(!!r&&r.ok(),`la ruta /dm/forja responde (${r?.status()})`);
  if(r&&r.ok()){
@@ -338,6 +340,8 @@ try{
   const ranura=nombre=>arena.locator('.tactical-slots button',{hasText:nombre}).first();
   comprobar(await ranura('Tajo de brasas').count()===1,'la barra de acciones ofrece «Tajo de brasas»');
   const confirmar=()=>arena.getByRole('button',{name:'Confirmar acción'}).click({timeout:3000}).catch(()=>{});
+  const terminar=async()=>{await arena.getByRole('button',{name:'Terminar turno'}).click({timeout:3000}).catch(()=>{});await pagina.waitForTimeout(200);};
+  const estadoAccion=()=>arena.locator('.tactical-tabs>span').textContent().catch(()=>'');
   const sacoAntes=await vidaDe('Saco de golpes');
   let sacoDespues=sacoAntes,encendido=false;
   for(let k=0;k<4&&!(sacoDespues<sacoAntes);k++){
@@ -346,6 +350,7 @@ try{
    await confirmar();await pagina.waitForTimeout(150);
    encendido||=await pagina.locator(`[data-nodo="${tajo}"][data-encendido="true"]`).count()===1;
    sacoDespues=await vidaDe('Saco de golpes');
+   if(!(sacoDespues<sacoAntes))await terminar();// falló: como en el combate, se termina el turno y se vuelve a intentar
   }
   comprobar(sacoDespues<sacoAntes,`elegir «Tajo de brasas», tocar el saco y confirmar baja su vida (${sacoAntes} → ${sacoDespues})`);
   comprobar(encendido,'el nodo de la acción usada se enciende (data-encendido="true")');
@@ -369,6 +374,11 @@ try{
   await ranura('Mover').click().catch(()=>{});
   await arena.getByRole('button',{name:'Deshacer'}).click().catch(()=>{});await pagina.waitForTimeout(250);
   comprobar(await casillaDe('Doll portador')===dollCasilla,'«Deshacer» devuelve al doll a su casilla');
+  // Como en el combate: actuar no termina el turno (el doll se movió después); «Terminar turno» pasa a los sacos y vuelve al doll.
+  const antesTerminar=await estadoAccion();
+  await terminar();
+  const trasTerminar=await estadoAccion();
+  comprobar(/utilizada/i.test(antesTerminar||'')&&/1 acción disponible/.test(trasTerminar||'')&&/Ronda \d+ · Turno de Doll portador/.test(await arena.locator('.yq-arena-registro li').first().textContent().catch(()=>'')||''),`actuar no termina el turno; «Terminar turno» devuelve la acción al doll (${antesTerminar} → ${trasTerminar})`);
   // Área: «Tajo de brasas» pasa a círculo de radio 2; con un segundo saco, un solo golpe alcanza a los dos.
   const grupoModulos=pagina.locator('.yq-grimorio [data-grimorio="modulos"] h3 button');
   if(await grupoModulos.getAttribute('aria-expanded').catch(()=>null)==='false')await grupoModulos.click().catch(()=>{});
@@ -389,6 +399,7 @@ try{
    if(k===0)await pagina.screenshot({path:`${SALIDA}/yunque-arena-area-${ANCHO}.png`});
    await confirmar();await pagina.waitForTimeout(200);
    areaDespues=[await vidaDe('Saco de golpes'),await vidaDe('Saco de golpes 2')];
+   if(!(areaDespues[0]<areaAntes[0]&&areaDespues[1]<areaAntes[1]))await terminar();
   }
   const vozArea=await arena.locator('.yq-arena-kuroi').textContent().catch(()=>'');
   comprobar(areaDespues[0]<areaAntes[0]&&areaDespues[1]<areaAntes[1],`el área alcanza a los dos sacos (${areaAntes} → ${areaDespues})${vozArea?' · '+vozArea:''}`);

@@ -134,15 +134,16 @@ function unPaso(antes:Combate,despues:Combate,visual:Combate):Combate{
 }
 /**
  * Acción del portador, por el mismo `actuar` que el combate de la app (con la casilla apuntada para áreas y
- * movimientos del lanzador); tras ella pasan los turnos de los sacos.
+ * movimientos del lanzador). Como en el combate, el turno sigue: el doll puede moverse con lo que le quede y el
+ * turno termina con «Terminar turno» (`turno`). Solo si el motor ya pasó el turno a un saco, los sacos pasan solos.
  */
 export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dadoSeguro,forzar=false,centro?:Posicion):Combate{
  const hecho=actuar(c,DOLL,accionId,objetivo,rng,forzar,centro);
  recomponer(hecho);
- const n=hecho.fase==='en_curso'&&hecho.actual===DOLL?pasarSaco(siguiente(hecho,rng),rng):pasarSaco(hecho,rng);
+ const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng):hecho;
  return unPaso(c,n,hecho);
 }
-/** «Turno»: el portador pasa sin actuar; el saco pasa también y vuelve a tocarle al portador. Un único paso de deshacer. */
+/** «Terminar turno» (`siguiente`, como en el combate): los sacos pasan sin actuar y vuelve a tocarle al portador. Un único paso de deshacer. */
 export function turno(c:Combate,rng:RNG=dadoSeguro):Combate{
  const n=pasarSaco(siguiente(c,rng),rng);
  return unPaso(c,n,n);

@@ -253,7 +253,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    <BarraCombate actor={{...portador,ph:phDisponibles(portador),derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(portador),max_vida:maxVida(portador),imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
     acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(portador.motor?.proximos[a.regla]||0)-portador.turnos):portador.cooldowns[a.id]||0}))}
     seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setMoviendo(false);setColocando(false);}}
-    onResolver={resolver} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>limpiarJugada())}
+    onResolver={resolver} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>{limpiarJugada();setForzar(false);})}
     onInventario={abrirAjustes} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):miembro(c,destino)?.nombre}
     puede={portador.vida>0&&c.actual===DOLL} ocupado={false} moviendo={moviendo} onMovimiento={()=>{setMoviendo(v=>!v);setColocando(false);}}
     movimiento={movimientoRestante(portador)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados} resultado={c.evento_visual?.resultado}
