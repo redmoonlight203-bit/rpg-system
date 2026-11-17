@@ -266,3 +266,5 @@
  .yq-taller .yq-fichas button:hover,.yq-taller .yq-cartas button:hover,.yq-taller .yq-grimorio-piezas button:hover,.yq-taller .yq-forjar-rapido button:hover{transform:none}
 }
 .yugen-page .yq-taller .yq-campo input::placeholder{color:var(--color-text-muted);opacity:.55;font-family:var(--font-sans);font-weight:400;letter-spacing:0;font-size:15px}
+.yq-taller .yq-nodo:focus{outline:none}
+.yq-taller .yq-nodo:focus-visible{outline:2px solid var(--color-arcane);outline-offset:4px;box-shadow:0 0 0 1px color-mix(in srgb,var(--color-arcane) 55%,transparent),0 0 32px -2px color-mix(in srgb,var(--color-arcane) 55%,transparent),0 24px 50px -24px #000}

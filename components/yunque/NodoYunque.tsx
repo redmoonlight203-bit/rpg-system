@@ -28,7 +28,7 @@ export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=fals
  const familia=familiaDe(nodo.tipo),outs=salidas(nodo),entrada=nodo.puertos.find(p=>p.lado==='entrada');
  const editable=nodo.tipo!=='nucleo'&&nodo.tipo!=='vinculo';
  const duplicable=['accion','cuando','pasiva','entonces'].includes(nodo.tipo)||(nodo.tipo==='si'&&!(nodo.ruta.length===3&&nodo.ruta[2]==='condicion'));
- return <article data-nodo={nodo.id} data-familia={familia} aria-label={`${NOMBRE_TIPO[nodo.tipo]}: ${nodo.titulo}`} aria-current={seleccionado||undefined}
+ return <article data-nodo={nodo.id} data-familia={familia} aria-label={`${NOMBRE_TIPO[nodo.tipo]}: ${nodo.titulo}`} aria-current={seleccionado||undefined} tabIndex={0}
   className={['yq-nodo',`yq-nodo--${familia}`,seleccionado&&'is-seleccionado',encendido&&'is-encendido',nuevo&&'is-nuevo',nodo.error&&'is-error'].filter(Boolean).join(' ')}>
   <svg className="yq-nodo-esquina is-ti" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 17V7Q1 1 7 1h10" fill="none" stroke="currentColor" strokeWidth="1.2"/><rect x="2.4" y="2.4" width="3" height="3" transform="rotate(45 3.9 3.9)" fill="currentColor"/></svg>
   <svg className="yq-nodo-esquina is-bd" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 17V7Q1 1 7 1h10" fill="none" stroke="currentColor" strokeWidth="1.2"/><rect x="2.4" y="2.4" width="3" height="3" transform="rotate(45 3.9 3.9)" fill="currentColor"/></svg>

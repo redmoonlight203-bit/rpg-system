@@ -42,6 +42,19 @@ try{
   comprobar(await nucleo.count()===1,'existe el nodo núcleo');
   await pagina.waitForTimeout(600);
   await pagina.screenshot({path:`${SALIDA}/yunque-inicio-${ANCHO}.png`});
+  // Teclado: Tab llega a un nodo (no elegido) e Intro lo elige.
+  await pagina.locator('.yq-indice button').last().focus();
+  let alcanzado=null;
+  for(let k=0;k<120&&!alcanzado;k++){
+   await pagina.keyboard.press('Tab');
+   alcanzado=await pagina.evaluate(()=>{const a=document.activeElement;return a?.matches('.yq-nodo[data-nodo]:not([aria-current])')?a.getAttribute('data-nodo'):null;});
+  }
+  comprobar(!!alcanzado,`Tab llega a un nodo del lienzo (${alcanzado})`);
+  if(alcanzado){
+   await pagina.keyboard.press('Enter');await pagina.waitForTimeout(250);
+   comprobar(await pagina.locator(`[data-nodo="${alcanzado}"][aria-current="true"]`).count()===1,'Intro elige el nodo enfocado');
+   await pagina.screenshot({path:`${SALIDA}/yunque-teclado-${ANCHO}.png`});
+  }
   // Elegir familia «Espadas» para que el núcleo muestre medallones.
   await nucleo.click({position:{x:120,y:16}}).catch(()=>{});
   const familia=pagina.getByRole('button',{name:'Espadas',exact:true});

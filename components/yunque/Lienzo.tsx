@@ -1,7 +1,7 @@
 'use client';
 // Lienzo del Yunque: desplazar arrastrando el fondo, zoom con la rueda (0.4–2) alrededor del cursor,
 // nodos que se arrastran con transform y cables Bézier que se dibujan arrastrando desde un puerto de salida.
-import {useCallback,useEffect,useMemo,useRef,useState,type PointerEvent as PE,type ReactNode} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState,type PointerEvent as PE,type KeyboardEvent,type FocusEvent,type ReactNode} from 'react';
 import {Maximize,Minus,Plus,X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import NodoYunque,{familiaDe,puertoLocal,ICONO_TIPO,NOMBRE_TIPO,type Familia} from './NodoYunque';
@@ -176,6 +176,20 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   else if(g.tipo==='nodo')setArrastre({id:g.id!,p:{x:Math.round(g.base.x+dx/vista.z),y:Math.round(g.base.y+dy/vista.z)}});
   else setCable(c=>c&&{...c,hasta:aMundo(e.clientX,e.clientY)});
  }
+ /** Un gesto cancelado (el sistema roba el puntero) no se trata como soltar: se descarta sin efectos. */
+ function cancelar(e:PE<HTMLDivElement>){
+  gesto.current=null;
+  if(caja.current?.hasPointerCapture(e.pointerId))caja.current.releasePointerCapture(e.pointerId);
+  setArrastre(null);setCable(null);setDesplazando(false);
+ }
+ /** Teclado: Tab llega a cada nodo; Intro o Espacio sobre el nodo lo elige (y la vista lo sigue). */
+ const nodoDe=(t:EventTarget)=>t instanceof HTMLElement&&t.matches('.yq-nodo[data-nodo]')?t.dataset.nodo!:null;
+ function tecla(e:KeyboardEvent<HTMLDivElement>){
+  const id=nodoDe(e.target);
+  if(id&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(seleccion!==id)onSeleccionar(id);else asegurarVisible(id);}
+  if(e.key==='Escape'&&menu)setMenu(null);
+ }
+ function enfocar(e:FocusEvent<HTMLDivElement>){const id=nodoDe(e.target);if(id)requestAnimationFrame(()=>asegurarVisible(id));}
  function arriba(e:PE<HTMLDivElement>){
   const g=gesto.current;gesto.current=null;if(!g)return;
   if(caja.current?.hasPointerCapture(e.pointerId))caja.current.releasePointerCapture(e.pointerId);
@@ -197,12 +211,12 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
 
  return <div ref={caja} className={`yq-lienzo${cable?' is-cableando':''}${desplazando?' is-desplazando':''}`}
   style={{['--yq-x' as string]:`${vista.x}px`,['--yq-y' as string]:`${vista.y}px`,['--yq-z' as string]:vista.z}}
-  onPointerDown={abajo} onPointerMove={mover} onPointerUp={arriba} onPointerCancel={arriba}
+  onPointerDown={abajo} onPointerMove={mover} onPointerUp={arriba} onPointerCancel={cancelar} onKeyDown={tecla} onFocus={enfocar}
   role="region" aria-label="Lienzo de nodos del Yunque" aria-roledescription="lienzo">
   <div className="yq-lienzo-rejilla" aria-hidden="true"/>
   <div className="yq-lienzo-vineta" aria-hidden="true"/>
   <div className="yq-brasas" aria-hidden="true">{BRASAS.map((b,i)=><span key={i} style={{left:`${b.x}%`,width:b.s,height:b.s,animationDuration:`${b.d}s`,animationDelay:`${b.r}s`}}/>)}</div>
-  <div className={`yq-mundo${suave?' is-suave':''}`} style={{transform:`translate(${vista.x}px,${vista.y}px) scale(${vista.z})`}} onTransitionEnd={()=>setSuave(false)}>
+  <div className={`yq-mundo${suave?' is-suave':''}`} style={{transform:`translate(${vista.x}px,${vista.y}px) scale(${vista.z})`}} onTransitionEnd={e=>{if(e.target===e.currentTarget&&e.propertyName==='transform')setSuave(false);}}>
    <svg className="yq-cables" width="1" height="1" aria-hidden="true">
     <defs>{grafo.cables.map(c=>{
      const a=porId.get(c.desde.nodo),b=porId.get(c.hasta.nodo),pa=pos(c.desde.nodo),pb=pos(c.hasta.nodo);if(!a||!b||!pa||!pb)return null;
