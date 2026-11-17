@@ -22,9 +22,13 @@ function filtrar(tabla,url){let filas=tablas[tabla];if(!filas)return [];
 const fallos=[];const comprobar=(ok,msg)=>{console.log(`${ok?'✓':'✗'} ${msg}`);if(!ok)fallos.push(msg);};
 const navegador=await chromium.launch();
 try{
- const ctx=await navegador.newContext({viewport:{width:ANCHO,height:ALTO},deviceScaleFactor:1,reducedMotion:process.env.REDUCIDO==='1'?'reduce':'no-preference'});
- await ctx.addInitScript(s=>{localStorage.setItem('sb-ejemplo-auth-token',s);},JSON.stringify(sesion));
- await ctx.route('https://ejemplo.supabase.co/**',async route=>{const req=route.request(),url=new URL(req.url());const p=url.pathname;
+ const contexto=async(width,height)=>{
+  const c=await navegador.newContext({viewport:{width,height},deviceScaleFactor:1,reducedMotion:process.env.REDUCIDO==='1'?'reduce':'no-preference'});
+  await c.addInitScript(s=>{localStorage.setItem('sb-ejemplo-auth-token',s);},JSON.stringify(sesion));
+  await c.route('https://ejemplo.supabase.co/**',interceptar);
+  return c;
+ };
+ const interceptar=async route=>{const req=route.request(),url=new URL(req.url());const p=url.pathname;
   const json=(b,s=200)=>route.fulfill({status:s,contentType:'application/json',headers:{'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*','content-range':'0-0/*'},body:JSON.stringify(b)});
   if(req.method()==='OPTIONS')return json({});
   if(p.startsWith('/auth/v1/user'))return json(user);
@@ -32,7 +36,8 @@ try{
   if(p.startsWith('/rest/v1/rpc/'))return json(null);
   if(p.startsWith('/rest/v1/')){const t=p.split('/').pop();const filas=req.method()==='GET'||req.method()==='HEAD'?filtrar(t,url):[];
    const uno=(req.headers()['accept']||'').includes('vnd.pgrst.object');return json(uno?(filas[0]??null):filas);}
-  return json({});});
+  return json({});};
+ const ctx=await contexto(ANCHO,ALTO);
  const pagina=await ctx.newPage();const errores=[];pagina.on('pageerror',e=>errores.push(e.message));
  const r=await pagina.goto(BASE+'/dm/forja/taller',{waitUntil:'networkidle',timeout:90000}).catch(e=>{fallos.push('No se pudo abrir la página: '+e.message);return null;});
  comprobar(!!r&&r.ok(),`la ruta /dm/forja/taller responde (${r?.status()})`);
@@ -140,7 +145,8 @@ try{
   const busqueda=pagina.getByLabel('Buscar en el Grimorio');
   const vacio=()=>pagina.evaluate(()=>{const l=document.querySelector('.yq-lienzo').getBoundingClientRect();
    for(let fy=.7;fy>.1;fy-=.07)for(let fx=.08;fx<.9;fx+=.07){const x=l.left+l.width*fx,y=l.top+l.height*fy;
-    if(!document.elementsFromPoint(x,y).some(e=>e.closest('.yq-nodo-pos,.yq-lienzo-barra,.yq-aviso,.yq-menu-forja')))return {x,y};}return null;});
+    // Con margen: al arrastrar, los nodos compatibles crecen un poco y no deben quedar bajo el cursor.
+    if([[0,0],[-28,0],[28,0],[0,-28],[0,28]].every(([dx,dy])=>!document.elementsFromPoint(x+dx,y+dy).some(e=>e.closest('.yq-nodo-pos,.yq-lienzo-barra,.yq-aviso,.yq-menu-forja'))))return {x,y};}return null;});
   /** Centro de la cabecera de un nodo; si queda fuera de la vista, se elige desde el índice para traerlo. */
   const visible=async id=>{
    const caja=await pagina.locator(`[data-nodo="${id}"]`).boundingBox().catch(()=>null),l=await pagina.locator('.yq-lienzo').boundingBox();
@@ -247,8 +253,58 @@ try{
    const vivas=await pagina.evaluate(()=>document.getAnimations().filter(a=>a.effect?.target?.closest?.('.yq-taller')).length);
    comprobar(vivas===0,`con movimiento reducido no hay animaciones en el taller (${vivas})`);
   }
+  // Tarea 9: un personaje con la figura de su raza; equipar una espada desde la Colección; Ficha; vista de lista.
+  await pagina.locator('.yq-indice [data-indice="nucleo"]').click();await pagina.waitForTimeout(450);
+  await pagina.locator('[data-nodo="nucleo"] .yq-cartas button',{hasText:'Personaje'}).first().click().catch(()=>{});await pagina.waitForTimeout(300);
+  const humano=pagina.locator('[data-nodo="nucleo"] .yq-fichas button',{hasText:/^Humano$/});
+  if(await humano.count())await humano.first().click();
+  await pagina.locator('.yq-indice [data-indice="nucleo"]').click();await pagina.waitForTimeout(500);
+  comprobar(await pagina.locator('[data-nodo="nucleo"] .yq-maniqui [data-hueco="mano_der"]').count()===1,'el núcleo del personaje muestra su figura con huecos de equipo');
+  comprobar(await pagina.locator('.yq-grimorio [data-pieza="vinculo:f1"]').count()===1,'la Colección ofrece «Espada de ceniza» para enlazar');
+  const equipada=await arrastrar('vinculo:f1','ceniza',async()=>{const c=await pagina.locator('[data-nodo="nucleo"] [data-hueco="mano_der"]').boundingBox();return c&&{x:c.x+c.width/2,y:c.y+c.height/2};},'yunque-equipar');
+  comprobar(equipada&&await pagina.locator('[data-nodo="vinculo:mano_der:f1"]').count()===1,'arrastrar la espada al hueco de la mano derecha crea vinculo:mano_der:f1');
+  comprobar(await pagina.locator('[data-nodo="nucleo"] [data-hueco="mano_der"].is-lleno').count()===1,'el hueco de la mano derecha queda lleno');
+  await pagina.waitForTimeout(300);
+  await pagina.screenshot({path:`${SALIDA}/yunque-personaje-${ANCHO}.png`});
+  // Cajón Ficha: se abre con el foco dentro, guarda la descripción y se cierra con Escape.
+  const botonFicha=pagina.locator('.yq-barra-ficha');
+  await botonFicha.click();await pagina.waitForTimeout(400);
+  const cajon=pagina.locator('.yq-cajon.is-abierto');
+  const focoDentro=await pagina.evaluate(()=>!!document.activeElement?.closest('.yq-cajon'));
+  comprobar(await cajon.count()===1&&focoDentro,'«Ficha» abre el cajón con el foco dentro');
+  await cajon.getByLabel('Descripción').fill('Un guardián de ceniza.').catch(()=>{});
+  await pagina.screenshot({path:`${SALIDA}/yunque-ficha-${ANCHO}.png`});
+  await pagina.keyboard.press('Escape');await pagina.waitForTimeout(400);
+  const cerrada=await pagina.locator('.yq-cajon.is-abierto').count()===0&&await botonFicha.getAttribute('aria-expanded')==='false';
+  await botonFicha.click();await pagina.waitForTimeout(300);
+  const guardada=await pagina.locator('.yq-cajon').getByLabel('Descripción').inputValue().catch(()=>'');
+  comprobar(cerrada&&guardada==='Un guardián de ceniza.',`Escape cierra la Ficha y la descripción se conserva (${guardada})`);
+  await pagina.keyboard.press('Escape');await pagina.waitForTimeout(300);
+  // Conmutador Lienzo/Lista: la lista muestra los mismos nodos como bloques editables.
+  await pagina.locator('.yq-conmutador-vista').getByRole('button',{name:'Lista'}).click();await pagina.waitForTimeout(400);
+  comprobar(await pagina.locator('.yq-vlista [data-bloque="vinculo:mano_der:f1"]').count()===1&&await pagina.locator('.yq-vlista [data-bloque]').count()===await pagina.locator('.yq-indice [data-indice]').count(),'la vista de lista tiene un bloque por nodo');
+  const bloqueVinculo=pagina.locator('[data-bloque="vinculo:mano_der:f1"] .yq-bloque-boton');
+  if(await bloqueVinculo.getAttribute('aria-expanded')!=='true')await bloqueVinculo.click();await pagina.waitForTimeout(300);
+  comprobar(await pagina.locator('[data-bloque="vinculo:mano_der:f1"]').getByRole('button',{name:'Desenlazar'}).count()===1,'el bloque del vínculo abre su editor');
+  await pagina.screenshot({path:`${SALIDA}/yunque-lista-${ANCHO}.png`});
   const desborde=await pagina.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   comprobar(desborde<=0,`sin desborde horizontal (${desborde}px)`);
+  // A 390 px la lista es la vista por defecto y no hay desplazamiento horizontal, ni con el núcleo abierto.
+  const movil=await (await contexto(390,844)).newPage();movil.on('pageerror',e=>errores.push(e.message));
+  await movil.goto(BASE+'/dm/forja/taller',{waitUntil:'networkidle',timeout:90000}).catch(()=>{});
+  await movil.locator('.yq-vlista [data-bloque="nucleo"]').waitFor({timeout:20000}).catch(()=>{});
+  comprobar(await movil.locator('.yq-vlista').count()===1&&await movil.locator('.yq-lienzo').count()===0,'a 390 px se ve la lista por defecto');
+  const ancho390=await movil.evaluate(()=>document.documentElement.scrollWidth);
+  if(!await movil.locator('[data-bloque="nucleo"] .yq-bloque-boton[aria-expanded="true"]').count())await movil.locator('[data-bloque="nucleo"] .yq-bloque-boton').click().catch(()=>{});
+  await movil.waitForTimeout(400);
+  const ancho390Abierto=await movil.evaluate(()=>document.documentElement.scrollWidth);
+  comprobar(ancho390<=390&&ancho390Abierto<=390,`a 390 px sin desplazamiento horizontal (${ancho390} / ${ancho390Abierto} con el núcleo abierto)`);
+  // La página se desplaza dentro de su contenedor: se captura por tramos.
+  for(let k=0;k<4;k++){
+   await movil.screenshot({path:`${SALIDA}/yunque-lista-390${k?'-'+k:''}.png`});
+   const mas=await movil.evaluate(()=>{let e=document.querySelector('.yq-taller');while(e&&!(e.scrollHeight>e.clientHeight+4&&/(auto|scroll)/.test(getComputedStyle(e).overflowY)))e=e.parentElement;e??=document.scrollingElement;const antes=e.scrollTop;e.scrollTop+=e.clientHeight*.85;return e.scrollTop>antes;});
+   if(!mas)break;await movil.waitForTimeout(200);
+  }
  }
  comprobar(!errores.length,`sin errores de página${errores.length?': '+errores.slice(0,4).join(' | '):''}`);
 }finally{await navegador.close();}

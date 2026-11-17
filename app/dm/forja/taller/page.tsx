@@ -13,16 +13,17 @@ export default function TallerDePruebas(){
  useEffect(()=>{
   let vivo=true;
   void (async()=>{
-   const [c,a,f]=await Promise.all([supabase.from("categorias_forja").select("*").order("created_at"),supabase.from("config_estadisticas").select("*"),supabase.from("forja_maestra").select("*").order("created_at",{ascending:false})]);
+   const [c,a,f,n]=await Promise.all([supabase.from("categorias_forja").select("*").order("created_at"),supabase.from("config_estadisticas").select("*"),supabase.from("forja_maestra").select("*").order("created_at",{ascending:false}),supabase.from("naturalezas").select("id,nombre,descripcion,clave").order("nombre")]);
    if(!vivo)return;
    if(c.error||a.error||f.error)setError("No se pudo cargar el catálogo de la Forja. El lienzo funciona igual, sin familias.");
-   setCtx({categorias:c.data||[],atributos:a.data||[],creaciones:(f.data||[]) as Creacion[]});
+   setCtx({categorias:c.data||[],atributos:a.data||[],creaciones:(f.data||[]) as Creacion[],naturalezas:n.data||[]});
   })();
   return ()=>{vivo=false;};
  },[]);
  return <main className="yq-pagina">
   {ctx?<TallerYunque b={b} setB={setB} ctx={ctx} guardando={false} error={error}
-   onGuardar={()=>setError("Este es el taller de pruebas: aquí no se guarda nada. Forja desde La Forja.")}/>
+   onGuardar={()=>setError("Este es el taller de pruebas: aquí no se guarda nada. Forja desde La Forja.")}
+   crearDentro={tipo=>setError(`Aquí no se crea «${tipo}» dentro del personaje: el taller de pruebas no guarda. Hazlo desde La Forja.`)}/>
    :<p className="yq-cargando" role="status">Kuroi enciende la forja…</p>}
  </main>;
 }

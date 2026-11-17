@@ -17,6 +17,8 @@ type Props={
  /** Lo que el núcleo de esta creación puede llevar (filtra familias y piezas). */
  filtro:readonly TipoNodo[];
  creaciones?:Creacion[];excluir?:string;
+ /** Piezas para enlazar creaciones (personajes y monstruos); sus creaciones no se ofrecen además para copiar. */
+ enlazar?:Pieza[];
  /** `pantalla=null`: clic o teclado (sin posición). */
  onSoltar:(pieza:Pieza,pantalla:Punto|null)=>void;
  /** Mientras se arrastra (null al terminar o cancelar). */
@@ -24,16 +26,22 @@ type Props={
  pista?:PistaSoltar|null;
  children?:ReactNode;
 };
+const SIN_PIEZAS:Pieza[]=[];
 const normal=(s:string)=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 const tinte=(p:Pieza)=>p.familia==='coleccion'?'vinculo':familiaDe(p.tipo);
 
-export default function Grimorio({filtro,creaciones=[],excluir,onSoltar,onArrastrar,pista,children}:Props){
+export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZAS,onSoltar,onArrastrar,pista,children}:Props){
  const [busqueda,setBusqueda]=useState('');
- const [abiertas,setAbiertas]=useState<ReadonlySet<FamiliaGrimorio>>(()=>new Set(['acciones','eventos']));
+ // Familias abiertas: las que el GM abrió o cerró y, si no las tocó, acciones, eventos y (en personajes) la colección.
+ const [abiertas,setAbiertas]=useState<Partial<Record<FamiliaGrimorio,boolean>>>({});
+ const abiertaPorDefecto=(f:FamiliaGrimorio)=>f==='acciones'||f==='eventos'||(f==='coleccion'&&enlazar.length>0);
  const [flotante,setFlotante]=useState<{pieza:Pieza;x:number;y:number}|null>(null);
  const gesto=useRef<{pieza:Pieza;x0:number;y0:number;activo:boolean}|null>(null);
  const sinClic=useRef(false);
- const piezas=useMemo(()=>[...PIEZAS,...piezasColeccion(creaciones.filter(c=>c.id!==excluir&&c.estado!=='rechazado'),filtro)].filter(p=>piezaPermitida(p,filtro)),[creaciones,excluir,filtro]);
+ const piezas=useMemo(()=>{
+  const enlazadas=new Set(enlazar.map(p=>p.clave.slice('vinculo:'.length)));
+  return [...PIEZAS,...enlazar,...piezasColeccion(creaciones.filter(c=>c.id!==excluir&&c.estado!=='rechazado'&&!enlazadas.has(c.id)),filtro)].filter(p=>piezaPermitida(p,filtro));
+ },[creaciones,excluir,filtro,enlazar]);
  const q=normal(busqueda.trim());
  const grupos=FAMILIAS_GRIMORIO.map(f=>({...f,piezas:piezas.filter(p=>p.familia===f.clave&&(!q||normal(`${p.nombre} ${p.ayuda}`).includes(q)))})).filter(g=>g.piezas.length||(!q&&g.clave==='coleccion'&&filtro.length>0));
  const total=grupos.reduce((n,g)=>n+g.piezas.length,0);
@@ -66,7 +74,7 @@ export default function Grimorio({filtro,creaciones=[],excluir,onSoltar,onArrast
   onSoltar(g.pieza,{x:e.clientX,y:e.clientY});
  }
  function cancelar(){if(gesto.current?.activo){setFlotante(null);onArrastrar?.(null,null);}gesto.current=null;}
- const alternar=(f:FamiliaGrimorio)=>setAbiertas(s=>{const n=new Set(s);if(n.has(f))n.delete(f);else n.add(f);return n;});
+ const alternar=(f:FamiliaGrimorio)=>setAbiertas(s=>({...s,[f]:!(s[f]??abiertaPorDefecto(f))}));
 
  return <aside className="yq-panel yq-grimorio" aria-label="Grimorio">
   <h2><IconoYugen id="libro" size={18}/>Grimorio</h2>
@@ -76,7 +84,7 @@ export default function Grimorio({filtro,creaciones=[],excluir,onSoltar,onArrast
   {q&&!total&&<p className="yq-panel-voz">Kuroi no encuentra «{busqueda}» en el Grimorio.</p>}
   <div className="yq-familias">
    {grupos.map(g=>{
-    const abierta=!!q||abiertas.has(g.clave);
+    const abierta=!!q||(abiertas[g.clave]??abiertaPorDefecto(g.clave));
     const muestra=g.piezas[0];
     return <section key={g.clave} className="yq-familia" data-familia={muestra?tinte(muestra):'vinculo'} data-grimorio={g.clave}>
      <h3><button type="button" aria-expanded={abierta} onClick={()=>alternar(g.clave)}>

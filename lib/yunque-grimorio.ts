@@ -4,6 +4,7 @@ import {EVENTOS,EFECTOS_REGLA,nuevaRegla,receta,type Regla,type EfectoRegla,type
 import type {ReglaPasiva} from "./pasivas";
 import {aGrafo,leerRuta,type Nodo,type Ruta,type TipoNodo} from "./yunque-grafo";
 import {aplicar,type Fragmento,type Operacion} from "./yunque-operaciones";
+import type {Enlazable} from "./yunque-vinculos";
 /**
  * Piezas del Grimorio del Yunque y qué operaciones produce soltarlas en el lienzo. Puro: nunca toca el Borrador;
  * `planSoltar` devuelve las `Operacion` que el taller pasa a `aplicar` (o `null` si la pieza queda sin conectar).
@@ -145,6 +146,17 @@ export function piezasColeccion(creaciones:Pick<Creacion,'id'|'nombre'|'tipo_cre
  });
 }
 
+const AYUDA_ENLACE:Record<string,string>={objeto:'Equipo',titulo:'Título',habilidad:'Habilidad',pasiva:'Pasiva'};
+/** Creaciones enlazables (objetos, títulos, habilidades, pasivas) como piezas «vínculo» para personajes y monstruos. */
+export function piezasVinculo(items:(Enlazable&{icono?:string|null;clase?:string})[]):Pieza[]{
+ return items.filter(c=>AYUDA_ENLACE[c.tipo]).map(c=>({clave:'vinculo:'+c.id,familia:'coleccion' as const,tipo:'vinculo' as TipoNodo,nombre:c.nombre||'Sin nombre',
+  ayuda:`${AYUDA_ENLACE[c.tipo]}${c.tipo==='objeto'&&c.slot_tipo&&c.slot_tipo!=='ninguno'?' · '+(NOMBRE_RANURA[c.slot_tipo]??c.slot_tipo):''}${c.clase?' · clase '+c.clase:''}`,
+  icono:c.icono||ICONO_COLECCION[c.tipo]||'yugen',fragmentos:[{tipo:'vinculo' as TipoNodo,datos:{id:c.id,nombre:c.nombre,tipo:c.tipo,slot_tipo:c.slot_tipo}}]}));
+}
+const NOMBRE_RANURA:Record<string,string>={mano:'una mano',dos_manos:'dos manos',casco:'cabeza',pechera:'torso',pantalones:'piernas',zapatos:'botas',capa:'capa',accesorio:'accesorio'};
+/** La creación que enlaza una pieza «vínculo» (o `null` si la pieza es de otra clase). */
+export const enlazableDe=(p:Pieza):Enlazable|null=>p.tipo==='vinculo'&&p.fragmentos[0]?.tipo==='vinculo'?p.fragmentos[0].datos as Enlazable:null;
+
 // ---- Soltar ----
 export type Destino={nodo:string;puerto?:string};
 const leer=leerRuta;
@@ -185,6 +197,7 @@ function planEfecto(b:Borrador,n:Nodo,f:Fragmento,puerto?:string):Operacion[]{
  * (quedan «sin conectar»). Lanza `Error` si ese destino no admite la pieza.
  */
 export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacion[]|null{
+ if(pieza.tipo==='vinculo')falla('Las creaciones de la colección se enlazan con planEnlazar.');
  const enNucleo=!destino||destino.nodo==='nucleo';
  const n=enNucleo?null:aGrafo(b,{creaciones:[]}).nodos.find(x=>x.id===destino!.nodo)??falla('Ese nodo ya no existe.');
  if(pieza.fragmentos.length!==1||pieza.familia==='plantillas'||pieza.familia==='coleccion'){

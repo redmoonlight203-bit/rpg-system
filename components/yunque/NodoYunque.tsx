@@ -27,7 +27,7 @@ type Props={nodo:Nodo;seleccionado:boolean;encendido?:boolean;nuevo?:boolean;ico
 export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=false,icono,conectados,pie,onOperar,children}:Props){
  const familia=familiaDe(nodo.tipo),outs=salidas(nodo),entrada=nodo.puertos.find(p=>p.lado==='entrada');
  const suelto=nodo.id.startsWith('suelto:');
- const editable=nodo.tipo!=='nucleo'&&nodo.tipo!=='vinculo'&&!suelto;
+ const editable=nodo.tipo!=='nucleo'&&!suelto;
  const duplicable=['accion','cuando','pasiva','entonces'].includes(nodo.tipo)||(nodo.tipo==='si'&&!(nodo.ruta.length===3&&nodo.ruta[2]==='condicion'));
  return <article data-nodo={nodo.id} data-familia={familia} data-tipo={nodo.tipo} aria-label={`${NOMBRE_TIPO[nodo.tipo]}: ${nodo.titulo}${suelto?' (sin conectar)':''}`} aria-current={seleccionado||undefined} data-encendido={encendido||undefined} tabIndex={0}
   className={['yq-nodo',`yq-nodo--${familia}`,seleccionado&&'is-seleccionado',encendido&&'is-encendido',nuevo&&'is-nuevo',nodo.error&&'is-error',suelto&&'is-suelto'].filter(Boolean).join(' ')}>

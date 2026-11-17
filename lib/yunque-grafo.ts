@@ -1,5 +1,5 @@
 import type {Borrador} from "./yunque-borrador";
-import {EFECTOS_NOMBRE,validarEfectos,validarReaccion,type Efecto} from "./creacion";
+import {EFECTOS_NOMBRE,SLOTS,validarEfectos,validarReaccion,type Efecto} from "./creacion";
 import {EVENTOS,EFECTOS_REGLA,validarReglas,type Regla,type EfectoRegla,type CondicionRegla} from "./reglas";
 import {describirEfecto,describirRegla,describirReaccion,condicionClara} from "./descripciones";
 import {validarPasivas,EVENTOS_PASIVA,CONDICIONES_PASIVA} from "./pasivas";
@@ -92,7 +92,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  };
  b.habilidades.forEach((id,i)=>vincular('habilidad',id,['habilidades',i],'Habilidad'));
  b.pasivas.forEach((id,i)=>vincular('pasiva',id,['pasivas',i],'Pasiva'));
- for(const [slot,id] of Object.entries(b.equipamiento))if(id)vincular(slot,id,['equipamiento',slot],`Equipo · ${slot}`);
+ for(const [slot,id] of Object.entries(b.equipamiento))if(id)vincular(slot,id,['equipamiento',slot],`Equipo · ${SLOTS.find(x=>x.clave===slot)?.nombre??slot}`);
  // Invocación y requisitos
  if(b.invocacion){
   nodo('invocacion','invocacion',['invocacion'],'Invocación',`Modo ${b.invocacion.modo}, hasta clase ${b.invocacion.claseMaxima}, ${b.invocacion.duracionTurnos} turnos.`,null,[entrada(['nucleo','accion'])]);

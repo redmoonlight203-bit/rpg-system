@@ -237,7 +237,12 @@ export function aplicar(b:Borrador,o:Operacion):Borrador{
     case 'tabla_armas':delete e!.tabla_armas;e!.efecto='dano';return r;
     case 'invocacion':r.invocacion=null;return r;
     case 'requisitos':r.requisitos_uso={};return r;
-    case 'vinculo':return falla('Usa la colección para desenlazar creaciones.');
+    case 'vinculo':{
+     // Desenlazar: la creación sigue en La Creación; solo sale de la lista o del hueco de equipo.
+     if(n.ruta[0]==='equipamiento'){delete r.equipamiento[n.ruta[1] as string];return r;}
+     const l=enLista(n)??falla('No se puede quitar ese vínculo.');
+     (leer(r,l!.lista) as unknown[]).splice(l!.i,1);return r;
+    }
    }
    return falla('No se puede quitar ese nodo.');
   }

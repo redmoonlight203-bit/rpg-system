@@ -39,8 +39,8 @@ type Props={
 const Z_MIN=0.4,Z_MAX=2;
 const acotar=(z:number)=>Math.min(Z_MAX,Math.max(Z_MIN,z));
 /** Tipos que el menú de forja puede crear al soltar un cable en el vacío. */
-const AGREGABLES:TipoNodo[]=['accion','cuando','pasiva','invocacion','alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','si','entonces'];
-const AYUDA:Partial<Record<TipoNodo,string>>={accion:'Algo que se usa en el turno',cuando:'Una regla que reacciona a un evento',pasiva:'Un efecto que funciona solo',invocacion:'Traer a una criatura',alcance:'Distancia y área en el tablero',salvacion:'El objetivo tira para resistir',estado:'Veneno, quemadura, aturdir…',reaccion:'Defensa al recibir daño',transformacion:'Cambia de forma por etapas',recurso:'Una reserva que sube o baja',vfx:'Cómo se ve al usarla',tabla_armas:'Un arma al azar por cara',si:'Una condición',entonces:'Un efecto de la regla'};
+export const AGREGABLES:TipoNodo[]=['accion','cuando','pasiva','invocacion','alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','si','entonces'];
+export const AYUDA:Partial<Record<TipoNodo,string>>={accion:'Algo que se usa en el turno',cuando:'Una regla que reacciona a un evento',pasiva:'Un efecto que funciona solo',invocacion:'Traer a una criatura',alcance:'Distancia y área en el tablero',salvacion:'El objetivo tira para resistir',estado:'Veneno, quemadura, aturdir…',reaccion:'Defensa al recibir daño',transformacion:'Cambia de forma por etapas',recurso:'Una reserva que sube o baja',vfx:'Cómo se ve al usarla',tabla_armas:'Un arma al azar por cara',si:'Una condición',entonces:'Un efecto de la regla'};
 const COLOR:Record<Familia,string>={nucleo:'var(--color-gold-bright)',accion:'var(--color-gold)',modulo:'var(--color-arcane)',regla:'var(--color-crimson)',pasiva:'var(--color-success-text)',vinculo:'var(--color-parchment)'};
 // Brasas deterministas (sin Math.random en el render).
 const BRASAS=Array.from({length:22},(_,i)=>({x:(i*37+11)%100,d:9+(i*7)%9,r:-((i*13)%17),s:2+(i%3)}));

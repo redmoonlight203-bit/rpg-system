@@ -1,13 +1,16 @@
 'use client';
 // Taller del Yunque: barra superior + tres paneles (grimorio, lienzo, arena). El Borrador es la única fuente
 // de verdad; cada gesto es una Operacion pura (`aplicar`) y sus errores se muestran como aviso, nunca rompen.
-import {useCallback,useEffect,useMemo,useRef,useState,type Dispatch,type SetStateAction} from 'react';
-import {Hammer} from 'lucide-react';
+import {useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore,type Dispatch,type SetStateAction} from 'react';
+import {BookOpen,Hammer,LayoutList,Workflow} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
-import {BarraVital,Runa} from '../ui/Juego';
+import {Runa} from '../ui/Juego';
 import Lienzo,{type ContenidoNodo,type GuiaPieza,type LienzoAPI} from './Lienzo';
 import Grimorio,{type PistaSoltar} from './Grimorio';
 import ArenaDolls from './ArenaDolls';
+import VistaLista from './VistaLista';
+import CajonFicha from './CajonFicha';
+import EditorVinculo,{FiguraEquipo,iconoEnlazable,idDeVinculo,type EnlazableVista} from './editores/EditorVinculo';
 import {NOMBRE_TIPO,familiaDe} from './NodoYunque';
 import EditorNucleo,{ICONO_CREACION} from './editores/EditorNucleo';
 import EditorAccion from './editores/EditorAccion';
@@ -16,11 +19,12 @@ import EditorSi from './editores/EditorSi';
 import EditorEntonces from './editores/EditorEntonces';
 import EditorPasivaNodo from './editores/EditorPasivaNodo';
 import EditorModulo from './editores/EditorModulo';
-import {claseDe,type ContextoTaller} from './contexto';
-import {CLASES_YUGEN,UMBRALES_CLASE} from '../../lib/clases';
+import {claseDe,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
+import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
 import type {CondicionRegla,EfectoRegla} from '../../lib/reglas';
-import {ICONO_EFECTO_REGLA,ICONO_EVENTO,planSoltar,probarSoltar,type Destino,type Pieza} from '../../lib/yunque-grimorio';
+import {ICONO_EFECTO_REGLA,ICONO_EVENTO,enlazableDe,piezasVinculo,planSoltar,probarSoltar,type Destino,type Pieza} from '../../lib/yunque-grimorio';
+import {nombreHueco,planEnlazar,type Enlazable} from '../../lib/yunque-vinculos';
 import {mensajeError} from '../../lib/errores';
 import {aGrafo,leerRuta,type Nodo,type TipoNodo} from '../../lib/yunque-grafo';
 import {aplicar,copiar,type Operacion} from '../../lib/yunque-operaciones';
@@ -28,11 +32,19 @@ import {NODO,disponer,guardarPosiciones,leerPosiciones,type Punto} from '../../l
 import type {Borrador} from '../../lib/yunque-borrador';
 import './yunque.css';
 
-export type {ContextoTaller} from './contexto';
-type Props={b:Borrador;setB:Dispatch<SetStateAction<Borrador>>;ctx:ContextoTaller;onGuardar:()=>void|Promise<void>;guardando:boolean;error:string};
+export type {ContextoTaller,Creable} from './contexto';
+type Props={b:Borrador;setB:Dispatch<SetStateAction<Borrador>>;ctx:ContextoTaller;onGuardar:()=>void|Promise<void>;guardando:boolean;error:string;
+ /** Crear una pieza nueva dentro del personaje (flujo `padre` de la Forja). */
+ crearDentro?:(tipo:Creable,slot?:string)=>void;
+ /** Requisitos que el personaje no cumple para una creación de la colección (por defecto, el cálculo de la Forja). */
+ faltantes?:(id:string)=>string[]};
+type Vista='lienzo'|'lista';
+const ANCHO_LISTA=1024;
+const suscribirAncho=(f:()=>void)=>{window.addEventListener('resize',f);return ()=>window.removeEventListener('resize',f);};
+const esEstrecha=()=>window.innerWidth<ANCHO_LISTA;
 const ICONO_EFECTO:Record<Efecto['efecto'],string>={dano:'espada',curacion:'pocion',estado:'fuego',crear_arma:'arco',transformacion:'alma',recuperar_ph:'agua',reducir_fatiga:'vida'};
 const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
-const NUCLEO_LLEVA:Record<string,TipoNodo[]>={personaje:['cuando'],pasiva:['pasiva','cuando'],objeto:['accion','cuando','pasiva'],habilidad:['accion','cuando'],titulo:['accion','cuando'],otro:['accion','cuando','pasiva']};
+const NUCLEO_LLEVA:Record<string,TipoNodo[]>={personaje:['cuando','vinculo'],pasiva:['pasiva','cuando'],objeto:['accion','cuando','pasiva'],habilidad:['accion','cuando'],titulo:['accion','cuando'],otro:['accion','cuando','pasiva']};
 const claveDe=(b:Borrador)=>`yunque:posiciones:${b.id||'nuevo'}`;
 const ICONO_SI:Record<CondicionRegla['tipo'],string>={siempre:'yugen',comparar:'vida',estado:'alma',elemento:'fuego',probabilidad:'ojo',estado_terminado:'libro',todas:'corona',alguna:'corona',no:'ojo'};
 const leer=leerRuta;
@@ -40,7 +52,17 @@ const leer=leerRuta;
 type Suelto={id:string;pieza:Pieza;p:Punto};
 const FRASE_SUELTO='Sin conectar: arrastra un cable desde un puerto compatible hasta aquí, o arrastra esta pieza sobre su nodo.';
 
-export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Props){
+export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crearDentro,faltantes:faltantesProp}:Props){
+ // Lista por defecto en pantallas estrechas (sigue al ancho hasta que el GM elige una vista).
+ const estrecha=useSyncExternalStore(suscribirAncho,esEstrecha,()=>false);
+ const [vistaElegida,setVista]=useState<Vista|null>(null);
+ const vista:Vista=vistaElegida??(estrecha?'lista':'lienzo');
+ const [ficha,setFicha]=useState(false);
+ const [anclaFicha,setAnclaFicha]=useState<string|null>(null);
+ const botonFicha=useRef<HTMLButtonElement>(null);
+ const listaCaja=useRef<HTMLDivElement>(null);
+ const piezasEnlace=useMemo(()=>enlazables(ctx,b.id),[ctx,b.id]);
+ const porId=useMemo(()=>new Map<string,EnlazableVista>(piezasEnlace.map(p=>[p.id,p])),[piezasEnlace]);
  const contextoGrafo=useMemo(()=>({creaciones:ctx.creaciones}),[ctx.creaciones]);
  const grafo=useMemo(()=>aGrafo(b,contextoGrafo),[b,contextoGrafo]);
  const clave=claveDe(b);
@@ -119,23 +141,58 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
 
  /** Soltar una pieza del Grimorio: sobre un nodo, se engancha; en el vacío, se une al núcleo o queda suelta. */
  function soltarPieza(pieza:Pieza,destino:Destino|null,punto:Punto|null,puntoSuelto=punto){
+  const item=enlazableDe(pieza);
+  if(item){enlazar(item,destino);return;}
   let ops:Operacion[]|null;
   try{ops=planSoltar(bRef.current,pieza,destino);}catch(e){avisar(mensajeError(e,'Esa pieza no encaja ahí.'));return;}
   if(ops){ejecutar(ops,destino?undefined:punto??undefined,undefined,destino?.nodo??'nucleo');return;}
+  // En la lista no hay piezas sueltas: la pieza necesita un bloque que la admita.
+  if(vista==='lista'){avisar(`Elige primero ${pieza.tipo==='si'?'una regla':pieza.tipo==='entonces'?'una regla o un efecto':'una acción'} y vuelve a pulsar «${pieza.nombre}».`,'info');return;}
   const id=`suelto:${++contador.current}`;
   setSueltos(l=>[...l,{id,pieza,p:puntoSuelto??{x:0,y:0}}]);
   setSeleccion(id);
   avisar(`«${pieza.nombre}» queda sin conectar: llévala hasta ${pieza.tipo==='si'?'una regla':pieza.tipo==='entonces'?'una regla o un efecto':'una acción'} para que forme parte de la creación.`,'info');
  }
+ const faltantes=useCallback((id:string)=>faltantesProp?faltantesProp(id):faltantesDe(bRef.current,ctx,id),[faltantesProp,ctx]);
+ /** Enlazar una creación de la colección: sobre un hueco de la figura va a ese hueco; en el núcleo o el vacío, a su sitio. */
+ function enlazar(item:Enlazable,destino:Destino|null){
+  const slot=destino?.puerto?.startsWith('hueco:')?destino.puerto.slice(6):undefined;
+  if(destino&&destino.nodo!=='nucleo'){avisar(`Suelta «${item.nombre}» sobre el núcleo o en un hueco de su figura.`);return;}
+  const fallos=faltantes(item.id);
+  if(fallos.length){avisar(`«${item.nombre}» no se puede enlazar: ${fallos.join('; ')}`);return;}
+  let ops:Operacion[];
+  try{ops=planEnlazar(bRef.current,item,slot,ctx.creaciones);}catch(e){avisar(mensajeError(e,'Esa creación no se puede enlazar.'));return;}
+  const hueco=Object.entries((ops[0] as {valor:unknown}).valor as Record<string,string>).find(([,v])=>v===item.id)?.[0];
+  ejecutar(ops,undefined,item.tipo==='habilidad'||item.tipo==='pasiva'?`«${item.nombre}» se suma a sus ${item.tipo==='habilidad'?'habilidades':'pasivas'}.`:`«${item.nombre}» equipada en ${nombreHueco(hueco??'')}.`,'nucleo');
+ }
+ function crear(tipo:Creable,slot?:string){
+  if(crearDentro)crearDentro(tipo,slot);
+  else avisar('Crear una pieza dentro del personaje solo funciona desde La Forja.','info');
+ }
+ /** La lista también recibe piezas arrastradas: el bloque (o hueco) bajo el cursor es el destino. */
+ const apiLista=useMemo(()=>({
+  dentro:(cx:number,cy:number)=>{const r=listaCaja.current?.getBoundingClientRect();return !!r&&cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom;},
+  destinoEn:(cx:number,cy:number)=>{
+   for(const el of document.elementsFromPoint(cx,cy)){
+    if(!(el instanceof HTMLElement)||!listaCaja.current?.contains(el))continue;
+    const id=el.closest<HTMLElement>('[data-bloque]')?.dataset.bloque;if(!id)continue;
+    const puerto=el.closest<HTMLElement>('[data-salida]')?.dataset.salida;
+    return puerto?{nodo:id,puerto}:{nodo:id};
+   }
+   return null;
+  },
+  aMundo:()=>({x:0,y:0}),centro:()=>({x:0,y:0}),
+ }),[]);
+ const apiActual=()=>vista==='lista'?apiLista:lienzo.current;
  /** El Grimorio suelta una pieza (con posición de pantalla) o la pide con un clic (sin posición). */
  function alSoltar(pieza:Pieza,pantalla:Punto|null){
   setArrastre(null);
-  const api=lienzo.current;if(!api)return;
+  const api=apiActual();if(!api)return;
   if(!pantalla){
    const sel=seleccion&&!seleccion.startsWith('suelto:')?{nodo:seleccion}:null;
    // Sin posición: los nodos conectados van a su sitio automático; una pieza suelta aparece en el centro de la vista.
    const c=api.centro();
-   soltarPieza(pieza,sel&&probarSoltar(bRef.current,pieza,sel)?sel:null,null,{x:Math.round(c.x-130),y:Math.round(c.y-60)});
+   soltarPieza(pieza,sel&&!enlazableDe(pieza)&&probarSoltar(bRef.current,pieza,sel)?sel:null,null,{x:Math.round(c.x-130),y:Math.round(c.y-60)});
    return;
   }
   if(!api.dentro(pantalla.x,pantalla.y))return;
@@ -144,10 +201,10 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
  }
  /** Mientras se arrastra: qué nodos la admiten (se calcula una vez por pieza) y cuál está debajo. */
  function alArrastrar(pieza:Pieza|null,pantalla:Punto|null){
-  const api=lienzo.current;
+  const api=apiActual();
   if(!pieza||!pantalla||!api){setArrastre(null);return;}
   setArrastre(a=>{
-   const compatibles=a?.pieza===pieza?a.compatibles:new Set(grafo.nodos.filter(n=>probarSoltar(bRef.current,pieza,{nodo:n.id})).map(n=>n.id));
+   const compatibles=a?.pieza===pieza?a.compatibles:enlazableDe(pieza)?new Set(['nucleo']):new Set(grafo.nodos.filter(n=>probarSoltar(bRef.current,pieza,{nodo:n.id})).map(n=>n.id));
    const dentro=api.dentro(pantalla.x,pantalla.y);
    return {pieza,compatibles,dentro,sobre:dentro?api.destinoEn(pantalla.x,pantalla.y):null,punto:dentro?api.aMundo(pantalla.x,pantalla.y):null};
   });
@@ -183,8 +240,11 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
  }
 
  const clase=claseDe(b,ctx);
- const iClase=CLASES_YUGEN.indexOf(clase.clase as typeof CLASES_YUGEN[number]);
- const siguiente=UMBRALES_CLASE[iClase+1];
+ /** Abre el cajón Ficha y lleva el foco dentro (o a la sección `ancla`). */
+ function abrirFicha(ancla?:string){setFicha(true);setAnclaFicha(ancla??null);}
+ function cerrarCajon(){setFicha(false);botonFicha.current?.focus();}
+ const patchFicha=(p:Partial<Borrador>)=>{ejecutar(Object.entries(p).map(([k,v])=>({op:'fijar',ruta:[k],valor:v})));};
+ const piezasColeccion=useMemo(()=>b.tipo==='personaje'?piezasVinculo(piezasEnlace):[],[b.tipo,piezasEnlace]);
  const errores=grafo.nodos.filter(n=>n.error);
  const lleva=NUCLEO_LLEVA[b.tipo]||[];
  const agregar=(tipo:TipoNodo)=>operar({op:'agregar',tipo,padre:'nucleo'});
@@ -206,7 +266,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
   const {pieza,sobre,compatibles,punto,dentro}=arrastre;
   let cable:GuiaPieza['cable']=null;
   if(dentro&&!sobre){
-   let alNucleo=false;try{alNucleo=!!planSoltar(b,pieza,null);}catch{/* no aplica */}
+   let alNucleo=!!enlazableDe(pieza);try{alNucleo||=!!planSoltar(b,pieza,null);}catch{/* no aplica */}
    const puerto=grafo.nodos[0]?.puertos.find(q=>q.lado==='salida'&&q.acepta.includes(pieza.tipo));
    if(alNucleo&&puerto)cable={nodo:'nucleo',puerto:puerto.id};
   }
@@ -215,7 +275,15 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
  const pista=useMemo<PistaSoltar|null>(()=>{
   if(!arrastre)return null;
   const {pieza,sobre,compatibles,dentro}=arrastre;
-  if(!dentro)return {texto:'Suéltala en el lienzo',tono:'neutro'};
+  if(!dentro)return {texto:vista==='lista'?'Suéltala sobre un bloque de la lista':'Suéltala en el lienzo',tono:'neutro'};
+  const item=enlazableDe(pieza);
+  if(item){
+   if(sobre&&sobre.nodo!=='nucleo')return {texto:'Suéltala sobre el núcleo o en un hueco',tono:'mal'};
+   const slot=sobre?.puerto?.startsWith('hueco:')?sobre.puerto.slice(6):undefined;
+   try{planEnlazar(b,item,slot,ctx.creaciones);}catch(e){return {texto:mensajeError(e,'No encaja ahí'),tono:'mal'};}
+   if(faltantes(item.id).length)return {texto:'No cumple sus requisitos',tono:'mal'};
+   return {texto:slot?`Equipa en ${nombreHueco(slot)}`:item.tipo==='habilidad'||item.tipo==='pasiva'?'Se enlaza al personaje':'Se equipa en un hueco libre',tono:'bien'};
+  }
   if(sobre){
    const n=grafo.nodos.find(x=>x.id===sobre.nodo);if(!n)return null;
    if(!compatibles.has(n.id))return {texto:`«${n.titulo}» no la admite`,tono:'mal'};
@@ -223,13 +291,21 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
    return {texto:`Engancha a «${n.titulo}»${sobre.puerto==='fallo'?' · fallo':sobre.puerto==='exito'?' · éxito':''}`,tono:'bien'};
   }
   let alNucleo=false;try{alNucleo=!!planSoltar(b,pieza,null);}catch{/* no aplica */}
-  return alNucleo?{texto:'Se une al núcleo',tono:'bien'}:{texto:'Quedará sin conectar',tono:'neutro'};
- },[arrastre,b,grafo]);
+  return alNucleo?{texto:'Se une al núcleo',tono:'bien'}:{texto:vista==='lista'?'Suéltala sobre un bloque':'Quedará sin conectar',tono:'neutro'};
+ },[arrastre,b,grafo,vista,ctx.creaciones,faltantes]);
 
  const contenido=(n:Nodo):ContenidoNodo=>{
   if(n.tipo==='nucleo')return {
    icono:b.icono||(b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]),
-   pie:<div className="yq-forjar-rapido">{lleva.map(t=><button type="button" key={t} data-familia={familiaDe(t)} onClick={()=>agregar(t)}>+ {t==='cuando'?'Regla':NOMBRE_TIPO[t]}</button>)}</div>,
+   pie:<>
+    {b.tipo==='personaje'&&<FiguraEquipo b={b} figura={imagenDeRaza(ctx.categorias,b.clasificacion)} raza={ctx.categorias.find(c=>c.clave===b.clasificacion)?.nombre} piezas={porId}
+     arrastrando={arrastre?enlazableDe(arrastre.pieza):null} sobre={arrastre?.sobre?.puerto?.startsWith('hueco:')?arrastre.sobre.puerto.slice(6):null}
+     onElegir={setSeleccion} onQuitar={slot=>ejecutar([{op:'quitar',nodo:`vinculo:${slot}:${b.equipamiento[slot]}`}])} onCrear={crear}/>}
+    <div className="yq-forjar-rapido">{lleva.filter(t=>t!=='vinculo').map(t=><button type="button" key={t} data-familia={familiaDe(t)} onClick={()=>agregar(t)}>+ {t==='cuando'?'Regla':NOMBRE_TIPO[t]}</button>)}
+     {b.tipo==='personaje'&&<><button type="button" data-familia="vinculo" onClick={()=>crear('habilidad')}>Crear habilidad</button><button type="button" data-familia="vinculo" onClick={()=>crear('pasiva')}>Crear pasiva</button></>}
+     {esMonstruoB(b,ctx)&&<button type="button" data-familia="vinculo" onClick={()=>abrirFicha('yq-ficha-especie')}>Especie y variantes</button>}
+    </div>
+   </>,
    editor:<EditorNucleo b={b} nodo={n} operar={o=>operar(o)} ctx={ctx}/>,
   };
   if(n.id.startsWith('suelto:')){const s=sueltos.find(x=>x.id===n.id);return {icono:s?.pieza.icono,pie:<button type="button" className="yq-boton is-peligro" onClick={()=>setSueltos(l=>l.filter(x=>x.id!==n.id))}>Descartar</button>};}
@@ -240,49 +316,47 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
    case 'si':{const c=leer(b,n.ruta) as CondicionRegla|undefined;return {icono:c?ICONO_SI[c.tipo]:undefined,editor:<EditorSi {...props}/>};}
    case 'entonces':{const e=leer(b,n.ruta) as EfectoRegla|undefined;return {icono:e?ICONO_EFECTO_REGLA[e.tipo]:undefined,editor:<EditorEntonces {...props} avisar={t=>avisar(t)}/>};}
    case 'pasiva':return {editor:<EditorPasivaNodo {...props}/>};
-   case 'vinculo':return {};
+   case 'vinculo':{const p=porId.get(idDeVinculo(n.id));return {icono:iconoEnlazable(p),editor:<EditorVinculo b={b} nodo={n} ctx={ctx} ejecutar={ops=>ejecutar(ops)} avisar={t=>avisar(t)} faltantes={faltantes} onCrear={crear}/>};}
    default:return {editor:<EditorModulo {...props} ctx={ctx} avisar={avisoInfo}/>};
   }
  };
 
- return <div className="yq-taller">
+ const guiaLista=arrastre&&vista==='lista'?{compatibles:arrastre.compatibles,sobre:arrastre.sobre?.nodo??null}:null;
+ return <div className={`yq-taller is-${vista}`}>
   <header className="yq-barra">
    <span className="yq-barra-runa"><Runa seccion="forja" size={30}/></span>
    <div className="yq-barra-titulo"><small>El Yunque</small><h1>{b.nombre.trim()||'Nueva creación'}</h1></div>
    <span className="yq-barra-tipo"><IconoYugen id={b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]} size={16}/>{b.ramaMonstruo?'Monstruo':TIPOS.find(t=>t.valor===b.tipo)?.nombre}</span>
-   <span className="yq-barra-clase" title="Clase calculada con los atributos, la acción más potente, los bonos pasivos y las reglas"><b>{clase.clase}</b><span>Clase · {clase.puntuacion} pts</span></span>
+   <button type="button" className="yq-barra-clase" onClick={()=>abrirFicha()} title="Clase calculada con los atributos, la acción más potente, los bonos pasivos y las reglas. Pulsa para ver cómo se calcula."><b>{clase.clase}</b><span>Clase · {clase.puntuacion} pts</span></button>
    {errores.length>0&&<button type="button" className="yq-barra-errores" onClick={()=>setSeleccion(errores[0].id)}><span aria-hidden="true">!</span>{errores.length===1?'1 nodo por revisar':`${errores.length} nodos por revisar`}</button>}
+   <div className="yq-conmutador-vista" role="group" aria-label="Vista">
+    <button type="button" aria-pressed={vista==='lienzo'} onClick={()=>setVista('lienzo')}><Workflow size={15} aria-hidden="true"/>Lienzo</button>
+    <button type="button" aria-pressed={vista==='lista'} onClick={()=>setVista('lista')}><LayoutList size={15} aria-hidden="true"/>Lista</button>
+   </div>
+   <button ref={botonFicha} type="button" className="yq-barra-ficha" aria-expanded={ficha} aria-controls="yq-ficha" onClick={()=>ficha?cerrarCajon():abrirFicha()}><BookOpen size={15} aria-hidden="true"/>Ficha</button>
    <button type="button" className="yq-forjar" disabled={guardando} onClick={()=>void forjar()}><Hammer size={16} aria-hidden="true"/>{guardando?'Forjando…':'Forjar'}</button>
   </header>
   {error&&<p role="alert" className="yq-error-global">{error}</p>}
-  <Grimorio filtro={lleva} creaciones={ctx.creaciones} excluir={b.id} onSoltar={alSoltar} onArrastrar={alArrastrar} pista={pista}>
-   <h3 className="yq-indice-titulo">En el lienzo</h3>
+  <Grimorio filtro={lleva} creaciones={ctx.creaciones} excluir={b.id} enlazar={piezasColeccion} onSoltar={alSoltar} onArrastrar={alArrastrar} pista={pista}>
+   <h3 className="yq-indice-titulo">{vista==='lista'?'En la lista':'En el lienzo'}</h3>
    <ol className="yq-indice">{grafo.nodos.map(n=><li key={n.id}><button type="button" data-indice={n.id} aria-current={seleccion===n.id||undefined} data-familia={familiaDe(n.tipo)} onClick={()=>setSeleccion(n.id)} style={{paddingLeft:8+Math.min(3,n.ruta.length>2?2:n.tipo==='nucleo'?0:1)*12}}>
     <span className="yq-indice-punto" aria-hidden="true"/><span>{n.titulo}</span>{n.error&&<b aria-label="con error">!</b>}
    </button></li>)}
-    {sueltos.map(s=><li key={s.id}><button type="button" className="is-suelto" aria-current={seleccion===s.id||undefined} data-familia={familiaDe(s.pieza.tipo)} onClick={()=>setSeleccion(s.id)} style={{paddingLeft:20}}>
+    {vista==='lienzo'&&sueltos.map(s=><li key={s.id}><button type="button" className="is-suelto" aria-current={seleccion===s.id||undefined} data-familia={familiaDe(s.pieza.tipo)} onClick={()=>setSeleccion(s.id)} style={{paddingLeft:20}}>
      <span className="yq-indice-punto" aria-hidden="true"/><span>{s.pieza.nombre}</span><i>sin conectar</i>
     </button></li>)}</ol>
   </Grimorio>
-  <section className="yq-centro" aria-label="Lienzo">
-   <Lienzo api={lienzo} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
+  <section className="yq-centro" aria-label={vista==='lista'?'Lista':'Lienzo'}>
+   {vista==='lienzo'?<Lienzo api={lienzo} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
     onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
+    :<div ref={listaCaja} className="yq-vlista-caja"><VistaLista grafo={grafo} seleccion={seleccion} onSeleccionar={setSeleccion} contenido={contenido} operar={o=>operar(o)} encendidos={encendidos} nuevos={nuevos} guia={guiaLista}/></div>}
    {aviso&&<p key={aviso.n} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
   </section>
   <aside className="yq-panel yq-arena" aria-label="Arena de dolls">
    <h2><IconoYugen id="espada" size={18}/>Arena de dolls</h2>
    {errores.length>0&&<ul className="yq-revisar">{errores.map(n=><li key={n.id}><button type="button" onClick={()=>setSeleccion(n.id)}><b>{n.titulo}</b><span>{n.error}</span></button></li>)}</ul>}
    <ArenaDolls b={b} ctx={ctx} grafo={grafo} onEncender={encender}/>
-   <details className="yq-arena-clase">
-    <summary><b>{clase.clase}</b><span><strong>{clase.puntuacion} puntos de poder</strong>{siguiente!==undefined?`Clase ${CLASES_YUGEN[iClase+1]} desde ${siguiente}`:'La clase más alta'}</span></summary>
-    {siguiente!==undefined&&<BarraVital etiqueta="Hacia la siguiente clase" tipo="exp" valor={Math.round((clase.puntuacion-UMBRALES_CLASE[iClase])*10)/10} max={siguiente-UMBRALES_CLASE[iClase]}/>}
-    <dl className="yq-desglose">
-     <div><dt>Atributos</dt><dd>{Math.round(clase.atributos*100)/100}</dd></div>
-     <div><dt>Acción más fuerte</dt><dd>{Math.round(clase.acciones*100)/100}</dd></div>
-     <div><dt>Bonos pasivos</dt><dd>{Math.round(clase.pasivas*100)/100}</dd></div>
-     <div><dt>Reglas</dt><dd>{Math.round(clase.reglas*100)/100}</dd></div>
-    </dl>
-   </details>
   </aside>
+  <CajonFicha ancla={anclaFicha} b={b} patch={patchFicha} ctx={ctx} abierto={ficha} onCerrar={cerrarCajon}/>
  </div>;
 }
