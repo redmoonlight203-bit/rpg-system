@@ -86,6 +86,21 @@ const EFECTOS_BASE:Record<EfectoRegla['tipo'],EfectoRegla>={
 };
 /** Un efecto de regla nuevo de ese tipo (copia), conservando el destino si se indica. */
 export const efectoReglaBase=(tipo:EfectoRegla['tipo'],destino?:EfectoRegla['destino']):EfectoRegla=>{const e=clon(EFECTOS_BASE[tipo]);if(e.accion)e.accion.id=crypto.randomUUID();return destino?{...e,destino}:e;};
+/** Cuenta los efectos anidados en las ramas de éxito y fallo (recursivo). */
+const enRamas=(e:EfectoRegla):number=>[...(e.exito??[]),...(e.fallo??[])].reduce((n,x)=>n+1+enRamas(x),0);
+/**
+ * Cambia el tipo de un efecto de regla sin perder nada: las ramas pasan entre salvación y condicional;
+ * si el tipo nuevo no tiene ramas y las actuales no están vacías, lanza un Error en vez de borrarlas.
+ */
+export function cambiarTipoEfecto(e:EfectoRegla,t:EfectoRegla['tipo']):EfectoRegla{
+ if(t===e.tipo)return e;
+ const ramas=t==='salvacion'||t==='condicional';
+ const n=enRamas(e);
+ if(!ramas&&n)throw new Error(`Vacía primero las ramas Éxito y Fallo; si no, se ${n===1?'perdería 1 efecto':`perderían ${n} efectos`}.`);
+ const nuevo=efectoReglaBase(t,e.destino);
+ if(ramas&&(e.exito||e.fallo))Object.assign(nuevo,{exito:clon(e.exito??[]),fallo:clon(e.fallo??[])});
+ return nuevo;
+}
 const AYUDA_EFECTO:Record<EfectoRegla['tipo'],string>={atributo:'Sube o baja un atributo',transformar:'Cambia de forma un tiempo',estado:'Aplica un estado',quitar_estado:'Retira un estado o forma',dano:'Daño sin tirar impacto',curar:'Recupera vida',ph:'Da o quita PH',fatiga:'Sube o baja la fatiga',perder_accion:'Pierde su acción',salvacion:'Tira y elige rama',condicional:'Si / si no',habilidad:'Una acción prestada',mensaje:'Escribe en el registro'};
 const EFECTOS_PIEZAS:Pieza[]=(Object.keys(EFECTOS_REGLA) as EfectoRegla['tipo'][]).map(t=>una('efecto:'+t,'efectos','entonces',EFECTOS_REGLA[t],AYUDA_EFECTO[t],ICONO_EFECTO_REGLA[t],EFECTOS_BASE[t]));
 // ---- Pasivas ----

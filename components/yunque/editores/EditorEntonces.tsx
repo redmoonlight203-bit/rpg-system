@@ -4,7 +4,8 @@
 import {Fichas,Interruptor,Rueda,Texto,type Opcion} from '../Controles';
 import {AtributoFichas,FormCondicion,SUJETOS} from './EditorSi';
 import {DESTINOS,EFECTOS_REGLA,type CambioRegla,type DestinoRegla,type EfectoRegla,type Sujeto,type ValorRegla} from '../../../lib/reglas';
-import {ICONO_EFECTO_REGLA,efectoReglaBase} from '../../../lib/yunque-grimorio';
+import {ICONO_EFECTO_REGLA,cambiarTipoEfecto} from '../../../lib/yunque-grimorio';
+import {mensajeError} from '../../../lib/errores';
 import {leerRuta} from '../../../lib/yunque-grafo';
 import type {EditorNodoProps} from './EditorAccion';
 
@@ -63,17 +64,15 @@ export function EditorValor({valor,onChange,etiqueta='Cantidad'}:{valor:ValorReg
  </div>;
 }
 
-export default function EditorEntonces({b,nodo,operar}:EditorNodoProps){
+export default function EditorEntonces({b,nodo,operar,avisar}:EditorNodoProps&{avisar?:(texto:string)=>void}){
  const e=leer(b,nodo.ruta) as EfectoRegla|undefined;
  if(!e)return null;
  const fijar=(v:EfectoRegla)=>operar({op:'fijar',ruta:nodo.ruta,valor:limpio(v)});
  const patch=(p:Partial<EfectoRegla>)=>fijar({...e,...p});
  function cambiarTipo(t:EfectoRegla['tipo']){
   if(t===e!.tipo)return;
-  const nuevo=efectoReglaBase(t,e!.destino);
-  // Las ramas se conservan entre salvación y condicional.
-  if((t==='salvacion'||t==='condicional')&&(e!.exito||e!.fallo))Object.assign(nuevo,{exito:e!.exito??[],fallo:e!.fallo??[]});
-  fijar(nuevo);
+  // Las ramas pasan entre salvación y condicional; nunca se borran en silencio.
+  try{fijar(cambiarTipoEfecto(e!,t));}catch(err){avisar?.(mensajeError(err,'No se pudo cambiar el tipo.'));}
  }
  const cambios=e.cambios??[];
  return <div className="yq-editor">

@@ -367,8 +367,8 @@
 .yq-taller .yq-comparar-valor>span{grid-column:1/-1;font:600 11.5px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
 .yq-taller .yq-comparar-valor>b,.yq-taller .yq-probabilidad>b{font:400 20px var(--font-serif);color:var(--color-gold)}
 .yq-taller .yq-umbral{position:relative;height:10px;border:1px solid var(--color-line);background:linear-gradient(90deg,color-mix(in srgb,var(--color-crimson) 50%,var(--color-well)),color-mix(in srgb,var(--color-gold) 30%,var(--color-well)) 60%,color-mix(in srgb,var(--color-success-text) 40%,var(--color-well)))}
-.yq-taller .yq-umbral i{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,#fff 18%,transparent);box-shadow:inset -2px 0 0 var(--color-gold-bright);transition:width .25s ease}
-.yq-taller .yq-umbral span{position:absolute;top:-5px;width:2px;height:18px;margin-left:-1px;background:var(--color-gold-bright);box-shadow:0 0 8px var(--color-gold-bright);transition:left .25s ease}
+.yq-taller .yq-umbral i{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,#fff 18%,transparent);box-shadow:inset -2px 0 0 var(--color-gold-bright)}
+.yq-taller .yq-umbral span{position:absolute;top:-5px;width:2px;height:18px;margin-left:-1px;background:var(--color-gold-bright);box-shadow:0 0 8px var(--color-gold-bright)}
 .yq-taller .yq-umbral.is-azar{flex:1;min-width:120px;background:repeating-linear-gradient(90deg,var(--color-well) 0 9px,color-mix(in srgb,var(--color-line) 70%,transparent) 9px 10px)}
 .yq-taller .yq-umbral.is-azar i{background:linear-gradient(90deg,color-mix(in srgb,var(--color-arcane) 50%,transparent),var(--color-arcane));box-shadow:0 0 12px -2px var(--color-arcane)}
 .yq-taller .yq-probabilidad{display:flex;align-items:center;gap:8px}
@@ -414,7 +414,7 @@
 .yq-taller .yq-legado .y-cita{padding:8px 12px;border-left:2px solid var(--color-arcane);font:italic 14px var(--font-serif);color:var(--color-parchment)}
 
 @media (prefers-reduced-motion:reduce){
- .yq-taller .yq-familia-flecha,.yq-taller .yq-pieza-asa,.yq-taller .yq-boton,.yq-taller .yq-umbral i,.yq-taller .yq-umbral span{transition:none}
+ .yq-taller .yq-familia-flecha,.yq-taller .yq-pieza-asa,.yq-taller .yq-boton{transition:none}
  .yq-taller .yq-boton:hover:not(:disabled){transform:none}
  .yq-taller .yq-nodo-pos[data-cable=destino] .yq-nodo{transform:none}
 }

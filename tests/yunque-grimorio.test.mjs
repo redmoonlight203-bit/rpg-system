@@ -125,3 +125,13 @@ test('frase del nodo «Cuándo» y de la pasiva sin claves crudas',()=>{
  const p=aGrafo(F.pasiva,ctx).nodos.find(n=>n.tipo==='pasiva');
  assert.doesNotMatch(p.frase,/_/);
 });
+test('cambiar el tipo de un efecto nunca borra sus ramas en silencio',()=>{
+ const {cambiarTipoEfecto}=cargarDependencia('yunque-grimorio');
+ const s={tipo:'salvacion',destino:'objetivo',cd:12,atributo:'salvacion',exito:[{tipo:'mensaje',destino:'yo',nombre:'x'}],fallo:[{tipo:'condicional',destino:'yo',condicion:{tipo:'siempre'},exito:[{tipo:'perder_accion',destino:'yo'}],fallo:[]}]};
+ assert.throws(()=>cambiarTipoEfecto(s,'curar'),/perderían 3 efectos/);
+ const c=cambiarTipoEfecto(s,'condicional');
+ assert.equal(c.tipo,'condicional');
+ assert.deepEqual(json(c.exito),json(s.exito));assert.deepEqual(json(c.fallo),json(s.fallo));
+ assert.equal(cambiarTipoEfecto({...s,exito:[],fallo:[]},'curar').tipo,'curar','ramas vacías: se puede');
+ assert.equal(cambiarTipoEfecto(s,'salvacion'),s);
+});

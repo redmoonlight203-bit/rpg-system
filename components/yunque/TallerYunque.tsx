@@ -158,12 +158,15 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
   if(ejecutar(ops,s.p,undefined,destino.nodo))setSueltos(l=>l.filter(x=>x.id!==id));
  }
  /** Forjar: las piezas sin conectar no pertenecen a ninguna regla ni acción y se descartan con un aviso. */
- function forjar(){
-  if(sueltos.length){
-   setSueltos(()=>[]);
-   avisar(`${sueltos.length===1?'Se descartó 1 pieza sin conectar':`Se descartaron ${sueltos.length} piezas sin conectar`}: ${sueltos.map(x=>`«${x.pieza.nombre}»`).join(', ')}.`,'info');
+ async function forjar(){
+  const lista=sueltos;
+  // Solo tras guardar con éxito: si el guardado falla, las piezas sueltas siguen ahí.
+  try{await onGuardar();}catch{return;}
+  if(lista.length){
+   const ids=new Set(lista.map(x=>x.id));
+   setSueltos(l=>l.filter(x=>!ids.has(x.id)));
+   avisar(`${lista.length===1?'Se descartó 1 pieza sin conectar':`Se descartaron ${lista.length} piezas sin conectar`}: ${lista.map(x=>`«${x.pieza.nombre}»`).join(', ')}.`,'info');
   }
-  void onGuardar();
  }
 
  /** Soltar un cable sobre un nodo compatible: un módulo cambia de acción (se copia y se quita del origen). */
@@ -224,7 +227,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
    case 'accion':{const e=b.efectos[n.ruta[1] as number];return {icono:e?ICONO_EFECTO[e.efecto]:undefined,editor:<EditorAccion {...props}/>};}
    case 'cuando':{const r=b.reglas[n.ruta[1] as number];return {icono:r?ICONO_EVENTO[r.evento]:undefined,editor:<EditorCuando {...props}/>};}
    case 'si':{const c=leer(b,n.ruta) as CondicionRegla|undefined;return {icono:c?ICONO_SI[c.tipo]:undefined,editor:<EditorSi {...props}/>};}
-   case 'entonces':{const e=leer(b,n.ruta) as EfectoRegla|undefined;return {icono:e?ICONO_EFECTO_REGLA[e.tipo]:undefined,editor:<EditorEntonces {...props}/>};}
+   case 'entonces':{const e=leer(b,n.ruta) as EfectoRegla|undefined;return {icono:e?ICONO_EFECTO_REGLA[e.tipo]:undefined,editor:<EditorEntonces {...props} avisar={t=>avisar(t)}/>};}
    case 'pasiva':return {editor:<EditorPasivaNodo {...props}/>};
    case 'vinculo':return {};
    default:return {editor:<EditorModulo {...props} ctx={ctx} avisar={avisoInfo}/>};
@@ -238,7 +241,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
    <span className="yq-barra-tipo"><IconoYugen id={b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]} size={16}/>{b.ramaMonstruo?'Monstruo':TIPOS.find(t=>t.valor===b.tipo)?.nombre}</span>
    <span className="yq-barra-clase" title="Clase calculada con los atributos, la acción más potente, los bonos pasivos y las reglas"><b>{clase.clase}</b><span>Clase · {clase.puntuacion} pts</span></span>
    {errores.length>0&&<button type="button" className="yq-barra-errores" onClick={()=>setSeleccion(errores[0].id)}><span aria-hidden="true">!</span>{errores.length===1?'1 nodo por revisar':`${errores.length} nodos por revisar`}</button>}
-   <button type="button" className="yq-forjar" disabled={guardando} onClick={forjar}><Hammer size={16} aria-hidden="true"/>{guardando?'Forjando…':'Forjar'}</button>
+   <button type="button" className="yq-forjar" disabled={guardando} onClick={()=>void forjar()}><Hammer size={16} aria-hidden="true"/>{guardando?'Forjando…':'Forjar'}</button>
   </header>
   {error&&<p role="alert" className="yq-error-global">{error}</p>}
   <Grimorio filtro={lleva} creaciones={ctx.creaciones} excluir={b.id} onSoltar={alSoltar} onArrastrar={alArrastrar} pista={pista}>
