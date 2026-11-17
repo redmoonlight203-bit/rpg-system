@@ -44,12 +44,6 @@
 .yugen-page .yq-panel h3{margin:22px 0 8px;font:600 12px var(--font-display);letter-spacing:.18em;text-transform:uppercase;color:var(--color-text-muted)}
 .yq-taller .yq-panel-voz{margin:0 0 14px;font:italic 13.5px/1.55 var(--font-serif);color:var(--color-text-muted)}
 .yq-taller .yq-punto{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid var(--color-gold);vertical-align:middle}
-.yq-taller .yq-grimorio-piezas{display:grid;gap:8px}
-.yq-taller .yq-grimorio-piezas button{position:relative;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 14px;border:1px solid var(--color-line);background:linear-gradient(110deg,color-mix(in srgb,var(--yq-tinte) 12%,var(--color-raised)),var(--color-well));color:var(--yq-tinte);text-align:left;cursor:pointer;transition:transform .18s ease,border-color .18s ease}
-.yq-taller .yq-grimorio-piezas button::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--yq-tinte);box-shadow:0 0 10px var(--yq-tinte)}
-.yq-taller .yq-grimorio-piezas button:hover{transform:translateX(3px);border-color:color-mix(in srgb,var(--yq-tinte) 60%,transparent)}
-.yq-taller .yq-grimorio-piezas strong{display:block;font:600 14px var(--font-display);letter-spacing:.04em;color:var(--color-text)}
-.yq-taller .yq-grimorio-piezas small{display:block;font:13px var(--font-sans);color:var(--color-text-muted)}
 .yq-taller .yq-indice{list-style:none;margin:0;padding:0;display:grid;gap:2px}
 .yq-taller .yq-indice button{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;border-left:2px solid transparent;background:transparent;color:var(--color-text-muted);font:13px var(--font-sans);text-align:left;cursor:pointer}
 .yq-taller .yq-indice button span:nth-child(2){flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -268,3 +262,166 @@
 .yugen-page .yq-taller .yq-campo input::placeholder{color:var(--color-text-muted);opacity:.55;font-family:var(--font-sans);font-weight:400;letter-spacing:0;font-size:15px}
 .yq-taller .yq-nodo:focus{outline:none}
 .yq-taller .yq-nodo:focus-visible{outline:2px solid var(--color-arcane);outline-offset:4px;box-shadow:0 0 0 1px color-mix(in srgb,var(--color-arcane) 55%,transparent),0 0 32px -2px color-mix(in srgb,var(--color-arcane) 55%,transparent),0 24px 50px -24px #000}
+
+/* ==========================================================================
+   TAREA 7 · Grimorio, reglas, pasivas y módulos
+   ========================================================================== */
+
+/* ── Grimorio: búsqueda, familias plegables y piezas que se arrastran ── */
+.yq-taller .yq-busqueda{position:relative;display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:0 10px;border:1px solid var(--color-line);background:var(--color-well);color:var(--color-text-muted);transition:border-color .15s ease,box-shadow .15s ease}
+.yq-taller .yq-busqueda:focus-within{border-color:var(--color-arcane);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-arcane) 20%,transparent)}
+.yugen-page .yq-busqueda input{flex:1;min-width:0;padding:8px 0;border:0;background:transparent;color:var(--color-text);font:14px var(--font-sans);outline:none}
+.yugen-page .yq-busqueda input::-webkit-search-cancel-button{display:none}
+.yq-taller .yq-busqueda button{display:grid;place-items:center;width:22px;height:22px;border:0;background:transparent;color:var(--color-text-muted);cursor:pointer}
+.yq-taller .yq-familias{display:grid;gap:4px}
+.yq-taller .yq-familia h3{margin:0}
+.yq-taller .yq-familia h3 button{display:flex;align-items:center;gap:8px;width:100%;padding:7px 4px;border:0;border-bottom:1px solid color-mix(in srgb,var(--yq-tinte) 22%,var(--color-line));background:transparent;color:var(--color-gold-soft);font:600 12px var(--font-display);letter-spacing:.16em;text-transform:uppercase;text-align:left;cursor:pointer}
+.yq-taller .yq-familia h3 button:hover{color:var(--color-gold-bright)}
+.yq-taller .yq-familia h3 button span{flex:1}
+.yq-taller .yq-familia h3 small{min-width:22px;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--yq-tinte) 16%,var(--color-well));color:var(--yq-tinte);font:600 11px var(--font-sans);letter-spacing:0;text-align:center}
+.yq-taller .yq-familia-flecha{color:var(--yq-tinte);transition:transform .18s ease}
+.yq-taller .yq-familia h3 button[aria-expanded=true] .yq-familia-flecha{transform:rotate(90deg)}
+.yq-taller .yq-grimorio-piezas{list-style:none;margin:6px 0 10px;padding:0;display:grid;gap:4px}
+.yq-taller .yq-grimorio-piezas button{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px 6px 10px;border:1px solid transparent;border-left:2px solid color-mix(in srgb,var(--yq-tinte) 70%,transparent);background:linear-gradient(100deg,color-mix(in srgb,var(--yq-tinte) 10%,var(--color-raised)),color-mix(in srgb,var(--color-well) 80%,transparent));color:var(--yq-tinte);text-align:left;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .18s ease,border-color .18s ease,background-color .18s ease,opacity .18s ease}
+.yq-taller .yq-grimorio-piezas button:hover{transform:translateX(3px);border-color:color-mix(in srgb,var(--yq-tinte) 45%,transparent)}
+.yq-taller .yq-grimorio-piezas button:focus-visible{outline:2px solid var(--color-arcane);outline-offset:2px}
+.yq-taller .yq-grimorio-piezas button:active{cursor:grabbing}
+.yq-taller .yq-grimorio-piezas button.is-arrastrada{opacity:.4;border-style:dashed}
+.yq-taller .yq-pieza-icono,.yq-pieza-flotante .yq-pieza-icono{display:grid;place-items:center;flex:none;width:28px;height:28px;color:var(--yq-tinte);border:1px solid color-mix(in srgb,var(--yq-tinte) 55%,transparent);transform:rotate(45deg);background:radial-gradient(circle,color-mix(in srgb,var(--yq-tinte) 22%,var(--color-raised)),var(--color-well));box-shadow:0 0 10px -3px var(--yq-tinte)}
+.yq-taller .yq-pieza-icono>*,.yq-pieza-flotante .yq-pieza-icono>*{transform:rotate(-45deg)}
+.yq-taller .yq-pieza-texto{display:grid;min-width:0;flex:1;line-height:1.25}
+.yq-taller .yq-grimorio-piezas strong,.yq-pieza-flotante strong{display:block;font:600 14px/1.25 var(--font-serif);color:var(--color-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yq-taller .yq-grimorio-piezas small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font:12px/1.3 var(--font-sans);color:var(--color-text-muted)}
+.yq-taller .yq-pieza-asa{flex:none;width:6px;height:14px;opacity:0;background:radial-gradient(circle,var(--color-text-muted) 1px,transparent 1.5px) 0 0/3px 4px;transition:opacity .15s ease}
+.yq-taller .yq-grimorio-piezas button:hover .yq-pieza-asa{opacity:.8}
+.yq-taller .yq-familia-vacia{margin:6px 0 10px;font:italic 13px var(--font-serif);color:var(--color-text-muted)}
+.yugen-page .yq-grimorio h3.yq-indice-titulo{margin-top:20px}
+.yq-taller .yq-indice button.is-suelto i{font:italic 12px var(--font-serif);color:var(--color-text-muted)}
+.yq-taller .yq-indice button.is-suelto .yq-indice-punto{background:transparent;border:1px dashed var(--yq-tinte);box-shadow:none}
+/* La pieza en la mano: sigue al cursor, ladeada, con la pista de dónde caerá. */
+.yq-pieza-flotante{position:fixed;z-index:60;display:flex;align-items:center;gap:10px;max-width:280px;padding:8px 14px 8px 10px;pointer-events:none;transform:translate(16px,12px) rotate(-2.5deg);border:1px solid color-mix(in srgb,var(--yq-tinte) 70%,transparent);background:linear-gradient(110deg,color-mix(in srgb,var(--yq-tinte) 22%,var(--color-overlay)),var(--color-overlay));color:var(--yq-tinte);box-shadow:0 0 0 1px var(--color-well),0 18px 40px -12px #000,0 0 26px -8px var(--yq-tinte)}
+.yq-pieza-flotante small{display:block;margin-top:2px;font:12.5px var(--font-sans);color:var(--color-text-muted)}
+.yq-pieza-flotante small.is-bien{color:#b9f0c4}
+.yq-pieza-flotante small.is-mal{color:var(--color-danger-text)}
+
+/* ── Lienzo: guía del arrastre de piezas y nodos sueltos ── */
+.yq-taller .yq-lienzo.is-guiando{cursor:copy}
+.yq-taller .yq-lienzo.is-cableando .yq-nodo-pos[data-cable=compatible] .yq-nodo{border-color:color-mix(in srgb,var(--color-arcane) 70%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--color-arcane) 35%,transparent),0 0 24px -8px var(--color-arcane),0 18px 40px -22px #000}
+.yq-taller .yq-nodo-pos[data-cable=destino]{z-index:4}
+.yq-taller .yq-nodo-pos[data-cable=destino] .yq-nodo{border-color:var(--color-arcane);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-arcane) 80%,transparent),0 0 46px 2px color-mix(in srgb,var(--color-arcane) 55%,transparent),0 24px 50px -22px #000;transform:scale(1.025)}
+.yq-taller .yq-nodo-pos[data-cable=destino] .yq-puerto--entrada,.yq-taller .yq-nodo-pos[data-cable=destino] .yq-nodo-salidas .yq-puerto{border-color:var(--color-arcane);background:var(--color-arcane);box-shadow:0 0 10px var(--color-arcane)}
+.yq-taller .yq-nodo-pos[data-cable=destino] .yq-nodo-salidas li:hover{color:#e4dcff}
+.yq-taller .yq-lienzo.is-cableando .yq-nodo-pos[data-cable=rechazo]{opacity:.55}
+.yq-taller .yq-nodo-pos[data-cable=rechazo] .yq-nodo{border-color:var(--color-crimson);box-shadow:0 0 0 1px color-mix(in srgb,var(--color-crimson) 60%,transparent)}
+.yq-taller .yq-cable-nuevo.is-guia{stroke:var(--color-gold-bright);filter:drop-shadow(0 0 5px var(--color-gold))}
+.yq-taller .yq-nodo.is-suelto{border-style:dashed;border-color:color-mix(in srgb,var(--yq-tinte) 70%,transparent);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--yq-tinte) 6%,var(--color-raised)) 0 10px,var(--color-raised) 10px 20px);opacity:.92}
+.yq-taller .yq-nodo.is-suelto .yq-nodo-cab{background:linear-gradient(95deg,color-mix(in srgb,var(--yq-tinte) 18%,transparent),transparent 70%)}
+.yq-taller .yq-nodo.is-suelto .yq-puerto--entrada{border-style:dashed;background:var(--color-well);box-shadow:none}
+.yq-taller .yq-nodo-pos:not([data-cable]) .yq-nodo.is-suelto .yq-puerto--entrada{background:var(--color-well);box-shadow:none}
+.yq-taller .yq-nodo-suelto{flex:none;padding:2px 8px;border:1px dashed color-mix(in srgb,var(--color-crimson) 70%,transparent);border-radius:999px;background:color-mix(in srgb,var(--color-crimson) 14%,transparent);color:var(--color-danger-text);font:600 11px var(--font-sans);letter-spacing:.04em;white-space:nowrap}
+.yq-taller .yq-nodo.is-suelto .yq-nodo-esquina{opacity:.4}
+/* Ramas: salida de éxito en verde, de fallo en carmesí. */
+.yq-taller .yq-nodo-salidas li[data-salida=exito]{--yq-tinte:var(--color-success-text)}
+.yq-taller .yq-nodo-salidas li[data-salida=fallo]{--yq-tinte:#e0485b}
+.yq-taller .yq-nodo-salidas li[data-salida=exito]>span:first-child{color:color-mix(in srgb,var(--color-success-text) 80%,var(--color-text-muted))}
+.yq-taller .yq-nodo-salidas li[data-salida=fallo]>span:first-child{color:color-mix(in srgb,#e0485b 80%,var(--color-text-muted))}
+
+/* Anchos de cada tipo de nodo al abrir su editor. */
+.yq-taller .yq-nodo.is-seleccionado:is([data-tipo=cuando],[data-tipo=entonces]){width:460px}
+.yq-taller .yq-nodo.is-seleccionado:is([data-tipo=si],[data-tipo=pasiva],[data-tipo=salvacion],[data-tipo=estado],[data-tipo=recurso]){width:420px}
+.yq-taller .yq-nodo.is-seleccionado:is([data-tipo=alcance],[data-tipo=reaccion],[data-tipo=transformacion],[data-tipo=vfx],[data-tipo=tabla_armas],[data-tipo=invocacion],[data-tipo=requisitos]){width:560px}
+
+/* ── Controles de los editores de regla ── */
+.yq-taller .yq-fichas--rejilla>div{display:grid;grid-template-columns:repeat(var(--yq-columnas,3),minmax(0,1fr));gap:5px}
+.yq-taller .yq-fichas--rejilla button{justify-content:flex-start;border-radius:3px;padding:6px 8px;min-width:0;text-align:left;line-height:1.2}
+.yq-taller .yq-fichas--rejilla button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.yq-taller .yq-fichas--rejilla button svg{flex:none}
+.yq-taller .yq-fichas.is-carmesi button[aria-pressed=true]{border-color:#e0485b;background:linear-gradient(180deg,color-mix(in srgb,var(--color-crimson) 36%,var(--color-raised)),color-mix(in srgb,var(--color-crimson) 12%,var(--color-well)));color:#ffd9dd;box-shadow:0 0 14px -4px color-mix(in srgb,#e0485b 80%,transparent)}
+.yq-taller .yq-fichas.is-verde button[aria-pressed=true]{border-color:var(--color-success-text);background:linear-gradient(180deg,color-mix(in srgb,var(--color-success-text) 26%,var(--color-raised)),color-mix(in srgb,var(--color-success-text) 8%,var(--color-well)));color:#dcffe4;box-shadow:0 0 14px -4px color-mix(in srgb,var(--color-success-text) 70%,transparent)}
+.yq-taller .yq-boton{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid color-mix(in srgb,var(--yq-tinte) 55%,var(--color-line));background:color-mix(in srgb,var(--yq-tinte) 10%,var(--color-well));color:var(--color-parchment);font:600 13px var(--font-sans);cursor:pointer;transition:background-color .15s ease,transform .15s ease}
+.yq-taller .yq-boton:hover:not(:disabled){background:color-mix(in srgb,var(--yq-tinte) 22%,var(--color-well));transform:translateY(-1px)}
+.yq-taller .yq-boton:disabled{opacity:.4;cursor:not-allowed}
+.yq-taller .yq-boton.is-peligro{border-color:color-mix(in srgb,var(--color-crimson) 60%,transparent);background:color-mix(in srgb,var(--color-crimson) 10%,var(--color-well));color:var(--color-danger-text)}
+.yq-taller .yq-botonera{display:flex;flex-wrap:wrap;gap:6px}
+.yq-taller .yq-frase-viva{margin:0;padding:8px 12px;border-left:2px solid var(--yq-tinte);background:color-mix(in srgb,var(--yq-tinte) 8%,var(--color-well));font:italic 14px/1.45 var(--font-serif);color:var(--color-parchment)}
+.yq-taller .yq-nota b{color:var(--color-parchment);font-style:normal}.yq-taller .yq-nota b.is-exito{color:var(--color-success-text)}.yq-taller .yq-nota b.is-fallo{color:#ef7b89}
+.yq-taller .yq-campo-ayuda{font:12.5px var(--font-sans);color:var(--color-text-muted)}
+.yugen-page .yq-campo textarea{width:100%;padding:8px 11px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px/1.45 var(--font-sans);resize:vertical}
+.yugen-page .yq-campo textarea:focus{outline:none;border-color:var(--color-arcane);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-arcane) 22%,transparent)}
+.yq-taller .yq-dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:start}
+/* «Así funciona»: la regla leída en voz alta. */
+.yq-taller .yq-asi{display:grid;gap:6px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--yq-tinte) 35%,var(--color-line));background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--yq-tinte) 12%,transparent),transparent 70%),var(--color-well)}
+.yq-taller .yq-asi header{display:flex;align-items:center;justify-content:space-between;gap:8px;font:600 11.5px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
+.yq-taller .yq-asi p{margin:0;font:italic 14px/1.45 var(--font-serif);color:var(--color-parchment)}
+.yq-taller .yq-asi ul{margin:0;padding-left:18px;font:13px/1.5 var(--font-sans);color:var(--color-text-muted)}
+.yq-taller .yq-limites,.yq-taller .yq-bonos{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:0;padding:10px;border:1px solid var(--color-line);min-width:0}
+.yq-taller .yq-limites legend,.yq-taller .yq-bonos legend{padding:0 6px;font:600 11.5px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
+.yq-taller .yq-limites label,.yq-taller .yq-bonos label{display:grid;justify-items:start;gap:3px;font:12.5px var(--font-sans);color:var(--color-text-muted)}
+.yq-taller .yq-bonos label.is-activo>span:first-child{color:var(--color-gold-bright)}
+.yq-taller .yq-bonos label.is-activo .yq-rueda{border-color:color-mix(in srgb,var(--color-gold) 70%,transparent);box-shadow:0 0 12px -5px var(--color-gold)}
+.yq-taller .yq-represalia{display:flex;align-items:center;gap:4px}
+.yq-taller .yq-represalia>b{font:italic 18px var(--font-serif);color:var(--color-gold)}
+/* Comparar y probabilidad: el umbral como barra. */
+.yq-taller .yq-comparar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.yq-taller .yq-comparar-valor{display:grid;grid-template-columns:auto auto;align-items:center;gap:4px 6px}
+.yq-taller .yq-comparar-valor>span{grid-column:1/-1;font:600 11.5px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
+.yq-taller .yq-comparar-valor>b,.yq-taller .yq-probabilidad>b{font:400 20px var(--font-serif);color:var(--color-gold)}
+.yq-taller .yq-umbral{position:relative;height:10px;border:1px solid var(--color-line);background:linear-gradient(90deg,color-mix(in srgb,var(--color-crimson) 50%,var(--color-well)),color-mix(in srgb,var(--color-gold) 30%,var(--color-well)) 60%,color-mix(in srgb,var(--color-success-text) 40%,var(--color-well)))}
+.yq-taller .yq-umbral i{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,#fff 18%,transparent);box-shadow:inset -2px 0 0 var(--color-gold-bright);transition:width .25s ease}
+.yq-taller .yq-umbral span{position:absolute;top:-5px;width:2px;height:18px;margin-left:-1px;background:var(--color-gold-bright);box-shadow:0 0 8px var(--color-gold-bright);transition:left .25s ease}
+.yq-taller .yq-umbral.is-azar{flex:1;min-width:120px;background:repeating-linear-gradient(90deg,var(--color-well) 0 9px,color-mix(in srgb,var(--color-line) 70%,transparent) 9px 10px)}
+.yq-taller .yq-umbral.is-azar i{background:linear-gradient(90deg,color-mix(in srgb,var(--color-arcane) 50%,transparent),var(--color-arcane));box-shadow:0 0 12px -2px var(--color-arcane)}
+.yq-taller .yq-probabilidad{display:flex;align-items:center;gap:8px}
+.yq-taller .yq-atributo-fichas{display:grid;gap:6px}
+.yq-taller .yq-campo--clave{grid-template-columns:auto 1fr;align-items:center;gap:8px}
+.yugen-page .yq-campo--clave input{padding:4px 8px;font:13px var(--font-sans)}
+/* Valor de un efecto: «2d6 + bono + atributo × escala». */
+.yq-taller .yq-valor{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--color-line);background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--color-gold) 10%,transparent),transparent 70%),var(--color-well)}
+.yq-taller .yq-valor-cab{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.yq-taller .yq-valor-cab .yq-fichas legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.yq-taller .yq-valor-atributo{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:start}
+.yq-taller .yq-valor-atributo>b{font:italic 400 24px var(--font-serif);color:var(--color-gold);line-height:1.2}
+.yq-taller .yq-valor-atributo>*:not(b){grid-column:2}
+.yq-taller .yq-valor-escala{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.yq-taller .yq-valor-escala label{display:grid;gap:3px;font:600 11.5px var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted)}
+.yq-taller .yq-formula{margin:0;text-align:right;font:italic 15px var(--font-serif);color:var(--color-gold-soft)}
+.yq-taller .yq-lista{display:grid;gap:8px}
+.yq-taller .yq-lista>header{display:flex;align-items:center;justify-content:space-between;font:600 11.5px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
+.yq-taller .yq-lista-fila{display:grid;gap:8px;padding:10px;border-left:2px solid var(--yq-tinte);background:color-mix(in srgb,var(--yq-tinte) 5%,transparent)}
+.yq-taller .yq-subcondicion,.yq-taller .yq-subaccion{display:grid;gap:10px;padding:10px;border:1px dashed color-mix(in srgb,var(--yq-tinte) 45%,var(--color-line))}
+.yq-taller .yq-cd{justify-items:start}
+.yq-taller .yq-cd-escudo{display:grid;place-items:center;padding:10px 18px 16px;clip-path:polygon(50% 0,100% 12%,100% 60%,50% 100%,0 60%,0 12%);background:linear-gradient(180deg,color-mix(in srgb,var(--color-arcane) 26%,var(--color-raised)),var(--color-well))}
+.yq-taller .yq-cd-escudo .yq-rueda{border-color:transparent;background:transparent}
+
+/* ── Editores clásicos dentro de un nodo ── */
+.yq-taller .yq-legado{font:14px/1.45 var(--font-sans);color:var(--color-text)}
+.yq-taller .yq-legado section,.yq-taller .yq-legado details{border-color:var(--color-line)!important;background:transparent!important;padding:0!important;border:0!important}
+.yq-taller .yq-legado h3,.yq-taller .yq-legado h4,.yq-taller .yq-legado legend,.yq-taller .yq-legado summary{font:600 12px var(--font-display);letter-spacing:.14em;text-transform:uppercase;color:var(--color-gold-soft)}
+.yq-taller .yq-legado summary{cursor:pointer;padding:6px 0}
+.yq-taller .yq-legado label{display:block;font-size:13px;color:var(--color-parchment)}
+.yq-taller .yq-legado p,.yq-taller .yq-legado small{font-size:13px;color:var(--color-text-muted)}
+.yugen-page .yq-legado :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){width:100%;margin-top:4px;padding:6px 9px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px var(--font-sans)}
+.yugen-page .yq-legado :is(input,select,textarea):focus{outline:none;border-color:var(--color-arcane);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-arcane) 22%,transparent)}
+.yq-taller .yq-legado input[type=checkbox]{accent-color:var(--color-arcane);margin-right:6px}
+.yq-taller .yq-legado button:not([aria-pressed]){padding:4px 10px;border:1px solid var(--color-line);background:var(--color-well);color:var(--color-parchment);font:13px var(--font-sans);cursor:pointer}
+.yq-taller .yq-legado .yunque-formas{display:flex;flex-wrap:wrap;gap:6px}
+.yq-taller .yq-legado .yunque-formas button{display:inline-flex;gap:6px;padding:5px 10px;border:1px solid var(--color-line);border-radius:999px;background:var(--color-well);color:var(--color-text);font:13px var(--font-sans);cursor:pointer}
+.yq-taller .yq-legado .yunque-formas button[aria-pressed=true]{border-color:var(--color-arcane);color:#e4dcff;background:color-mix(in srgb,var(--color-arcane) 20%,var(--color-well))}
+.yq-taller .yq-legado .yunque-area-grid{display:grid;grid-template-columns:repeat(9,22px);gap:2px}
+.yq-taller .yq-legado .yunque-area-grid button{width:22px;height:22px;padding:0;border:1px solid var(--color-line);background:var(--color-well);font:12px var(--font-sans);color:var(--color-text)}
+.yq-taller .yq-legado .yunque-area-grid button.afectada{background:color-mix(in srgb,var(--color-arcane) 45%,var(--color-well));border-color:var(--color-arcane)}
+.yq-taller .yq-legado .yunque-area-grid button.origen{background:var(--color-parchment);color:var(--color-ink)}
+.yq-taller .yq-legado .y-cita{padding:8px 12px;border-left:2px solid var(--color-arcane);font:italic 14px var(--font-serif);color:var(--color-parchment)}
+
+@media (prefers-reduced-motion:reduce){
+ .yq-taller .yq-familia-flecha,.yq-taller .yq-pieza-asa,.yq-taller .yq-boton,.yq-taller .yq-umbral i,.yq-taller .yq-umbral span{transition:none}
+ .yq-taller .yq-boton:hover:not(:disabled){transform:none}
+ .yq-taller .yq-nodo-pos[data-cable=destino] .yq-nodo{transform:none}
+}
+
+/* Con ratón, los controles dentro de un nodo son más compactos que el mínimo táctil de 44 px del panel GM. */
+@media (pointer:fine){
+ .yq-taller .yq-nodo .yq-nodo-editor :is(button,select){min-height:32px}
+ .yq-taller .yq-nodo .yq-nodo-editor input:not([type=checkbox]):not([type=radio]){min-height:34px}
+ .yq-taller .yq-nodo .yq-nodo-editor .yq-rueda :is(button,input){min-height:0}
+}

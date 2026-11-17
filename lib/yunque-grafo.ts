@@ -2,7 +2,7 @@ import type {Borrador} from "./yunque-borrador";
 import {EFECTOS_NOMBRE,validarEfectos,validarReaccion,type Efecto} from "./creacion";
 import {EVENTOS,EFECTOS_REGLA,validarReglas,type Regla,type EfectoRegla,type CondicionRegla} from "./reglas";
 import {describirEfecto,describirRegla,describirReaccion,condicionClara} from "./descripciones";
-import {validarPasivas} from "./pasivas";
+import {validarPasivas,EVENTOS_PASIVA,CONDICIONES_PASIVA} from "./pasivas";
 import {reaccionDe,validarTactica,validarRequisitos} from "./combate";
 /**
  * Grafo DERIVADO del Borrador (solo lectura): `aGrafo` nunca modifica `b`.
@@ -54,7 +54,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   const ruta:Ruta=['reglas',i];
   const cuando='cuando:'+r.id;
   const cabecera=r.efectos.length?validarReglas([{...r,condicion:SIEMPRE,efectos:[RELLENO]}]):validarReglas([r]);
-  nodo(cuando,'cuando',ruta,r.nombre||'Regla',EVENTOS[r.evento]||r.evento,cabecera,[entrada(['nucleo']),salida('si',['si'])]);
+  nodo(cuando,'cuando',ruta,r.nombre||'Regla',`${EVENTOS[r.evento]||r.evento} → ${describirRegla(r).resumen}`,cabecera,[entrada(['nucleo']),salida('si',['si'],'Si')]);
   cable('nucleo','reglas',cuando);
   const condicion=(c:CondicionRegla,id:string,rutaC:Ruta,padre:string,puertoPadre:string)=>{
    const compuesta=c.tipo==='todas'||c.tipo==='alguna'||c.tipo==='no';
@@ -80,7 +80,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  // Pasivas
  b.reglas_pasivas.forEach((p,i)=>{
   const id='pasiva:'+p.id;
-  nodo(id,'pasiva',['reglas_pasivas',i],p.nombre||'Pasiva',`${p.evento} · ${p.condicion}`,validarPasivas([p])||null,[entrada(['nucleo'])]);
+  nodo(id,'pasiva',['reglas_pasivas',i],p.nombre||'Pasiva',`${EVENTOS_PASIVA[p.evento]??p.evento}, ${CONDICIONES_PASIVA[p.condicion]??p.condicion}.`,validarPasivas([p])||null,[entrada(['nucleo'])]);
   cable('nucleo','pasivas',id);
  });
  // Vínculos con otras creaciones
@@ -107,3 +107,5 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  }
  return {nodos,cables};
 }
+/** Valor del borrador en una ruta de nodo (o `undefined` si la ruta ya no existe). */
+export const leerRuta=(b:unknown,ruta:Ruta):unknown=>ruta.reduce<unknown>((x,k)=>x!==null&&typeof x==='object'?(x as Record<string|number,unknown>)[k]:undefined,b);

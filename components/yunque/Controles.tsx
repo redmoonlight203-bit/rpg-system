@@ -5,8 +5,8 @@ import IconoYugen from '../IconoYugen';
 
 export type Opcion<T extends string|number>={valor:T;nombre:string;icono?:string;ayuda?:string};
 /** Grupo de fichas: un valor corto se elige pulsando, nunca con un desplegable. */
-export function Fichas<T extends string|number>({etiqueta,opciones,valor,onChange,tono,grandes=false}:{etiqueta:string;opciones:Opcion<T>[];valor:T|undefined;onChange:(v:T)=>void;tono?:'arcano'|'oro';grandes?:boolean}){
- return <fieldset className={`yq-fichas${grandes?' yq-fichas--grandes':''}${tono?` is-${tono}`:''}`}>
+export function Fichas<T extends string|number>({etiqueta,opciones,valor,onChange,tono,grandes=false,columnas}:{etiqueta:string;opciones:Opcion<T>[];valor:T|undefined;onChange:(v:T)=>void;tono?:'arcano'|'oro'|'carmesi'|'verde';grandes?:boolean;columnas?:number}){
+ return <fieldset className={`yq-fichas${grandes?' yq-fichas--grandes':''}${columnas?' yq-fichas--rejilla':''}${tono?` is-${tono}`:''}`} style={columnas?{['--yq-columnas' as string]:columnas}:undefined}>
   <legend>{etiqueta}</legend>
   <div>{opciones.map(o=><button type="button" key={String(o.valor)} aria-pressed={o.valor===valor} title={o.ayuda} onClick={()=>onChange(o.valor)}>
    {o.icono&&<IconoYugen id={o.icono} size={grandes?30:16}/>}<span>{o.nombre}</span>{grandes&&o.ayuda&&<small>{o.ayuda}</small>}
@@ -37,4 +37,13 @@ export function Rueda({nombre,etiqueta,valor,onChange,min=-999,max=9999,paso=1,v
    onKeyDown={e=>{if(e.key==='ArrowUp'){e.preventDefault();mover(1);}if(e.key==='ArrowDown'){e.preventDefault();mover(-1);}}}/>
   <button type="button" tabIndex={-1} aria-label={`Subir ${etiqueta}`} onClick={()=>mover(1)} disabled={valores?valor>=Math.max(...valores):valor>=max}>+</button>
  </span>;
+}
+
+/** Interruptor (switch) con la misma apariencia que «Todos los campos». */
+export function Interruptor({etiqueta,valor,onChange,disabled=false}:{etiqueta:ReactNode;valor:boolean;onChange:(v:boolean)=>void;disabled?:boolean}){
+ return <label className="yq-conmutador"><input type="checkbox" role="switch" checked={valor} disabled={disabled} onChange={e=>onChange(e.target.checked)}/><span aria-hidden="true"/>{etiqueta}</label>;
+}
+/** Campo de texto corto con etiqueta en versalitas. */
+export function Texto({etiqueta,valor,onChange,max=120,placeholder,ayuda}:{etiqueta:string;valor:string;onChange:(v:string)=>void;max?:number;placeholder?:string;ayuda?:string}){
+ return <label className="yq-campo"><span>{etiqueta}</span><input maxLength={max} value={valor} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/>{ayuda&&<small className="yq-campo-ayuda">{ayuda}</small>}</label>;
 }

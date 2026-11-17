@@ -1,7 +1,7 @@
 'use client';
 // Lienzo del Yunque: desplazar arrastrando el fondo, zoom con la rueda (0.4–2) alrededor del cursor,
 // nodos que se arrastran con transform y cables Bézier que se dibujan arrastrando desde un puerto de salida.
-import {useCallback,useEffect,useMemo,useRef,useState,type PointerEvent as PE,type KeyboardEvent,type FocusEvent,type ReactNode} from 'react';
+import {useCallback,useEffect,useImperativeHandle,useMemo,useRef,useState,type PointerEvent as PE,type KeyboardEvent,type FocusEvent,type ReactNode,type Ref} from 'react';
 import {Maximize,Minus,Plus,X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import NodoYunque,{familiaDe,puertoLocal,ICONO_TIPO,NOMBRE_TIPO,type Familia} from './NodoYunque';
@@ -12,11 +12,29 @@ import type {Grafo,Nodo,Puerto,TipoNodo} from '../../lib/yunque-grafo';
 export type Vista={x:number;y:number;z:number};
 export type ContenidoNodo={icono?:string;editor?:ReactNode;pie?:ReactNode};
 type Extremo={nodo:string;puerto:string};
+/** Lo que el taller necesita del lienzo para soltar piezas del Grimorio (coordenadas de pantalla → mundo). */
+export type LienzoAPI={
+ /** ¿El punto de pantalla cae dentro del lienzo? */
+ dentro:(cx:number,cy:number)=>boolean;
+ aMundo:(cx:number,cy:number)=>Punto;
+ /** Centro visible del lienzo, en coordenadas del mundo. */
+ centro:()=>Punto;
+ /** Nodo (y salida, si el cursor está sobre su fila) bajo un punto de pantalla; ignora los nodos sueltos. */
+ destinoEn:(cx:number,cy:number,excluir?:string)=>{nodo:string;puerto?:string}|null;
+};
+/** Guía mientras se arrastra una pieza del Grimorio: nodos que la admiten, el que está debajo y un cable de vista previa. */
+export type GuiaPieza={compatibles:ReadonlySet<string>;sobre:string|null;cable:Extremo|null;punto:Punto|null};
 type Props={
  grafo:Grafo;posiciones:Record<string,Punto>;seleccion:string|null;encendidos?:ReadonlySet<string>;nuevos?:ReadonlySet<string>;
  onMover:(id:string,p:Punto)=>void;onSeleccionar:(id:string|null)=>void;
  onConectar:(origen:Extremo,destino:string)=>void;onOperar:(o:Operacion,punto?:Punto)=>void;
  contenido:(n:Nodo)=>ContenidoNodo;
+ /** Piezas soltadas en el vacío que aún no pertenecen al borrador (nodos «sin conectar», solo de interfaz). */
+ sueltos?:Nodo[];guia?:GuiaPieza|null;api?:Ref<LienzoAPI>;
+ /** Por cada nodo suelto, los nodos que lo admiten (se iluminan al arrastrarlo). */
+ compatiblesSuelto?:Record<string,ReadonlySet<string>>;
+ /** Un nodo suelto arrastrado y soltado sobre otro nodo. */
+ onSoltarSuelto?:(id:string,destino:{nodo:string;puerto?:string})=>void;
 };
 const Z_MIN=0.4,Z_MAX=2;
 const acotar=(z:number)=>Math.min(Z_MAX,Math.max(Z_MIN,z));
@@ -38,7 +56,7 @@ export function encuadrar(pos:Record<string,Punto>,ancho:number,alto:number):Vis
  return {x:Math.max(40,(ancho-w)/2)-x1,y:Math.max(40,(alto-h)/2)-y1,z:1};
 }
 
-export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onMover,onSeleccionar,onConectar,onOperar,contenido}:Props){
+export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onMover,onSeleccionar,onConectar,onOperar,contenido,sueltos,guia,api,onSoltarSuelto,compatiblesSuelto}:Props){
  const caja=useRef<HTMLDivElement>(null);
  const [vista,setVista]=useState<Vista>({x:80,y:80,z:1});
  const [suave,setSuave]=useState(false),[desplazando,setDesplazando]=useState(false);
@@ -51,7 +69,8 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
  useEffect(()=>{vistaRef.current=vista;},[vista]);
  useEffect(()=>{posRef.current=posiciones;},[posiciones]);
  useEffect(()=>{selRef.current=seleccion;},[seleccion]);
- const porId=useMemo(()=>new Map(grafo.nodos.map(n=>[n.id,n])),[grafo]);
+ const todos=useMemo(()=>sueltos?.length?[...grafo.nodos,...sueltos]:grafo.nodos,[grafo,sueltos]);
+ const porId=useMemo(()=>new Map(todos.map(n=>[n.id,n])),[todos]);
  const conectados=useMemo(()=>{const m=new Map<string,Set<string>>();for(const c of grafo.cables){if(!m.has(c.desde.nodo))m.set(c.desde.nodo,new Set());m.get(c.desde.nodo)!.add(c.desde.puerto);}return m;},[grafo]);
  // El nodo elegido se despliega con su editor: los nodos de las columnas siguientes se apartan a la derecha
  // y los de su misma columna, hacia abajo (solo en pantalla; las posiciones guardadas no cambian).
@@ -135,6 +154,22 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
  },[seleccion,nuevos,asegurarVisible]);
 
  const aMundo=(cx:number,cy:number):Punto=>{const r=caja.current!.getBoundingClientRect(),v=vistaRef.current;return {x:(cx-r.left-v.x)/v.z,y:(cy-r.top-v.y)/v.z};};
+ const destinoEn=(cx:number,cy:number,excluir?:string)=>{
+  for(const el of document.elementsFromPoint(cx,cy)){
+   if(!(el instanceof HTMLElement)||!caja.current?.contains(el))continue;
+   if(el.closest('.yq-lienzo-barra,.yq-menu-forja'))return null;
+   const n=el.closest<HTMLElement>('.yq-nodo-pos');const id=n?.dataset.id;
+   if(!id||id===excluir||id.startsWith('suelto:'))continue;
+   const puerto=el.closest<HTMLElement>('[data-salida]')?.dataset.salida;
+   return puerto?{nodo:id,puerto}:{nodo:id};
+  }
+  return null;
+ };
+ useImperativeHandle(api,()=>({
+  dentro:(cx,cy)=>{const r=caja.current?.getBoundingClientRect();return !!r&&cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom;},
+  aMundo,destinoEn,
+  centro:()=>{const el=caja.current,v=vistaRef.current;return el?{x:(el.clientWidth/2-v.x)/v.z,y:(el.clientHeight/2-v.y)/v.z}:{x:0,y:0};},
+ }));
  function zoomCentro(f:number){const el=caja.current;if(!el)return;const cx=el.clientWidth/2,cy=el.clientHeight/2;setSuave(true);setVista(v=>{const z=acotar(v.z*f),k=z/v.z;return {x:cx-(cx-v.x)*k,y:cy-(cy-v.y)*k,z};});}
  function encuadrarTodo(){const el=caja.current;if(!el)return;setSuave(true);setVista(encuadrar(posiciones,el.clientWidth,el.clientHeight));}
 
@@ -194,7 +229,14 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   const g=gesto.current;gesto.current=null;if(!g)return;
   if(caja.current?.hasPointerCapture(e.pointerId))caja.current.releasePointerCapture(e.pointerId);
   if(g.tipo==='pan'){setDesplazando(false);if(!g.movido)onSeleccionar(null);return;}
-  if(g.tipo==='nodo'){if(g.movido&&arrastre)onMover(arrastre.id,arrastre.p);setArrastre(null);return;}
+  if(g.tipo==='nodo'){
+   if(g.movido&&arrastre){
+    onMover(arrastre.id,arrastre.p);
+    // Un nodo suelto que cae sobre otro nodo intenta conectarse a él.
+    if(arrastre.id.startsWith('suelto:')){const d=destinoEn(e.clientX,e.clientY,arrastre.id);if(d)onSoltarSuelto?.(arrastre.id,d);}
+   }
+   setArrastre(null);return;
+  }
   const c=cable;setCable(null);if(!c)return;
   const bajo=document.elementFromPoint(e.clientX,e.clientY) as HTMLElement|null;
   const destinoEl=bajo?.closest<HTMLElement>('.yq-nodo-pos');
@@ -208,8 +250,16 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   return n.puertos.some(p=>conexionValida(origen,p,n.tipo));
  };
  const opciones=menu?menu.puerto.acepta.filter(t=>AGREGABLES.includes(t)):[];
+ const sueltoMovido=arrastre?.id.startsWith('suelto:')?porId.get(arrastre.id)??null:null;
+ // Cable de vista previa desde el puerto que recibirá la pieza hasta el cursor.
+ const guiaCable=(()=>{
+  if(!guia?.cable||!guia.punto)return null;
+  const n=porId.get(guia.cable.nodo),b=pos(guia.cable.nodo);if(!n||!b)return null;
+  const l=puertoLocal(n,guia.cable.puerto,ancho(n.id));
+  return {desde:{x:b.x+l.x,y:b.y+l.y},hasta:guia.punto};
+ })();
 
- return <div ref={caja} className={`yq-lienzo${cable?' is-cableando':''}${desplazando?' is-desplazando':''}`}
+ return <div ref={caja} className={`yq-lienzo${cable||guia||sueltoMovido?' is-cableando':''}${guia?' is-guiando':''}${desplazando?' is-desplazando':''}`}
   style={{['--yq-x' as string]:`${vista.x}px`,['--yq-y' as string]:`${vista.y}px`,['--yq-z' as string]:vista.z}}
   onPointerDown={abajo} onPointerMove={mover} onPointerUp={arriba} onPointerCancel={cancelar} onKeyDown={tecla} onFocus={enfocar}
   role="region" aria-label="Lienzo de nodos del Yunque" aria-roledescription="lienzo">
@@ -238,11 +288,14 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
      </g>;
     })}
     {cable&&<path className="yq-cable-nuevo" d={curva(cable.desde,cable.hasta)}/>}
+    {guiaCable&&<path className="yq-cable-nuevo is-guia" d={curva(guiaCable.desde,guiaCable.hasta)}/>}
    </svg>
-   {grafo.nodos.map(n=>{
+   {todos.map(n=>{
     const p=pos(n.id);if(!p)return null;
     const c=contenido(n),sel=seleccion===n.id;
-    const estado=cable?(n.id===cable.origen.nodo?'origen':compatible(n.id,cable.puerto,cable.origen.nodo)?'compatible':'incompatible'):undefined;
+    const estado=cable?(n.id===cable.origen.nodo?'origen':compatible(n.id,cable.puerto,cable.origen.nodo)?'compatible':'incompatible')
+     :guia?(n.id===guia.sobre?(guia.compatibles.has(n.id)?'destino':'rechazo'):guia.compatibles.has(n.id)?'compatible':'incompatible')
+     :sueltoMovido?(n.id===sueltoMovido.id?'origen':(compatiblesSuelto?.[sueltoMovido.id]?.has(n.id)??n.puertos.some(q=>q.lado==='salida'&&q.acepta.includes(sueltoMovido.tipo)))?'compatible':'incompatible'):undefined;
     return <div key={n.id} ref={observar} data-id={n.id} data-cable={estado} className={`yq-nodo-pos${sel?' is-encima':''}${arrastre?.id===n.id?' is-arrastrado':''}`} style={{transform:`translate(${p.x}px,${p.y}px)`}}>
      <NodoYunque nodo={n} seleccionado={sel} encendido={encendidos?.has(n.id)} nuevo={nuevos?.has(n.id)} icono={c.icono} conectados={conectados.get(n.id)} pie={c.pie} onOperar={o=>onOperar(o)}>{c.editor}</NodoYunque>
     </div>;

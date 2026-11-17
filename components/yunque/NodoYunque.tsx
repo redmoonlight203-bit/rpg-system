@@ -26,10 +26,11 @@ export function puertoLocal(n:Nodo,puerto:string,ancho:number):{x:number;y:numbe
 type Props={nodo:Nodo;seleccionado:boolean;encendido?:boolean;nuevo?:boolean;icono?:string;conectados?:Set<string>;pie?:ReactNode;onOperar?:(o:Operacion)=>void;children?:ReactNode};
 export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=false,icono,conectados,pie,onOperar,children}:Props){
  const familia=familiaDe(nodo.tipo),outs=salidas(nodo),entrada=nodo.puertos.find(p=>p.lado==='entrada');
- const editable=nodo.tipo!=='nucleo'&&nodo.tipo!=='vinculo';
+ const suelto=nodo.id.startsWith('suelto:');
+ const editable=nodo.tipo!=='nucleo'&&nodo.tipo!=='vinculo'&&!suelto;
  const duplicable=['accion','cuando','pasiva','entonces'].includes(nodo.tipo)||(nodo.tipo==='si'&&!(nodo.ruta.length===3&&nodo.ruta[2]==='condicion'));
- return <article data-nodo={nodo.id} data-familia={familia} aria-label={`${NOMBRE_TIPO[nodo.tipo]}: ${nodo.titulo}`} aria-current={seleccionado||undefined} tabIndex={0}
-  className={['yq-nodo',`yq-nodo--${familia}`,seleccionado&&'is-seleccionado',encendido&&'is-encendido',nuevo&&'is-nuevo',nodo.error&&'is-error'].filter(Boolean).join(' ')}>
+ return <article data-nodo={nodo.id} data-familia={familia} data-tipo={nodo.tipo} aria-label={`${NOMBRE_TIPO[nodo.tipo]}: ${nodo.titulo}${suelto?' (sin conectar)':''}`} aria-current={seleccionado||undefined} tabIndex={0}
+  className={['yq-nodo',`yq-nodo--${familia}`,seleccionado&&'is-seleccionado',encendido&&'is-encendido',nuevo&&'is-nuevo',nodo.error&&'is-error',suelto&&'is-suelto'].filter(Boolean).join(' ')}>
   <svg className="yq-nodo-esquina is-ti" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 17V7Q1 1 7 1h10" fill="none" stroke="currentColor" strokeWidth="1.2"/><rect x="2.4" y="2.4" width="3" height="3" transform="rotate(45 3.9 3.9)" fill="currentColor"/></svg>
   <svg className="yq-nodo-esquina is-bd" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 17V7Q1 1 7 1h10" fill="none" stroke="currentColor" strokeWidth="1.2"/><rect x="2.4" y="2.4" width="3" height="3" transform="rotate(45 3.9 3.9)" fill="currentColor"/></svg>
   <header className="yq-nodo-cab" data-asa="">
@@ -39,6 +40,7 @@ export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=fals
     {duplicable&&<button type="button" title="Duplicar" aria-label="Duplicar nodo" onClick={()=>onOperar({op:'duplicar',nodo:nodo.id})}><Copy size={14}/></button>}
     <button type="button" title="Quitar" aria-label="Quitar nodo" className="is-peligro" onClick={()=>onOperar({op:'quitar',nodo:nodo.id})}><Trash2 size={14}/></button>
    </span>}
+   {suelto&&<span className="yq-nodo-suelto">sin conectar</span>}
    {nodo.error&&<span className="yq-nodo-sello" role="img" aria-label={`Error: ${nodo.error}`} title={nodo.error}>!</span>}
   </header>
   <div className="yq-nodo-cuerpo" style={{minHeight:outs.length?outs.length*GEO.fila+(GEO.salidaY0-GEO.cab)+6:undefined,paddingRight:outs.length?104:undefined}}>
@@ -47,7 +49,7 @@ export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=fals
   </div>
   {entrada&&<span className="yq-puerto yq-puerto--entrada" data-puerto="entrada" data-lado="entrada" style={{top:GEO.entradaY}} aria-hidden="true"/>}
   {outs.length>0&&<ul className="yq-nodo-salidas" style={{top:GEO.salidaY0}} aria-label="Salidas">
-   {outs.map(p=><li key={p.id} style={{height:GEO.fila}} className={conectados?.has(p.id)?'is-conectado':undefined}>
+   {outs.map(p=><li key={p.id} data-salida={p.id} style={{height:GEO.fila}} className={conectados?.has(p.id)?'is-conectado':undefined}>
     <span>{p.etiqueta||p.id}</span><span className="yq-puerto yq-puerto--salida" data-puerto={p.id} data-lado="salida" title={`Arrastra para crear o conectar: ${p.etiqueta||p.id}`}/>
    </li>)}
   </ul>}

@@ -89,3 +89,19 @@ export function validarPasivas(rs: ReglaPasiva[]) {
   }
   return null;
 }
+/** Nombres legibles de los momentos y condiciones de una pasiva (frases del lienzo y fichas del editor). */
+export const EVENTOS_PASIVA: Record<ReglaPasiva["evento"], string> = {
+  permanente: "Mientras se cumpla",
+  inicio_turno: "Al iniciar el turno",
+  recibir_ataque: "Al ser atacado",
+  recibir_impacto: "Al recibir un impacto",
+  recibir_dano: "Al recibir daño",
+};
+export const CONDICIONES_PASIVA: Record<ReglaPasiva["condicion"], string> = {
+  siempre: "siempre",
+  vida_mitad: "con la mitad de vida o menos",
+  sin_arma: "sin arma equipada",
+  ataque_magico: "ante un ataque mágico",
+  ataque_natural: "ante un ataque natural",
+  ataque_elemental: "ante un ataque elemental",
+};

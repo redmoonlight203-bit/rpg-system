@@ -56,7 +56,8 @@ try{
    await pagina.screenshot({path:`${SALIDA}/yunque-teclado-${ANCHO}.png`});
   }
   // Elegir familia «Espadas» para que el núcleo muestre medallones.
-  await nucleo.click({position:{x:120,y:16}}).catch(()=>{});
+  // Elegirlo desde el índice lo trae a la vista (el editor de requisitos, ya abierto, desplaza el lienzo).
+  await pagina.locator('.yq-indice button').first().click();await pagina.waitForTimeout(500);
   const familia=pagina.getByRole('button',{name:'Espadas',exact:true});
   if(await familia.count())await familia.first().click();
   const nombre=pagina.getByLabel('Nombre de la creación');
@@ -79,7 +80,7 @@ try{
   const valorCaras=await pagina.locator('[data-rueda="caras"] input').first().inputValue().catch(()=>'');
   comprobar(valorCaras==='10',`la rueda del ratón cambia las caras del dado (d${valorCaras})`);
   // Añadir un segundo nodo desde el Grimorio para ver varios cables.
-  const pieza=pagina.locator('.yq-grimorio-piezas button[data-familia="accion"]');
+  const pieza=pagina.locator('.yq-grimorio [data-pieza="accion:ataque"]');
   if(await pieza.count())await pieza.click();
   await pagina.waitForTimeout(700);
   await pagina.screenshot({path:`${SALIDA}/yunque-${ANCHO}.png`});
@@ -101,6 +102,8 @@ try{
    await pagina.waitForTimeout(500);
    comprobar(await pagina.locator('[data-nodo^="salvacion:"]').count()===1,'el menú crea el módulo conectado');
    // Repetirlo es inválido (`aplicar` lanza): se avisa sin romper la página.
+   // El editor de la salvación desplaza el lienzo: se elige la otra acción desde el índice para verla.
+   await pagina.locator('.yq-indice button',{hasText:/^Ataque$/}).first().click().catch(()=>{});await pagina.waitForTimeout(450);
    const otra=pagina.locator('[data-nodo^="accion:"] [data-puerto="modulos"]').last();
    await pagina.locator('[data-nodo^="accion:"] .yq-nodo-cab').last().click({position:{x:40,y:10}}).catch(()=>{});
    const ob=await otra.boundingBox().catch(()=>null);
@@ -133,6 +136,71 @@ try{
   if(await encuadrar.count())await encuadrar.click();
   await pagina.waitForTimeout(500);
   await pagina.screenshot({path:`${SALIDA}/yunque-encuadre-${ANCHO}.png`});
+  // Tarea 7: una regla arrastrando «Al impactar», «Vida < 50 %» y «Curar» desde el Grimorio.
+  const busqueda=pagina.getByLabel('Buscar en el Grimorio');
+  const vacio=()=>pagina.evaluate(()=>{const l=document.querySelector('.yq-lienzo').getBoundingClientRect();
+   for(let fy=.7;fy>.1;fy-=.07)for(let fx=.08;fx<.9;fx+=.07){const x=l.left+l.width*fx,y=l.top+l.height*fy;
+    if(!document.elementsFromPoint(x,y).some(e=>e.closest('.yq-nodo-pos,.yq-lienzo-barra,.yq-aviso,.yq-menu-forja')))return {x,y};}return null;});
+  /** Centro de la cabecera de un nodo; si queda fuera de la vista, se elige desde el índice para traerlo. */
+  const visible=async id=>{
+   const caja=await pagina.locator(`[data-nodo="${id}"]`).boundingBox().catch(()=>null),l=await pagina.locator('.yq-lienzo').boundingBox();
+   if(caja&&caja.x>=l.x&&caja.y>=l.y&&caja.x+120<=l.x+l.width&&caja.y+40<=l.y+l.height)return;
+   await pagina.locator(`.yq-indice [data-indice="${id}"]`).click();await pagina.waitForTimeout(500);
+  };
+  const centroDe=async id=>{await visible(id);const c=await pagina.locator(`[data-nodo="${id}"] .yq-nodo-cab`).first().boundingBox();return c&&{x:c.x+Math.min(80,c.width/2),y:c.y+c.height/2};};
+  /** Arrastra la pieza `clave` (buscándola) hasta `destino()`; `foto` captura a mitad del gesto. */
+  async function arrastrar(clave,texto,destino,foto){
+   await busqueda.fill(texto);
+   const p=pagina.locator(`.yq-grimorio [data-pieza="${clave}"]`).first();
+   if(!await p.count())return false;
+   await p.scrollIntoViewIfNeeded();
+   const a=await p.boundingBox();
+   await pagina.mouse.move(a.x+a.width/2,a.y+a.height/2);await pagina.mouse.down();
+   await pagina.mouse.move(a.x+a.width/2+40,a.y+a.height/2+6,{steps:5});
+   const d=await destino();if(!d){await pagina.mouse.up();return false;}
+   await pagina.mouse.move(d.x,d.y,{steps:14});await pagina.waitForTimeout(120);
+   if(foto)await pagina.screenshot({path:`${SALIDA}/${foto}-${ANCHO}.png`});
+   await pagina.mouse.up();await pagina.waitForTimeout(450);
+   await busqueda.fill('');
+   return true;
+  }
+  const flotaba=await arrastrar('evento:impactar','impactar',vacio,'yunque-arrastre');
+  comprobar(flotaba&&await pagina.locator('.yq-pieza-flotante').count()===0,'se arrastra «Al impactar» desde el Grimorio hasta el lienzo');
+  const cuando=pagina.locator('[data-nodo^="cuando:"]');
+  comprobar(await cuando.count()===1,'soltar un evento en el vacío crea la regla unida al núcleo');
+  const rid=((await cuando.first().getAttribute('data-nodo').catch(()=>''))||'').slice('cuando:'.length);
+  await arrastrar('condicion:vida','vida <',()=>centroDe(`cuando:${rid}`));
+  await arrastrar('efecto:curar','curar',()=>centroDe(`si:${rid}`),'yunque-arrastre-curar');
+  const cableEntre=(d,pd,h)=>pagina.locator(`g[data-cable="${d}:${pd}>${h}:entrada"]`).count();
+  const conectados=await cableEntre('nucleo','reglas',`cuando:${rid}`)===1&&await cableEntre(`cuando:${rid}`,'si',`si:${rid}`)===1&&await cableEntre(`si:${rid}`,'entonces',`entonces:${rid}:0`)===1;
+  comprobar(conectados,'la regla tiene 3 nodos cuando → si → entonces conectados');
+  const fraseSi=await pagina.locator(`[data-nodo="si:${rid}"] .yq-nodo-frase`).textContent().catch(()=>'');
+  comprobar(/vida actual menor que 50%/.test(fraseSi||''),`el nodo «Si» dice la condición (${fraseSi})`);
+  const fraseCuando=await pagina.locator(`[data-nodo="cuando:${rid}"] .yq-nodo-frase`).textContent().catch(()=>'');
+  comprobar(/Al impactar/.test(fraseCuando||'')&&/Recupera 1d6 de vida al portador/.test(fraseCuando||''),`el nodo «Cuándo» lleva la frase de describirRegla (${fraseCuando})`);
+  await visible(`cuando:${rid}`);
+  if(!await pagina.locator(`[data-nodo="cuando:${rid}"][aria-current]`).count())await pagina.locator(`[data-nodo="cuando:${rid}"] .yq-nodo-cab`).click({position:{x:60,y:12}}).catch(()=>{});
+  await pagina.waitForTimeout(400);
+  comprobar(await pagina.locator(`[data-nodo="cuando:${rid}"] .yq-fichas button[aria-pressed="true"]`).filter({hasText:'Impactar'}).count()===1,'el editor de «Cuándo» muestra los eventos como fichas');
+  await pagina.screenshot({path:`${SALIDA}/yunque-regla-${ANCHO}.png`});
+  // Una pieza soltada en el vacío queda «sin conectar» hasta que un cable la engancha.
+  await arrastrar('efecto:dano','daño directo',vacio);
+  const suelto=pagina.locator('.yq-nodo.is-suelto');
+  comprobar(await suelto.count()===1&&/sin conectar/.test(await suelto.first().textContent()||''),'un efecto soltado en el vacío queda «sin conectar»');
+  await pagina.screenshot({path:`${SALIDA}/yunque-suelto-${ANCHO}.png`});
+  await visible(`si:${rid}`);
+  const salidaSi=pagina.locator(`[data-nodo="si:${rid}"] [data-puerto="entonces"]`).first();
+  const sb=await salidaSi.boundingBox().catch(()=>null),gb=await suelto.first().boundingBox().catch(()=>null);
+  if(sb&&gb){
+   await pagina.mouse.move(sb.x+sb.width/2,sb.y+sb.height/2);await pagina.mouse.down();
+   await pagina.mouse.move(gb.x+Math.min(90,gb.width/2),gb.y+16,{steps:12});await pagina.screenshot({path:`${SALIDA}/yunque-cable-suelto-${ANCHO}.png`});await pagina.mouse.up();await pagina.waitForTimeout(450);
+  }
+  comprobar(await suelto.count()===0&&await pagina.locator(`[data-nodo="entonces:${rid}:1"]`).count()===1,'un cable hasta la pieza suelta la convierte en parte de la regla');
+  await arrastrar('modulo:alcance','alcance',vacio);
+  const antesForjar=await pagina.locator('.yq-nodo.is-suelto').count();
+  await pagina.getByRole('button',{name:/Forjar/}).click();await pagina.waitForTimeout(200);
+  const avisoForjar=await pagina.locator('.yq-aviso').textContent().catch(()=>'');
+  comprobar(antesForjar===1&&await pagina.locator('.yq-nodo.is-suelto').count()===0&&/descart/i.test(avisoForjar||''),`al forjar, las piezas sueltas se descartan con un aviso (${avisoForjar})`);
   if(process.env.REDUCIDO==='1'){
    await pagina.waitForTimeout(500);
    const vivas=await pagina.evaluate(()=>document.getAnimations().filter(a=>a.effect?.target?.closest?.('.yq-taller')).length);
