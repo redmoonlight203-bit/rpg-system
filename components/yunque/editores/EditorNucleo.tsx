@@ -49,7 +49,7 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
    {TIPOS.map(t=><button type="button" key={t.valor} aria-pressed={b.tipo===t.valor&&!b.ramaMonstruo} onClick={()=>cambiarTipo(t.valor)}>
     <span className="yq-carta-icono"><IconoCarta id={ICONO_CREACION[t.valor]}/></span><strong>{t.nombre}</strong><small>{GUIA[t.valor]}</small>
    </button>)}
-   <button type="button" aria-pressed={b.ramaMonstruo} disabled={hijo||guardando} title={hijo?'Esta pieza se crea para el personaje: no puede ser un monstruo.':guardando?'Espera a que termine de forjarse.':undefined} onClick={elegirMonstruos}><span className="yq-carta-icono"><IconoCarta id="bestia"/></span><strong>Monstruos</strong><small>Especie con variantes y apariciones por nivel.</small></button>
+   <button type="button" aria-pressed={b.ramaMonstruo} disabled={hijo||guardando} title={hijo?'Esta pieza se crea para el personaje: no puede ser un monstruo.':guardando?'Espera a que termine la operación en curso.':undefined} onClick={elegirMonstruos}><span className="yq-carta-icono"><IconoCarta id="bestia"/></span><strong>Monstruos</strong><small>Especie con variantes y apariciones por nivel.</small></button>
   </div></fieldset>
   <label className="yq-campo yq-campo--nombre"><span>Nombre</span><input aria-label="Nombre de la creación" maxLength={160} value={b.nombre} placeholder="Espada de Mao, Kion, Bola de fuego…" onChange={e=>fijar({nombre:e.target.value})}/></label>
   {familias.length?<Fichas etiqueta="Familia" opciones={familias.map(c=>({valor:c.clave,nombre:c.nombre}))} valor={b.clasificacion} onChange={clave=>fijar(cambiosClasificacion(b,ctx,clave))} tono="oro"/>

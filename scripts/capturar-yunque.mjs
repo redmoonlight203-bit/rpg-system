@@ -294,8 +294,15 @@ try{
   await pagina.getByRole('button',{name:/Forjar/}).click();await pagina.waitForTimeout(250);
   const bloqueada=await cartaMonstruos.isDisabled().catch(()=>false);
   await cartaMonstruos.click({force:true,timeout:1000}).catch(()=>{});
+  // Ctrl+Z durante el guardado tampoco cambia el borrador (ni el botón «Deshacer» está activo).
+  const indiceAntes=await pagina.locator('.yq-indice').textContent();
+  const deshacerActivo=await pagina.locator('.yq-historial').getByRole('button',{name:'Deshacer',exact:true}).isEnabled().catch(()=>true);
+  await pagina.locator('[data-nodo="nucleo"]').focus().catch(()=>{});
+  await pagina.keyboard.press('Control+z');await pagina.waitForTimeout(200);
+  const indiceDurante=await pagina.locator('.yq-indice').textContent(),tituloDurante=await pagina.locator('.yq-barra-titulo h1').textContent(),idDurante=await taller.getAttribute('data-creacion');
   await pagina.getByRole('button',{name:'Forjar',exact:true}).waitFor({timeout:8000}).catch(()=>{});await pagina.waitForTimeout(400);
   demoraEscritura=0;
+  comprobar(!deshacerActivo&&indiceDurante===indiceAntes&&idDurante===idGuardada,`mientras se forja, Ctrl+Z no cambia el borrador y «Deshacer» está desactivado (${tituloDurante} · ${idDurante} · deshacer ${deshacerActivo?'activo':'desactivado'} · índice ${indiceDurante===indiceAntes?'igual':'cambió'})`);
   comprobar(bloqueada&&await taller.getAttribute('data-creacion')===idGuardada&&/Objeto/.test(await pagina.locator('.yq-barra-tipo').textContent()||''),`mientras se forja, «Monstruos» está desactivado y el borrador conserva su id (${await taller.getAttribute('data-creacion')})`);
   await cartaMonstruos.click().catch(()=>{});await pagina.waitForTimeout(400);
   const idMonstruo=await taller.getAttribute('data-creacion'),tipoMonstruo=await pagina.locator('.yq-barra-tipo').textContent();

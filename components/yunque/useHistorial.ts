@@ -27,7 +27,10 @@ export type Historial={
  puedeDeshacer:boolean;puedeRehacer:boolean;
 };
 
-export function useHistorial(b:Borrador,setB:Dispatch<SetStateAction<Borrador>>):Historial{
+/** `alReemplazar`: se llama cuando deshacer/rehacer cruza un paso de reemplazo (el borrador pasa a ser otro). */
+export function useHistorial(b:Borrador,setB:Dispatch<SetStateAction<Borrador>>,alReemplazar?:()=>void):Historial{
+ const avisoReemplazo=useRef(alReemplazar);
+ useEffect(()=>{avisoReemplazo.current=alReemplazar;},[alReemplazar]);
  const pasado=useRef<Paso[]>([]),futuro=useRef<Paso[]>([]);
  const ultimo=useRef(b);
  const marca=useRef<{clave:string;t:number}|null>(null);
@@ -56,6 +59,7 @@ export function useHistorial(b:Borrador,setB:Dispatch<SetStateAction<Borrador>>)
   const actual=ultimo.current,r=previo.reemplazo?previo.b:conId(previo.b,actual.id);
   desde.current=desde.current.slice(0,-1);hacia.current=[...hacia.current,{b:actual,reemplazo:previo.reemplazo}].slice(-MAX_PASOS);
   marca.current=null;ultimo.current=r;setB(r);contar();
+  if(previo.reemplazo)avisoReemplazo.current?.();
   return r;
  },[setB,contar]);
  const deshacer=useCallback(()=>mover(pasado,futuro),[mover]);

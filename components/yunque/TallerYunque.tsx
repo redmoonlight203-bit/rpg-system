@@ -99,7 +99,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  // Tamaño real (sin el editor desplegado) de cada nodo, medido por el lienzo: la disposición no los solapa.
  const [tamanos,setTamanos]=useState<Record<string,{w:number;h:number}>>({});
  const posiciones=useMemo(()=>disponer(grafo,guardadas.p,tamanos),[grafo,guardadas.p,tamanos]);
- const historial=useHistorial(b,setB);
+ const historial=useHistorial(b,setB,onNuevaSesion);
  const [eleccion,setSeleccion]=useState<string|null>('nucleo');
  // Piezas sueltas (por creación): se descartan al cambiar de creación o al forjar.
  const [sueltosDe,setSueltosDe]=useState<{clave:string;lista:Suelto[]}>({clave,lista:[]});
@@ -299,8 +299,9 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  }
 
  /** Deshacer / rehacer: el borrador vuelve atrás entero; la arena se reinicia sola con el cambio. */
- function deshacer(){const r=historial.deshacer();if(r){bRef.current=r;avisar('Cambio deshecho.','info');}}
- function rehacer(){const r=historial.rehacer();if(r){bRef.current=r;avisar('Cambio rehecho.','info');}}
+ // Con un guardado en curso no se mueve el historial: el `id` que llegue debe ser del borrador que se guardó.
+ function deshacer(){if(guardando)return;const r=historial.deshacer();if(r){bRef.current=r;avisar('Cambio deshecho.','info');}}
+ function rehacer(){if(guardando)return;const r=historial.rehacer();if(r){bRef.current=r;avisar('Cambio rehecho.','info');}}
  /** Ctrl+C: el nodo elegido al portapapeles del Yunque (sirve también en otra creación). */
  function copiarNodo(id:string){
   const n=grafo.nodos.find(x=>x.id===id);if(!n)return;
@@ -459,8 +460,8 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
    <button type="button" className="yq-barra-clase" onClick={()=>abrirFicha()} title="Clase calculada con los atributos, la acción más potente, los bonos pasivos y las reglas. Pulsa para ver cómo se calcula."><b>{clase.clase}</b><span>Clase · {clase.puntuacion} pts</span></button>
    {errores.length>0&&<button type="button" className="yq-barra-errores" onClick={()=>setSeleccion(errores[0].id)}><span aria-hidden="true">!</span>{errores.length===1?'1 nodo por revisar':`${errores.length} nodos por revisar`}</button>}
    <div className="yq-historial" role="group" aria-label="Historial">
-    <button type="button" onClick={deshacer} disabled={!historial.puedeDeshacer} aria-label="Deshacer" title="Deshacer (Ctrl+Z)" aria-keyshortcuts="Control+Z"><Undo2 size={15} aria-hidden="true"/></button>
-    <button type="button" onClick={rehacer} disabled={!historial.puedeRehacer} aria-label="Rehacer" title="Rehacer (Ctrl+Y)" aria-keyshortcuts="Control+Y"><Redo2 size={15} aria-hidden="true"/></button>
+    <button type="button" onClick={deshacer} disabled={guardando||!historial.puedeDeshacer} aria-label="Deshacer" title="Deshacer (Ctrl+Z)" aria-keyshortcuts="Control+Z"><Undo2 size={15} aria-hidden="true"/></button>
+    <button type="button" onClick={rehacer} disabled={guardando||!historial.puedeRehacer} aria-label="Rehacer" title="Rehacer (Ctrl+Y)" aria-keyshortcuts="Control+Y"><Redo2 size={15} aria-hidden="true"/></button>
    </div>
    <div className="yq-conmutador-vista" role="group" aria-label="Vista">
     <button type="button" aria-pressed={vista==='lienzo'} onClick={()=>setVista('lienzo')}><Workflow size={15} aria-hidden="true"/>Lienzo</button>
