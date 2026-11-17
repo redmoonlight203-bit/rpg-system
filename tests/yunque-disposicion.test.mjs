@@ -50,6 +50,15 @@ test('encuadre acota el zoom a 0.4–2 y tolera vacío',()=>{
  assert.equal(encuadre({a:{x:0,y:0},b:{x:50000,y:0}},{ancho:800,alto:600}).zoom,0.4);
  assert.ok(Number.isFinite(encuadre({},{ancho:800,alto:600}).zoom));
 });
+test('encuadre ancla arriba a la izquierda (el núcleo) el eje que no cabe con zoom 0.4',()=>{
+ const p={nucleo:{x:0,y:0},lejos:{x:50000,y:100}};
+ const e=encuadre(p,{ancho:800,alto:600});
+ assert.equal(e.zoom,0.4);
+ // El núcleo queda visible con el margen de 40 px del mundo; el eje vertical, que sí cabe, sigue centrado.
+ assert.equal(e.x,40*0.4);
+ const h=(100+NODO.alto+80)*0.4;
+ assert.ok(Math.abs(e.y-((600-h)/2+40*0.4))<1e-9);
+});
 test('posiciones guardadas de nodos inexistentes se ignoran y los nodos nuevos reciben posición automática',()=>{
  const g=aGrafo(F.habilidad,ctx);const auto=disponer(g);
  const movido=g.nodos[1].id;

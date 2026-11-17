@@ -80,5 +80,7 @@ export function encuadre(p:Record<string,Punto>,vista:{ancho:number;alto:number}
  const x2=Math.max(...v.map(q=>q.x))+NODO.ancho+margen,y2=Math.max(...v.map(q=>q.y))+NODO.alto+margen;
  const w=x2-x1,h=y2-y1;
  const zoom=Math.min(2,Math.max(0.4,Math.min(vista.ancho/w,vista.alto/h)));
- return {x:(vista.ancho-w*zoom)/2-x1*zoom,y:(vista.alto-h*zoom)/2-y1*zoom,zoom};
+ // Si con el zoom mínimo un eje no cabe, se ancla arriba a la izquierda (donde está el núcleo) en vez de centrar.
+ const eje=(tam:number,lado:number,o:number)=>tam*zoom>lado?-o*zoom:(lado-tam*zoom)/2-o*zoom;
+ return {x:eje(w,vista.ancho,x1),y:eje(h,vista.alto,y1),zoom};
 }
