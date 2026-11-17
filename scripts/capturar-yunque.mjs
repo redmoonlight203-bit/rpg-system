@@ -201,6 +201,47 @@ try{
   await pagina.getByRole('button',{name:/Forjar/}).click();await pagina.waitForTimeout(200);
   const avisoForjar=await pagina.locator('.yq-aviso').textContent().catch(()=>'');
   comprobar(antesForjar===1&&await pagina.locator('.yq-nodo.is-suelto').count()===0&&/descart/i.test(avisoForjar||''),`al forjar, las piezas sueltas se descartan con un aviso (${avisoForjar})`);
+  // Tarea 8: arena de dolls. «Tajo de brasas» pasa a 2d8; «Usar» baja la vida del saco y enciende su nodo; «Golpéame» baja la del doll.
+  await pagina.locator('.yq-indice button',{hasText:/^Tajo de brasas$/}).first().click().catch(()=>{});await pagina.waitForTimeout(450);
+  const tajo=await pagina.locator('[data-nodo^="accion:"][aria-current]').first().getAttribute('data-nodo').catch(()=>null);
+  const carasTajo=pagina.locator(`[data-nodo="${tajo}"] [data-rueda="caras"]`);
+  if(await carasTajo.count())await carasTajo.evaluate(el=>el.dispatchEvent(new WheelEvent('wheel',{deltaY:100,bubbles:true,cancelable:true})));
+  const cantidadTajo=pagina.locator(`[data-nodo="${tajo}"] [data-rueda="cantidad"] input`);
+  if(await cantidadTajo.count()){await cantidadTajo.fill('2');await cantidadTajo.press('Tab');}
+  await pagina.waitForTimeout(700);
+  const dadosTajo=`${await cantidadTajo.inputValue().catch(()=>'?')}d${await pagina.locator(`[data-nodo="${tajo}"] [data-rueda="caras"] input`).first().inputValue().catch(()=>'?')}`;
+  comprobar(dadosTajo==='2d8',`la acción de la arena es de 2d8 (${dadosTajo})`);
+  const arena=pagina.locator('.yq-arena');
+  const usar=arena.locator('[data-accion]',{hasText:'Tajo de brasas'}).first();
+  comprobar(await usar.count()===1,'la arena ofrece «Usar» para «Tajo de brasas»');
+  const vidaDe=async nombre=>Number(await arena.getByRole('progressbar',{name:nombre}).first().getAttribute('aria-valuenow').catch(()=>NaN));
+  const sacoAntes=await vidaDe('Vida del saco');
+  let sacoDespues=sacoAntes,encendido=false;
+  for(let k=0;k<4&&sacoDespues>=sacoAntes;k++){
+   await usar.click().catch(()=>{});await pagina.waitForTimeout(120);
+   encendido||=await pagina.locator(`[data-nodo="${tajo}"][data-encendido="true"]`).count()===1;
+   sacoDespues=await vidaDe('Vida del saco');
+  }
+  comprobar(sacoDespues<sacoAntes,`«Usar» baja la vida del saco (${sacoAntes} → ${sacoDespues})`);
+  comprobar(encendido,'el nodo de la acción usada se enciende (data-encendido="true")');
+  await pagina.waitForTimeout(350);
+  await pagina.screenshot({path:`${SALIDA}/yunque-arena-${ANCHO}.png`});
+  const dollAntes=await vidaDe('Vida del doll');
+  await arena.getByRole('button',{name:/^Golpéame/}).first().click().catch(()=>{});await pagina.waitForTimeout(200);
+  const dollDespues=await vidaDe('Vida del doll');
+  comprobar(dollDespues<dollAntes,`«Golpéame» baja la vida del doll (${dollAntes} → ${dollDespues})`);
+  await pagina.waitForTimeout(300);
+  await pagina.screenshot({path:`${SALIDA}/yunque-arena-golpe-${ANCHO}.png`});
+  // Si «Golpéame» tumba al doll, las acciones se retiran y se ofrece reiniciar.
+  await arena.locator('.yq-arena-ajustes summary').click().catch(()=>{});
+  await arena.locator('input[aria-label="Vida del doll"]').fill('1').catch(()=>{});await pagina.waitForTimeout(500);
+  await arena.getByLabel('Cuántos dados').fill('20').catch(()=>{});
+  await arena.getByRole('button',{name:/^Golpéame/}).first().click().catch(()=>{});await pagina.waitForTimeout(250);
+  const reiniciarCaido=arena.getByRole('button',{name:'Reiniciar la prueba'});
+  comprobar(await arena.locator('.yq-escenario-fin').count()===1&&await reiniciarCaido.count()===1&&await arena.locator('[data-accion]').count()===0,'con el doll caído se retiran las acciones y se ofrece «Reiniciar la prueba»');
+  await pagina.screenshot({path:`${SALIDA}/yunque-arena-caido-${ANCHO}.png`});
+  await reiniciarCaido.click().catch(()=>{});await pagina.waitForTimeout(250);
+  comprobar(await vidaDe('Vida del doll')===1&&await arena.locator('[data-accion]').count()>0,'«Reiniciar la prueba» vuelve a poner en pie al doll con sus ajustes');
   if(process.env.REDUCIDO==='1'){
    await pagina.waitForTimeout(500);
    const vivas=await pagina.evaluate(()=>document.getAnimations().filter(a=>a.effect?.target?.closest?.('.yq-taller')).length);

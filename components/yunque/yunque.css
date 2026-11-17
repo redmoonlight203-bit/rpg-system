@@ -10,7 +10,7 @@
 .yugen-page>main.yq-pagina{max-width:none;padding:0;height:100%;min-height:0}
 .yq-cargando{display:grid;place-items:center;height:100%;font:italic 16px var(--font-serif);color:var(--color-text-muted)}
 
-.yq-taller{--yq-tinte:var(--color-gold);display:grid;grid-template-columns:236px minmax(0,1fr) 288px;grid-template-rows:auto auto minmax(0,1fr);height:100%;min-height:560px;background:var(--color-canvas);color:var(--color-text)}
+.yq-taller{--yq-tinte:var(--color-gold);display:grid;grid-template-columns:236px minmax(0,1fr) 320px;grid-template-rows:auto auto minmax(0,1fr);height:100%;min-height:560px;background:var(--color-canvas);color:var(--color-text)}
 [data-familia=nucleo]{--yq-tinte:var(--color-gold-bright)}
 [data-familia=accion]{--yq-tinte:var(--color-gold)}
 [data-familia=modulo]{--yq-tinte:var(--color-arcane)}
@@ -52,19 +52,12 @@
 .yq-taller .yq-indice-punto{flex:none;width:7px;height:7px;transform:rotate(45deg);background:var(--yq-tinte);box-shadow:0 0 6px var(--yq-tinte)}
 .yq-taller .yq-indice b{color:var(--color-danger-text);font:700 13px var(--font-sans)}
 
-.yq-taller .yq-clase{display:flex;align-items:center;gap:14px;margin:6px 0 14px}
-.yq-taller .yq-clase-letra{display:grid;place-items:center;flex:none;width:68px;height:68px;border-radius:50%;border:2px solid var(--color-gold);background:radial-gradient(circle at 35% 30%,var(--color-overlay),var(--color-well) 75%);box-shadow:inset 0 0 0 3px var(--color-well),inset 0 0 0 4px color-mix(in srgb,var(--color-gold) 40%,transparent),0 0 30px -8px color-mix(in srgb,var(--color-gold) 60%,transparent)}
-.yq-taller .yq-clase-letra b{font:600 30px var(--font-display);color:var(--color-gold-bright)}
-.yq-taller .yq-clase strong{display:block;font:500 16px var(--font-serif);color:var(--color-parchment)}
-.yq-taller .yq-clase small{font:13px var(--font-sans);color:var(--color-text-muted)}
 .yq-taller .yq-desglose{display:grid;gap:4px;margin:14px 0 0}
 .yq-taller .yq-desglose div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--color-line);font:13px var(--font-sans)}
 .yq-taller .yq-desglose dt{color:var(--color-text-muted)}.yq-desglose dd{margin:0;font-family:var(--font-serif);color:var(--color-gold-soft);font-variant-numeric:tabular-nums}
 .yq-taller .yq-revisar{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .yq-taller .yq-revisar button{display:grid;gap:2px;width:100%;padding:8px 10px;border:1px solid color-mix(in srgb,var(--color-crimson) 45%,transparent);border-left:3px solid var(--color-crimson);background:color-mix(in srgb,var(--color-crimson) 8%,transparent);text-align:left;cursor:pointer}
 .yq-taller .yq-revisar b{font:600 13px var(--font-sans);color:var(--color-text)}.yq-revisar span{font:13px/1.4 var(--font-sans);color:var(--color-danger-text)}
-.yq-taller .yq-arena-dormida{display:grid;justify-items:center;gap:10px;margin-top:24px;padding:28px 16px;text-align:center;color:color-mix(in srgb,var(--color-arcane) 70%,var(--color-text-muted));border:1px dashed var(--color-line);background:radial-gradient(ellipse 80% 50% at 50% 100%,color-mix(in srgb,var(--color-arcane) 14%,transparent),transparent 70%),repeating-linear-gradient(90deg,transparent 0 46px,color-mix(in srgb,var(--color-line) 50%,transparent) 46px 47px)}
-.yq-taller .yq-arena-dormida p{margin:0;font:italic 13.5px/1.55 var(--font-serif);color:var(--color-text-muted)}
 
 /* ── Lienzo ── */
 .yq-taller .yq-centro{position:relative;grid-row:3;min-width:0;min-height:0}
@@ -250,7 +243,7 @@
 @keyframes yq-aviso{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
 
 /* ── Pantallas medianas: los paneles se estrechan (la vista de lista llega en la Tarea 9) ── */
-@media(max-width:1279px){.yq-taller{grid-template-columns:200px minmax(0,1fr) 240px}}
+@media(max-width:1279px){.yq-taller{grid-template-columns:200px minmax(0,1fr) 272px}}
 @media(max-width:1023px){.yq-taller{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(480px,1fr) auto auto}.yq-centro{grid-row:3}.yq-panel{grid-row:auto;border:0;border-top:1px solid var(--color-line)}.yq-barra{flex-wrap:wrap}.yq-lienzo-pista{display:none}}
 
 @media (prefers-reduced-motion:reduce){

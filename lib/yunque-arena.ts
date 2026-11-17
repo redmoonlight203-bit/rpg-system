@@ -104,6 +104,11 @@ export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dado
  const n=hecho.fase==='en_curso'&&hecho.actual===DOLL?pasarSaco(siguiente(hecho,rng),rng):pasarSaco(hecho,rng);
  return unPaso(c,n,hecho);
 }
+/** «Turno»: el portador pasa sin actuar; el saco pasa también y vuelve a tocarle al portador. Un único paso de deshacer. */
+export function turno(c:Combate,rng:RNG=dadoSeguro):Combate{
+ const n=pasarSaco(siguiente(c,rng),rng);
+ return unPaso(c,n,n);
+}
 function efectoGolpe(g:Golpe):Efecto{
  return {id:GOLPE_EFECTO,nombre:`Golpéame ${g.cantidad}d${g.caras}`,efecto:'dano',cantidad:g.cantidad,caras:g.caras,modificador:0,tipo_dano:g.naturaleza==='magica'?'mágico':'físico',estado:'',duracion:0,coste_ph:0,
   ...(g.naturaleza==='magica'?{naturaleza:'magica' as const}:{}),...(g.elemento?{elemento:g.elemento as Elemento}:{}),
@@ -129,7 +134,8 @@ export function golpeame(c:Combate,g:Golpe,rng:RNG=dadoSeguro):Combate{
  recomponer(n);
  return unPaso(c,n,n);
 }
-function lineasNuevas(antes:Combate,despues:Combate):string[]{
+/** Entradas del registro que aparecieron entre dos pasos (el registro va de la más nueva a la más vieja). */
+export function lineasNuevas(antes:Combate,despues:Combate):string[]{
  const a=antes.registro,d=despues.registro;
  if(!a.length)return d.slice();
  for(let k=0;k<d.length;k++){

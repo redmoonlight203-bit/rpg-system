@@ -135,3 +135,11 @@ test('la arena no usa la red',()=>{
  const p=arena(clon(F.personaje));A.usar(p,'equipo:mano_der:e-estocada');
  assert.equal(llamadasRed,0);
 });
+
+test('turno pasa sin actuar y vuelve al portador en un solo paso',()=>{
+ const c=arena(clon(F.objeto));
+ const n=A.turno(c);
+ assert.equal(n.actual,'doll');assert.equal(n.ronda,c.ronda+1);
+ assert.equal(m(n,'saco').vida,60);
+ assert.equal(deshacer(n).ronda,c.ronda,'turno se deshace en un solo paso');
+});

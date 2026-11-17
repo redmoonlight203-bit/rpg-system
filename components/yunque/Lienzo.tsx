@@ -285,6 +285,7 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
       <path className="yq-cable-aura" d={d}/>
       <path className="yq-cable" d={d} stroke={`url(#yq-g-${c.id.replace(/[^a-zA-Z0-9_-]/g,'_')})`}/>
       <path className="yq-cable-flujo" d={d}/>
+      {vivo&&<path className="yq-cable-pulso" d={d} pathLength={100}/>}
      </g>;
     })}
     {cable&&<path className="yq-cable-nuevo" d={curva(cable.desde,cable.hasta)}/>}

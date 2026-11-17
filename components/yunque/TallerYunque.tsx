@@ -7,6 +7,7 @@ import IconoYugen from '../IconoYugen';
 import {BarraVital,Runa} from '../ui/Juego';
 import Lienzo,{type ContenidoNodo,type GuiaPieza,type LienzoAPI} from './Lienzo';
 import Grimorio,{type PistaSoltar} from './Grimorio';
+import ArenaDolls from './ArenaDolls';
 import {NOMBRE_TIPO,familiaDe} from './NodoYunque';
 import EditorNucleo,{ICONO_CREACION} from './editores/EditorNucleo';
 import EditorAccion from './editores/EditorAccion';
@@ -56,6 +57,8 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
  const lienzo=useRef<LienzoAPI>(null);
  const [arrastre,setArrastre]=useState<{pieza:Pieza;compatibles:ReadonlySet<string>;sobre:Destino|null;dentro:boolean;punto:Punto|null}|null>(null);
  const [nuevos,setNuevos]=useState<ReadonlySet<string>>(new Set());
+ // Nodos que actuaron en la arena: se encienden 900 ms (si se repiten, el halo vuelve a empezar).
+ const [encendidos,setEncendidos]=useState<ReadonlySet<string>>(new Set());
  const [aviso,setAviso]=useState<{texto:string;tono:'error'|'info';n:number}|null>(null);
  const bRef=useRef(b);
  useEffect(()=>{bRef.current=b;},[b]);
@@ -185,6 +188,14 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
  const errores=grafo.nodos.filter(n=>n.error);
  const lleva=NUCLEO_LLEVA[b.tipo]||[];
  const agregar=(tipo:TipoNodo)=>operar({op:'agregar',tipo,padre:'nucleo'});
+ const encender=useCallback((ids:string[])=>{
+  const conjunto=new Set(ids);
+  setEncendidos(new Set());
+  requestAnimationFrame(()=>{
+   setEncendidos(conjunto);
+   temporizadores.current.push(window.setTimeout(()=>setEncendidos(s=>s===conjunto?new Set():s),900));
+  });
+ },[]);
  const avisoInfo=useCallback((t:string)=>avisar(t,'info'),[avisar]);
  const nodosSueltos=useMemo<Nodo[]>(()=>sueltos.map(s=>({id:s.id,tipo:s.pieza.tipo,ruta:[],titulo:s.pieza.nombre,frase:FRASE_SUELTO,error:null,puertos:[{id:'entrada',lado:'entrada',acepta:[]}]})),[sueltos]);
  const compatiblesSuelto=useMemo(()=>Object.fromEntries(sueltos.map(x=>[x.id,new Set(grafo.nodos.filter(n=>probarSoltar(b,x.pieza,{nodo:n.id})).map(n=>n.id))])),[sueltos,grafo,b]);
@@ -254,27 +265,24 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error}:Prop
     </button></li>)}</ol>
   </Grimorio>
   <section className="yq-centro" aria-label="Lienzo">
-   <Lienzo api={lienzo} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} sueltos={nodosSueltos} guia={guia}
+   <Lienzo api={lienzo} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
     onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
    {aviso&&<p key={aviso.n} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
   </section>
   <aside className="yq-panel yq-arena" aria-label="Arena de dolls">
    <h2><IconoYugen id="espada" size={18}/>Arena de dolls</h2>
-   <div className="yq-clase">
-    <div className="yq-clase-letra"><b>{clase.clase}</b></div>
-    <div><strong>{clase.puntuacion} puntos de poder</strong><small>{siguiente!==undefined?`Clase ${CLASES_YUGEN[iClase+1]} desde ${siguiente}`:'La clase más alta'}</small></div>
-   </div>
-   {siguiente!==undefined&&<BarraVital etiqueta="Hacia la siguiente clase" tipo="exp" valor={Math.round((clase.puntuacion-UMBRALES_CLASE[iClase])*10)/10} max={siguiente-UMBRALES_CLASE[iClase]}/>}
-   <dl className="yq-desglose">
-    <div><dt>Atributos</dt><dd>{Math.round(clase.atributos*100)/100}</dd></div>
-    <div><dt>Acción más fuerte</dt><dd>{Math.round(clase.acciones*100)/100}</dd></div>
-    <div><dt>Bonos pasivos</dt><dd>{Math.round(clase.pasivas*100)/100}</dd></div>
-    <div><dt>Reglas</dt><dd>{Math.round(clase.reglas*100)/100}</dd></div>
-   </dl>
-   <h3>Por revisar</h3>
-   {errores.length?<ul className="yq-revisar">{errores.map(n=><li key={n.id}><button type="button" onClick={()=>setSeleccion(n.id)}><b>{n.titulo}</b><span>{n.error}</span></button></li>)}</ul>
-    :<p className="yq-panel-voz">Nada que corregir. Kuroi asiente.</p>}
-   <div className="yq-arena-dormida"><IconoYugen id="espectro" size={40}/><p>Los dolls aún duermen. Pronto probarás aquí cada acción contra el saco de golpes.</p></div>
+   {errores.length>0&&<ul className="yq-revisar">{errores.map(n=><li key={n.id}><button type="button" onClick={()=>setSeleccion(n.id)}><b>{n.titulo}</b><span>{n.error}</span></button></li>)}</ul>}
+   <ArenaDolls b={b} ctx={ctx} grafo={grafo} onEncender={encender}/>
+   <details className="yq-arena-clase">
+    <summary><b>{clase.clase}</b><span><strong>{clase.puntuacion} puntos de poder</strong>{siguiente!==undefined?`Clase ${CLASES_YUGEN[iClase+1]} desde ${siguiente}`:'La clase más alta'}</span></summary>
+    {siguiente!==undefined&&<BarraVital etiqueta="Hacia la siguiente clase" tipo="exp" valor={Math.round((clase.puntuacion-UMBRALES_CLASE[iClase])*10)/10} max={siguiente-UMBRALES_CLASE[iClase]}/>}
+    <dl className="yq-desglose">
+     <div><dt>Atributos</dt><dd>{Math.round(clase.atributos*100)/100}</dd></div>
+     <div><dt>Acción más fuerte</dt><dd>{Math.round(clase.acciones*100)/100}</dd></div>
+     <div><dt>Bonos pasivos</dt><dd>{Math.round(clase.pasivas*100)/100}</dd></div>
+     <div><dt>Reglas</dt><dd>{Math.round(clase.reglas*100)/100}</dd></div>
+    </dl>
+   </details>
   </aside>
  </div>;
 }
