@@ -85,3 +85,16 @@ test('el daño directo del Yunque mantiene su rendimiento frente a ARM alta', ()
   assert.equal(a.informe[2].creacion.dano, 35);
   assert.ok(a.informe[2].creacion.dano > b.informe[2].creacion.dano);
 });
+
+test('apoyo sostenido aporta clase por la curación efectiva del portador', () => {
+  const b={...vacio(),tipo:'pasiva',reglas_pasivas:[{id:'cura',nombre:'Vigor',evento:'inicio_turno',condicion:'siempre',bonos:{},curacion:3,recuperar_ph:0,reducir_fatiga:0}]};
+  const r=evaluarBalance(b,{creaciones:[],stats:{}},{repeticiones:3});
+  assert.ok(r.indices.apoyo>1);
+  assert.equal(r.ipe, Math.max(...Object.values(r.indices).filter(n=>n!==null)));
+});
+
+test('un objeto vacío no recibe la clase del portador desarmado',()=>{
+  const r=evaluarBalance(vacio(),{creaciones:[],stats:{}},{repeticiones:2});
+  assert.equal(r.ipe,0);
+  assert.equal(r.clase,'F');
+});

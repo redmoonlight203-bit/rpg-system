@@ -1,4 +1,6 @@
-export interface CategoriaBase { id: string; clave: string; nombre: string; parent_id?: string | null; icono?: string | null; imagen_url?: string | null }
+import type {Regla} from './reglas';
+import type {ReglaPasiva} from './pasivas';
+export interface CategoriaBase { pasiva_racial?: {nombre:string; reglas?:Regla[]; reglas_pasivas?:ReglaPasiva[]} | null; id: string; clave: string; nombre: string; parent_id?: string | null; icono?: string | null; imagen_url?: string | null }
 export interface AtributoBase { clave: string; categoria: string; valor_defecto?: number | null }
 
 /** Root first, selected category last. Old rows without parent_id remain standalone. */
@@ -36,4 +38,15 @@ export function imagenDeRaza(categorias: CategoriaBase[], clave: string | null |
     if (c.clave !== 'razas' && c.imagen_url) return c.imagen_url;
   }
   return undefined;
+}
+
+export function perfilRacial(categorias:CategoriaBase[],clave:string) {
+  const camino=linaje(categorias,clave);
+  return {
+    linaje:camino.flatMap(c=>[c.clave,c.nombre]),
+    raciales:camino.some(c=>c.clave==='razas') ? camino.flatMap(c=>c.pasiva_racial?[{
+      id:'raza:'+c.id,nombre:c.pasiva_racial.nombre,reglas:c.pasiva_racial.reglas_pasivas||[],
+      reglas_motor:c.pasiva_racial.reglas||[],
+    }]:[]) : [],
+  };
 }

@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
-function cargar(nombre){const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/'+nombre+'.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:n=>cargar(n.replace('./','')),crypto,JSON,Array,Object,Math,Number,Set});return exports;}
+import { cargarDependencia as cargar } from './helpers/cargar-ts.mjs';
 const i=cargar('invocaciones'),c=cargar('combate'),p=cargar('progresion');
 const config={claseMaxima:'C',maxHabilidades:1,modo:'jugador_en_combate',duracionTurnos:2,costePh:2,maxActivas:1};
 const habilidad={id:'h',nombre:'Amigo',tipo_creacion:'habilidad',clase:'C',stats:{},configuracion_invocacion:config};
 const poder={id:'p',nombre:'Golpe',tipo_creacion:'habilidad',clase:'C',stats:{}};
 const propuesta={nombre:'Amigo',stats:{vida:10},habilidades:['p'],pasivas:[]};
-test('techo absoluto incluye habilidad y estadísticas y rechaza clases superiores',()=>{assert.equal(i.evaluarInvocacion(config,propuesta,[poder]).valida,true);assert.equal(i.evaluarInvocacion(config,{...propuesta,stats:{armadura:25}},[poder]).valida,false);assert.equal(i.evaluarInvocacion(config,propuesta,[{...poder,clase:'B'}]).valida,false);});
+test('techo absoluto incluye habilidad y estadísticas y rechaza clases superiores',()=>{assert.equal(i.evaluarInvocacion(config,propuesta,[poder]).valida,true);assert.equal(i.evaluarInvocacion(config,{...propuesta,stats:{vida:100,bono_impacto:15,dano:25}},[poder]).valida,false);assert.equal(i.evaluarInvocacion(config,propuesta,[{...poder,clase:'B'}]).valida,false);});
 test('rechaza objetos, duplicados, costes negativos y atributos fuera de rango',()=>{assert.equal(i.evaluarInvocacion(config,propuesta,[{...poder,tipo_creacion:'objeto'}]).valida,false);assert.equal(i.evaluarInvocacion(config,{...propuesta,habilidades:['p','p']},[poder]).valida,false);assert.equal(i.evaluarInvocacion({...config,costePh:-1},propuesta,[poder]).valida,false);assert.equal(i.evaluarInvocacion({...config,rangos:{vida:{min:1,max:5}}},propuesta,[poder]).valida,false);});
 function ficha(id){return {id,forja_id:null,nombre:id,stats:{vida:20,ph:10,fatiga:10},configuracion:{tipo_creacion:'personaje',habilidades:[habilidad]}};}
 function campo(){return c.iniciar(c.agregar(c.agregar(c.nuevoCombate(),ficha('a'),'jugador',()=>20),ficha('b'),'enemigo',()=>1),()=>1);}

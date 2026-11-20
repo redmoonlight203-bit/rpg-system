@@ -2,11 +2,11 @@ import {
   acciones, actuar, casillasAlcanzables, desplazar, distanciaCasillas, iniciar, posicionesTablero, siguiente,
   type Accion, type Combate, type RNG,
 } from './combate';
-import { CLASES_YUGEN } from './clases';
+import { clasePorIPE } from './clases';
 import { vacio, type Borrador } from './yunque-borrador';
 import { prepararArena, DOLL_BASE, type AjustesDoll, type ContextoArena } from './yunque-arena';
 
-export const VERSION_BALANCE = 'laboratorio-0.2.1';
+export const VERSION_BALANCE = 'ipe-1.0';
 export const SEMILLA_BALANCE = 20261120;
 export const RONDAS_BALANCE = 5;
 export const ESCENARIOS_BALANCE = [
@@ -22,6 +22,7 @@ export const ESCENARIOS_BALANCE = [
 type Escenario = typeof ESCENARIOS_BALANCE[number];
 type Metricas = {
   dano: number;
+  accionesPropias: number;
   pico: number;
   curacion: number;
   danoRecibido: number;
@@ -44,15 +45,12 @@ function azar(semilla: number): RNG {
   };
 }
 
-const umbrales = [0, 0.5, 1, 2, 4, 8, 16, 32];
-export function claseLaboratorio(ipe: number) {
-  if (!Number.isFinite(ipe) || ipe < 0) return null;
-  return CLASES_YUGEN[umbrales.filter(umbral => ipe >= umbral).length - 1];
-}
+export const claseLaboratorio = clasePorIPE;
+export const REPETICIONES_CLASE = 12;
 
 function agregarMetricas(): Metricas {
   return {
-    dano: 0, pico: 0, curacion: 0, danoRecibido: 0, acciones: 0, phGastado: 0,
+    accionesPropias: 0, dano: 0, pico: 0, curacion: 0, danoRecibido: 0, acciones: 0, phGastado: 0,
     fatigaGanada: 0, hpPropioPerdido: 0, accionesEnemigasNegadas: 0, accionesRivales: 0, caidas: 0,
   };
 }
@@ -109,7 +107,7 @@ function simular(
   const rng = azar(semilla);
   const centros = [{ x: 2 + escenario.distancia, y: 3 }, { x: 3, y: 2 }, { x: 3, y: 4 }];
   const preparado = prepararArena(
-    borrador, ctx, doll, { armadura: escenario.armadura, salvacion: escenario.salvacion },
+    borrador, ctx, doll, { ph: escenario.magia ? RONDAS_BALANCE : 0, armadura: escenario.armadura, salvacion: escenario.salvacion },
     { sacos: centros.slice(0, escenario.rivales) }, rng,
   );
   if ('error' in preparado) throw Error(preparado.error);
@@ -136,7 +134,7 @@ function simular(
       const preferidas = prioridad ? lista.filter(a => a.id === prioridad) : lista.filter(esPropia).slice(0, 12);
       let basico = lista.find(a => a.id === 'ataque');
       if (!propia && basico && escenario.magia) {
-        const efecto = { ...basico.efecto, id: 'proyectil-prueba', naturaleza: 'magica' as const, caras: 6,
+        const efecto = { ...basico.efecto, id: 'proyectil-prueba', coste_ph: 1, naturaleza: 'magica' as const, caras: 6,
           tablero: { alcance: 6, forma: 'individual' as const, tamano: 0, afecta: 'enemigos' as const } };
         vigente.configuracion.habilidades = [{ id: 'rival', nombre: 'Proyectil de prueba', stats: {}, efectos: [efecto] }];
         basico = { ...basico, id: 'hab:rival:proyectil-prueba', efecto };
@@ -153,7 +151,7 @@ function simular(
         }
         try {
           c = medirPaso(c, actuar(c, actor.id, accion.id, destino, turnoRng), m, propia, !propia);
-          if (propia) m.acciones++;
+          if (propia) { m.acciones++; if(esPropia(accion))m.accionesPropias++; }
           else m.accionesRivales++;
           break;
         } catch (error) {
@@ -181,6 +179,11 @@ export function evaluarBalance(
     throw Error('La prueba requiere una semilla entera y entre 1 y 256 repeticiones.');
   }
   const referencia: Borrador = { ...vacio(), tipo: 'personaje', nombre: 'Portador desarmado de referencia' };
+  const soporte: Borrador = {...vacio(), tipo:'pasiva', reglas_pasivas:[{
+    id:'apoyo-referencia', nombre:'Recuperación', evento:'inicio_turno', condicion:'siempre',
+    bonos:{}, curacion:1, recuperar_ph:0, reducir_fatiga:0,
+  }]};
+  const defensa: Borrador = {...referencia, stats:{...DOLL_BASE, armadura:6}};
   const informe = ESCENARIOS_BALANCE.map(escenario => {
     const incidencias = new Set<string>(), incidenciasReferencia = new Set<string>();
     const comparar = (b: Borrador, contexto: ContextoArena, avisos: Set<string>, prioridad?: string) => {
@@ -194,24 +197,42 @@ export function evaluarBalance(
     };
     const creacion = comparar(borrador, ctx, incidencias, accion);
     const ancla = comparar(referencia, { creaciones: [], stats: DOLL_BASE }, incidenciasReferencia);
+    const apoyo = comparar(soporte, {creaciones:[],stats:{}}, new Set());
+    const protector = comparar(defensa, {creaciones:[],stats:defensa.stats}, new Set());
+    // Compara daño por ataque recibido. Una caída temprana nunca acredita mitigación.
+    const evitado = (m:Metricas) => m.accionesRivales && ancla.accionesRivales && m.caidas <= ancla.caidas
+      ? Math.max(0, ancla.danoRecibido/ancla.accionesRivales - m.danoRecibido/m.accionesRivales)*m.accionesRivales : 0;
+    const roles = {
+      apoyo:creacion.curacion, apoyoReferencia:apoyo.curacion,
+      defensa:evitado(creacion), defensaReferencia:evitado(protector),
+      control:creacion.accionesEnemigasNegadas, controlReferencia:ancla.accionesRivales/RONDAS_BALANCE,
+    };
     const danoPorAccion = creacion.acciones > 0 ? creacion.dano / creacion.acciones : null;
     const danoPorAccionReferencia = ancla.acciones > 0 ? ancla.dano / ancla.acciones : 0;
     return {
-      escenario, creacion, referencia: ancla,
+      escenario, creacion, referencia: ancla, roles,
       rendimientoPorAccion: danoPorAccion !== null && danoPorAccionReferencia > 0
         ? danoPorAccion / danoPorAccionReferencia : null,
       incidencias: [...incidencias], incidenciasReferencia: [...incidenciasReferencia],
     };
   });
   const totales = informe.reduce((t, v) => ({
-    dano: t.dano + v.creacion.dano,
+    dano: t.dano + (borrador.tipo==='personaje' || v.creacion.accionesPropias>0
+      ? v.creacion.dano : Math.max(0,v.creacion.dano-v.referencia.dano)),
     pico: t.pico + v.creacion.pico,
     referencia: t.referencia + v.referencia.dano,
     picoReferencia: t.picoReferencia + v.referencia.pico,
   }), { dano: 0, pico: 0, referencia: 0, picoReferencia: 0 });
-  const ipe = totales.referencia > 0 ? totales.dano / totales.referencia : null;
+  const ofensiva = totales.referencia > 0 ? totales.dano / totales.referencia : null;
+  const relativo = (rol:'defensa'|'apoyo'|'control') => {
+    const ancla = informe.reduce((n,v)=>n+v.roles[`${rol}Referencia`],0);
+    return ancla > 0 ? informe.reduce((n,v)=>n+v.roles[rol],0)/ancla : null;
+  };
+  const indices = {ofensiva, defensa:relativo('defensa'), apoyo:relativo('apoyo'), control:relativo('control')};
+  const medidos = Object.values(indices).filter((n):n is number=>n!==null);
+  const ipe = medidos.length ? Math.max(...medidos) : null;
   const ipePico = totales.picoReferencia > 0 ? totales.pico / totales.picoReferencia : null;
-  const avisos = ['Clases provisionales por daño observado. Defensa, apoyo, control y efectos narrativos requieren anclas propias.'];
+  const avisos = ['Se toma el mayor índice medido de ofensiva, defensa, apoyo o control. Los efectos narrativos requieren revisión.'];
   if (informe.some(v => v.incidencias.length)) avisos.push('Hubo acciones descartadas. Revisa el desglose de cada escenario.');
   if (informe.some(v => v.creacion.accionesEnemigasNegadas > 0)) avisos.push('La creación puede negar acciones enemigas en los escenarios probados.');
   if (ipe !== null && ipePico !== null && ipePico >= 2 && ipePico >= ipe * 1.5) {
@@ -219,7 +240,7 @@ export function evaluarBalance(
   }
   return {
     version: VERSION_BALANCE, semilla, repeticiones, rondas: RONDAS_BALANCE, modo: 'impacto',
-    ipe, clase: ipe === null ? null : claseLaboratorio(ipe),
+    indices, ipe, clase: ipe === null ? null : claseLaboratorio(ipe),
     clasePico: ipePico === null ? null : claseLaboratorio(ipePico),
     informe, avisos,
   };

@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { perfilRacial } from '../../lib/estadisticas';
 import { proyectarCarga } from '../../lib/balance-carga';
-import type { evaluarBalance } from '../../lib/balance-laboratorio';
+import { REPETICIONES_CLASE, type evaluarBalance } from '../../lib/balance-laboratorio';
 import type { Borrador } from '../../lib/yunque-borrador';
 import { valoresBorrador, type ContextoTaller } from './contexto';
 import './prueba-balance.css';
@@ -67,9 +68,9 @@ export function useBalanceBorrador(b: Borrador, ctx: ContextoTaller) {
     const vinculos = new Set([...b.habilidades, ...b.pasivas, ...Object.values(b.equipamiento)]);
     const stats = valoresBorrador(b, ctx);
     return [{ ...b, stats }, {
-      stats,
+      stats, ...perfilRacial(ctx.categorias,b.clasificacion),
       creaciones: b.tipo === 'personaje' ? ctx.creaciones.filter(c => vinculos.has(c.id)) : [],
-    }, { repeticiones: 12 }];
+    }, { repeticiones: REPETICIONES_CLASE }];
   }, [b, ctx]);
 
   const firma = JSON.stringify(entrada);
@@ -114,7 +115,7 @@ export default function PruebaBalance({ balance }: { balance: ReturnType<typeof 
     <p>El índice compara el daño en cinco rondas de Impacto con el de un portador desarmado. Se actualiza al editar el borrador.</p>
     {error && <p role="status">{error}</p>}
     {r && <>
-      <p role="status"><strong>{r.ipe === null ? 'Índice de potencia indeterminado' : `Índice de potencia ofensiva · ${numero.format(r.ipe)}`}</strong></p>
+      <p role="status"><strong>{r.ipe === null ? 'Índice de potencia indeterminado' : `Índice de potencia equivalente · ${numero.format(r.ipe)}`}</strong></p>
       <ul>{r.avisos.map(aviso => <li key={aviso}>{aviso}</li>)}</ul>
       {r.informe.map(({ escenario, creacion: m, referencia, rendimientoPorAccion, incidencias }) =>
         <details key={escenario.id}>

@@ -14,7 +14,8 @@ import {validarPasivas} from "./pasivas";
 export type AjustesDoll={vida:number;ph:number;fatiga:number;armadura:number;salvacion:number};
 export const DOLL_BASE:AjustesDoll={vida:40,ph:20,fatiga:10,armadura:0,salvacion:0};
 export const SACO_BASE:AjustesDoll={vida:60,ph:0,fatiga:0,armadura:0,salvacion:0};
-export type ContextoArena={creaciones:Creacion[];stats:Record<string,number>}; // stats: valores del borrador ya resueltos (valoresBorrador)
+export type PiezaArena = Pick<Creacion,"id"|"nombre"> & Partial<Pick<Creacion,"estado"|"stats"|"configuracion_dados"|"slot_tipo"|"tipo_creacion"|"consumible"|"reglas"|"reglas_pasivas"|"requisitos_uso">>;
+export type ContextoArena={raciales?:Config['pasivas'];linaje?:string[];creaciones:PiezaArena[];stats:Record<string,number>}; // stats: valores del borrador ya resueltos (valoresBorrador)
 export type Golpe={cantidad:number;caras:number;naturaleza:'fisica'|'magica';elemento?:string};
 const DOLL='doll',SACO='saco',NOMBRE_SACO='Saco de golpes';
 /** Tablero de la arena: 9×7 cabe en el panel (casillas de ~32 px) y deja sitio a empujes, conos y áreas de radio 3. */
@@ -49,7 +50,7 @@ function ranuraDe(tipo:string|undefined,slot:string):string{
  return SLOTS.find(s=>s.tipos.includes(slot))?.clave||slot||'ninguno';
 }
 const ranura=(b:Borrador)=>ranuraDe(b.tipo,b.slot);
-function fuenteObjeto(c:Creacion):Fuente{
+function fuenteObjeto(c:PiezaArena):Fuente{
  return {id:c.id,forja_id:c.id,nombre:c.nombre,stats:{...(c.stats||{})},efectos:c.configuracion_dados||[],slot_tipo:c.slot_tipo,tipo_creacion:c.tipo_creacion,consumible:c.consumible,reglas:c.reglas||[],reglas_pasivas:c.reglas_pasivas||[],requisitos_uso:c.requisitos_uso};
 }
 function conEquipo(stats:Record<string,number>,equipo:Record<string,Fuente>){
@@ -65,8 +66,10 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  if(b.tipo==='personaje'){
   // Solo lo que sigue en La Creación (aprobado): lo archivado se omite, como en el grafo.
   const buscar=(cid:string)=>ctx.creaciones.find(c=>c.id===cid&&vigente(c));
-  config.habilidades=b.habilidades.map(buscar).filter((c):c is Creacion=>!!c).map(fuenteObjeto);
-  config.pasivas=b.pasivas.map(buscar).filter((c):c is Creacion=>!!c).map(c=>({id:c.id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]}));
+  config.raza=b.clasificacion;config.linaje_raza=ctx.linaje;
+  config.habilidades=b.habilidades.map(buscar).filter((c):c is PiezaArena=>!!c).map(fuenteObjeto);
+  config.pasivas=b.pasivas.map(buscar).filter((c):c is PiezaArena=>!!c).map(c=>({id:c.id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]}));
+  config.pasivas.push(...ctx.raciales||[]);
   const equipo:Record<string,Fuente>={};
   for(const [slot,cid] of Object.entries(b.equipamiento||{})){const c=cid?buscar(cid):undefined;if(c)equipo[slot]=fuenteObjeto(c);}
   config.equipamiento=equipo;
