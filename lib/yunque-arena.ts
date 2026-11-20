@@ -92,12 +92,12 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
 }
 /** Disposición de la arena que sobrevive a los reinicios: dónde está cada saco (uno por posición, como mucho tres). */
 export type Disposicion={sacos?:Posicion[]};
-export function crearArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>={},saco:Partial<AjustesDoll>={},disposicion:Disposicion={}):{combate:Combate}|{error:string}{
+export function prepararArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>={},saco:Partial<AjustesDoll>={},disposicion:Disposicion={},rng:RNG=dadoSeguro):{combate:Combate}|{error:string}{
  try{
   const fallo=validarEfectos(b.efectos||[])||validarReglas(b.reglas||[])||validarPasivas(b.reglas_pasivas||[]);
   if(fallo)return {error:PREFIJO+fallo};
   // La iniciativa del portador siempre va primero; el resto de tiradas son normales.
-  const iniciativa=(v:number):RNG=>{let usada=false;return caras=>usada?dadoSeguro(caras):(usada=true,v);};
+  const iniciativa=(v:number):RNG=>{let usada=false;return caras=>usada?rng(caras):(usada=true,v);};
   let c=nuevoCombate();
   c.regla='directo';
   c.politica={...c.politica!,modo:'entrenamiento',automatico:false};
@@ -113,7 +113,14 @@ export function crearArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll
   const d=c.miembros.find(m=>m.id===DOLL)!;
   d.iniciativa=Math.max(d.iniciativa,...c.miembros.filter(m=>m.id!==DOLL).map(m=>m.iniciativa+1));
   d.posicion={...POSICION_DOLL};
-  const n=iniciar(c);
+  return {combate:c};
+ }catch(e){return {error:PREFIJO+(e instanceof Error?e.message:String(e))};}
+}
+export function crearArena(...args:Parameters<typeof prepararArena>):{combate:Combate}|{error:string}{
+ const preparado=prepararArena(...args);
+ if('error' in preparado)return preparado;
+ try{
+  const n=iniciar(preparado.combate,args[5]);
   recomponer(n);
   return {combate:{...n,historial:[]}};
  }catch(e){return {error:PREFIJO+(e instanceof Error?e.message:String(e))};}
