@@ -4,6 +4,7 @@ set lock_timeout='1500ms';
 --  1. Foto propia del personaje (reencarnado al solicitar y GM en su ficha).
 --  2. Raza única: propuesta temporal del jugador. Rechazada no deja rastro en el catálogo;
 --     aprobada se publica una sola vez en Reglas y estadísticas bajo «razas».
+--  La raíz «razas» deja de ser elegible como raza de un personaje.
 --  3. El lugar de aparición deja de elegirse: razas de lista aparecen en la Montaña Shiro
 --     y la raza única lo cede al GM.
 
@@ -174,7 +175,7 @@ begin
  end if;
  if not coalesce(u.mente_colmena,false) and exists(select 1 from public.personajes where user_id=u.id and not coalesce(es_companero,false) and estado_vida<>'muerto' and estado_aprobacion<>'rechazado' and (p_personaje is null or id<>p_personaje)) then raise exception 'Ya tienes un cuerpo o una solicitud pendiente.';end if;
  select * into c from public.categorias_forja where id=p_categoria;
- if not found or not 'razas'=any(public.forja_linaje_claves(c.clave)) then raise exception 'Elige un ser vivo de Reglas y estadísticas.';end if;
+ if not found or c.clave='razas' or not 'razas'=any(public.forja_linaje_claves(c.clave)) then raise exception 'Elige un ser vivo de Reglas y estadísticas.';end if;
  if c.raza_unica_de is not null and c.raza_unica_de<>u.id then raise exception 'Esa raza única pertenece a otro reencarnado.' using errcode='42501';end if;
  if length(btrim(coalesce(p_nombre,''))) not between 1 and 100 or length(coalesce(p_historia,''))>10000 or length(coalesce(p_defecto,''))>2000 then raise exception 'Revisa el nombre y la historia.';end if;
  if not private.imagen_publica_valida(nullif(p_imagen,'')) then raise exception 'Sube la foto del personaje desde la aplicación.';end if;

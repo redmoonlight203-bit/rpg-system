@@ -92,6 +92,7 @@ try{
  const pj=(await q('select public.personaje_solicitar($1,$2,$3,$4,$5,$6::jsonb,null,$7) id',[cat,'Nox','','','Montaña Shiro (Prueba de vida)',{vida:45},FOTO]))[0].id;
  const ficha=(await q('select lugar_reencarnacion,imagen_url,atributos from personajes where id=$1',[pj]))[0];
  assert.equal(ficha.lugar_reencarnacion,'Lo decide el GM');assert.equal(ficha.imagen_url,FOTO);assert.equal(ficha.atributos.vida,45);
+ await assert.rejects(q('select public.personaje_solicitar($1,$2,$3,$4,$5,$6::jsonb)',[uid(11),'Raiz','','',null,{vida:20}]),/ser vivo/,'la raíz razas no es elegible');
  const normal=(await q('select public.personaje_solicitar($1,$2,$3,$4,$5,$6::jsonb) id',[uid(12),'Ilia','','',null,{vida:20}]))[0].id;
  assert.equal((await q('select lugar_reencarnacion from personajes where id=$1',[normal]))[0].lugar_reencarnacion,'Montaña Shiro (Prueba de vida)');
  await q('select public.personaje_cambiar_foto($1,$2)',[normal,FOTO]);

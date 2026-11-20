@@ -102,7 +102,10 @@ export function validarPropuestaRaza(
   return null;
 }
 export function razasVivas(c: Raza[]) {
-  return c.filter((x) => linaje(c, x.clave).some((p) => p.clave === "razas"));
+  // La raíz «razas» agrupa a los seres vivos; no es una raza elegible.
+  return c.filter(
+    (x) => x.clave !== "razas" && linaje(c, x.clave).some((p) => p.clave === "razas"),
+  );
 }
 export function definiciones(c: Raza[], a: Atributo[], id: string) {
   const raza = c.find((x) => x.id === id);
