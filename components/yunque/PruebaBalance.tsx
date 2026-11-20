@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { proyectarCarga } from '../../lib/balance-carga';
 import type { evaluarBalance } from '../../lib/balance-laboratorio';
 import type { Borrador } from '../../lib/yunque-borrador';
@@ -62,62 +62,56 @@ function CargaObjeto({ peso }: { peso?: number }) {
   </fieldset>;
 }
 
-export default function PruebaBalance({ b, ctx }: { b: Borrador; ctx: ContextoTaller }) {
-  const vinculos = new Set([...b.habilidades, ...b.pasivas, ...Object.values(b.equipamiento)]);
-  const entrada: Entrada = [b, {
-    stats: b.tipo === 'personaje' ? valoresBorrador(b, ctx) : {},
-    creaciones: b.tipo === 'personaje' ? ctx.creaciones.filter(c => vinculos.has(c.id)) : [],
-  }, { repeticiones: 12 }];
-  return <InformeBalance key={JSON.stringify(entrada)} entrada={entrada} />;
+export function useBalanceBorrador(b: Borrador, ctx: ContextoTaller) {
+  const entrada: Entrada = useMemo(() => {
+    const vinculos = new Set([...b.habilidades, ...b.pasivas, ...Object.values(b.equipamiento)]);
+    const stats = valoresBorrador(b, ctx);
+    return [{ ...b, stats }, {
+      stats,
+      creaciones: b.tipo === 'personaje' ? ctx.creaciones.filter(c => vinculos.has(c.id)) : [],
+    }, { repeticiones: 12 }];
+  }, [b, ctx]);
+
+  const firma = JSON.stringify(entrada);
+  const [respuesta, setRespuesta] = useState<{ firma: string; datos: Respuesta }>();
+  useEffect(() => {
+    let tarea: Worker | undefined;
+    const demora = window.setTimeout(() => {
+      try {
+        tarea = new Worker(new URL('./balance.worker.ts', import.meta.url));
+        tarea.onmessage = ({ data }: MessageEvent<Respuesta>) => {
+          tarea?.terminate();
+          setRespuesta({ firma, datos: data });
+        };
+        tarea.onerror = () => {
+          tarea?.terminate();
+          setRespuesta({ firma, datos: { error: 'Falló la simulación.' } });
+        };
+        tarea.postMessage(JSON.parse(firma) as Entrada);
+      } catch {
+        tarea?.terminate();
+        setRespuesta({ firma, datos: { error: 'El navegador no pudo iniciar la simulación.' } });
+      }
+    }, 450);
+    return () => {
+      window.clearTimeout(demora);
+      tarea?.terminate();
+    };
+  }, [firma]);
+
+  const actual = respuesta?.firma === firma ? respuesta.datos : undefined;
+  return {
+    entrada,
+    informe: actual && 'informe' in actual ? actual.informe : null,
+    error: actual && 'error' in actual ? actual.error : null,
+  };
 }
 
-function InformeBalance({ entrada }: { entrada: Entrada }) {
+export default function PruebaBalance({ balance }: { balance: ReturnType<typeof useBalanceBorrador> }) {
+  const { entrada, informe: r, error } = balance;
   const [b] = entrada;
-  const [resultado, setResultado] = useState<Informe | null>(null);
-  const [ocupado, setOcupado] = useState(false);
-  const [error, setError] = useState('');
-  const worker = useRef<Worker | null>(null);
-
-  useEffect(() => () => worker.current?.terminate(), []);
-
-  function ejecutar() {
-    setError('');
-    setResultado(null);
-    let tarea: Worker;
-    try {
-      tarea = new Worker(new URL('./balance.worker.ts', import.meta.url));
-    } catch {
-      setError('El navegador no pudo iniciar el laboratorio.');
-      return;
-    }
-    worker.current = tarea;
-    setOcupado(true);
-    function finalizar() {
-      tarea.terminate();
-      worker.current = null;
-      setOcupado(false);
-    }
-    tarea.onmessage = ({ data }: MessageEvent<Respuesta>) => {
-      finalizar();
-      if ('error' in data) setError(data.error);
-      else setResultado(data.informe);
-    };
-    tarea.onerror = () => {
-      finalizar();
-      setError('Falló la ejecución del laboratorio.');
-    };
-    try {
-      tarea.postMessage(entrada);
-    } catch {
-      finalizar();
-      setError('No fue posible preparar los datos de la prueba.');
-    }
-  }
-
-  const r = resultado;
   return <div className="yq-ficha-prueba">
-    <p>Prueba cinco rondas en modo Impacto frente a un portador desarmado de referencia.</p>
-    <button type="button" onClick={ejecutar} disabled={ocupado}>{ocupado ? 'Simulando…' : 'Simular borrador'}</button>
+    <p>El índice compara el daño en cinco rondas de Impacto con el de un portador desarmado. Se actualiza al editar el borrador.</p>
     {error && <p role="status">{error}</p>}
     {r && <>
       <p role="status"><strong>{r.ipe === null ? 'Índice de potencia indeterminado' : `Índice de potencia ofensiva · ${numero.format(r.ipe)}`}</strong></p>

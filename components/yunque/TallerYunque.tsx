@@ -10,6 +10,7 @@ import Grimorio,{type PistaSoltar} from './Grimorio';
 import ArenaDolls from './ArenaDolls';
 import VistaLista from './VistaLista';
 import CajonFicha from './CajonFicha';
+import {useBalanceBorrador} from './PruebaBalance';
 import {claveDe as claveHistorial,useHistorial} from './useHistorial';
 import EditorVinculo,{FiguraEquipo,iconoEnlazable,idDeVinculo,type EnlazableVista} from './editores/EditorVinculo';
 import {NOMBRE_TIPO,familiaDe} from './NodoYunque';
@@ -20,7 +21,7 @@ import EditorSi from './editores/EditorSi';
 import EditorEntonces from './editores/EditorEntonces';
 import EditorPasivaNodo from './editores/EditorPasivaNodo';
 import EditorModulo from './editores/EditorModulo';
-import {activas,claseDe,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
+import {activas,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
 import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
 import type {CondicionRegla,EfectoRegla} from '../../lib/reglas';
@@ -364,7 +365,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
  });
  useEffect(()=>{const f=(e:KeyboardEvent)=>teclas.current(e);window.addEventListener('keydown',f);return ()=>window.removeEventListener('keydown',f);},[]);
 
- const clase=claseDe(b,ctx);
+ const balance=useBalanceBorrador(b,ctx);
  /** Abre el cajón Ficha y lleva el foco dentro (o a la sección `ancla`); al cerrarlo, el foco vuelve a quien lo abrió. */
  const abridor=useRef<HTMLElement|null>(null);
  function abrirFicha(ancla?:string){
@@ -465,7 +466,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
    <span className="yq-barra-runa"><Runa seccion="forja" size={30}/></span>
    <div className="yq-barra-titulo"><small>El Yunque</small><h1>{b.nombre.trim()||'Nueva creación'}</h1></div>
    <span className="yq-barra-tipo"><IconoYugen id={b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]} size={16}/>{b.ramaMonstruo?'Monstruo':TIPOS.find(t=>t.valor===b.tipo)?.nombre}</span>
-   <button type="button" className="yq-barra-clase" onClick={()=>abrirFicha()} title="Clase calculada con los atributos, la acción más potente, los bonos pasivos y las reglas. Pulsa para ver cómo se calcula."><b>{clase.clase}</b><span>Clase · {clase.puntuacion} pts</span></button>
+   <button type="button" className="yq-barra-clase" onClick={()=>abrirFicha()} title="Clase del borrador según la simulación. Pulsa para abrir el desglose."><b>{balance.informe?.clase??(balance.error?'—':'…')}</b><span>Clase del borrador</span></button>
    {errores.length>0&&<button type="button" className="yq-barra-errores" onClick={()=>setSeleccion(errores[0].id)}><span aria-hidden="true">!</span>{errores.length===1?'1 nodo por revisar':`${errores.length} nodos por revisar`}</button>}
    <div className="yq-historial" role="group" aria-label="Historial">
     <button type="button" onClick={deshacer} disabled={guardando||!historial.puedeDeshacer} aria-label="Deshacer" title="Deshacer (Ctrl+Z)" aria-keyshortcuts="Control+Z"><Undo2 size={15} aria-hidden="true"/></button>
@@ -499,7 +500,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
    {errores.length>0&&<ul className="yq-revisar">{errores.map(n=><li key={n.id}><button type="button" onClick={()=>setSeleccion(n.id)}><b>{n.titulo}</b><span>{n.error}</span></button></li>)}</ul>}
    <ArenaDolls b={b} ctx={ctx} grafo={grafo} onEncender={encender}/>
   </aside>
-  <CajonFicha ancla={anclaFicha} b={b} patch={patchFicha} ctx={ctx} abierto={ficha} onCerrar={cerrarCajon}/>
+  <CajonFicha balance={balance} ancla={anclaFicha} b={b} patch={patchFicha} ctx={ctx} abierto={ficha} onCerrar={cerrarCajon}/>
  </div>;
 }
 
