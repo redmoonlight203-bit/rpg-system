@@ -33,7 +33,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  const cable=(d:string,pd:string,h:string,ph='entrada')=>{cables.push({id:`${d}:${pd}>${h}:${ph}`,desde:{nodo:d,puerto:pd},hasta:{nodo:h,puerto:ph}});};
  const ofertaRequisitos=b.tipo!=='personaje'||Object.keys(b.requisitos_uso||{}).length>0;
  // Núcleo
- nodo('nucleo','nucleo',[],String(b.nombre??'').trim()||'Sin nombre',`${b.tipo}${b.clasificacion?' · '+b.clasificacion:''} · clase ${b.clase}`,null,[
+ nodo('nucleo','nucleo',[],String(b.nombre??'').trim()||'Sin nombre',`${b.tipo}${b.clasificacion?' · '+b.clasificacion:''}`,null,[
   salida('acciones',['accion'],'Acciones'),salida('reglas',['cuando'],'Reglas'),salida('pasivas',['pasiva'],'Pasivas'),
   salida('vinculos',['vinculo'],'Vínculos'),salida('invocacion',['invocacion'],'Invocación'),salida('requisitos',['requisitos'],'Requisitos')]);
  // Acciones y módulos

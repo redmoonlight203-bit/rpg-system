@@ -120,8 +120,7 @@ function InformeBalance({ entrada }: { entrada: Entrada }) {
     <button type="button" onClick={ejecutar} disabled={ocupado}>{ocupado ? 'Simulando…' : 'Simular borrador'}</button>
     {error && <p role="status">{error}</p>}
     {r && <>
-      <p role="status"><strong>{r.clase ? `Estimación ofensiva ${r.clase}` : 'Clase ofensiva indeterminada'}</strong>
-        {r.clasePico && ` · Apertura ${r.clasePico}`}{r.ipe !== null && ` · IPE ${numero.format(r.ipe)}`}</p>
+      <p role="status"><strong>{r.ipe === null ? 'Índice de potencia indeterminado' : `Índice de potencia ofensiva · ${numero.format(r.ipe)}`}</strong></p>
       <ul>{r.avisos.map(aviso => <li key={aviso}>{aviso}</li>)}</ul>
       {r.informe.map(({ escenario, creacion: m, referencia, rendimientoPorAccion, incidencias }) =>
         <details key={escenario.id}>

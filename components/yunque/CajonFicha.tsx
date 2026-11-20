@@ -60,7 +60,7 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla}:Props){
     <b>{clase.clase}</b>
     <div>
      <strong>{clase.puntuacion} puntos de poder</strong>
-     <span>{siguiente!==undefined?`Clase ${CLASES_YUGEN[i+1]} desde ${siguiente}`:'La clase más alta'}</span>
+     {siguiente===undefined&&<span>La clase más alta</span>}
      {siguiente!==undefined&&<BarraVital etiqueta="Hacia la siguiente clase" tipo="exp" valor={redondo(clase.puntuacion-UMBRALES_CLASE[i])} max={siguiente-UMBRALES_CLASE[i]}/>}
     </div>
     <details className="yq-ficha-como">
