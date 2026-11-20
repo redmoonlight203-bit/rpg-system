@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { proyectarCarga } from '../../lib/balance-carga';
 import type { evaluarBalance } from '../../lib/balance-laboratorio';
 import type { Borrador } from '../../lib/yunque-borrador';
-import type { AjustesDoll, ContextoArena } from '../../lib/yunque-arena';
+import { valoresBorrador, type ContextoTaller } from './contexto';
+import './prueba-balance.css';
 
 type Informe = ReturnType<typeof evaluarBalance>;
 type Entrada = Parameters<typeof evaluarBalance>;
@@ -61,12 +62,18 @@ function CargaObjeto({ peso }: { peso?: number }) {
   </fieldset>;
 }
 
-export default function BalanceArena({ b, ctx, doll }: {
-  b: Borrador;
-  ctx: ContextoArena;
-  doll: Partial<AjustesDoll>;
-}) {
-  const [resultado, setResultado] = useState<{ entrada: Entrada; informe: Informe } | null>(null);
+export default function PruebaBalance({ b, ctx }: { b: Borrador; ctx: ContextoTaller }) {
+  const vinculos = new Set([...b.habilidades, ...b.pasivas, ...Object.values(b.equipamiento)]);
+  const entrada: Entrada = [b, {
+    stats: b.tipo === 'personaje' ? valoresBorrador(b, ctx) : {},
+    creaciones: b.tipo === 'personaje' ? ctx.creaciones.filter(c => vinculos.has(c.id)) : [],
+  }, { repeticiones: 12 }];
+  return <InformeBalance key={JSON.stringify(entrada)} entrada={entrada} />;
+}
+
+function InformeBalance({ entrada }: { entrada: Entrada }) {
+  const [b] = entrada;
+  const [resultado, setResultado] = useState<Informe | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState('');
   const worker = useRef<Worker | null>(null);
@@ -74,11 +81,6 @@ export default function BalanceArena({ b, ctx, doll }: {
   useEffect(() => () => worker.current?.terminate(), []);
 
   function ejecutar() {
-    const vinculos = new Set([...b.habilidades, ...b.pasivas, ...Object.values(b.equipamiento)]);
-    const entrada: Entrada = [b, {
-      stats: ctx.stats,
-      creaciones: b.tipo === 'personaje' ? ctx.creaciones.filter(c => vinculos.has(c.id)) : [],
-    }, { doll, repeticiones: 12 }];
     setError('');
     setResultado(null);
     let tarea: Worker;
@@ -98,7 +100,7 @@ export default function BalanceArena({ b, ctx, doll }: {
     tarea.onmessage = ({ data }: MessageEvent<Respuesta>) => {
       finalizar();
       if ('error' in data) setError(data.error);
-      else setResultado({ entrada, informe: data.informe });
+      else setResultado(data.informe);
     };
     tarea.onerror = () => {
       finalizar();
@@ -112,31 +114,28 @@ export default function BalanceArena({ b, ctx, doll }: {
     }
   }
 
-  const r = resultado?.informe;
-  return <details className="yq-arena-ajustes yq-balance">
-    <summary>Laboratorio de balance</summary>
-    <div className="yq-balance-contenido">
-      <p>Compara cinco rondas en modo Impacto contra un portador desarmado. Los resultados son provisionales y puedes forjar durante la prueba.</p>
-      <button type="button" onClick={ejecutar} disabled={ocupado}>{ocupado ? 'Simulando…' : 'Simular borrador'}</button>
-      {error && <p role="status">{error}</p>}
-      {r && resultado && <>
-        <p role="status"><strong>{r.clase ? `Clase ofensiva preliminar ${r.clase}` : 'Clase ofensiva indeterminada'}</strong>
-          {r.clasePico && ` · Apertura ${r.clasePico}`}{r.ipe !== null && ` · IPE ${numero.format(r.ipe)}`}</p>
-        <ul>{r.avisos.map(aviso => <li key={aviso}>{aviso}</li>)}</ul>
-        {r.informe.map(({ escenario, creacion: m, referencia, rendimientoPorAccion, incidencias }) =>
-          <details key={escenario.id}>
-            <summary>{ESCENARIOS[escenario.id]} · {numero.format(m.dano)} de daño medio</summary>
-            <p>Referencia {numero.format(referencia.dano)} · Daño de apertura {numero.format(m.pico)} · {numero.format(m.acciones)} acciones</p>
-            <p>{numero.format(m.phGastado)} PH gastados · {numero.format(m.fatigaGanada)} Fatiga ganada · {numero.format(m.hpPropioPerdido)} HP propios perdidos al actuar</p>
-            <p>{numero.format(m.curacion)} HP recuperados · {numero.format(m.danoRecibido)} HP perdidos ante acciones rivales · {numero.format(m.accionesEnemigasNegadas)} acciones rivales negadas</p>
-            {rendimientoPorAccion !== null && <p>Rendimiento de daño ×{numero.format(rendimientoPorAccion)} por acción frente a la referencia</p>}
-            {!!incidencias.length && <ul>{incidencias.map(i => <li key={i}>{i}</li>)}</ul>}
-          </details>
-        )}
-        <p>{r.version} · {r.repeticiones} repeticiones por escenario · Semilla {r.semilla}</p>
-        <button type="button" onClick={() => exportar(resultado.entrada, r)}>Descargar prueba</button>
-      </>}
-      {b.tipo === 'objeto' && <CargaObjeto peso={b.stats.peso} />}
-    </div>
-  </details>;
+  const r = resultado;
+  return <div className="yq-ficha-prueba">
+    <p>Prueba cinco rondas en modo Impacto frente a un portador desarmado de referencia.</p>
+    <button type="button" onClick={ejecutar} disabled={ocupado}>{ocupado ? 'Simulando…' : 'Simular borrador'}</button>
+    {error && <p role="status">{error}</p>}
+    {r && <>
+      <p role="status"><strong>{r.clase ? `Estimación ofensiva ${r.clase}` : 'Clase ofensiva indeterminada'}</strong>
+        {r.clasePico && ` · Apertura ${r.clasePico}`}{r.ipe !== null && ` · IPE ${numero.format(r.ipe)}`}</p>
+      <ul>{r.avisos.map(aviso => <li key={aviso}>{aviso}</li>)}</ul>
+      {r.informe.map(({ escenario, creacion: m, referencia, rendimientoPorAccion, incidencias }) =>
+        <details key={escenario.id}>
+          <summary>{ESCENARIOS[escenario.id]} · {numero.format(m.dano)} de daño medio</summary>
+          <p>Referencia {numero.format(referencia.dano)} · Daño de apertura {numero.format(m.pico)} · {numero.format(m.acciones)} acciones</p>
+          <p>{numero.format(m.phGastado)} PH gastados · {numero.format(m.fatigaGanada)} Fatiga ganada · {numero.format(m.hpPropioPerdido)} HP propios perdidos al actuar</p>
+          <p>{numero.format(m.curacion)} HP recuperados · {numero.format(m.danoRecibido)} HP perdidos ante acciones rivales · {numero.format(m.accionesEnemigasNegadas)} acciones rivales negadas</p>
+          {rendimientoPorAccion !== null && <p>Rendimiento de daño ×{numero.format(rendimientoPorAccion)} por acción frente a la referencia</p>}
+          {!!incidencias.length && <ul>{incidencias.map(i => <li key={i}>{i}</li>)}</ul>}
+        </details>
+      )}
+      <p>{r.version} · {r.repeticiones} repeticiones por escenario · Semilla {r.semilla}</p>
+      <button type="button" onClick={() => exportar(entrada, r)}>Descargar prueba</button>
+    </>}
+    {b.tipo === 'objeto' && <CargaObjeto peso={b.stats.peso} />}
+  </div>;
 }

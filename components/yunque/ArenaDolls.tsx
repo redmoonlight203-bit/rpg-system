@@ -7,7 +7,6 @@
 import {memo,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Maximize2,Minimize2,Move,Plus,RotateCcw,Swords,Trash2,Undo2} from 'lucide-react';
-import BalanceArena from './BalanceArena';
 import IconoYugen from '../IconoYugen';
 import LogoYugen from '../LogoYugen';
 import {TableroCombate,BarraCombate,type FichaTablero} from '../TableroCombate';
@@ -84,11 +83,6 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const disposicion=useRef<Posicion[]>([]);
  const firma=useMemo(()=>firmaCreaciones(b,ctx.creaciones),[b,ctx.creaciones]);
  const [estado,setEstado]=useState<Estado>(()=>construir({b,creaciones:ctx.creaciones,firma,doll:SIN_AJUSTES,saco:SIN_AJUSTES},ctx,[]));
- const claveBalance=useMemo(()=>JSON.stringify([estado.b,estado.firma,estado.doll]),[estado.b,estado.firma,estado.doll]);
- const contextoBalance=useMemo(()=>({
-  creaciones:estado.creaciones,
-  stats:estado.b.tipo==='personaje'?valoresBorrador(estado.b,ctx):{},
- }),[estado.creaciones,estado.b,ctx]);
  const [golpe,setGolpe]=useState<Golpe>({cantidad:1,caras:6,naturaleza:'fisica'});
  const [voz,setVoz]=useState('');
  const [reinicio,setReinicio]=useState<{n:number;texto:string}|null>(null);
@@ -331,7 +325,6 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
     </fieldset>)}
    </details>
    {c&&<>
-    <BalanceArena key={claveBalance} b={estado.b} ctx={contextoBalance} doll={estado.doll}/>
     <h3>Registro</h3>
     <ol className="yq-arena-registro">{c.registro.slice(0,REGISTRO).map((l,i)=><li key={`${c.registro.length-i}`} className={i===0?'is-reciente':undefined}>{l}</li>)}</ol>
     {/* Solo se anuncia la entrada más reciente, no la lista entera. */}

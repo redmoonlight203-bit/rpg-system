@@ -161,9 +161,3 @@
  .yq-taller .yq-cable-pulso{display:none}
  .yq-taller .yq-arena-herramientas button,.yq-taller .yq-arena-en-lienzo button{transition:none}
 }
-.yq-taller .yq-balance-contenido{display:grid;gap:8px;padding:0 10px 10px;color:var(--color-text-muted);font:13px/1.45 var(--font-sans)}
-.yq-taller .yq-balance-contenido :is(p,ul){margin:0}
-.yq-taller .yq-balance-contenido ul{padding-inline-start:18px}
-.yq-taller .yq-balance-contenido button{justify-self:start;padding:5px 8px;border:1px solid var(--color-line);color:var(--color-gold-soft);background:var(--color-canvas)}
-.yq-taller .yq-balance-contenido summary{padding:4px 0;letter-spacing:normal;text-transform:none;color:var(--color-gold-soft)}
-.yq-taller .yq-balance-contenido fieldset{display:grid;grid-template-columns:1fr;padding:0}

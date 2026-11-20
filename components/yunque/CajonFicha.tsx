@@ -11,6 +11,7 @@ import EditorMonstruo from '../EditorMonstruo';
 import {BarraVital} from '../ui/Juego';
 import {Interruptor} from './Controles';
 import NaturalezaAdquirida from './NaturalezaAdquirida';
+import PruebaBalance from './PruebaBalance';
 import {activas,atributosVisibles,claseDe,esMonstruoB,type ContextoTaller} from './contexto';
 import {CLASES_YUGEN,UMBRALES_CLASE} from '../../lib/clases';
 import type {FuenteMonstruo} from '../../lib/monstruos';
@@ -72,6 +73,7 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla}:Props){
       <div><dt>Reglas</dt><dd>{redondo(clase.reglas)}</dd></div>
      </dl>
      <p className="yq-ficha-umbrales">{CLASES_YUGEN.map((c,k)=>`${c}: desde ${UMBRALES_CLASE[k]}`).join(' · ')}</p>
+     {abierto&&<PruebaBalance b={b} ctx={ctx}/>}
     </details>
    </section>
    <label className="yq-campo"><span>Descripción</span><textarea rows={3} maxLength={5000} value={b.descripcion} onChange={e=>patch({descripcion:e.target.value})} placeholder="Qué es, a simple vista."/></label>
