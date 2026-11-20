@@ -193,10 +193,12 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   despues?.(n);
  }
  const recordar=(n:Combate)=>{disposicion.current=seguro(()=>sacosDe(n),disposicion.current);};
- function resolver(){
+ // Un clic ejecuta: la barra pasa la acción propia y el tablero, el objetivo o el centro del mismo clic.
+ function resolver(sel:{accion?:string;objetivo?:string;centro?:Posicion}={}){
+  const id=sel.accion||elegida,ef=lista.find(a=>a.id===id)?.efecto;
   // Igual que la página de combate: guardia, armas creadas, transformaciones y rugidos se lanzan sobre uno mismo.
-  const propio=elegida==='guardia'||['crear_arma','transformacion'].includes(efecto?.efecto||'')||efecto?.tablero?.origen_area==='lanzador';
-  paso((x,rng)=>usar(x,elegida,propio?DOLL:destino,rng,forzar,centro||undefined),'Esa acción no se pudo usar.',()=>{setCentro(null);setObjetivo('');setMoviendo(false);});
+  const propio=id==='guardia'||['crear_arma','transformacion'].includes(ef?.efecto||'')||ef?.tablero?.origen_area==='lanzador';
+  paso((x,rng)=>usar(x,id,propio?DOLL:(sel.objetivo??destino),rng,forzar,sel.centro||centro||undefined),'Esa acción no se pudo usar.',()=>{setCentro(null);setObjetivo('');setMoviendo(false);});
  }
  function atras(){
   if(!c)return;
@@ -258,7 +260,8 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
     evento={c.evento_visual} fichas={fichas} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino}
     moviendo={moviendo&&enCurso&&!colocando} alcanzables={alcanzables} ocupado={!enCurso}
     onObjetivo={id=>{if(colocando&&esSaco(id))setSacoElegido(id);else setObjetivo(id);}}
-    onMover={p=>paso(x=>mover(x,p),'El doll no puede moverse ahí.')}/>
+    onMover={p=>paso(x=>mover(x,p),'El doll no puede moverse ahí.')}
+    puedeEjecutar={enCurso&&!colocando&&!!portador&&portador.vida>0&&!portador.accion_usada&&c.actual===DOLL} onEjecutar={colocando?undefined:sel=>resolver(sel)}/>
    {caido&&<div className="yq-arena-fin" role="status"><strong>El doll cayó</strong><span>Deshaz el golpe o reinicia para seguir probando.</span>
     <div className="yq-arena-fin-botones">
      {deshacible&&<button type="button" className="yq-arena-reiniciar is-grande is-secundario" onClick={atras}><Undo2 size={16} aria-hidden="true"/>Deshacer el golpe</button>}
@@ -269,10 +272,10 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   {voz&&<div className="yq-arena-kuroi is-breve" role="alert"><LogoYugen size={32}/><p><b>Kuroi detiene la prueba.</b>{voz}</p></div>}
   {enCurso&&portador&&!barra&&<p className="yq-panel-voz">Kuroi no puede leer las estadísticas del doll: revisa sus ajustes o reinicia la prueba.</p>}
   {enCurso&&portador&&barra&&<>
-   <BarraCombate actor={{...portador,ph:barra.ph,derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:barra.stats,max_vida:barra.max_vida,imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
+   <BarraCombate actor={{...portador,estados:portador.estados.map(e=>e.nombre),ph:barra.ph,derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:barra.stats,max_vida:barra.max_vida,imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
     acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(portador.motor?.proximos[a.regla]||0)-portador.turnos):portador.cooldowns[a.id]||0}))}
     seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setMoviendo(false);setColocando(false);}}
-    onResolver={resolver} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>{limpiarJugada();setForzar(false);})}
+    onResolver={id=>resolver({accion:id})} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>{limpiarJugada();setForzar(false);})}
     onInventario={()=>paso((x,rng)=>alternarPieza(x,rng),'No se pudo cambiar la pieza.')}
     inventario={equipada===null?{nombre:'Inventario',detalle:'',oculto:true}:{nombre:equipada?'Quitar':'Equipar',detalle:`«${nombrePieza(c)}»`,titulo:`${equipada?'Quitar':'Equipar'} «${nombrePieza(c)}»`}} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):miembro(c,destino)?.nombre}
     puede={portador.vida>0&&c.actual===DOLL} ocupado={false} moviendo={moviendo} onMovimiento={()=>{setMoviendo(v=>!v);setColocando(false);}}
