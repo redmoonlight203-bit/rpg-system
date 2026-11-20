@@ -1,0 +1,149 @@
+/* Combate de Yugen: barra fija, héroe activo, previsualización y capas.
+   Todas las animaciones usan solo transform/translate y opacity, y respetan prefers-reduced-motion. */
+
+/* ── Estabilidad: el tablero vive en un contenedor de altura fija ───────────────── */
+.campo-escenario{position:relative}
+.tactical-field .tactical-scroll{height:min(62dvh,600px);max-height:none}
+.tactical-field .tactical-board.arena-vista-completa{width:min(100%,calc((min(62dvh,600px) - 12px) * var(--cols,12) / var(--rows,8)));margin-inline:auto}
+.tactical-field-header{min-height:52px;flex-wrap:nowrap}
+.tactical-field-header>span{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block}
+.tactical-field-header>span>svg{display:inline;vertical-align:-3px;margin-right:6px}
+.tactical-field-tools{display:flex;align-items:center;gap:10px;flex:none}
+.tactical-field-tools .tactical-roof-toggle{margin:0;padding:5px 10px}
+.tactical-second-click{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-muted,#a9aaa5);cursor:pointer;white-space:nowrap}
+.tactical-second-click input{accent-color:var(--color-gold-bright,#e8c46a)}
+.campo-info{height:76px;min-height:0;overflow:hidden}
+
+/* Avisos sobre el tablero: flotan, nunca empujan la barra. */
+.campo-escenario>.tactical-area-summary{position:absolute;top:8px;left:8px;right:8px;z-index:20;border:1px solid rgb(var(--oro,212 175 55)/.35);border-radius:8px;background:rgb(10 10 14/.86);padding:6px 12px;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-wrap:nowrap}
+.campo-escenario>.tactical-area-summary>span{overflow:hidden;text-overflow:ellipsis}
+.campo-escenario>.tactical-area-summary button{pointer-events:auto}
+/* Arriba a la izquierda: la barra fija tapa la parte baja del tablero. */
+.campo-preview,.tactical-move-hint{position:absolute;left:10px;top:10px;z-index:25;pointer-events:none;max-width:min(340px,calc(100% - 20px))}
+.campo-preview{display:grid;gap:3px;padding:10px 12px;border:1px solid rgb(var(--oro,212 175 55)/.55);border-radius:10px;background:linear-gradient(#1c1a16f2,#0e0d0bf2);box-shadow:0 10px 30px #000b,inset 0 1px #ffffff12;font-size:12.5px;line-height:1.35;color:var(--color-neutral-200,#e5e5e5);animation:campo-aparece .14s ease-out}
+.campo-preview strong{font:600 14px var(--font-serif,Georgia,serif);color:var(--color-gold-bright,#e8c46a)}
+.campo-preview em{font-style:normal;color:var(--color-red-300,#fca5a5)}
+.campo-preview small{margin-top:3px;color:var(--color-cyan-300,#67e8f9);font-size:12px}
+.campo-preview.is-bloqueada{border-color:var(--color-red-500,#ef4444)}
+.tactical-move-hint{padding:6px 10px;border-radius:8px;background:rgb(10 10 14/.82);font-size:12px;color:var(--color-neutral-300,#d4d4d4)}
+.campo-nota{position:absolute;top:10px;right:10px;z-index:26;pointer-events:none;display:flex;gap:8px;align-items:flex-start;max-width:min(320px,calc(100% - 20px));padding:10px 12px;border:1px solid var(--color-cyan-700,#0e7490);border-radius:10px;background:#0b1418f2;color:var(--color-cyan-100,#cffafe);font-size:12.5px;line-height:1.4;box-shadow:0 8px 24px #000a;animation:campo-aparece .2s ease-out}
+.campo-nota svg{flex:none;margin-top:2px;color:var(--color-cyan-300,#67e8f9)}
+.campo-nota button{pointer-events:auto;flex:none;align-self:center;padding:4px 8px;border:1px solid var(--color-cyan-600,#0891b2);border-radius:6px;font-size:12px}
+@keyframes campo-aparece{from{opacity:0;transform:translateY(4px)}}
+
+/* Jugada pendiente (segundo clic) */
+.tactical-cell.pending{box-shadow:inset 0 0 0 3px var(--color-gold-bright,#e8c46a)!important;animation:campo-pendiente 1s ease-in-out infinite}
+@keyframes campo-pendiente{50%{opacity:.78}}
+
+/* ── Capas ──────────────────────────────────────────────────────────────── */
+.capa-sombra{position:absolute;left:20%;right:20%;bottom:7%;height:16%;border-radius:50%;pointer-events:none;z-index:1;background:radial-gradient(closest-side,#000a,#0000)}
+.tactical-cell .tactical-token{transition:translate .7s cubic-bezier(.2,.7,.2,1),opacity .4s}
+/* Aire: la ficha se eleva y deja su sombra en el suelo. */
+.tactical-cell.capa-aire .tactical-token{translate:0 -20%;z-index:3}
+.tactical-cell.capa-aire .capa-sombra{left:24%;right:24%;opacity:.85}
+/* Subsuelo: tierra removida; quien no es de tu bando solo deja la marca. */
+.tactical-cell.capa-subsuelo .capa-sombra{left:14%;right:14%;bottom:10%;height:26%;background:radial-gradient(closest-side,#7a5634,#4a321e 55%,#0000);box-shadow:0 -2px 0 #9b7149 inset}
+.tactical-cell.capa-subsuelo .tactical-token{translate:0 16%;opacity:.5;clip-path:inset(0 0 34% 0)}
+.tactical-cell.capa-oculta .tactical-token{opacity:0}
+.tactical-cell.capa-oculta .capa-sombra{left:12%;right:12%;height:30%}
+/* Agua: ondas alrededor de la ficha. */
+.tactical-cell.capa-agua .capa-sombra{inset:auto 10% 6%;height:30%;background:none;border:2px solid #7cc8ffa0;animation:capa-onda 2.4s ease-out infinite}
+.tactical-cell.capa-agua .tactical-token{clip-path:inset(0 0 22% 0);translate:0 8%}
+/* Otro plano: halo violeta y ficha translúcida. */
+.tactical-cell.capa-plano .capa-sombra{inset:6%;height:auto;background:radial-gradient(closest-side,#b07cff66,#0000);animation:capa-halo 3s ease-in-out infinite}
+.tactical-cell.capa-plano .tactical-token{opacity:.72}
+@keyframes capa-onda{from{transform:scale(.6);opacity:1}to{transform:scale(1.25);opacity:0}}
+@keyframes capa-halo{50%{transform:scale(1.08);opacity:.6}}
+/* Transición al cambiar de capa (600–900 ms). */
+.capa-transicion{position:absolute;inset:-12%;z-index:6;pointer-events:none;overflow:hidden}
+.capa-transicion i{position:absolute;left:10%;width:80%;height:34%;border-radius:50%;opacity:0}
+.capa-transicion-aire i{background:radial-gradient(closest-side,#fffffff0,#ffffff00);animation:capa-nube .8s ease-out both}
+.capa-transicion-aire i:nth-child(2){left:-10%;animation-delay:.08s}
+.capa-transicion-aire i:nth-child(3){left:30%;animation-delay:.16s}
+@keyframes capa-nube{0%{transform:translateY(260%) scaleX(.8);opacity:0}30%{opacity:.95}100%{transform:translateY(-120%) scaleX(1.2);opacity:0}}
+.capa-transicion-subsuelo i,.capa-transicion-suelo i{bottom:4%;height:20%;background:radial-gradient(closest-side,#8a6440,#8a644000);animation:capa-tierra .7s ease-out both}
+.capa-transicion-subsuelo i:nth-child(2),.capa-transicion-suelo i:nth-child(2){left:-5%;animation-delay:.06s}
+.capa-transicion-subsuelo i:nth-child(3),.capa-transicion-suelo i:nth-child(3){left:25%;animation-delay:.12s}
+@keyframes capa-tierra{0%{transform:translateY(0) scale(.5);opacity:0}35%{opacity:1}100%{transform:translateY(-60%) scale(1.3);opacity:0}}
+.capa-transicion-agua i{inset:30% 10%;height:auto;border:2px solid #9bd6ff;background:none;animation:capa-onda .75s ease-out both}
+.capa-transicion-agua i:nth-child(2){animation-delay:.12s}.capa-transicion-agua i:nth-child(3){animation-delay:.24s}
+.capa-transicion-plano i{inset:10%;height:auto;background:radial-gradient(closest-side,#d5b8ff,#d5b8ff00);animation:capa-destello .7s ease-out both}
+@keyframes capa-destello{0%{transform:scale(.3);opacity:0}40%{opacity:1}100%{transform:scale(1.4);opacity:0}}
+/* Objetivo en el aire: la casilla exacta del suelo queda marcada. */
+.capa-punto{position:absolute;left:50%;bottom:4%;z-index:4;translate:-50% 0;color:var(--color-gold-bright,#e8c46a);filter:drop-shadow(0 0 4px #000);pointer-events:none}
+
+/* ── Barra inferior: ranuras de tamaño constante ─────────────────────────── */
+.tactical-dock{display:grid;grid-template-columns:minmax(230px,270px) minmax(0,1fr) 88px;align-items:stretch}
+.tactical-controls{min-width:0;display:grid;grid-template-rows:24px 94px;gap:6px}
+.tactical-tabs{height:24px;margin:0;white-space:nowrap;overflow:hidden}
+.tactical-slots{display:flex;flex-wrap:nowrap;gap:6px;height:94px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scrollbar-width:thin}
+.tactical-slots>button{flex:0 0 86px;width:86px;height:88px;min-height:0;overflow:hidden;gap:3px;padding:15px 4px 4px;justify-content:flex-start}
+.tactical-slots>button>svg,.tactical-slots>button>img{flex:none;width:20px;height:20px;object-fit:contain}
+.tactical-slots strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:100%;font-size:11.5px;line-height:13px;max-height:26px;min-height:26px;overflow-wrap:break-word;hyphens:auto}
+.tactical-slots small{display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px;line-height:13px}
+.tactical-slots>button.pending{outline:2px dashed var(--color-gold-bright,#e8c46a);outline-offset:-4px;animation:campo-pendiente 1s ease-in-out infinite}
+.tactical-slots-sep{flex:0 0 1px;margin:10px 2px;background:color-mix(in srgb,var(--color-yellow-500,#eab308) 45%,transparent)}
+.tactical-consumable{border-color:color-mix(in srgb,var(--color-emerald-400,#34d399) 45%,transparent)!important}
+.tactical-count{position:absolute;right:5px;top:2px;font-size:12px;font-weight:700;color:var(--color-emerald-300,#6ee7b7)}
+.tactical-cooldown{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:#000a;color:#fff;font:700 22px var(--font-serif,Georgia,serif);pointer-events:none}
+.tactical-end{height:auto;min-height:0}
+/* Panel de información: altura fija, el texto largo se desplaza dentro. */
+.tactical-description{height:96px;overflow:hidden;align-items:stretch}
+.tactical-description>div:first-child{overflow-y:auto;min-width:0}
+.tactical-description>div:first-child p{margin:2px 0}
+.tactical-description>div:last-child{justify-content:center}
+.tactical-description .is-pendiente{color:var(--color-gold-bright,#e8c46a);font-weight:600}
+/* El dado vive a la derecha, lejos de los estados del panel de información. */
+.tactical-hud .tactical-die{left:auto;right:12px;transform:none}
+
+/* ── Héroe activo ──────────────────────────────────────────────────────── */
+.heroe-activo{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;align-items:center;min-width:0;padding-right:12px;border-right:1px solid color-mix(in srgb,var(--color-cyan-600,#0891b2) 20%,transparent);animation:heroe-entra .28s ease-out}
+.heroe-retrato{position:relative;width:62px;height:78px}
+.heroe-retrato .battle-portrait{position:relative;display:flex;align-items:center;justify-content:center;width:62px;height:78px;overflow:hidden;border:1px solid var(--color-yellow-600,#ca8a04);border-radius:8px;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);color:var(--color-gold-bright,#e8c46a);font:600 22px var(--font-serif,Georgia,serif)}
+.heroe-activo.en-turno .heroe-retrato .battle-portrait{box-shadow:0 0 0 1px var(--color-gold-bright,#e8c46a),0 0 16px 2px color-mix(in srgb,var(--color-gold-bright,#e8c46a) 45%,transparent)}
+.heroe-retrato img{width:100%;height:100%;object-fit:cover}
+.heroe-retrato .tactical-action-pip{position:absolute;right:-7px;bottom:-7px;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#111;border:1px solid currentColor;font-size:11px}
+.heroe-datos{display:grid;gap:4px;min-width:0}
+.heroe-nombre{display:flex;align-items:center;gap:6px;min-width:0;font:600 14px var(--font-serif,Georgia,serif);color:var(--color-parchment,#f3e7c9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heroe-capa{padding:0 6px;border-radius:9px;font:600 10px var(--font-sans,sans-serif);letter-spacing:.06em;text-transform:uppercase;background:#ffffff14}
+.heroe-capa.capa-aire{color:#cfe9ff}.heroe-capa.capa-subsuelo{color:#d9b48a}.heroe-capa.capa-agua{color:#8fd3ff}.heroe-capa.capa-plano{color:#d5b8ff}
+.heroe-activo .y3-barra{gap:2px}
+.heroe-activo .y3-barra-cab{font-size:10.5px;gap:6px}
+.heroe-activo .y3-barra-cab strong{font-size:12px}
+.heroe-activo .y3-barra-cab small{font-size:10.5px}
+.heroe-activo .y3-barra-pista{height:6px}
+.heroe-reservas{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px}
+.heroe-estados{display:flex;gap:4px;height:18px;overflow:hidden;font-size:11px}
+.heroe-estados span{flex:none;padding:0 6px;border-radius:9px;background:color-mix(in srgb,var(--color-cyan-700,#0e7490) 35%,transparent);color:var(--color-cyan-100,#cffafe);line-height:18px}
+.heroe-estados small{color:var(--color-text-muted,#a9aaa5);line-height:18px}
+@keyframes heroe-entra{from{opacity:0;transform:translateX(-10px)}}
+
+/* ── Resumen de turno ───────────────────────────────────────────────────── */
+.resumen-turno{position:absolute;bottom:calc(100% + 12px);left:12px;z-index:3;width:min(360px,calc(100% - 24px));padding:10px 14px;border:1px solid var(--color-yellow-600,#ca8a04);border-radius:10px;background:linear-gradient(#1c1a16f7,#0e0d0bf7);box-shadow:0 12px 32px #000b;font-size:13px;color:var(--color-neutral-200,#e5e5e5);animation:campo-aparece .22s ease-out}
+.resumen-turno header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.resumen-turno strong{font:600 14px var(--font-serif,Georgia,serif);color:var(--color-gold-bright,#e8c46a)}
+.resumen-turno ul{display:grid;gap:2px;margin:0;padding-left:16px;list-style:disc}
+
+/* ── Móvil ─────────────────────────────────────────────────────────────── */
+@media(max-width:700px){
+ .tactical-field .tactical-scroll{height:46dvh}
+ .tactical-field .tactical-board.arena-vista-completa{width:min(100%,calc((46dvh - 12px) * var(--cols,12) / var(--rows,8)))}
+ .tactical-field-header{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:20px 30px;gap:6px;min-height:0;height:80px}
+ .tactical-field-tools{justify-content:space-between;gap:6px}
+ .tactical-field-tools>small{display:none}
+ .tactical-field-tools .arena-full{padding:4px 8px}
+ .tactical-dock{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 124px}
+ .heroe-activo{grid-column:1;border:0;padding:0;grid-template-columns:44px minmax(0,1fr);gap:8px}
+ .heroe-retrato,.heroe-retrato .battle-portrait{width:44px;height:54px}
+ .tactical-dock>.tactical-end{grid-column:2;grid-row:1;align-self:center;width:auto;flex-direction:row;padding:8px;border-radius:6px}
+ .tactical-controls{grid-column:1/-1;grid-row:2;grid-template-rows:24px 94px}
+ .tactical-description{height:92px}
+ .tactical-description>div:last-child{max-width:46%}
+ .campo-preview{font-size:12px;padding:8px 10px}
+ .campo-nota{left:10px;right:10px;max-width:none}
+}
+@media(prefers-reduced-motion:reduce){
+ .capa-transicion{display:none}
+ .tactical-cell .tactical-token{transition:none}
+ .tactical-cell.capa-agua .capa-sombra,.tactical-cell.capa-plano .capa-sombra,.tactical-cell.pending,.tactical-slots>button.pending,.heroe-activo,.resumen-turno,.campo-preview,.campo-nota{animation:none}
+}
