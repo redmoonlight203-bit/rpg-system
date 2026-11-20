@@ -225,3 +225,82 @@
 }
 
 .pj-revive-dialog{position:fixed;inset:0;margin:auto;max-width:650px;width:calc(100% - 28px);max-height:90dvh;overflow:auto;border:1px solid var(--color-yellow-500);border-radius:2px;padding:28px;background:linear-gradient(150deg,var(--color-yellow-950),var(--color-neutral-950));color:var(--color-cyan-300);font:14px/1.8 Arial,sans-serif}.pj-revive-dialog::backdrop{background:#000c;backdrop-filter:blur(4px)}.pj-revive-dialog h2{font:30px Georgia}.pj-revive-dialog h3{font:22px Georgia;margin:12px 0}.pj-revive-dialog>section{border:1px solid var(--color-yellow-700);border-radius:2px;margin:18px 0;padding:20px}.pj-revive-dialog>section>svg{color:var(--color-yellow-300)}.pj-revive-dialog p{color:var(--color-cyan-500)}.pj-revive-dialog button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:1px solid var(--color-yellow-600);border-radius:2px;padding:12px 17px;background:var(--color-yellow-900);color:var(--color-gold-bright);font:13px Arial;cursor:pointer}.pj-revive-dialog button:disabled{opacity:.4;cursor:not-allowed}.pj-revive-dialog button:focus-visible{outline:2px solid var(--color-gold-soft);outline-offset:3px}.pj-resurrection-status{color:var(--color-neutral-400)!important;font-size:13px!important}@media(max-width:600px){.pj-revive-dialog{padding:20px}.pj-revive-dialog h2{font-size:26px}.pj-revive-dialog button{width:100%}}
+/* Raza única y fotos (plan de creación desde el reencarnado). */
+.pj-raza-unica-acceso {
+  display: grid;
+  gap: 6px;
+  margin: 18px 0;
+  justify-items: start;
+}
+.pj-raza-unica-acceso small {
+  color: var(--color-neutral-400);
+}
+.pj-raza-unica-campos {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.pj-raza-unica-campos .pj-stat label {
+  display: block;
+  margin-top: 8px;
+}
+.pj-raza-unica-campos .pj-stat legend {
+  font-weight: 600;
+}
+.pj-check {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+.pj-check input {
+  width: auto;
+}
+.pj-advertencia {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.pj-advertencia > svg {
+  flex: none;
+  color: var(--color-yellow-300);
+}
+.pj-advertencia ul {
+  margin: 8px 0 12px 18px;
+  list-style: disc;
+  line-height: 1.6;
+}
+.pj-propuesta {
+  border: 1px solid var(--color-cyan-900);
+  background: var(--color-neutral-950);
+  border-radius: 2px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.pj-propuesta p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.pj-foto-revision {
+  margin: 0 0 16px;
+  max-width: 260px;
+}
+.pj-race em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--color-yellow-300);
+}
+.pj-gm-propuesta img {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 2px;
+}
