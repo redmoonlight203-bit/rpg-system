@@ -48,6 +48,7 @@ export type Fuente = {
   reglas_pasivas?: ReglaPasiva[];
 };
 export type Config = {
+  variante_id?: string;
   habilidades_conocidas?:string[];
   tabla_botin_id?: string;
   exp_recompensa?: number;

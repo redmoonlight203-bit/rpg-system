@@ -60,5 +60,5 @@ export function prepararVariante<T extends {nombre:string;stats:Record<string,nu
  const stats={...base};for(const [k,v] of Object.entries(bonos))stats[k]=(stats[k]||0)+v;
  const habilidades=[...new Map([...(f.configuracion.habilidades||[]),...variante.habilidades.map(fuente)].map(h=>[h.id,h])).values()];
  const pasivas=[...(f.configuracion.pasivas||[]),...variante.pasivas.filter(id=>!f.configuracion.pasivas?.some(p=>p.id===id)).map(id=>{const c=fuente(id);return {id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]};})];
- return {...f,nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,...(variante.imagen_url?{imagen_url:variante.imagen_url}:{}),stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
+ return {...f,nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,variante_id:variante.id,...(variante.imagen_url?{imagen_url:variante.imagen_url}:{}),stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
 }
