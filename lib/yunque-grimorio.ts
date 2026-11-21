@@ -1,4 +1,5 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
+import {agruparPorAmbito} from './creaciones-personales';
 import {nuevoEfecto,type Efecto} from "./creacion";
 import {EVENTOS,EFECTOS_REGLA,nuevaRegla,type Regla,type EfectoRegla,type CondicionRegla,type EventoRegla} from "./reglas";
 import type {ReglaPasiva} from "./pasivas";
@@ -21,7 +22,9 @@ export const FAMILIAS_GRIMORIO:{clave:FamiliaGrimorio;nombre:string;ayuda:string
  {clave:'plantillas',nombre:'Plantillas',ayuda:'Mecánicas listas para usar'},
  {clave:'coleccion',nombre:'Colección',ayuda:'Copia piezas de otra creación'},
 ];
-export type Pieza={clave:string;familia:FamiliaGrimorio;tipo:TipoNodo;nombre:string;ayuda:string;icono:string;fragmentos:Fragmento[]};
+export type Pieza={clave:string;familia:FamiliaGrimorio;tipo:TipoNodo;nombre:string;ayuda:string;icono:string;fragmentos:Fragmento[];
+ /** Subgrupo dentro de la familia (p. ej. «Personales de Kion», «Generales»). Las piezas llegan ya ordenadas por grupo. */
+ grupo?:string};
 const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
 const falla=(m:string):never=>{throw new Error(m);};
 const clon=<T,>(x:T):T=>structuredClone(x);
@@ -145,8 +148,11 @@ export function piezasColeccion(creaciones:Pick<Creacion,'id'|'nombre'|'tipo_cre
 
 const AYUDA_ENLACE:Record<string,string>={objeto:'Equipo',titulo:'Título',habilidad:'Habilidad',pasiva:'Pasiva'};
 /** Creaciones enlazables (objetos, títulos, habilidades, pasivas) como piezas «vínculo» para personajes y monstruos. */
-export function piezasVinculo(items:(Enlazable&{icono?:string|null;clase?:string})[]):Pieza[]{
- return items.filter(c=>AYUDA_ENLACE[c.tipo]).map(c=>({clave:'vinculo:'+c.id,familia:'coleccion' as const,tipo:'vinculo' as TipoNodo,nombre:c.nombre||'Sin nombre',
+export function piezasVinculo(items:(Enlazable&{icono?:string|null;clase?:string;personal_de?:string|null})[],personaje?:{id?:string;nombre?:string},todas:{id:string;nombre:string}[]=[]):Pieza[]{
+ const validas=items.filter(c=>AYUDA_ENLACE[c.tipo]);
+ // Con personaje: primero sus creaciones personales, luego las generales y al final las personales de otros.
+ const ordenadas=personaje?agruparPorAmbito(validas,personaje,[...todas,...validas]).flatMap(g=>g.items.map(c=>({c,grupo:g.titulo}))):validas.map(c=>({c,grupo:undefined as string|undefined}));
+ return ordenadas.map(({c,grupo})=>({grupo,clave:'vinculo:'+c.id,familia:'coleccion' as const,tipo:'vinculo' as TipoNodo,nombre:c.nombre||'Sin nombre',
   ayuda:`${AYUDA_ENLACE[c.tipo]}${c.tipo==='objeto'&&c.slot_tipo&&c.slot_tipo!=='ninguno'?' · '+(NOMBRE_RANURA[c.slot_tipo]??c.slot_tipo):''}${c.clase?' · clase '+c.clase:''}`,
   icono:c.icono||ICONO_COLECCION[c.tipo]||'yugen',fragmentos:[{tipo:'vinculo' as TipoNodo,datos:{id:c.id,nombre:c.nombre,tipo:c.tipo,slot_tipo:c.slot_tipo}}]}));
 }

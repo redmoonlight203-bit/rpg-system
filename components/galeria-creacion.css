@@ -126,3 +126,7 @@
 @media(hover:none){.cg-open:hover:not(:focus-visible) .cg-tooltip{display:none}}
 .cg-tooltip .help-summary,.cg-effect-tooltip .help-summary{overflow-wrap:anywhere;white-space:pre-line}
 .cg-alma-estado{display:inline-flex;border:1px solid var(--color-neutral-500);border-radius:2px;padding:3px 9px;font-size:13px;color:var(--color-neutral-200);background:color-mix(in srgb, var(--color-neutral-700) 40.00%, transparent)}
+/* Creaciones personales */
+.cg-personal{display:inline-flex;align-self:flex-start;border:1px solid color-mix(in srgb,var(--color-gold-soft,#d6b46a) 60%,transparent);border-radius:2px;padding:2px 8px;font-size:12px;color:var(--color-gold-soft,#d6b46a);background:color-mix(in srgb,var(--color-gold-soft,#d6b46a) 10%,transparent)}
+.cg-personales-aviso{margin:0 0 12px;font-size:14px;color:var(--color-text-muted,#a9aaa5)}
+.cg-personales-aviso button{color:var(--color-gold-soft,#d6b46a);text-decoration:underline}
