@@ -90,6 +90,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
   case 'recurso':{
    const r=e.recurso;if(!r)return null;
    return <div className="yq-editor">
+    {e.efecto==='dano'&&<label><input type="checkbox" checked={!!r.descargar} onChange={v=>patch({recurso:{...r,descargar:v.target.checked}})}/> Vaciar la reserva y sumar su saldo al daño de cada impacto</label>}
     <Texto etiqueta="Nombre compartido" valor={r.nombre} max={60} placeholder="Energía, Furia…" ayuda="Las acciones con el mismo nombre comparten la reserva." onChange={nombre=>patch({recurso:{...r,nombre}})}/>
     <div className="yq-costes">
      <label><span>Saldo inicial</span><Rueda nombre="inicial" etiqueta="Saldo inicial del encuentro" valor={r.inicial} min={-9999} max={9999} onChange={inicial=>patch({recurso:{...r,inicial}})} compacta/></label>
