@@ -200,7 +200,7 @@ export function reglas(m) {
 function cumple(m, r, e) {
     if (r.elemento && r.elemento !== "cualquiera" && r.elemento !== elementoDe(e))
         return false;
-    return ((r.condicion === "ataque_magico" && !!e && e.coste_ph > 0) ||
+    return ((r.condicion === "ataque_magico" && !!e && (e.coste_ph > 0 || (r.id === "dragon_escamas_ipe" && e.naturaleza === "magica"))) ||
         (r.condicion === "ataque_natural" &&
             !!e &&
             e.coste_ph === 0 &&
@@ -223,15 +223,24 @@ export function estadisticas(m) {
         for (const [k, v] of Object.entries(m.configuracion.equipamiento?.[slot]?.stats || {}))
             if (k in s && !['peso', 'durabilidad', 'dano', 'caras_dano', 'dados_dano'].includes(k))
                 s[k] -= v;
+    let impactoMutacion = 0;
     for (const r of reglas(m))
         if (r.evento === "permanente" && cumple(m, r))
-            for (const [k, v] of Object.entries(r.bonos))
+            for (const [k, v] of Object.entries(r.bonos)) {
                 s[k] = (s[k] || 0) + v;
+                if (r.id === 'kuro_sangre_mutada' && k === 'bono_impacto')
+                    impactoMutacion = Math.max(impactoMutacion, v);
+            }
     for (const e of m.estados)
         for (const [k, v] of Object.entries(e.bonos || {}))
             s[k] = (s[k] || 0) + v;
     for (const mod of m.motor?.modificadores || [])
         for (const cambio of mod.cambios) {
+            // Sangre Mutada y Versatilidad comparten la precisión de adaptación humana.
+            if (impactoMutacion && mod.clave === 'versatilidad_nata' && cambio.atributo === 'bono_impacto' && cambio.operacion === 'sumar' && cambio.valor > 0) {
+                s.bono_impacto += Math.max(0, cambio.valor - impactoMutacion);
+                continue;
+            }
             const anterior = s[cambio.atributo] || 0;
             s[cambio.atributo] = cambio.operacion === 'sumar' ? anterior + cambio.valor : cambio.operacion === 'multiplicar' ? anterior * cambio.valor : cambio.valor;
         }

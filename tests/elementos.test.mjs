@@ -330,3 +330,16 @@ test("recuperación antes de recibir ataque sucede antes del daño", () => {
   assert.equal(n.miembros[1].vida, 92);
 });
 test('terminar consume Mojado, compacta historial y bloquea deshacer',()=>{const b=campo();estado(b,'mojado');const n=c.finalizar(b);assert.equal(n.miembros[1].estados.length,0);assert.equal(n.historial.length,0);assert.throws(()=>c.deshacer(n),/terminado/);});
+
+test("Escamas revisadas dan +2 ARM contra MAGIA sin reducir un impacto", () => {
+  function probar(naturaleza, tirada) {
+    const b = campo(e({naturaleza, coste_ph:0}));
+    b.regla="impacto";
+    b.miembros[0].stats.bono_impacto=10;
+    b.miembros[1].configuracion.reglas_pasivas=[r({id:"dragon_escamas_ipe",bonos:{armadura:2},reduccion_pct:0})];
+    return atacar(b,tirada,5);
+  }
+  assert.equal(probar("magica",11).resultado,"Fallo");
+  assert.equal(probar("magica",13).miembros[1].vida,93);
+  assert.equal(probar("fisica",11).miembros[1].vida,93);
+});

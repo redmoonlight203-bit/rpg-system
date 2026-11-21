@@ -1,10 +1,12 @@
-import {calcularClase,CLASES_YUGEN,UMBRALES_CLASE} from "./clases";
-import type {Efecto} from "./creacion";
+import {CLASES_YUGEN,UMBRALES_CLASE} from "./clases";
+import {evaluarBalance, REPETICIONES_CLASE} from "./balance-laboratorio";
+import {perfilRacial,type CategoriaBase} from './estadisticas';
+import {vacio} from "./yunque-borrador";
+import type {PiezaArena} from "./yunque-arena";
 
 export type ClaseYugen=typeof CLASES_YUGEN[number];
-export type CreacionInvocable={
- id:string;nombre:string;clase?:string;tipo_creacion?:string;stats?:Record<string,number>;
- configuracion_dados?:Efecto[];habilidades?:string[];pasivas?:string[];reglas_pasivas?:{bonos:Record<string,number>}[];reglas?:{efectos:unknown[]}[];
+export type CreacionInvocable = Omit<PiezaArena, 'tipo_creacion'> & {
+ tipo?:string; equipamiento?:Record<string,string>; clase?: string; tipo_creacion?: string; habilidades?: string[]; pasivas?: string[];
 };
 export type ConfiguracionInvocacion={
  claseMaxima:ClaseYugen;
@@ -34,17 +36,12 @@ export function clasePermitida(clase:string,maxima:ClaseYugen):boolean{
  */
 export function techoPuntuacion(clase:ClaseYugen):number{
  const indice=indiceClase(clase);
- return indice===CLASES_YUGEN.length-1?Number.POSITIVE_INFINITY:UMBRALES_CLASE[indice+1]-0.01;
+ return indice===CLASES_YUGEN.length-1?Number.POSITIVE_INFINITY:UMBRALES_CLASE[indice+1];
 }
 export function habilidadesElegibles(creaciones:CreacionInvocable[],maxima:ClaseYugen):CreacionInvocable[]{
  return creaciones.filter(c=>!!c.id&&c.tipo_creacion==="habilidad"&&clasePermitida(c.clase||"",maxima));
 }
-/**
- * Cálculo conservador: añade la potencia de las habilidades y pasivas vinculadas
- * para impedir que una criatura de estadísticas C acumule poderes C y termine en B.
- * Es un límite de seguridad provisional, no el evaluador definitivo de todas las reglas.
- */
-export function evaluarInvocacion(config:ConfiguracionInvocacion,propuesta:PropuestaInvocacion,creaciones:CreacionInvocable[]):EvaluacionInvocacion{
+export function evaluarInvocacion(config:ConfiguracionInvocacion,propuesta:PropuestaInvocacion,creaciones:CreacionInvocable[],categorias:CategoriaBase[]=[]):EvaluacionInvocacion{
  const errores:string[]=[];
  if(indiceClase(config.claseMaxima)<0)errores.push("Clase máxima inválida.");
  for(const [k,v] of Object.entries({maxActivas:config.maxActivas??1,costePh:config.costePh??0,costeFatiga:config.costeFatiga??0}))if(!Number.isInteger(v)||v<(k==="maxActivas"?1:0)||v>1000)errores.push("Configuración inválida: "+k);
@@ -53,28 +50,40 @@ export function evaluarInvocacion(config:ConfiguracionInvocacion,propuesta:Propu
  if(!propuesta.nombre.trim())errores.push("La invocación necesita nombre.");
  if(!Number.isInteger(config.maxHabilidades)||config.maxHabilidades<0||config.maxHabilidades>20)errores.push("El máximo de habilidades debe estar entre 0 y 20.");
  if(!Number.isInteger(config.duracionTurnos)||config.duracionTurnos<1)errores.push("La duración debe ser de al menos un turno.");
- if(Object.values(propuesta.stats).some(v=>!Number.isFinite(v)||v<0))errores.push("Las estadísticas deben ser números no negativos.");
+ if(Object.entries(propuesta.stats).some(([k,v])=>!Number.isFinite(v)||(v<0&&!["iniciativa","salvacion","bono_impacto","dano"].includes(k))))errores.push("Revisa los valores de las estadísticas de la invocación.");
  if(propuesta.habilidades.length>config.maxHabilidades)errores.push("Se superó el número de habilidades permitido.");
  if(new Set(propuesta.habilidades).size!==propuesta.habilidades.length)errores.push("No se puede elegir una habilidad repetida.");
  const elegibles=habilidadesElegibles(creaciones,config.claseMaxima);
  const vinculadas=[...propuesta.habilidades,...propuesta.pasivas];
- let puntosAdicionales=0;
+ const piezas:PiezaArena[]=[];
  for(const id of vinculadas){
   const creacion=creaciones.find(c=>c.id===id);
   if(!creacion||creacion.tipo_creacion!==(propuesta.habilidades.includes(id)?"habilidad":"pasiva")){errores.push("Hay una habilidad o pasiva que no existe en La Creación.");continue;}
   if(!clasePermitida(creacion.clase||"",config.claseMaxima)){
    errores.push(creacion.nombre+" supera la clase "+config.claseMaxima+".");continue;
   }
-  const bonos:Record<string,number>={};for(const r of creacion.reglas_pasivas||[])for(const [k,v] of Object.entries(r.bonos||{}))bonos[k]=(bonos[k]||0)+Math.max(0,v);
-  const calculada=calcularClase(creacion.stats||{},creacion.configuracion_dados||[],bonos,(creacion.reglas||[]).reduce((n,r)=>n+r.efectos.length,0));
-  // Al menos el umbral inferior de su clase; evita poderes sin estadísticas gratuitas.
-  puntosAdicionales+=Math.max(calculada.puntuacion,UMBRALES_CLASE[indiceClase(creacion.clase!)]);
+  piezas.push({...creacion,tipo_creacion:propuesta.habilidades.includes(id)?'habilidad':'pasiva'});
  }
- const base=calcularClase(propuesta.stats);
- const puntuacion=Math.round((base.puntuacion+puntosAdicionales)*100)/100;
- const indice=UMBRALES_CLASE.reduce<number>((n,v,i)=>puntuacion>=v?i:n,0);
- const clase=CLASES_YUGEN[indice];
  const presupuestoMaximo=techoPuntuacion(config.claseMaxima);
- if(puntuacion>presupuestoMaximo)errores.push("El poder total supera la clase "+config.claseMaxima+". Reduce estadísticas o cambia habilidades.");
+ let clase:ClaseYugen='F',puntuacion=0;
+ if(!errores.length){
+  try{
+   const origen=config.modo==='existente'?creaciones.find(c=>c.id===config.origenId):undefined;
+   if(config.modo==='existente'&&(!origen||origen.tipo_creacion!=='personaje'))throw Error();
+   const equipamiento=origen?.equipamiento||{};
+   for(const id of new Set(Object.values(equipamiento))){
+    const pieza=creaciones.find(c=>c.id===id);
+    if(!pieza||(pieza.tipo_creacion!=='objeto'&&pieza.tipo_creacion!=='titulo'))throw Error();
+    piezas.push({...pieza,tipo_creacion:pieza.tipo_creacion});
+   }
+   const borrador={...vacio(),...propuesta,tipo:'personaje' as const,clasificacion:origen?.tipo||'',equipamiento,
+     reglas:origen?.reglas||[],reglas_pasivas:origen?.reglas_pasivas||[]};
+   const informe=evaluarBalance(borrador,{...perfilRacial(categorias,borrador.clasificacion),creaciones:piezas,stats:propuesta.stats},{repeticiones:REPETICIONES_CLASE});
+   if(informe.ipe===null||!informe.clase)throw Error();
+   puntuacion=informe.ipe;
+   clase=informe.clase;
+   if(!clasePermitida(clase,config.claseMaxima))errores.push("El poder total supera la clase "+config.claseMaxima+".");
+  }catch{errores.push("No se pudo evaluar la invocación.");}
+ }
  return {valida:errores.length===0,errores,clase,puntuacion,presupuestoMaximo,habilidadesElegibles:elegibles};
 }

@@ -13,6 +13,7 @@ import { UserPlus, LogIn, Lock } from "lucide-react";
 export default function LoginPage() {
   const router = useRouter();
   const [esRegistro, setEsRegistro] = useState(false);
+  const [recuperar,setRecuperar]=useState(false),[aviso,setAviso]=useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -24,6 +25,12 @@ export default function LoginPage() {
     setErrorMsg("");
 
     try {
+      if(recuperar){
+        const {error}=await supabase.rpc("solicitar_recuperacion",{correo:email.trim()});
+        if(error)throw Error("No se pudo enviar la solicitud.");
+        setAviso("Si el correo corresponde a una cuenta aprobada, el GM recibirá tu solicitud.");
+        return;
+      }
       if (esRegistro) {
         // Bloqueo preventivo en la UI si intentan registrar el correo de Kuroi manualmente
         const esKuroi = email.trim().toLowerCase() === "randolphcta@gmail.com";
@@ -102,18 +109,20 @@ export default function LoginPage() {
     <Panel className="yugen-auth-panel w-full max-w-md space-y-6">
       <header className="space-y-3">
         <span className="yugen-auth-kicker">Tu lugar en Yugen</span>
-        <h1 className="font-serif text-3xl font-bold text-gold-bright">{esRegistro ? "Tu historia comienza aquí" : "Bienvenido al Nexo"}</h1>
-        <p className="text-sm text-text-muted">{esRegistro ? "Solicita tu entrada al mundo de Yugen." : "Entra al dominio de Kuroi y continúa tu historia."}</p>
+        <h1 className="font-serif text-3xl font-bold text-gold-bright">{recuperar ? "Recupera tu cuenta" : esRegistro ? "Tu historia comienza aquí" : "Bienvenido al Nexo"}</h1>
+        <p className="text-sm text-text-muted">{recuperar ? "Escribe el correo con el que te registraste." : esRegistro ? "Solicita tu entrada al mundo de Yugen." : "Entra al dominio de Kuroi y continúa tu historia."}</p>
         <Kintsugi className="!mt-6"/>
       </header>
       {errorMsg && <p role="alert" className="rounded-xs border border-red-400/30 bg-red-950/50 p-3 text-sm text-danger-text">{errorMsg}</p>}
       <form onSubmit={handleAuth} className="space-y-5">
         {esRegistro && <p className="flex gap-2 text-sm text-text-muted"><Lock size={18} className="shrink-0 text-gold"/>Tu cuenta quedará pendiente hasta que Kuroi apruebe tu acceso.</p>}
         <Field id="correo" label="Correo electrónico" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="reencarnado@yugen.com"/>
-        <Field id="clave" label="Contraseña" type="password" autoComplete={esRegistro?'new-password':'current-password'} required value={password} onChange={e=>setPassword(e.target.value)}/>
-        <Button type="submit" className="w-full" loading={cargando} loadingText="Procesando…">{esRegistro?<><UserPlus size={18}/>Solicitar registro</>:<><LogIn size={18}/>Entrar al mundo</>}</Button>
+        {!recuperar&&<Field id="clave" label="Contraseña" type="password" autoComplete={esRegistro?'new-password':'current-password'} required value={password} onChange={e=>setPassword(e.target.value)}/>}
+        <Button type="submit" className="w-full" loading={cargando} loadingText="Procesando…">{recuperar?"Enviar solicitud al GM":esRegistro?<><UserPlus size={18}/>Solicitar registro</>:<><LogIn size={18}/>Entrar al mundo</>}</Button>
       </form>
-      <div className="border-t border-line pt-4 text-center"><Button type="button" variant="ghost" onClick={()=>setEsRegistro(!esRegistro)}>{esRegistro?'Ya tengo cuenta. Iniciar sesión':'Crear una cuenta de reencarnado'}</Button></div>
+      {aviso&&<p role="status">{aviso}</p>}
+      {!esRegistro&&<Button type="button" variant="ghost" onClick={()=>{setRecuperar(!recuperar);setAviso("");setErrorMsg("");}}>{recuperar?"Volver al inicio de sesión":"Olvidé mi contraseña"}</Button>}
+      {!recuperar&&<div className="border-t border-line pt-4 text-center"><Button type="button" variant="ghost" onClick={()=>setEsRegistro(!esRegistro)}>{esRegistro?'Ya tengo cuenta. Iniciar sesión':'Crear una cuenta de reencarnado'}</Button></div>}
     </Panel>
     <p className="yugen-auth-note">Un mundo compartido, una historia que continúa.</p></section>
   </main></PaginaLogin>;
