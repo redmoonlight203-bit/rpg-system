@@ -1,5 +1,5 @@
 // @ts-nocheck -- Supabase Edge usa Deno; el proyecto web usa TypeScript para Next.
-import {agregar,nuevoCombate,cambiarEquipo,seleccionEquipo,estadisticas,maxVida,manosLibres,accionesObjeto,usarObjeto,phDisponibles} from './motor.js';
+import {agregar,nuevoCombate,cambiarEquipo,seleccionEquipo,estadisticas,maxVida,manosLibres,accionesObjeto,objetoConReacciones,phDisponibles} from './motor.js';
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
 const respuesta=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 Deno.serve(async(req)=>{
@@ -38,7 +38,7 @@ Deno.serve(async(req)=>{
    if(body.operacion==='usar_objeto'){
     if(!ctx.combate_id)throw Error('Los objetos se usan desde un combate activo.');
     if(!uuid(body.objeto_id)||typeof body.efecto_id!=='string'||body.efecto_id.length>200||typeof body.objetivo_id!=='string')throw Error('Objeto, acción u objetivo inválido.');
-    next=usarObjeto(c,m.id,body.objeto_id,body.efecto_id,body.objetivo_id);
+    next=objetoConReacciones(c,m.id,body.objeto_id,body.efecto_id,body.objetivo_id);
    }else{
     if(!body.equipo||typeof body.equipo!=='object'||Array.isArray(body.equipo)||Object.keys(body.equipo).length>14||Object.values(body.equipo).some(x=>typeof x!=='string'||!uuid(x)))throw Error('Selección de equipo inválida.');
     next=cambiarEquipo(c,m.id,body.equipo);

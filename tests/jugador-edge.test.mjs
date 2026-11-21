@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
-const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import .* from '\.\.\/equipo-combate\/motor.js';/m,'const {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles}=motor;');
+const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import (\{[^}]+\}) from '\.\.\/equipo-combate\/motor.js';/m,'const $1=motor;');
 const jugador='00000000-0000-0000-0000-000000000001', combate='00000000-0000-0000-0000-000000000002';
 function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false}={}){
  let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;

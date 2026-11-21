@@ -458,8 +458,13 @@ function recibir(c, a, t, e, total, rs, rng) {
         const aplica = (r) => (!r.naturaleza || (r.naturaleza === 'magica') === magico) && (!r.forma || forma === r.forma) && (!r.sin_forma || forma !== r.sin_forma);
         const pagar = (p) => {
             const coste = despierto && p.ley_limitless ? 0 : p.coste_ph;
-            if (phDisponibles(t) < coste)
+            const r = reaccionDe(p);
+            if (phDisponibles(t) < coste || r?.una_por_ronda && t.rondas_reacciones?.[p.id] === c.ronda)
                 return false;
+            if (rng.consultarReaccion && !rng.consultarReaccion({ defensor: t.id, nombre: t.nombre, reaccion: p.nombre, efecto: p.id, coste }))
+                return false;
+            if (r?.una_por_ronda)
+                t.rondas_reacciones = { ...t.rondas_reacciones, [p.id]: c.ronda };
             t.ph = phDisponibles(t) - coste;
             log(c, t.nombre + ' activa ' + p.nombre + ' (' + coste + ' PH).');
             return true;
@@ -473,13 +478,13 @@ function recibir(c, a, t, e, total, rs, rng) {
                 Object.assign(a, danarTransformado(a, res.devolver.maximo === undefined ? cantidad : Math.min(cantidad, res.devolver.maximo)).actor);
         };
         // Principales por prioridad (estable): la primera que se paga resuelve el golpe, aunque falle su salvación.
-        const principales = reacciones.map((x, i) => ({ ...x, i })).filter(x => x.r.principal && aplica(x.r)).sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i);
+        const principales = reacciones.map((x, i) => ({ ...x, i })).filter(x => x.r.principal && !x.r.esquiva_opuesta && aplica(x.r)).sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i);
         for (const x of principales) {
             const pr = x.r.principal;
             if (!pagar(x.p))
                 continue;
             if (!pr.salvacion || salvacion(c, t, pr.salvacion.cd, pr.salvacion.atributo, rng)) {
-                const detenido = pr.reducir.modo === 'mitad' ? total - Math.floor(total / 2) : Math.min(total, pr.reducir.valor || 0);
+                const detenido = pr.reducir.modo === 'todo' ? total : pr.reducir.modo === 'mitad' ? total - Math.floor(total / 2) : Math.min(total, pr.reducir.valor || 0);
                 total -= detenido;
                 resolver(pr, detenido);
                 if (pr.permite_seguimiento) {
@@ -659,6 +664,8 @@ function siguienteInterno(c, rng) {
     return n;
 }
 function registrar(c, fn, rng = dadoSeguro) {
+    if (c.reaccion_pendiente)
+        throw Error('Hay una reacción pendiente de respuesta.');
     const { historial: _historial, ...sinHistorial } = c;
     const previo = copia(sinHistorial);
     let n = fn();
@@ -1199,7 +1206,10 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         log(n, a.nombre + ' cruza el Umbral Espacial.');
         return n;
     }
-    if (tactica) {
+    const dash = e.efecto === 'desplazamiento';
+    if (dash && (!centro || !tactica || !Number.isInteger(tactica.alcance) || tactica.alcance < 1 || tactica.alcance > 30 || !casillasAlcanzables(n, a.id, tactica.alcance)[centro.x + ',' + centro.y]))
+        throw Error('Elige una casilla libre y alcanzable para el dash.');
+    if (tactica && !dash) {
         if (!apuntado || !alcanceDesde(origen, tactica, dimensiones).some(p => p.x === apuntado.x && p.y === apuntado.y))
             throw Error('El destino está fuera del alcance de la habilidad.');
         if (!lineaVisible(origen, apuntado, n.mapa))
@@ -1269,6 +1279,14 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         }
     }
     log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+    if (dash && centro) {
+        for (const m of n.miembros)
+            m.posicion = posiciones[m.id];
+        a.posicion = { ...centro };
+        aplicarTerreno(n, a, rng);
+        log(n, a.nombre + ' se desplaza sin gastar movimiento.');
+        return n;
+    }
     if (tactica?.movimiento_lanzador) {
         const destino = plan?.destino || (t && combatienteActivo(t) ? destinoAtaqueMovil(n, a, t, tactica.movimiento_lanzador) : undefined);
         if (!destino)
@@ -1377,6 +1395,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         (elemento === "electricidad" ? 3 : elemento === "luz_sagrada" ? 5 : 0));
     if (antes.length)
         log(n, `${t.nombre}: defensas reactivas ${antes.map((r) => r.nombre).join(", ")}; ARM contra este ataque ${arm}.`);
+    let totalAtaque;
     let acierta = true, critico = false, supera = false;
     if (e.salvacion) {
         supera = salvacion(n, t, e.salvacion.cd, e.salvacion.atributo, rng);
@@ -1395,6 +1414,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
             }
         }
         const impacto = d + (s.bono_impacto || 0);
+        totalAtaque = impacto;
         critico = d === 20;
         acierta = critico || (d !== 1 && impacto >= arm);
         n.resultado =
@@ -1415,6 +1435,35 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     if (!acierta) {
         emitirMotor(n, 'fallar', a, a, t, rng, e);
         return n;
+    }
+    let mitadPorEsquiva = false;
+    if (a.id !== t.id && !tiene(t, 'ciego')) {
+        const defensas = (t.configuracion.habilidades || []).flatMap(h => h.efectos || []).filter(p => p.reaccion?.esquiva_opuesta).sort((p, q) => (q.reaccion?.prioridad || 0) - (p.reaccion?.prioridad || 0));
+        for (const p of defensas) {
+            const r = p.reaccion, dadosEsquiva = r.esquiva_opuesta, forma = t.transformacion?.definicion_id;
+            if ((r.forma && r.forma !== forma) || (r.sin_forma && r.sin_forma === forma) || (r.naturaleza && (r.naturaleza === 'magica') !== (e.naturaleza === 'magica' || e.coste_ph > 0)))
+                continue;
+            const coste = forma === 'limitless' && p.ley_limitless ? 0 : p.coste_ph;
+            if (phDisponibles(t) < coste || (r.una_por_ronda && t.rondas_reacciones?.[p.id] === n.ronda))
+                continue;
+            if (rng.consultarReaccion && !rng.consultarReaccion({ defensor: t.id, nombre: t.nombre, reaccion: p.nombre, efecto: p.id, coste }))
+                continue;
+            t.ph = phDisponibles(t) - coste;
+            if (r.una_por_ronda)
+                t.rondas_reacciones = { ...t.rondas_reacciones, [p.id]: n.ronda };
+            const ataque = totalAtaque ?? (rng(20) + (s.bono_impacto || 0)), esquiva = rng(dadosEsquiva.caras);
+            log(n, t.nombre + ' usa ' + p.nombre + ' (' + coste + ' PH): esquiva ' + esquiva + ' contra ataque ' + ataque + '.');
+            if (esquiva >= ataque) {
+                const contra = rng(dadosEsquiva.contra_caras);
+                Object.assign(a, danarTransformado(a, contra).actor);
+                n.resultado = 'Fallo';
+                log(n, t.nombre + ' esquiva y contraataca por ' + contra + ' de daño.');
+                emitirMotor(n, 'fallar', a, a, t, rng, e);
+                return n;
+            }
+            mitadPorEsquiva = true;
+            break;
+        }
     }
     emitirMotor(n, 'impactar', a, a, t, rng, e);
     const permiteEstados = !(supera && e.salvacion?.exito === "solo_estado");
@@ -1462,6 +1511,10 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     }
     const impacto = reactivas(t, e, "recibir_impacto");
     activarReglas(n, a, t, impacto, rng);
+    if (mitadPorEsquiva) {
+        total = Math.floor(total / 2);
+        log(n, 'Esquiva parcial: ' + total + ' de daño antes de otras reducciones.');
+    }
     recibir(n, a, t, e, total, [...antes, ...impacto], rng);
     // Elemental saves affect secondary states, never repeat the attack roll.
     if (permiteEstados && elemento === "agua")
@@ -1502,6 +1555,60 @@ export function actuar(c, actorId, accionId, objetivoId, rng = dadoSeguro, forza
     const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro), rng);
     const actor = c.miembros.find(m => m.id === actorId), efecto = actor ? acciones(actor).find(a => a.id === accionId)?.efecto : undefined;
     return animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro);
+}
+// Al suspender se conserva el estado previo. Se reutilizan las tiradas y respuestas ya decididas.
+function resolverGolpe(c, orden, tiradas, respuestas, azar) {
+    let dado = 0, pregunta = 0;
+    const rng = caras => {
+        const previo = tiradas[dado++];
+        if (previo) {
+            if (previo.caras !== caras)
+                throw Error('El ataque cambió durante la reacción.');
+            return previo.valor;
+        }
+        const valor = azar(caras);
+        tiradas.push({ caras, valor });
+        return valor;
+    };
+    class Pausa extends Error {
+        oferta;
+        constructor(oferta) {
+            super();
+            this.oferta = oferta;
+        }
+    }
+    rng.consultarReaccion = oferta => {
+        if (pregunta === respuestas.length)
+            throw new Pausa(oferta);
+        return respuestas[pregunta++];
+    };
+    try {
+        if ('turno' in orden)
+            return orden.turno === 'iniciar' ? iniciar(c, rng) : siguiente(c, rng);
+        if ('objeto' in orden)
+            return usarObjeto(c, orden.actor, orden.objeto, orden.efecto, orden.objetivo, rng);
+        return actuar(c, orden.actor, orden.accion, orden.objetivo, rng, orden.forzar, orden.centro);
+    }
+    catch (e) {
+        if (!(e instanceof Pausa))
+            throw e;
+        return { ...c, reaccion_pendiente: { oferta: e.oferta, orden, tiradas, respuestas } };
+    }
+}
+export function actuarConReacciones(c, actor, accion, objetivo, rng = dadoSeguro, forzar = false, centro) {
+    return resolverGolpe(c, { actor, accion, objetivo, forzar, centro }, [], [], rng);
+}
+export function turnoConReacciones(c, turno, rng = dadoSeguro) {
+    return resolverGolpe(c, { turno }, [], [], rng);
+}
+export function objetoConReacciones(c, actor, objeto, efecto, objetivo, rng = dadoSeguro) {
+    return resolverGolpe(c, { actor, objeto, efecto, objetivo }, [], [], rng);
+}
+export function responderReaccion(c, defensor, aceptar, rng = dadoSeguro) {
+    const { reaccion_pendiente: p, ...previo } = c;
+    if (!p || p.oferta.defensor !== defensor)
+        throw Error('La reacción no corresponde a ese combatiente.');
+    return resolverGolpe(previo, p.orden, [...p.tiradas], [...p.respuestas, aceptar], rng);
 }
 function animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro) {
     const pos = posicionesTablero(c);
@@ -1955,21 +2062,24 @@ export function movimientoRestante(m) {
     return Math.max(0, limite - (m.movimiento?.turno === m.turnos ? m.movimiento.gastado : 0));
 }
 /** Distancias ortogonales: nadie atraviesa una casilla ocupada, incluidos caídos. */
-export function casillasAlcanzables(c, actorId) {
+export function casillasAlcanzables(c, actorId, alcance) {
     const m = c.miembros.find(m => m.id === actorId);
     if (!m || tiene(m, 'derribado'))
         return {};
     const posiciones = posicionesTablero(c), inicio = posiciones[actorId], { columnas, filas } = dimensionesTablero(c);
-    const ocupadas = new Set(Object.entries(posiciones).filter(([id]) => id !== actorId).map(([, p]) => `${p.x},${p.y}`));
-    const distancias = { [`${inicio.x},${inicio.y}`]: 0 }, cola = [inicio], limite = movimientoRestante(m);
+    return distanciasMovimiento(inicio, Object.values(posiciones), columnas, filas, c.mapa, alcance ?? movimientoRestante(m), tiene(m, 'vuelo'));
+}
+export function distanciasMovimiento(inicio, posiciones, columnas, filas, mapa, limite, vuelo) {
+    const ocupadas = new Set(posiciones.map(p => p.x + ',' + p.y));
+    const distancias = { [`${inicio.x},${inicio.y}`]: 0 }, cola = [inicio];
     for (let i = 0; i < cola.length; i++) {
         const p = cola[i], d = distancias[`${p.x},${p.y}`];
         if (d >= limite)
             continue;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const x = p.x + dx, y = p.y + dy, k = `${x},${y}`;
-            const coste = !tiene(m, 'vuelo') && c.mapa?.celdas[k] === 'dificil' ? 2 : 1;
-            if (x < 0 || y < 0 || x >= columnas || y >= filas || ocupadas.has(k) || c.mapa?.celdas[k] === 'muro' || d + coste > limite || (k in distancias && distancias[k] <= d + coste))
+            const coste = !vuelo && mapa?.celdas[k] === 'dificil' ? 2 : 1;
+            if (x < 0 || y < 0 || x >= columnas || y >= filas || ocupadas.has(k) || mapa?.celdas[k] === 'muro' || d + coste > limite || (k in distancias && distancias[k] <= d + coste))
                 continue;
             distancias[k] = d + coste;
             cola.push({ x, y });

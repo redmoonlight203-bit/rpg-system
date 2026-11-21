@@ -13,7 +13,7 @@ import FotoEncuadrada from './FotoEncuadrada';
 import {imagenCreacion} from '../lib/arte-creacion';
 import Dado3D from './Dado3D';
 import {describirEfecto,describirRegla} from '../lib/descripciones';
-import {lineaVisible,alcanceDesde,areaDesde, type MapaCombate,objetivoDelArea, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
+import {distanciasMovimiento,lineaVisible,alcanceDesde,areaDesde, type MapaCombate,objetivoDelArea, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
 import type {Efecto} from '../lib/creacion';
 import type {TiradaVisual} from './AnimacionDados';
 import {BarraVital} from './ui/Juego';
@@ -59,7 +59,9 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const [destino,setDestino]=useState<Posicion|null>(null),[hover,setHover]=useState<Posicion|null>(null),[cursor,setCursor]=useState<Posicion|null>(null),tableroRef=useRef<HTMLDivElement>(null);
  useEffect(()=>{const v=habilidad?.vfx;precargarVFX([v?.lanzamiento,v?.recorrido,v?.impacto,...(habilidad?.transformacion?.etapas.flatMap(e=>[e.vfx?.entrada,e.vfx?.aura])||[])]);},[habilidad?.id,habilidad?.vfx,habilidad?.transformacion]);
  const origen=fichas.find(f=>f.id===lanzador),t=!moviendo?habilidad?.tablero:undefined;
- const blancas=useMemo(()=>new Set((t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}).filter(p=>lineaVisible(origen.posicion,p,mapa)):[]).map(p=>`${p.x},${p.y}`)),[t,origen?.posicion.x,origen?.posicion.y,columnas,filas,mapa]);
+ const blancas=useMemo(()=>{
+  if(habilidad?.efecto==='desplazamiento'&&t&&origen)return new Set(Object.keys(distanciasMovimiento(origen.posicion,fichas.map(f=>f.posicion),columnas,filas,mapa,t.alcance,capaDe(origen.estados)==='aire')));
+  return new Set((t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}).filter(p=>lineaVisible(origen.posicion,p,mapa)):[]).map(p=>`${p.x},${p.y}`));},[habilidad,t,origen,fichas,columnas,filas,mapa]);
  const punto=t?.origen_area==='lanzador'?origen?.posicion:centro||hover;
  const area=useMemo(()=>t&&origen&&punto?areaDesde(origen.posicion,punto,t,{columnas,filas}):[],[t,origen?.posicion.x,origen?.posicion.y,punto?.x,punto?.y,columnas,filas]);
  const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
@@ -112,6 +114,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const vista:Previsualizacion|null=useMemo(()=>{
   if(moviendo){const meta=metaRuta;if(!meta)return null;const k=`${meta.x},${meta.y}`;return {titulo:`Mover ${alcanzables[k]} casillas`,lineas:['Conservas tu acción.',...(amenaza.size?['Rojo: casillas que quedarían a tu alcance cuerpo a cuerpo.']:[])],pista:segundoClic?(pendiente==='mov:'+k?'Toca otra vez para moverte.':'Toca para ver la ruta; otra vez para moverte.'):'Clic para moverte.'};}
   if(!habilidad||!origen||!onEjecutar)return null;
+  if(t&&habilidad.efecto==='desplazamiento')return {titulo:habilidad.nombre,lineas:[`Hasta ${t.alcance} casillas sin gastar movimiento.`],pista:'Elige una casilla libre resaltada.'};
   if(t){if(t.origen_area==='lanzador'||!punto)return null;const sobre=porCasilla.get(`${punto.x},${punto.y}`);return previsualizar({accion:habilidad.nombre,efecto:habilidad,victimas:victimas.map(f=>visible(f).nombre),casillas:area.length,capa:sobre?capas.get(sobre.id):undefined,coste:gasto,segundoClic,pendiente:pendiente==='cel:'+`${punto.x},${punto.y}`});}
   const f=bajoCursor||(pendiente?.startsWith('obj:')?fichas.find(x=>'obj:'+x.id===pendiente):undefined);
   if(!f||f.id===origen.id||esAccionPropia(habilidad.id||'',habilidad))return null;
