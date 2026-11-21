@@ -304,3 +304,8 @@
   object-fit: cover;
   border-radius: 2px;
 }
+/* Compañeros NPC retirados: aparte de los personajes de jugador. */
+.pj-retirados summary{cursor:pointer;font-weight:600}
+.pj-retirados>p{margin:8px 0;font-size:14px;opacity:.8}
+.pj-retirados ul{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.pj-retirados li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #ffffff14}

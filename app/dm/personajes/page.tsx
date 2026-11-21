@@ -244,12 +244,17 @@ export default function GestionPersonajes() {
       ["pendiente", "editado"].includes(p.estado_aprobacion) &&
       p.estado_vida !== "muerto",
   );
+  const retirados = personajes.filter(
+    (p) => p.es_companero && !p.party_activo && p.estado_vida !== "muerto",
+  );
   const lista = (
     tab === "solicitudes"
       ? pendientes
       : personajes.filter(
           (p) =>
-            p.estado_vida !== "muerto" && p.estado_aprobacion === "aprobado",
+            p.estado_vida !== "muerto" && p.estado_aprobacion === "aprobado" &&
+            // Un compañero NPC retirado de su party no es un personaje de jugador: va en su propia sección.
+            !(p.es_companero && !p.party_activo),
         )
   ).filter((p) =>
     (
@@ -488,7 +493,7 @@ export default function GestionPersonajes() {
                   <div className="y3-pj-figura" aria-hidden="true"><RetratoRaza src={p.imagen_url || imagenDeRaza(categorias, categorias.find((c) => c.id === p.categoria_id)?.clave || p.raza)} /></div>
                   <span className="pj-eyebrow">
                     {" "}
-                    {p.estado_aprobacion} · {p.estado_vida}
+                    {p.es_companero ? "compañero NPC" : p.estado_aprobacion} · {p.estado_vida}
                   </span>
                   <h2>{p.nombre}</h2>
                   <p>
@@ -525,6 +530,20 @@ export default function GestionPersonajes() {
                 <p className="pj-empty">No hay personajes en esta vista.</p>
               )}
             </div>
+          )}
+          {!["solicitudes", "cementerio", "razas", "cuentas"].includes(tab) && retirados.length > 0 && (
+            <details className="pj-panel pj-section pj-retirados">
+              <summary>Compañeros NPC retirados ({retirados.length})</summary>
+              <p>Salieron de su party y esperan otra. Reasígnalos desde «Parties de jugadores» en lugar de crear otra copia desde la Forja, o bórralos si ya no los necesitas.</p>
+              <ul>
+                {retirados.map((p) => (
+                  <li key={p.id}>
+                    <span><strong>{p.nombre}</strong> · Nivel {p.nivel || 1} · #{p.id}</span>
+                    <button className="pj-button" disabled={ocupado} onClick={() => void borrar(p)}>Borrar</button>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
           {ficha && (
             <section

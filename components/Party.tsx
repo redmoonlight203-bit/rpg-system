@@ -577,6 +577,15 @@ export default function Party({ gm = false }: { gm?: boolean }) {
                         onChange={(e) => setNivel(e.target.value)}
                       />
                     </label>
+                    {/* Si ya hay una copia retirada de esta creación, reutilizarla evita duplicar al NPC. */}
+                    {plantilla && retirados.filter((r) => r.forja_origen_id === plantilla.id).map((r) => (
+                      <p key={r.id} className="party-reuse" role="status">
+                        <strong>{r.nombre}</strong> ya existe como compañero retirado (nivel {r.nivel || 1}, #{r.id}). Crear otro lo duplicaría.{" "}
+                        <button type="button" className="pj-button" disabled={ocupado} onClick={() => { setOrigen("retirado"); setFuente(String(r.id)); }}>
+                          Reasignar a {r.nombre}
+                        </button>
+                      </p>
+                    ))}
                     {plantilla && (
                       <p className="party-source-description">
                         {plantilla.descripcion ||
