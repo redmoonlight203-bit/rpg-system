@@ -130,3 +130,99 @@
 .cg-personal{display:inline-flex;align-self:flex-start;border:1px solid color-mix(in srgb,var(--color-gold-soft,#d6b46a) 60%,transparent);border-radius:2px;padding:2px 8px;font-size:12px;color:var(--color-gold-soft,#d6b46a);background:color-mix(in srgb,var(--color-gold-soft,#d6b46a) 10%,transparent)}
 .cg-personales-aviso{margin:0 0 12px;font-size:14px;color:var(--color-text-muted,#a9aaa5)}
 .cg-personales-aviso button{color:var(--color-gold-soft,#d6b46a);text-decoration:underline}
+
+/* ── Cartas de La creación ─────────────────────────────────────────────────────
+   Proporción de naipe (63×88). El arte ocupa una ventana fija y se recorta (cover) para que cuadre. */
+.cg-mesa{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:34px 26px;align-items:start;padding:14px 18px 8px 4px}
+.cg-carta{--marco:#c9a24a;--tinte:#6b5a2e;--tinta:#f3e3b5;position:relative;min-width:0;aspect-ratio:63/88;border-radius:14px;padding:6px;
+ background:linear-gradient(150deg,color-mix(in srgb,var(--marco) 55%,#1a140a),#120e08 38%,#0b0906 62%,color-mix(in srgb,var(--marco) 35%,#120e08));
+ box-shadow:0 0 0 1px #000a,0 1px 0 1px color-mix(in srgb,var(--marco) 30%,transparent) inset,0 16px 30px -10px #000c;
+ transition:transform .22s cubic-bezier(.2,.7,.2,1),box-shadow .22s;animation:cg-carta-entra .42s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--orden,0) * 28ms)}
+.cg-carta:hover,.cg-carta:focus-within{transform:translateY(-6px) rotate(-.4deg);box-shadow:0 0 0 1px #000a,0 0 0 1px color-mix(in srgb,var(--marco) 70%,transparent) inset,0 22px 40px -12px #000e,0 0 26px -6px color-mix(in srgb,var(--marco) 55%,transparent)}
+@keyframes cg-carta-entra{from{opacity:0;transform:translateY(14px) scale(.97)}}
+.cg-tipo-personaje{--marco:#c9a24a;--tinte:#1f5a45}
+.cg-tipo-monstruo{--marco:#b2463c;--tinte:#5a1f1f}
+.cg-tipo-habilidad{--marco:#cf6a4a;--tinte:#5a2a1f}
+.cg-tipo-pasiva{--marco:#6f8fd0;--tinte:#1f2f5a}
+.cg-tipo-objeto{--marco:#7fb7c4;--tinte:#1f4a52}
+.cg-tipo-titulo{--marco:#e2c26a;--tinte:#5a4a1f}
+.cg-tipo-otro{--marco:#9b8fb8;--tinte:#3a2f52}
+.forja-theme .cg-carta .cg-open,.cg-carta .cg-open{position:relative;display:flex;flex-direction:column;width:100%;height:100%;padding:0;text-align:left;cursor:pointer;color:inherit;
+ border:1px solid color-mix(in srgb,var(--marco) 60%,transparent);border-radius:9px;overflow:hidden;
+ background:radial-gradient(120% 70% at 50% 0%,color-mix(in srgb,var(--tinte) 70%,transparent),transparent 65%),linear-gradient(#141218,#0b0a0e)}
+.cg-carta .cg-open:focus-visible{outline:2px solid var(--marco);outline-offset:3px}
+.cg-carta-cab{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 9px 6px;font:600 10.5px/1 var(--font-sans,Arial,sans-serif);letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb,var(--marco) 85%,#fff)}
+.cg-carta-tipo{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cg-carta-rango{position:relative;isolation:isolate;flex:none;display:grid;place-items:center;width:26px;height:26px;font:700 12px/1 Georgia,serif;letter-spacing:0;color:var(--tinta)}
+.cg-carta-rango::before{content:"";position:absolute;inset:4px;z-index:-1;transform:rotate(45deg);border:1px solid var(--marco);background:radial-gradient(circle,#2a2010,#0d0a06);box-shadow:0 0 10px -2px var(--marco)}
+.cg-carta-arte{position:relative;display:block;flex:none;margin:0 8px;height:46%;border:1px solid color-mix(in srgb,var(--marco) 70%,transparent);border-radius:4px;overflow:hidden;box-shadow:inset 0 0 0 1px #0008,0 2px 8px #0009}
+.cg-carta-arte .cg-art{position:absolute;inset:0;aspect-ratio:auto;height:100%;background:radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--tinte) 90%,#000),#0c0b0e 70%)}
+.cg-carta-arte .cg-art img{object-fit:cover;object-position:center 22%;transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.cg-carta:hover .cg-carta-arte .cg-art img{transform:scale(1.05)}
+.cg-carta-arte .cg-placeholder>span{display:none}
+.cg-carta-arte .cg-placeholder svg{width:clamp(34px,40%,62px);height:auto}
+.cg-carta-arte::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 62%,#0009),radial-gradient(120% 90% at 50% 50%,transparent 60%,#0007)}
+.cg-carta-nombre{position:relative;z-index:2;display:grid;gap:2px;margin:-14px 14px 0;padding:6px 8px 5px;text-align:center;border:1px solid color-mix(in srgb,var(--marco) 75%,transparent);border-radius:4px;background:linear-gradient(#2a2216,#15110b);box-shadow:0 4px 10px #000a}
+.cg-carta-nombre strong{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:600 15px/1.2 var(--font-serif,Georgia,serif);color:var(--tinta)}
+.cg-carta-nombre small{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:11px/1.2 var(--font-sans,Arial,sans-serif);color:color-mix(in srgb,var(--marco) 70%,#bbb)}
+.cg-carta-texto{flex:1;min-height:0;margin:8px 12px 0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;font:12px/1.45 var(--font-sans,Arial,sans-serif);color:#b9b4a8}
+.cg-carta-pie{display:grid;gap:5px;padding:7px 9px 9px;border-top:1px solid color-mix(in srgb,var(--marco) 30%,transparent);margin-top:6px}
+.cg-carta-sello{justify-self:start;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:2px 7px;border-radius:2px;font:600 10.5px/1.5 var(--font-sans,Arial,sans-serif);letter-spacing:.04em;color:#f0d68a;background:color-mix(in srgb,var(--marco) 22%,transparent);border:1px solid color-mix(in srgb,var(--marco) 55%,transparent)}
+.cg-carta-sello.is-alma{color:#e7d7ff;border-color:#8e6fd0;background:#8e6fd022}
+.cg-carta-chips{display:flex;gap:4px;overflow:hidden;white-space:nowrap}
+.cg-carta-chips>span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:2px 6px;border:1px solid #ffffff1c;border-radius:2px;font:11px/1.5 var(--font-sans,Arial,sans-serif);color:#a8b3b5}
+.cg-carta-chips b{margin-left:3px;color:#f0d68a}
+.cg-carta.is-portada{--marco:#e8c46a}
+.cg-carta.is-portada::before{content:"Portada";position:absolute;top:-11px;left:50%;z-index:3;translate:-50% 0;padding:2px 10px;border-radius:2px;font:700 10px/1.6 var(--font-sans,Arial,sans-serif);letter-spacing:.16em;text-transform:uppercase;color:#1a1408;background:linear-gradient(#f2d98c,#c9a24a)}
+/* La ayuda aparece tras una pausa para no tapar la carta al pasar el ratón. */
+.cg-carta .cg-tooltip{display:block;visibility:hidden;opacity:0;transition:opacity .15s,visibility 0s .15s}
+.cg-carta .cg-open:hover .cg-tooltip,.cg-carta .cg-open:focus-visible .cg-tooltip{visibility:visible;opacity:1;transition:opacity .2s .8s,visibility 0s .8s}
+
+/* ── Baraja detrás de su personaje ─────────────────────────────────────────── */
+.cg-baraja{position:relative;isolation:isolate}
+.cg-baraja-carta{position:absolute;inset:0;z-index:-1;border-radius:14px;padding:6px;
+ background:linear-gradient(150deg,color-mix(in srgb,var(--marco) 55%,#1a140a),#120e08 45%,color-mix(in srgb,var(--marco) 30%,#120e08));box-shadow:0 0 0 1px #000a,0 10px 18px -8px #000c;
+ transform:translate(calc((var(--i) + 1) * 7px),calc((var(--i) + 1) * -6px)) rotate(calc((var(--i) + 1) * 2.4deg));transform-origin:50% 100%;transition:transform .3s cubic-bezier(.2,.7,.2,1)}
+.cg-baraja-carta:nth-child(2){z-index:-2}.cg-baraja-carta:nth-child(3){z-index:-3}
+.cg-baraja-dorso{display:block;height:100%;border-radius:9px;border:1px solid color-mix(in srgb,var(--marco) 55%,transparent);
+ background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--marco) 35%,transparent) 0 10%,transparent 11%),
+  repeating-conic-gradient(from 0deg at 50% 50%,#ffffff07 0 10deg,transparent 10deg 20deg),
+  radial-gradient(120% 80% at 50% 50%,color-mix(in srgb,var(--tinte) 80%,#000),#0b0a0e 75%)}
+.cg-baraja:hover .cg-baraja-carta,.cg-baraja:focus-within .cg-baraja-carta{transform:translate(calc((var(--i) + 1) * 16px),calc((var(--i) + 1) * -8px)) rotate(calc((var(--i) + 1) * 6deg))}
+.cg-baraja-abrir{position:absolute;right:-14px;top:-14px;z-index:4;display:flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border:1px solid #e8c46a;border-radius:2px;
+ background:linear-gradient(#2a2112,#14100a);color:#f0d68a;font:600 11px/1 var(--font-sans,Arial,sans-serif);letter-spacing:.12em;text-transform:uppercase;box-shadow:0 6px 14px #000b;cursor:pointer}
+.cg-baraja-abrir b{display:grid;place-items:center;min-width:24px;height:20px;padding:0 5px;border-radius:2px;background:#e8c46a;color:#1a1408;font-size:12px;letter-spacing:0}
+.cg-baraja-abrir:hover,.cg-baraja-abrir:focus-visible{background:linear-gradient(#3a2d16,#1c160c);outline:none;box-shadow:0 0 0 2px #e8c46a66,0 6px 14px #000b}
+.cg-baraja-cab{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin:6px 0 18px;padding:14px 16px;border:1px solid #e8c46a55;border-radius:4px;background:linear-gradient(100deg,#2a211233,transparent)}
+.cg-baraja-cab h3{margin:2px 0 4px;font:500 26px/1.15 var(--font-serif,Georgia,serif);color:#f3e3b5}
+.cg-baraja-cab p{margin:0;font-size:14px;color:#a9aaa5}
+.cg-baraja-cab .cg-button{display:inline-flex;align-items:center;gap:6px}
+/* Al abrir la baraja, las cartas se reparten una a una. */
+.cg-mesa.is-baraja .cg-carta{animation-name:cg-carta-reparte}
+@keyframes cg-carta-reparte{from{opacity:0;transform:translate(-40px,-30px) rotate(-8deg) scale(.92)}}
+@media(max-width:700px){
+ .cg-mesa{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px;padding:12px 12px 6px 2px}
+ .cg-carta{padding:4px;border-radius:10px}
+ .cg-carta .cg-open{border-radius:7px}
+ .cg-carta-cab{padding:5px 6px;font-size:9px}
+ .cg-carta-rango{width:19px;height:19px;font-size:10px}
+ .cg-carta-arte{margin:0 5px}
+ .cg-carta-nombre{margin:-11px 7px 0;padding:4px 5px}
+ .cg-carta-nombre strong{font-size:12.5px}
+ .cg-carta-nombre small{font-size:9.5px}
+ .cg-carta-texto{margin:5px 7px 0;font-size:10.5px;line-height:1.35;-webkit-line-clamp:2}
+ .cg-carta-arte{height:44%}
+ .cg-carta-texto{-webkit-line-clamp:1}
+ .cg-carta-pie{padding:5px 6px 6px}
+ .cg-carta-chips>span{font-size:9.5px;padding:1px 4px}
+ .cg-carta-sello{font-size:9.5px}
+ .cg-baraja-carta{border-radius:10px;transform:translate(calc((var(--i) + 1) * 4px),calc((var(--i) + 1) * -4px)) rotate(calc((var(--i) + 1) * 2deg))}
+ .cg-baraja-abrir{right:-8px;top:-12px;font-size:9.5px;padding:4px 4px 4px 7px}
+}
+@media(max-width:380px){.cg-mesa{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){
+ .cg-carta,.cg-mesa.is-baraja .cg-carta{animation:none;transition:none}
+ .cg-carta:hover,.cg-carta:focus-within{transform:none}
+ .cg-carta-arte .cg-art img,.cg-baraja-carta{transition:none}
+ .cg-carta:hover .cg-carta-arte .cg-art img{transform:none}
+}

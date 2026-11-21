@@ -22,3 +22,10 @@ Cada creación de la Forja (habilidad, pasiva, objeto, título…) es **general*
 - `tests/creaciones-personales.test.mjs`: ámbitos, agrupación, filtro, validación, Grimorio y contenido de la migración.
 - `tests/creaciones-personales-database.mjs` (PGlite): migración idempotente, Kion y sus excepciones, trigger y borrado del dueño.
 - Galería comprobada en navegador con datos de ejemplo.
+
+## Diseño de cartas (2026-11-21)
+
+- Cada creación de La creación es una carta con proporción de naipe (63×88), marco y tinte por tipo (personaje, monstruo, habilidad, pasiva, objeto, título), rango en un rombo, placa con el nombre y pie con sello y dos atributos.
+- El arte vive en una ventana de tamaño fijo y se recorta (`object-fit: cover`, encuadre algo alto para que se vean las caras): cualquier imagen cuadra y todas las cartas miden lo mismo.
+- Un personaje con creaciones personales lleva su **baraja** detrás (hasta tres dorsos que se abren en abanico al pasar el ratón) y un botón «Baraja N». Al abrirla se ve la cabecera «Baraja personal», el personaje como portada y sus cartas repartiéndose una a una; «Volver a la colección» regresa a las generales.
+- Animaciones solo con `transform`/`opacity`, desactivadas con `prefers-reduced-motion`. Comprobado en navegador en escritorio y 390 px: alturas y ventanas de arte idénticas, sin scroll horizontal.

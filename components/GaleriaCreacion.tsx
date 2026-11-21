@@ -3,7 +3,7 @@ import {duenoDe,duenosConPersonales,filtrarAmbito,type FiltroAmbito} from "../li
 import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight, Search, ImagePlus, Upload, Link2, Save, ImageOff, Swords, Shield, Users, Sparkles, Package, Crown, Shapes, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, ImagePlus, Upload, Link2, Save, ImageOff, Swords, Shield, Users, Sparkles, Package, Crown, Shapes, Pencil, Trash2 } from "lucide-react";
 import { TIPOS, EFECTOS_NOMBRE, efectosDe, formula, type TipoCreacion, type Efecto } from "../lib/creacion";
 import { EVENTOS, EFECTOS_REGLA, DESTINOS, type CondicionRegla, type EfectoRegla, type ValorRegla, type Regla } from "../lib/reglas";
 import { type ReglaPasiva } from "../lib/pasivas";
@@ -78,6 +78,8 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
   const coincide = (i: T) => (tipo === "todos" || (tipo === "monstruo" ? props.esMonstruo?.(i) : props.tipoDe(i) === tipo && (tipo!=="personaje"||!props.esMonstruo?.(i)))) && (clasificacion === "todos" || i.tipo === clasificacion) && norm(`${i.nombre} ${i.descripcion || ""} ${props.clasificacion(i.tipo)} ${dueno(i) || ""}`).includes(norm(busqueda));
   const enAmbito = filtrarAmbito(props.items, ambito);
   const visibles = enAmbito.filter(coincide).sort((a, b) => orden === "nombre" ? a.nombre.localeCompare(b.nombre, "es") : 0);
+  // Vista de baraja: el filtro de ámbito es el id de un personaje con creaciones personales.
+  const baraja = duenos.find((d) => d.id === ambito) || null;
   const personalesOcultas = ambito === "generales" && busqueda.trim() ? props.items.filter((i) => i.personal_de && coincide(i)).length : 0;
   if (seleccionada) return <Detalle key={seleccionada.id} item={seleccionada} props={props} volver={volver} />;
   return <section className="cg-gallery" aria-label="Galería de La creación">
@@ -86,15 +88,38 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
     <div className="cg-types" role="group" aria-label="Filtrar por tipo"><button ref={volverRef} onClick={() => setTipo("todos")} aria-pressed={tipo === "todos"}>Todo <span>{enAmbito.length}</span></button>{TIPOS.map((t) => { const Icono = iconos[t.valor] || Shapes; return <button key={t.valor} aria-pressed={tipo === t.valor} onClick={() => setTipo(t.valor)}><Icono size={15} />{t.nombre}<span>{enAmbito.filter((i) => props.tipoDe(i) === t.valor && (t.valor!=="personaje"||!props.esMonstruo?.(i))).length}</span></button>; })}{props.esMonstruo&&<button aria-pressed={tipo==="monstruo"} onClick={()=>setTipo("monstruo")}>Monstruos <span>{enAmbito.filter(i=>props.esMonstruo?.(i)).length}</span></button>}</div>
     <div className="cg-filter-row"><label>Ámbito<select aria-label="Ámbito" value={ambito} onChange={(e) => setAmbito(e.target.value)}><option value="generales">Generales</option><option value="personales">Personales ({props.items.filter((i) => i.personal_de).length})</option>{duenos.map((d) => <option key={d.id} value={d.id}>Personales de {d.nombre} ({d.cantidad})</option>)}<option value="todas">Todas</option></select></label><label>Clasificación<select value={clasificacion} onChange={(e) => setClasificacion(e.target.value)}><option value="todos">Todas</option>{props.clasificaciones.map((c) => <option key={c.clave} value={c.clave}>{c.nombre}</option>)}</select></label><label>Ordenar<select value={orden} onChange={(e) => setOrden(e.target.value)}><option value="recientes">Más recientes</option><option value="nombre">Nombre A–Z</option></select></label><span aria-live="polite">{visibles.length} creaciones</span></div>
     {personalesOcultas > 0 && <p className="cg-personales-aviso">También {personalesOcultas === 1 ? "hay 1 creación personal que coincide" : `hay ${personalesOcultas} creaciones personales que coinciden`}. <button type="button" onClick={() => setAmbito("todas")}>Verlas</button></p>}
-    {props.cargando ? <div className="cg-empty" role="status">Cargando tu colección…</div> : <div className="cg-grid">{visibles.map((item) => { const tipoItem = props.tipoDe(item); return <article className={`cg-card cg-type-${tipoItem}`} key={item.id}>
-      <button className="cg-open" onClick={() => abrir(item.id)} aria-label={`Ver detalles de ${item.nombre}`} aria-describedby={`creacion-ayuda-${item.id}`}>
-        <div className="cg-cover"><Portada src={item.imagen_url} nombre={item.nombre} tipo={tipoItem} icono={props.iconoDe(item)} /><span className="cg-rank">{item.clase || "D"}</span><span className="cg-cover-action">Ver creación <ArrowUpRight size={15} /></span></div>
-        <div className="cg-card-body"><span className="cg-card-type">{props.esMonstruo?.(item)?"Monstruo":TIPOS.find((t) => t.valor === tipoItem)?.nombre} · {props.clasificacion(item.tipo)}</span><h3>{item.nombre}</h3>{dueno(item)&&<span className="cg-personal">Personal de {dueno(item)}</span>}{item.ligado_al_alma&&<span className="cg-alma-estado">{item.alma_en_uso?"Alma única · En una cuenta":"Alma única · Disponible"}</span>}<p>{item.descripcion || "Abre esta creación para conocer sus detalles."}</p><div className="cg-stat-chips">{atributos(item).slice(0, 3).map(([key, value]) => <span key={key}>{props.etiqueta(item, key)} <b>{valor(value)}</b></span>)}{!atributos(item).length && <span>{item.es_grupo ? "Malla · valores por rango" : "Único · valores fijos"}</span>}</div></div>
-        <span className="cg-tooltip" role="tooltip" id={`creacion-ayuda-${item.id}`}><ContenidoAyuda ayuda={ayudaCreacion(item)}/></span>
-      </button>
-    </article>; })}</div>}
+    {baraja && <header className="cg-baraja-cab"><div><span className="cg-eyebrow">BARAJA PERSONAL</span><h3>{baraja.nombre}</h3><p>{baraja.cantidad === 1 ? "1 carta" : `${baraja.cantidad} cartas`} que solo lleva su personaje. Otros pueden aprenderlas si cumplen sus requisitos.</p></div><button type="button" className="cg-button" onClick={() => setAmbito("generales")}><ArrowLeft size={16} />Volver a la colección</button></header>}
+    {props.cargando ? <div className="cg-empty" role="status">Cargando tu colección…</div> : <div className={`cg-mesa ${baraja ? "is-baraja" : ""}`}>{(baraja ? [...props.items.filter((i) => i.id === ambito), ...visibles] : visibles).map((item, orden) => {
+      const mazo = baraja ? [] : props.items.filter((i) => i.personal_de === item.id);
+      const carta = <Carta key={item.id} item={item} props={props} dueno={baraja ? null : dueno(item)} orden={orden} portada={!!baraja && item.id === ambito} onAbrir={() => abrir(item.id)} />;
+      if (!mazo.length) return carta;
+      return <div key={item.id} className="cg-baraja" style={{ "--n": Math.min(3, mazo.length) } as React.CSSProperties}>
+        {mazo.slice(0, 3).map((m, k) => <span key={m.id} className={`cg-baraja-carta cg-tipo-${props.tipoDe(m)}`} style={{ "--i": k } as React.CSSProperties} aria-hidden="true"><span className="cg-baraja-dorso" /></span>)}
+        {carta}
+        <button type="button" className="cg-baraja-abrir" onClick={() => { setAmbito(item.id); setTipo("todos"); setClasificacion("todos"); }} aria-label={`Abrir la baraja de ${item.nombre}: ${mazo.length} cartas personales`}><span>Baraja</span><b>{mazo.length}</b></button>
+      </div>;
+    })}</div>}
     {!props.cargando && !visibles.length && <div className="cg-empty"><Shapes size={30} /><h3>No hay creaciones con estos filtros</h3><p>Prueba otro nombre o muestra toda tu colección.</p><button className="cg-button" onClick={() => { setBusqueda(""); setTipo("todos"); setClasificacion("todos"); setAmbito("todas"); }}>Limpiar filtros</button></div>}
   </section>;
+}
+
+/** Carta de La creación: proporción de naipe (63×88), marco por tipo y arte recortado para que siempre cuadre. */
+function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir }: { item: T; props: Props<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir: () => void }) {
+  const tipoItem = props.tipoDe(item), monstruo = !!props.esMonstruo?.(item);
+  const chips = atributos(item).slice(0, 2);
+  return <article className={`cg-carta cg-tipo-${monstruo ? "monstruo" : tipoItem} ${portada ? "is-portada" : ""}`} style={{ "--orden": Math.min(orden, 24) } as React.CSSProperties}>
+    <button className="cg-open cg-carta-cara" onClick={onAbrir} aria-label={`Ver detalles de ${item.nombre}`} aria-describedby={`creacion-ayuda-${item.id}`}>
+      <span className="cg-carta-cab"><span className="cg-carta-tipo">{monstruo ? "Monstruo" : TIPOS.find((t) => t.valor === tipoItem)?.nombre}</span><span className="cg-carta-rango" title="Clase">{item.clase || "D"}</span></span>
+      <span className="cg-carta-arte"><Portada src={item.imagen_url} nombre={item.nombre} tipo={tipoItem} icono={props.iconoDe(item)} /></span>
+      <span className="cg-carta-nombre"><strong>{item.nombre}</strong><small>{props.clasificacion(item.tipo)}</small></span>
+      <span className="cg-carta-texto">{item.descripcion || "Abre esta creación para conocer sus detalles."}</span>
+      <span className="cg-carta-pie">
+        {dueno ? <span className="cg-carta-sello">Personal de {dueno}</span> : item.ligado_al_alma ? <span className="cg-carta-sello is-alma">{item.alma_en_uso ? "Alma única · En uso" : "Alma única"}</span> : null}
+        <span className="cg-carta-chips">{chips.map(([key, value]) => <span key={key}>{props.etiqueta(item, key)} <b>{valor(value)}</b></span>)}{!chips.length && <span>{item.es_grupo ? "Malla" : "Único"}</span>}</span>
+      </span>
+      <span className="cg-tooltip" role="tooltip" id={`creacion-ayuda-${item.id}`}><ContenidoAyuda ayuda={ayudaCreacion(item)}/></span>
+    </button>
+  </article>;
 }
 
 function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; props: Props<T>; volver: () => void }) {
