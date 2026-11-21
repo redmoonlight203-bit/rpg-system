@@ -185,6 +185,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   const dados:TiradaVisual[]=[];
   const rng:RNG=caras=>{const v=dadoSeguro(caras);if(dados.length<8)dados.push({caras,valor:v});return v;};
   let n:Combate;
+  rng.consultarReaccion=o=>window.confirm(o.nombre+' puede usar '+o.reaccion+' por '+o.coste+' PH. ¿Usarla?');
   try{n=f(c,rng);}catch(e){setVoz(kuroi(e,respaldo));return;}
   if(n.evento_visual&&!n.evento_visual.dados?.length&&dados.length)n={...n,evento_visual:{...n.evento_visual,dados}};
   setEstado(s=>({...s,combate:n}));setVoz('');

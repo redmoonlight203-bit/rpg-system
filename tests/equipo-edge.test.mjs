@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
-const entrada=readFileSync(new URL('../supabase/functions/equipo-combate/index.ts',import.meta.url),'utf8').replace(/^import .* from '\.\/motor.js';/m,'const {agregar,nuevoCombate,cambiarEquipo,seleccionEquipo,estadisticas,maxVida,manosLibres,accionesObjeto,usarObjeto,phDisponibles}=motor;');
+const entrada=readFileSync(new URL('../supabase/functions/equipo-combate/index.ts',import.meta.url),'utf8').replace(/^import (\{[^}]+\}) from '\.\/motor.js';/m,'const $1=motor;');
 const jugador='00000000-0000-0000-0000-000000000001',pieza='00000000-0000-0000-0000-000000000002';
 function servidor({auth=true,contexto}={}){let handler;const escrituras=[];let ctx=contexto||{personaje_id:'1',firma:'firma',preparado:{id:'p',forja_id:null,nombre:'Jugador',stats:{vida:20,ph:5,fatiga:4},configuracion:{tipo_creacion:'personaje',reserva:[{id:pieza,nombre:'Arma',slot_tipo:'mano',stats:{}}]}},fuentes:[{id:pieza,nombre:'Arma',slot_tipo:'mano',stats:{}}]};
  const mock=async(url,options)=>{if(url.endsWith('/auth/v1/user'))return Response.json(auth?{id:jugador}:{error:'bad'},{status:auth?200:401});if(url.endsWith('/equipo_contexto_servidor'))return Response.json(structuredClone(ctx));if(url.endsWith('/equipo_confirmar_servidor')){escrituras.push(JSON.parse(options.body));return Response.json({ok:true});}throw Error(url);};

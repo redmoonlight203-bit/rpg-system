@@ -45,7 +45,7 @@ import {
   retirar,
   iniciar,
   siguiente,
-  actuar,
+  actuarConReacciones,responderReaccion,turnoConReacciones,
   acciones,
   estadisticas,
   maxVida,
@@ -142,7 +142,10 @@ export default function CampoCombate() {
     recuperar:recuperarAccionGM,
     onRecuperado:r=>{if(revisionRemota.current.id!==id||r.version<revisionRemota.current.version||!r.datos)return;revisionRemota.current={id,version:r.version};setC(recibirEvento({...r.datos,historial:[],pasos_deshacer:r.pasos_deshacer}));setVersion(r.version);setError('');++ejecucion.current;bloqueo.current=false;setOcupado(false);}
   });
-  const bloqueado=ocupado||segura.pendiente;
+  const oferta=c.reaccion_pendiente?.oferta;
+  const defensor=c.miembros.find(m=>m.id===oferta?.defensor);
+  const decideGM=defensor&&(defensor.bando==='enemigo'||!defensor.personaje_id);
+  const bloqueado=ocupado||segura.pendiente||!!oferta;
 
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
   const [editorEquipo,setEditorEquipo]=useState<{actor:string;contexto:ContextoEquipo}|null>(null);
@@ -224,7 +227,7 @@ export default function CampoCombate() {
         return valor;
       };
       const next =
-        c.fase === "preparacion" ? iniciar(c, rng) : siguiente(c, rng);
+        turnoConReacciones(c,c.fase==="preparacion"?"iniciar":"siguiente",rng);
       next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:"Inicio del turno",dados};
       await guardar(next);
       setForzar(false);
@@ -308,7 +311,7 @@ export default function CampoCombate() {
     if (!elegida) return;
     await ejecutar(async () => {
       const dados: TiradaVisual[] = [];
-      const next = actuar(
+      const next = actuarConReacciones(
         c,
         actor.id,
         elegida,
@@ -803,6 +806,10 @@ export default function CampoCombate() {
   }
   return (
     <main className="battle-theme">
+      {oferta&&<section aria-live="polite" className="rounded border border-amber-600 bg-neutral-950 p-4">
+       <strong>{oferta.nombre} puede usar {oferta.reaccion} · {oferta.coste} PH</strong>
+       {decideGM?<div>{[true,false].map(si=><button type="button" key={String(si)} className="m-2 rounded border p-2" disabled={ocupado||segura.pendiente} onClick={()=>void ejecutar(()=>guardar(responderReaccion(c,oferta.defensor,si)))}>{si?'Usar reacción':'Dejar pasar'}</button>)}</div>:<p>Esperando la decisión del jugador.</p>}
+      </section>}
       {roll && c.fase !== "en_curso" && (
         <AnimacionDados
           key={JSON.stringify(roll)}

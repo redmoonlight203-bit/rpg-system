@@ -34,6 +34,8 @@ const una=(clave:string,familia:FamiliaGrimorio,tipo:TipoNodo,nombre:string,ayud
 // ---- Acciones ----
 const accion=(p:Partial<Efecto>):Efecto=>({...nuevoEfecto(),...p});
 const ACCIONES:Pieza[]=[
+ una('accion:dash','acciones','accion','Dash','Desplazarse hasta una casilla libre sin gastar movimiento','ojo',accion({nombre:'Dash',efecto:'desplazamiento',animacion:'desplazamiento',tablero:{alcance:3,forma:'individual',tamano:0,afecta:'todos'}})),
+ una('accion:reaccion','acciones','accion','Reacción defensiva','Ofrece una defensa al recibir daño','escudo',accion({nombre:'Defensa',reaccion:{principal:{reducir:{modo:'mitad'}}}})),
  una('accion:ataque','acciones','accion','Ataque','Un golpe que causa daño','espada',accion({nombre:'Ataque',cantidad:1,caras:8})),
  una('accion:hechizo','acciones','accion','Hechizo de fuego','Daño mágico de fuego','fuego',accion({nombre:'Hechizo de fuego',cantidad:2,caras:6,elemento:'fuego',naturaleza:'magica',coste_ph:2})),
  una('accion:curacion','acciones','accion','Curación','Recupera vida','pocion',accion({nombre:'Curación',efecto:'curacion',cantidad:2,caras:4})),
