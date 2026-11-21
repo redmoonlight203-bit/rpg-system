@@ -5,7 +5,7 @@
    superficie del lienzo (vista ampliada); colores, fichas y efectos son los del combate.
    ========================================================================== */
 
-.yq-taller .yq-arena-juego{display:grid;gap:12px;margin-top:4px}
+.yq-taller .yq-arena-juego{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:4px}
 .yugen-page .yq-arena-juego h3{margin:6px 0 -2px}
 
 /* ── Aviso de reinicio y voz de Kuroi ── */
@@ -51,12 +51,23 @@
 .yq-taller .yq-arena-reiniciar.is-grande.is-secundario{background:var(--color-well);color:var(--color-parchment);border-color:var(--color-line-strong)}
 .yq-taller .yq-arena-reiniciar.is-grande{margin-top:6px;padding:10px 14px;border-color:var(--color-gold-bright);background:linear-gradient(180deg,var(--color-gold-soft),var(--color-gold));color:var(--color-ink)}
 
-/* Vista compacta (panel de 320 px): el tablero entero sin desplazamiento, como «Ver mapa completo». */
-.yq-taller .is-compacta .tactical-board{min-width:0;grid-template-columns:repeat(9,minmax(0,1fr))!important}
+/* La altura del tablero compacto sigue a las casillas para dejar espacio a los controles. */
+.yq-taller .is-compacta .tactical-board{min-width:0;grid-template-columns:repeat(var(--cols),minmax(0,1fr))!important}
 .yq-taller .is-compacta .tactical-cell{min-width:0;min-height:0}
 /* El cartel de turno sale con un desplazamiento del 12 %: en el panel no debe abrir un desplazamiento lateral. */
-.yq-taller .is-compacta .tactical-scroll{overflow-x:hidden}
-.yq-taller .is-compacta .tactical-field-header{padding:6px 8px;font-size:12px}
+.yq-taller .is-compacta .tactical-field .tactical-scroll{height:auto;max-height:none;overflow-x:hidden}
+.yq-taller .is-compacta .tactical-field-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  height: auto;
+  min-height: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.yq-taller .is-compacta .tactical-field-header > span{flex:1 0 100%}
+.yq-taller .is-compacta .tactical-field-tools{flex-wrap:wrap;min-width:0;max-width:100%}
+.yq-taller .is-compacta .tactical-second-click{white-space:normal}
 .yq-taller .is-compacta .tactical-field-header>span{min-width:0}
 .yq-taller .is-compacta .tactical-field-header :is(small,.arena-full){display:none}
 .yq-taller .yq-arena-tablero .tactical-field-header small{white-space:nowrap}
@@ -66,7 +77,7 @@
 .yq-taller .is-compacta .campo-turno{padding:6px 8px;gap:8px;overflow:hidden}
 .yq-taller .is-compacta .campo-turno span{flex:none;font-size:11px}
 .yq-taller .is-compacta .campo-turno strong{min-width:0;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.yq-taller .is-compacta .campo-info{flex-wrap:wrap;gap:4px 10px;min-height:0;padding:6px 8px}
+.yq-taller .is-compacta .campo-info{flex-wrap:wrap;gap:4px 10px;height:auto;min-height:0;padding:6px 8px}
 .yq-taller .is-compacta .campo-info>.battle-portrait{width:32px;height:32px;font-size:14px}
 .yq-taller .is-compacta .campo-info-nombre,.yq-taller .is-compacta .campo-info-vida{min-width:0}
 .yq-taller .is-compacta .campo-info-nombre strong{font-size:15px}
@@ -79,16 +90,35 @@
 .yq-taller .yq-arena-lado .tactical-hud{position:static;margin-top:0}
 .yq-taller .yq-arena-lado .tactical-die{position:static;transform:none;justify-content:flex-start;gap:4px;margin-bottom:4px;pointer-events:auto}
 .yq-taller .yq-arena-lado .tactical-die .y-die{transform:scale(.48);width:60px;height:62px;margin:-8px -6px}
-.yq-taller .yq-arena-lado .tactical-dock{flex-wrap:wrap;gap:8px;padding:8px}
+.yq-taller .yq-arena-lado .tactical-dock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  gap: 10px;
+  padding: 10px;
+}
+.yq-taller .yq-arena-lado .tactical-dock > *{grid-column:1;grid-row:auto}
+.yq-taller .yq-arena-lado .heroe-activo {
+  grid-template-columns: 44px minmax(0, 1fr);
+  border: 0;
+  padding: 0;
+}
 .yq-taller .yq-arena-lado .tactical-actor{flex:1;min-width:0;border:0;padding:0}
 .yq-taller .yq-arena-lado .tactical-actor .battle-portrait{width:36px;height:42px}
-.yq-taller .yq-arena-lado .tactical-controls{order:3;flex:1 0 100%}
+.yq-taller .yq-arena-lado .tactical-controls{order:0;grid-template-rows:auto auto}
+.yq-taller .yq-arena-lado .tactical-tabs {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  height: auto;
+  overflow: visible;
+  white-space: normal;
+}
 .yq-taller .yq-arena-lado .tactical-slots>button{flex-basis:70px;min-height:64px}
 .yq-taller .yq-arena-lado .tactical-slots strong{font-size:12px}
 .yq-taller .yq-arena-lado .tactical-slots small{font-size:11px}
 .yq-taller .yq-arena-lado .tactical-end{flex:none;align-self:center;width:auto;flex-direction:row;padding:6px 10px;border-radius:6px}
 .yq-taller .yq-arena-lado .tactical-end svg{width:15px}
-.yq-taller .yq-arena-lado .tactical-description{flex-direction:column;gap:8px;padding:8px 10px}
+.yq-taller .yq-arena-lado .tactical-description{flex-direction:column;gap:8px;height:auto;padding:8px 10px;overflow-wrap:anywhere}
 .yq-taller .yq-arena-lado .tactical-description>div:last-child{max-width:none;align-items:stretch}
 .yq-taller .yq-arena-lado .tactical-description button{justify-content:center}
 
