@@ -74,6 +74,8 @@ export type ResultadoReaccion = { devolver?: { maximo?: number }; reservar?: Res
 export type Reaccion = {
   /** Las principales se prueban de mayor a menor prioridad; la primera que se paga resuelve el golpe. */
   prioridad?: number;
+  una_por_ronda?:boolean;
+  esquiva_opuesta?:{caras:number;contra_caras:number};
   /** Solo ante impactos mágicos (efecto mágico o con coste de PH) o solo físicos. */
   naturaleza?: 'magica'|'fisica';
   /** Requiere que el portador esté (o no esté) en esta forma de transformación. */
@@ -81,7 +83,7 @@ export type Reaccion = {
   sin_forma?: string;
   principal?: ResultadoReaccion & {
     salvacion?: { cd: number; atributo: string };
-    reducir: { modo: 'mitad'|'fijo'; valor?: number };
+    reducir: { modo: 'todo'|'mitad'|'fijo'; valor?: number };
     animacion?: string;
     /** Tras una principal exitosa se ejecuta el primer seguimiento aplicable. */
     permite_seguimiento?: boolean;
@@ -119,6 +121,7 @@ export type Efecto = {
   nombre: string;
   descripcion?: string;
   efecto:
+    | "desplazamiento"
     | "dano"
     | "curacion"
     | "recuperar_ph"
@@ -139,6 +142,7 @@ export type Efecto = {
   bonos_estado?: Record<string, number>;
 };
 export const EFECTOS_NOMBRE: Record<Efecto["efecto"], string> = {
+  desplazamiento:"Dash",
   dano: "Daño",
   curacion: "Curación",
   recuperar_ph: "Recuperar PH",
@@ -220,6 +224,7 @@ function validarAnimacion(v:unknown):string|null {
 export function validarReaccion(r: unknown): string | null {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return 'Reacción inválida.';
   const x = r as Reaccion;
+  if(x.esquiva_opuesta&&(!x.principal||![x.esquiva_opuesta.caras,x.esquiva_opuesta.contra_caras].every(v=>Number.isInteger(v)&&v>=2&&v<=100)))return 'Configura los dados de esquiva y contraataque (2 a 100 caras).';
   const entero = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
   const claveForma = (v: unknown) => typeof v === 'string' && /^[a-z0-9_-]{1,64}$/i.test(v);
   if (x.prioridad !== undefined && !entero(x.prioridad, -100, 100)) return 'Prioridad de reacción de -100 a 100.';
@@ -239,7 +244,7 @@ export function validarReaccion(r: unknown): string | null {
   };
   if (x.principal) {
     const p = x.principal;
-    if (!p.reducir || !['mitad', 'fijo'].includes(p.reducir.modo)) return 'Elige cómo reduce el daño: a la mitad o una cantidad fija.';
+    if (!p.reducir || !['todo','mitad', 'fijo'].includes(p.reducir.modo)) return 'Elige cómo reduce el daño: a la mitad o una cantidad fija.';
     if (p.reducir.modo === 'fijo' && !entero(p.reducir.valor, 1, 1000)) return 'Reducción fija de 1 a 1000.';
     if (p.salvacion && (!entero(p.salvacion.cd, 1, 100) || !/^[a-z_][a-z0-9_]{0,63}$/.test(p.salvacion.atributo || ''))) return 'Salvación de la reacción inválida.';
     if (p.animacion !== undefined && (typeof p.animacion !== 'string' || p.animacion.length > 60)) return 'Animación de la reacción inválida.';
@@ -336,6 +341,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
     if (["natural", "fisica"].includes(e.naturaleza || "") && e.coste_ph > 0)
       return "Las acciones con PH son mágicas; el daño físico se configura aparte.";
     if (e.descripcion !== undefined && (typeof e.descripcion !== "string" || e.descripcion.length > 2000)) return "La descripción de cada acción debe ser un texto de hasta 2000 caracteres.";
+    if(e.efecto==='desplazamiento'&&(!e.tablero||!Number.isInteger(e.tablero.alcance)||e.tablero.alcance<1||e.tablero.alcance>30||e.tablero.forma!=='individual'))return 'El dash necesita un alcance de 1 a 30 casillas y destino individual.';
     if (!e.nombre.trim()) return "Cada acción necesita un nombre.";
     if (
       ![
@@ -343,6 +349,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
         "curacion",
         "recuperar_ph",
         "reducir_fatiga",
+        "desplazamiento",
         "estado",
         "crear_arma",
         "transformacion",

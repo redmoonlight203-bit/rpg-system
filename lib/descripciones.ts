@@ -10,6 +10,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  let resumen:string;
  switch(e.efecto){
   case 'transformacion':resumen=`Activa ${e.transformacion?.nombre||e.nombre}: ${e.transformacion?.tipo==='forma'?'vida independiente; al romperse recupera su cuerpo':'poder con su vida real'}.`;break;
+  case 'desplazamiento':resumen='Se desplaza sin atacar ni gastar movimiento.';break;
   case 'dano': resumen=/desarmado/i.test(nombre)?'Ataca con el puño.':/^Atacar con /i.test(nombre)?nombre.replace(/^Atacar /i,'Ataca ')+'.':elemento?`Ataca al objetivo con ${elemento}.`:'Ataca al objetivo para causarle daño.';break;
   case 'curacion':resumen='Recupera vida del objetivo sin superar su vida máxima.';break;
   case 'recuperar_ph':resumen='Recupera puntos de habilidad del objetivo.';break;
@@ -19,7 +20,8 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  }
  const detalles:string[]=[];
  if(e.transformacion){detalles.push('Una activación por encuentro. Cambiar etapa consume una acción, sin repetir el coste de activación.');for(const etapa of e.transformacion.etapas)detalles.push(`${etapa.nombre}: ${etapa.descripcion?etapa.descripcion+' ':''}${Object.entries(etapa.stats).map(([k,v])=>`${atributo(k)} ${v}`).join(', ')}.`);}
- if(e.tablero){const t=e.tablero;
+ if(e.efecto==='desplazamiento')detalles.push(`Hasta ${e.tablero?.alcance??0} casillas libres sin consumir movimiento.`);
+ else if(e.tablero){const t=e.tablero;
   detalles.push(t.origen_area==='lanzador'?'Rugido o aura: el efecto nace del propio atacante.':t.origen_area==='aterrizaje'?'Salta a una casilla libre y causa daño alrededor al aterrizar.':t.origen_area==='recorrido'?'Carrera ofensiva: golpea a cada criatura situada en su trayecto.':`Alcance: ${t.alcance} casillas desde el personaje.`);
   if(t.movimiento_lanzador)detalles.push(`${{dash:'Dash',salto:'Salto',teletransporte:'Teletransporte',carrera:'Carrera'}[t.movimiento_lanzador.tipo]}: hasta ${t.movimiento_lanzador.casillas} casillas; golpe final a ${t.movimiento_lanzador.alcance_golpe} casillas.`);
   if(t.afecta_lanzador===false)detalles.push('El lanzador no sufre daño de este efecto aunque esté dentro del área.');
@@ -30,7 +32,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  }
 
  if(e.tabla_armas)detalles.push(...e.tabla_armas.resultados.map(r=>`${r.cara}: ${r.nombre || 'Sin asignar'} (${formula(r)}).`));
- if(e.efecto!=='estado'&&e.efecto!=='transformacion'&&!e.tabla_armas)detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
+ if(e.efecto!=='desplazamiento'&&e.efecto!=='estado'&&e.efecto!=='transformacion'&&!e.tabla_armas)detalles.push(`${{dano:'Daño',curacion:'Vida recuperada',recuperar_ph:'PH recuperados',reducir_fatiga:'Fatiga reducida',crear_arma:'Daño del arma'}[e.efecto]}: ${e.cantidad?formula(e):String(e.modificador||0)}.`);
 
  if(e.efecto==='estado'){
   if(['veneno','quemadura','regeneracion'].includes(e.estado_tipo||''))detalles.push(`${e.estado_tipo==='regeneracion'?'Recupera':'Sufre'} ${formula(e)} ${e.estado_tipo==='regeneracion'?'de vida':'de daño'} al inicio de cada turno.`);
@@ -86,13 +88,14 @@ export function describirRegla(r:Regla):AyudaClara{
 export const ayudaGuardia:AyudaClara={resumen:'Adopta una postura defensiva para protegerte.',detalles:['Ganas 2 de armadura hasta tu siguiente turno.','Consume tu acción.']};
 /** Frase en vivo de la reacción, en el idioma de la mesa. */
 export function describirReaccion(r:Reaccion):string{
+ if(r.esquiva_opuesta)return `Tira 1d${r.esquiva_opuesta.caras} contra el ataque. Si iguala o supera, esquiva y contraataca por 1d${r.esquiva_opuesta.contra_caras}. Si queda por debajo, recibe la mitad del daño.${r.una_por_ronda?' Una vez por ronda.':''}`;
  const partes:string[]=[];
  const ante=r.naturaleza==='magica'?'un golpe mágico':r.naturaleza==='fisica'?'un golpe físico':'cualquier golpe';
  const forma=r.forma?` estando en la forma «${r.forma}»`:r.sin_forma?` si no está en la forma «${r.sin_forma}»`:'';
  const res=(x:ResultadoReaccion|undefined,que:string)=>{const f:string[]=[];if(x?.devolver)f.push(`devuelve ${x.devolver.maximo?`hasta ${x.devolver.maximo} de `:''}${que} al atacante`);if(x?.reservar)f.push(`guarda ${Math.round(x.reservar.proporcion*100)} % de ${que} en «${x.reservar.recurso}» (máximo ${x.reservar.maximo})`);return f;};
  if(r.principal){
   const p=r.principal;
-  partes.push(`Al recibir ${ante}${forma}, ${p.salvacion?`tira salvación de ${p.salvacion.atributo} CD ${p.salvacion.cd} y, si la supera, `:''}${p.reducir.modo==='mitad'?'detiene la mitad del daño':`detiene hasta ${p.reducir.valor||0} de daño`}`);
+  partes.push(`Al recibir ${ante}${forma}, ${p.salvacion?`tira salvación de ${p.salvacion.atributo} CD ${p.salvacion.cd} y, si la supera, `:''}${p.reducir.modo==='todo'?'detiene todo el daño':p.reducir.modo==='mitad'?'detiene la mitad del daño':`detiene hasta ${p.reducir.valor||0} de daño`}`);
   partes.push(...res(p,'lo detenido'));
   if(p.permite_seguimiento)partes.push('y da paso a una reacción de seguimiento');
  }else if(r.seguimiento){

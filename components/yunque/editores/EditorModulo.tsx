@@ -23,7 +23,7 @@ const EXITOS:Opcion<NonNullable<Efecto['salvacion']>['exito']>[]=[
  {valor:'solo_estado',nombre:'Evita el estado',icono:'fuego',ayuda:'Si la supera, recibe el daño pero no el estado'},
 ];
 const ESTADOS:Opcion<NonNullable<Efecto['estado_tipo']>>[]=[
- {valor:'narrativo',nombre:'Narrativo',icono:'libro'},{valor:'veneno',nombre:'Veneno',icono:'pocion'},{valor:'quemadura',nombre:'Quemadura',icono:'fuego'},
+ {valor:'veneno',nombre:'Veneno',icono:'pocion'},{valor:'quemadura',nombre:'Quemadura',icono:'fuego'},
  {valor:'regeneracion',nombre:'Regeneración',icono:'vida'},{valor:'aturdido',nombre:'Aturdir',icono:'hielo'},
 ];
 const BONOS_ESTADO:[string,string][]=[['armadura','Armadura'],['dano','Daño'],['bono_impacto','Ataque'],['salvacion','Salvación'],['movimiento','Movim.'],['iniciativa','Iniciativa']];
