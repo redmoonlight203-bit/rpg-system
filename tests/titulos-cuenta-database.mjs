@@ -36,6 +36,8 @@ try{
  // Estado heredado: una copia del título en el inventario, equipada en Axel.
  await db.query("insert into inventario_jugador(user_id,personaje_id,forja_id,nombre,tipo,slot_tipo,slot_equipado,ligado_al_alma,es_activo,motivo_entrega,stats) values($1,1,$2,'Guardián del barrio','titulos','titulo','titulo',true,false,'Título obtenido por logro','{\"armadura\":2}')",[user,guardian]);
  await db.exec(migracion('20261121140000_titulos_cuenta.sql'));
+ await db.exec('alter table personajes add column party_activo boolean not null default false');
+ await db.exec(migracion('20261121150000_titulos_party.sql'));
  assert.equal((await db.query('select * from inventario_jugador')).rows.length,0,'las copias antiguas desaparecen del inventario');
  assert.equal((await db.query('select count(*)::int n from titulos_obtenidos where user_id=$1 and titulo_forja_id=$2',[user,guardian])).rows[0].n,1);
  assert.equal((await db.query('select titulo_activo from personajes where id=1')).rows[0].titulo_activo,guardian,'el título equipado sigue activo');
@@ -96,13 +98,35 @@ try{
  // En combate el título solo cambia desde el equipo (gastando acción).
  await como(gm,false);
  await db.query("insert into combates_yugen(id,creador_id,nombre,datos) values($1,$2,'Duelo',$3)",[crypto.randomUUID(),gm,{fase:'en_curso',miembros:[{id:'a',personaje_id:'2',vida:10}]}]);
- await como(user);await assert.rejects(db.query('select titulo_activar(2,null)'),/En combate/);
- await como(gm,false);await assert.rejects(db.query('update personajes set titulo_activo=$1 where id=2',[negociador]),/En combate/);
+ await como(user);await assert.rejects(db.query('select titulo_activar(2,null)'),/fuera de combate/);
+ await como(gm,false);await assert.rejects(db.query('update personajes set titulo_activo=$1 where id=2',[negociador]),/fuera de combate/);
  await db.query("delete from combates_yugen");
 
  // El GM puede retirar un título de una cuenta; los personajes que lo llevaban quedan sin título.
  await como(gm);await db.query('select titulo_retirar($1,$2)',[user,guardian]);await como(gm,false);
  assert.equal((await db.query('select titulo_activo from personajes where id=2')).rows[0].titulo_activo,null);
  await assert.rejects(db.query('update personajes set titulo_activo=$1 where id=2',[guardian]),/no pertenece a la cuenta/);
+
+ // Títulos de party: especiales y normales.
+ const pasivas=async id=>(await db.query('select yugen_interno.preparar_jugador($1) r',[id])).rows[0].r.configuracion.pasivas.map(x=>x.nombre);
+ await db.query('update personajes set es_companero=true,party_activo=true where id=2');
+ assert.ok((await pasivas(1)).includes('Título especial: Héroe de Ambrosía'));
+ assert.ok(!(await pasivas(2)).includes('Título especial: Héroe de Ambrosía'),'especial sin party: solo el principal');
+ await como(gm);await db.query("select titulo_ajustar($1,true,'',true)",[heroe]);
+ await db.query("select titulo_ajustar($1,false,'Ventaja en negociaciones.',true)",[negociador]);await como(gm,false);
+ assert.ok((await pasivas(2)).includes('Título especial: Héroe de Ambrosía'),'especial de party llega al compañero activo');
+ await db.query('update personajes set party_activo=false where id=2');
+ assert.ok(!(await pasivas(2)).includes('Título especial: Héroe de Ambrosía'),'compañero fuera de la party no lo recibe');
+ await db.query('update personajes set party_activo=true where id=2');
+ await como(user);await db.query('select titulo_activar(1,$1)',[negociador]);await como(gm,false);
+ assert.ok((await pasivas(2)).includes('Título de la party: Lengua de plata'),'un título normal de party alcanza al resto');
+ assert.ok(!(await pasivas(1)).includes('Título de la party: Lengua de plata'),'el portador no lo recibe dos veces');
+ // En combate no se cambia el título, ni siquiera desde el equipo; el GM sí puede retirarlo.
+ await db.query("insert into combates_yugen(id,creador_id,nombre,datos) values($1,$2,'Asalto',$3)",[crypto.randomUUID(),gm,{fase:'en_curso',miembros:[{id:'a',personaje_id:'1',vida:10}]}]);
+ await assert.rejects(db.query("select yugen_interno.aplicar_equipo(1,'{}')"),/fuera de combate/);
+ await como(gm);await db.query('select titulo_retirar($1,$2)',[user,negociador]);await como(gm,false);
+ assert.equal((await db.query('select titulo_activo from personajes where id=1')).rows[0].titulo_activo,null);
+ await db.query('select yugen_interno.aplicar_equipo(1,$1)',[{titulo:negociador}]);
+ console.log('Títulos de party, bloqueo en combate y retirada del GM en cualquier momento correctos.');
  console.log('Títulos de cuenta: migración, entregas, uno activo por personaje, especiales siempre activos, combate y retirada correctos.');
 }catch(e){console.error(e.message,e.where||'',e.stack);process.exitCode=1;}finally{await db.close();}

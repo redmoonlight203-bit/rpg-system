@@ -31,3 +31,6 @@ test('el inventario completo preserva las habilidades activas al cambiar equipo'
 test('usar desde el inventario una regla equipada conserva sus límites de uso',()=>{const b=campo({mano_der:phoenix});const n=c.usarObjeto(b,'a','phoenix','regla:phoenix-parpadeante','a',()=>20);assert.equal(a(n).accion_usada,true);assert.throws(()=>c.usarObjeto(vuelta(n),'a','phoenix','regla:phoenix-parpadeante','a',()=>20),/usos/);});
 
 test('una poción rescata al inconsciente, consume una acción y no resucita muertos',()=>{const b=conPocion();b.miembros[1].vida=0;b.miembros[1].situacion='inconsciente';const n=c.usarObjeto(b,'a','pocion','beber','b',()=>6);assert.equal(n.miembros[1].vida,6);assert.equal(c.situacionCombatiente(n.miembros[1]),'activo');assert.equal(a(n).accion_usada,true);assert.ok(!a(n).configuracion.reserva.some(p=>p.id==='pocion'));});
+test('el título solo cambia fuera de combate; el resto del equipo sí puede cambiar',()=>{const corona={id:'corona',nombre:'Corona',slot_tipo:'titulo',tipo_creacion:'titulo',stats:{armadura:2}};const b=campo({titulo:corona});
+ assert.throws(()=>c.cambiarEquipo(b,'a',{}),/fuera de combate/);
+ const n=c.cambiarEquipo(b,'a',{titulo:'corona',mano_der:'espada'});assert.equal(n.miembros[0].configuracion.equipamiento.titulo.id,'corona');});
