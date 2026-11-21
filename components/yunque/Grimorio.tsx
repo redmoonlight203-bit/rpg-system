@@ -44,7 +44,7 @@ export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZA
   return [...PIEZAS,...enlazar,...piezasColeccion(creaciones.filter(c=>c.id!==excluir&&c.estado!=='rechazado'&&!enlazadas.has(c.id)),filtro)].filter(p=>piezaPermitida(p,filtro));
  },[creaciones,excluir,filtro,enlazar]);
  const q=normal(busqueda.trim());
- const grupos=useMemo(()=>FAMILIAS_GRIMORIO.map(f=>({...f,piezas:piezas.filter(p=>p.familia===f.clave&&(!q||normal(`${p.nombre} ${p.ayuda}`).includes(q)))})).filter(g=>g.piezas.length||(!q&&g.clave==='coleccion'&&filtro.length>0)),[piezas,q,filtro]);
+ const grupos=useMemo(()=>FAMILIAS_GRIMORIO.map(f=>({...f,piezas:piezas.filter(p=>p.familia===f.clave&&(!q||normal(`${p.nombre} ${p.ayuda} ${p.grupo||''}`).includes(q)))})).filter(g=>g.piezas.length||(!q&&g.clave==='coleccion'&&filtro.length>0)),[piezas,q,filtro]);
  const total=grupos.reduce((n,g)=>n+g.piezas.length,0);
 
  // Escape cancela el arrastre en curso.
@@ -89,7 +89,8 @@ export default function Grimorio({filtro,creaciones=[],excluir,enlazar=SIN_PIEZA
      <h3><button type="button" aria-expanded={abierta} onClick={()=>gestores.current.alternar(g.clave)}>
       <ChevronRight size={14} className="yq-familia-flecha" aria-hidden="true"/><span>{g.nombre}</span><small>{g.piezas.length}</small>
      </button></h3>
-     {abierta&&(g.piezas.length?<ul className="yq-grimorio-piezas">{g.piezas.map(p=><li key={p.clave}>
+     {abierta&&(g.piezas.length?<ul className="yq-grimorio-piezas">{g.piezas.map((p,i)=><li key={p.clave} className={p.grupo&&p.grupo!==g.piezas[i-1]?.grupo?'yq-pieza-con-grupo':undefined}>
+      {p.grupo&&p.grupo!==g.piezas[i-1]?.grupo&&<span className="yq-grimorio-grupo" role="presentation">{p.grupo}</span>}
       <button type="button" data-pieza={p.clave} data-familia={tinte(p)} title={`${p.ayuda}. Arrástrala al lienzo o pulsa para añadirla.`}
        className={arrastrada===p.clave?'is-arrastrada':undefined}
        onPointerDown={e=>gestores.current.abajo(e,p)} onPointerMove={e=>gestores.current.mover(e)} onPointerUp={e=>gestores.current.arriba(e)} onPointerCancel={()=>gestores.current.cancelar()}
