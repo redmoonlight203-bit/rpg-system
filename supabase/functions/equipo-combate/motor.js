@@ -200,7 +200,7 @@ export function reglas(m) {
 function cumple(m, r, e) {
     if (r.elemento && r.elemento !== "cualquiera" && r.elemento !== elementoDe(e))
         return false;
-    return ((r.condicion === "ataque_magico" && !!e && e.coste_ph > 0) ||
+    return ((r.condicion === "ataque_magico" && !!e && (e.coste_ph > 0 || (r.id === "dragon_escamas_ipe" && e.naturaleza === "magica"))) ||
         (r.condicion === "ataque_natural" &&
             !!e &&
             e.coste_ph === 0 &&

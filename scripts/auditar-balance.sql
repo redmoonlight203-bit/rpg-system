@@ -53,7 +53,7 @@ select origen, tipo, count(*) as filas,
        count(*) filter (where peso = '0'::jsonb) as peso_cero,
        min(case when jsonb_typeof(peso) = 'number' then peso::numeric end) as minimo,
        max(case when jsonb_typeof(peso) = 'number' then peso::numeric end) as maximo,
-       'pendiente de confirmar' as unidad_historica
+       'sin unidad' as unidad_historica
 from tablas
 group by origen, tipo
 order by origen, tipo;

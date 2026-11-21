@@ -44,7 +44,7 @@ function CargaObjeto({ peso }: { peso?: number }) {
   const masa = kg.trim() && Number.isFinite(Number(kg)) && Number(kg) >= 0 ? Number(kg) : null;
   return <fieldset>
     <legend>Proyección de carga</legend>
-    <p>{peso === undefined ? 'Peso histórico sin registrar.' : `Peso registrado ${numero.format(peso)}, unidad pendiente de confirmar.`}</p>
+    <p>{peso === undefined ? 'Peso histórico sin registrar.' : `Peso registrado ${numero.format(peso)}, sin unidad histórica.`}</p>
     <label>
       <span>Peso de ensayo en kg</span>
       <input type="number" min="0" step="any" value={kg} onChange={e => setKg(e.target.value)} />
