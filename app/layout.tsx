@@ -4,6 +4,7 @@ import "./globals.css";
 import "./mobile.css";
 import "./yugen-design.css";
 import "./yugen-juego.css";
+import "./yugen-botin.css";
 
 const sansKr = localFont({
   src: "../public/fonts/NotoSansKR-latin.ttf",

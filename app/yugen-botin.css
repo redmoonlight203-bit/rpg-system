@@ -1,0 +1,87 @@
+/* Botín y títulos · cofres, calidades y placas de título.
+   Animaciones: una sola vez, transform/opacity, desactivadas con movimiento reducido (design.md §Movimiento). */
+.yb-q0{--q:var(--color-neutral-400);--q-suave:color-mix(in srgb,var(--color-neutral-400) 18%,transparent)}
+.yb-q1{--q:var(--color-emerald-400);--q-suave:color-mix(in srgb,var(--color-emerald-400) 18%,transparent)}
+.yb-q2{--q:var(--color-sky-400);--q-suave:color-mix(in srgb,var(--color-sky-400) 18%,transparent)}
+.yb-q3{--q:var(--color-violet-400);--q-suave:color-mix(in srgb,var(--color-violet-400) 20%,transparent)}
+.yb-q4{--q:var(--color-gold-bright);--q-suave:color-mix(in srgb,var(--color-gold-bright) 22%,transparent)}
+.yb-calidad{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:1px solid var(--q);color:var(--q);background:var(--q-suave);border-radius:2px;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.yb-calidad::before{content:'';width:6px;height:6px;background:var(--q);transform:rotate(45deg)}
+
+/* Cofre (SVG) */
+.yb-cofre{display:block;width:100%;height:auto;overflow:visible}
+.yb-cofre .yb-madera{fill:color-mix(in srgb,var(--color-amber-900) 80%,var(--color-well))}
+.yb-cofre .yb-madera-oscura{fill:color-mix(in srgb,var(--color-amber-950) 85%,black)}
+.yb-cofre .yb-herraje{fill:var(--q);opacity:.9}
+.yb-cofre .yb-cerradura{fill:var(--color-well);stroke:var(--q);stroke-width:2}
+.yb-cofre .yb-tapa{transform-box:fill-box;transform-origin:8% 100%;transition:transform .5s cubic-bezier(.2,1.3,.4,1)}
+.yb-cofre .yb-luz{opacity:0;transition:opacity .4s ease-out}
+.yb-cofre.is-abierto .yb-tapa{transform:translateY(-6px) rotate(-24deg)}
+.yb-cofre.is-abierto .yb-luz{opacity:1}
+
+/* Modal de apertura */
+.yb-modal{position:fixed;inset:0;z-index:85;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,var(--color-well) 86%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);overflow-y:auto}
+.yb-escena{position:relative;width:min(560px,100%);display:grid;justify-items:center;gap:16px;padding:32px 24px;text-align:center;border:1px solid var(--q);background:radial-gradient(ellipse 80% 50% at 50% 0%,var(--q-suave),transparent 70%),linear-gradient(170deg,var(--color-raised),var(--color-well));box-shadow:0 0 70px -18px var(--q);animation:yb-entrada .45s cubic-bezier(.2,1.3,.4,1) both}
+.yb-escena h2{margin:0;font:500 26px/1.2 var(--font-serif);color:var(--color-gold-bright)}
+.yb-escena .yb-sub{margin:0;color:var(--color-text-muted);font-size:14px}
+.yb-cofre-boton{position:relative;width:min(220px,60vw);padding:0;border:0;background:transparent;cursor:pointer;border-radius:2px}
+.yb-cofre-boton:focus-visible{outline:2px solid var(--q);outline-offset:6px}
+.yb-cofre-boton:disabled{cursor:default;opacity:1}
+.yb-destello{position:absolute;inset:-30%;pointer-events:none;background:radial-gradient(circle at 50% 55%,var(--q),transparent 55%);opacity:0}
+.is-abierto .yb-destello{animation:yb-destello .9s ease-out both}
+.yb-d20{display:inline-grid;place-items:center;width:52px;height:52px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--q);color:var(--color-ink);font:700 18px var(--font-serif);font-variant-numeric:tabular-nums}
+.yb-tirada{display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap}
+.yb-pista{margin:0;font-size:13px;color:var(--color-gold-soft)}
+
+/* Objetos revelados */
+.yb-objetos{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.yb-objeto{position:relative;display:grid;justify-items:center;gap:6px;padding:12px 8px;border:1px solid var(--q);background:linear-gradient(180deg,var(--q-suave),transparent 70%),var(--color-canvas);border-radius:2px;animation:yb-objeto .5s cubic-bezier(.2,1.3,.4,1) both;animation-delay:calc(var(--i,0) * 90ms + 250ms)}
+.yb-objeto-arte{display:grid;place-items:center;width:64px;height:64px;color:var(--q);border:1px solid var(--color-line);background:var(--color-well);border-radius:2px;overflow:hidden}
+.yb-objeto-arte img{width:100%;height:100%;object-fit:cover}
+.yb-objeto strong{font:500 14px/1.3 var(--font-serif);color:var(--color-text)}
+.yb-objeto small{font-size:12px;color:var(--color-text-muted)}
+.yb-cantidad{position:absolute;top:6px;right:6px;min-width:26px;padding:1px 6px;background:var(--q);color:var(--color-ink);font:700 12px var(--font-sans);border-radius:2px;font-variant-numeric:tabular-nums}
+.yb-acciones{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;width:100%}
+.yb-boton{min-height:44px;padding:8px 18px;border:1px solid var(--color-line-strong);background:var(--color-canvas);color:var(--color-text);border-radius:2px;font:500 14px var(--font-sans)}
+.yb-boton:hover:not(:disabled){border-color:var(--q,var(--color-gold))}
+.yb-boton:disabled{opacity:.45}
+.yb-boton.is-principal{background:var(--q,var(--color-gold));border-color:var(--q,var(--color-gold));color:var(--color-ink)}
+.yb-boton[aria-pressed=true]{border-color:var(--q,var(--color-gold));background:var(--q-suave,var(--color-ember));color:var(--color-gold-bright)}
+
+/* Saqueo en el panel del GM */
+.yb-saqueos{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
+.yb-saqueo{display:grid;grid-template-columns:88px 1fr;gap:12px;align-items:start;padding:14px;border:1px solid var(--q);background:linear-gradient(120deg,var(--q-suave),transparent 60%),var(--color-raised);border-radius:2px}
+.yb-saqueo .yb-cofre-boton{width:100%}
+.yb-saqueo h4{margin:0 0 6px;font:500 16px/1.3 var(--font-serif);color:var(--color-text)}
+.yb-saqueo-lista{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.yb-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--color-line);background:var(--color-canvas);border-radius:2px;font-size:12px;color:var(--color-text)}
+.yb-chip img{width:18px;height:18px;object-fit:cover;border-radius:2px}
+.yb-sello{display:inline-block;margin-top:6px;padding:2px 10px;border:1px solid var(--color-success-text);color:var(--color-success-text);font-size:12px;transform:rotate(-2deg)}
+
+/* Títulos */
+.yt-coleccion{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.yt-placa{position:relative;display:grid;gap:10px;padding:18px;border:1px solid var(--color-line-strong);background:linear-gradient(160deg,var(--color-raised),var(--color-well));border-radius:2px}
+.yt-placa.is-especial{border-color:var(--color-gold);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-gold) 35%,transparent),0 0 40px -20px var(--color-gold)}
+.yt-cabeza{display:flex;gap:12px;align-items:center}
+.yt-cabeza h3{margin:0;font:500 19px/1.25 var(--font-serif);color:var(--color-gold-bright)}
+.yt-etiqueta{display:inline-block;margin-top:4px;padding:1px 8px;border:1px solid var(--color-line-strong);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-muted);border-radius:2px}
+.is-especial .yt-etiqueta{border-color:var(--color-gold);color:var(--color-gold-bright)}
+.yt-efectos{display:flex;flex-wrap:wrap;gap:6px}
+.yt-efectos span{padding:2px 8px;border:1px solid var(--color-line);background:var(--color-canvas);font-size:12px;border-radius:2px;font-variant-numeric:tabular-nums}
+.yt-narrativo{margin:0;padding-left:10px;border-left:2px solid var(--color-gold);font:italic 14px/1.6 var(--font-serif);color:var(--color-text)}
+.yt-personajes{display:flex;flex-wrap:wrap;gap:6px}
+.yt-personajes .yb-boton{min-height:36px;padding:4px 12px;font-size:13px}
+.yt-activo{font-size:13px;color:var(--color-text-muted)}
+.yt-progreso{height:6px;background:var(--color-well);border:1px solid var(--color-line);border-radius:2px;overflow:hidden}
+.yt-progreso>span{display:block;height:100%;background:var(--color-gold);transform-origin:left;transform:scaleX(var(--p,0))}
+.yt-revelacion .yb-escena{--q:var(--color-gold-bright);--q-suave:color-mix(in srgb,var(--color-gold-bright) 22%,transparent)}
+.yt-corona{display:grid;place-items:center;width:96px;height:96px;color:var(--color-gold-bright);border:1px solid var(--color-gold);background:var(--color-well);border-radius:2px;overflow:hidden;animation:yb-objeto .6s .2s cubic-bezier(.2,1.3,.4,1) both}
+.yt-corona img{width:100%;height:100%;object-fit:cover}
+.yt-negociacion{margin-top:8px;padding:10px 12px;border:1px solid var(--color-gold);background:color-mix(in srgb,var(--color-gold) 8%,transparent);border-radius:2px;font-size:13px}
+.yt-negociacion p{margin:4px 0 0}
+
+@keyframes yb-entrada{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes yb-destello{0%{opacity:0;transform:scale(.6)}35%{opacity:.85}100%{opacity:0;transform:scale(1.2)}}
+@keyframes yb-objeto{from{opacity:0;transform:translateY(22px) scale(.85)}to{opacity:1;transform:none}}
+@media(max-width:480px){.yb-escena{padding:24px 16px}.yb-objetos{grid-template-columns:repeat(2,minmax(0,1fr))}.yb-saqueo{grid-template-columns:64px 1fr}}
+@media(prefers-reduced-motion:reduce){.yb-escena,.yb-objeto,.yt-corona,.is-abierto .yb-destello{animation:none}.yb-cofre .yb-tapa,.yb-cofre .yb-luz{transition:none}}
