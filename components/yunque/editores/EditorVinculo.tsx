@@ -70,9 +70,9 @@ export function FiguraEquipo({b,figura,raza,piezas,arrastrando,sobre,onElegir,on
  </div>;
 }
 
-type EditorProps={b:Borrador;nodo:Nodo;ctx:ContextoTaller;ejecutar:(ops:Operacion[])=>void;avisar:(t:string)=>void;faltantes:(id:string)=>string[];onCrear:(tipo:Creable,slot?:string)=>void};
+type EditorProps={onEditar?:(id:string)=>void;b:Borrador;nodo:Nodo;ctx:ContextoTaller;ejecutar:(ops:Operacion[])=>void;avisar:(t:string)=>void;faltantes:(id:string)=>string[];onCrear:(tipo:Creable,slot?:string)=>void};
 /** Editor de un vínculo: ficha de la creación enlazada, requisitos que no cumple, hueco y desenlazar. */
-export default function EditorVinculo({b,nodo,ctx,ejecutar,avisar,faltantes,onCrear}:EditorProps){
+export default function EditorVinculo({b,nodo,ctx,ejecutar,avisar,faltantes,onCrear,onEditar}:EditorProps){
  const id=idDeVinculo(nodo.id),c=ctx.creaciones.find(x=>x.id===id);
  const enEquipo=nodo.ruta[0]==='equipamiento',slot=enEquipo?String(nodo.ruta[1]):null;
  const quitar=()=>ejecutar([{op:'quitar',nodo:nodo.id}]);
@@ -86,6 +86,7 @@ export default function EditorVinculo({b,nodo,ctx,ejecutar,avisar,faltantes,onCr
    <span className="yq-vinculo-arte">{c.imagen_url?<Arte src={c.imagen_url}/>:<IconoYugen id={iconoEnlazable({icono:c.icono,tipo:nodo.ruta[0]==='habilidades'?'habilidad':nodo.ruta[0]==='pasivas'?'pasiva':'objeto'})} size={34}/>}</span>
    <span><strong>{c.nombre}</strong><small>Clase {c.clase||'F'}{slot?` · ${nombreHueco(slot)}`:''}</small></span>
   </div>
+  {onEditar&&c.estado==="aprobado"&&<button type="button" className="yq-boton" onClick={()=>onEditar(c.id)}>Editar {c.nombre}</button>}
   {c.descripcion&&<p className="yq-vinculo-texto">{c.descripcion}</p>}
   {efectos.length>0&&<ul className="yq-vinculo-efectos">{efectos.map(e=><li key={e.id}><IconoYugen id="rayo" size={13}/>{describirEfecto(e).resumen}</li>)}</ul>}
   {(c.reglas_pasivas||[]).length>0&&<p className="yq-nota">Pasivas: {(c.reglas_pasivas||[]).map(p=>p.nombre).join(', ')}.</p>}
