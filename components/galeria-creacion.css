@@ -133,7 +133,7 @@
 
 /* ── Cartas de La creación ─────────────────────────────────────────────────────
    Proporción de naipe (63×88). El arte ocupa una ventana fija y se recorta (cover) para que cuadre. */
-.cg-mesa{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:34px 26px;align-items:start;padding:14px 18px 8px 4px}
+.cg-mesa{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:48px 26px;align-items:start;padding:14px 18px 8px 4px}
 .cg-carta{--marco:#c9a24a;--tinte:#6b5a2e;--tinta:#f3e3b5;position:relative;min-width:0;aspect-ratio:63/88;border-radius:14px;padding:6px;
  background:linear-gradient(150deg,color-mix(in srgb,var(--marco) 55%,#1a140a),#120e08 38%,#0b0906 62%,color-mix(in srgb,var(--marco) 35%,#120e08));
  box-shadow:0 0 0 1px #000a,0 1px 0 1px color-mix(in srgb,var(--marco) 30%,transparent) inset,0 16px 30px -10px #000c;
@@ -178,21 +178,47 @@
 .cg-carta .cg-tooltip{display:block;visibility:hidden;opacity:0;transition:opacity .15s,visibility 0s .15s}
 .cg-carta .cg-open:hover .cg-tooltip,.cg-carta .cg-open:focus-visible .cg-tooltip{visibility:visible;opacity:1;transition:opacity .2s .8s,visibility 0s .8s}
 
-/* ── Baraja detrás de su personaje ─────────────────────────────────────────── */
-.cg-baraja{position:relative;isolation:isolate}
-.cg-baraja-carta{position:absolute;inset:0;z-index:-1;border-radius:14px;padding:6px;
- background:linear-gradient(150deg,color-mix(in srgb,var(--marco) 55%,#1a140a),#120e08 45%,color-mix(in srgb,var(--marco) 30%,#120e08));box-shadow:0 0 0 1px #000a,0 10px 18px -8px #000c;
- transform:translate(calc((var(--i) + 1) * 7px),calc((var(--i) + 1) * -6px)) rotate(calc((var(--i) + 1) * 2.4deg));transform-origin:50% 100%;transition:transform .3s cubic-bezier(.2,.7,.2,1)}
-.cg-baraja-carta:nth-child(2){z-index:-2}.cg-baraja-carta:nth-child(3){z-index:-3}
-.cg-baraja-dorso{display:block;height:100%;border-radius:9px;border:1px solid color-mix(in srgb,var(--marco) 55%,transparent);
- background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--marco) 35%,transparent) 0 10%,transparent 11%),
-  repeating-conic-gradient(from 0deg at 50% 50%,#ffffff07 0 10deg,transparent 10deg 20deg),
-  radial-gradient(120% 80% at 50% 50%,color-mix(in srgb,var(--tinte) 80%,#000),#0b0a0e 75%)}
-.cg-baraja:hover .cg-baraja-carta,.cg-baraja:focus-within .cg-baraja-carta{transform:translate(calc((var(--i) + 1) * 16px),calc((var(--i) + 1) * -8px)) rotate(calc((var(--i) + 1) * 6deg))}
-.cg-baraja-abrir{position:absolute;right:-14px;top:-14px;z-index:4;display:flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border:1px solid #e8c46a;border-radius:2px;
- background:linear-gradient(#2a2112,#14100a);color:#f0d68a;font:600 11px/1 var(--font-sans,Arial,sans-serif);letter-spacing:.12em;text-transform:uppercase;box-shadow:0 6px 14px #000b;cursor:pointer}
+/* ── Baraja detrás de su personaje ─────────────────────────────────────────
+   Un dorso por cada carta. El grosor total (--grosor, ≤ 18 px) cabe en el hueco de la rejilla: nunca toca a la vecina. */
+.cg-baraja{position:relative;isolation:isolate;z-index:1}
+.cg-baraja.is-abierta{z-index:40}
+.cg-baraja-pila{position:absolute;inset:0;z-index:-1;pointer-events:none}
+.cg-baraja-carta{position:absolute;inset:0;border-radius:14px;border:1px solid color-mix(in srgb,var(--marco) 45%,#000);
+ background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--marco) 30%,transparent) 0 9%,transparent 10%),linear-gradient(150deg,color-mix(in srgb,var(--marco) 40%,#140f08),#0d0a07 60%);
+ box-shadow:1px -1px 0 color-mix(in srgb,var(--marco) 45%,#d8c8a0 20%),0 0 0 .5px #000;transform:translate(calc(var(--i) * var(--paso)),calc(var(--i) * var(--paso) * -.8));transition:transform .3s cubic-bezier(.2,.7,.2,1)}
+.cg-baraja.is-abierta .cg-baraja-carta{transform:translate(calc(var(--i) * var(--paso) * 1.15),calc(var(--i) * var(--paso) * -1))}
+.cg-baraja-abrir{position:absolute;left:50%;bottom:-22px;z-index:4;translate:-50% 0;display:flex;align-items:center;gap:6px;padding:4px 5px 4px 10px;border:1px solid #e8c46a;border-radius:2px;
+ background:linear-gradient(#2a2112,#14100a);color:#f0d68a;font:600 11px/1 var(--font-sans,Arial,sans-serif);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;box-shadow:0 6px 14px #000b;cursor:pointer}
 .cg-baraja-abrir b{display:grid;place-items:center;min-width:24px;height:20px;padding:0 5px;border-radius:2px;background:#e8c46a;color:#1a1408;font-size:12px;letter-spacing:0}
-.cg-baraja-abrir:hover,.cg-baraja-abrir:focus-visible{background:linear-gradient(#3a2d16,#1c160c);outline:none;box-shadow:0 0 0 2px #e8c46a66,0 6px 14px #000b}
+.cg-baraja-abrir:hover,.cg-baraja-abrir:focus-visible,.cg-baraja-abrir[aria-expanded=true]{background:linear-gradient(#3a2d16,#1c160c);outline:none;box-shadow:0 0 0 2px #e8c46a66,0 6px 14px #000b}
+/* Abanico: las cartas boca arriba, sin entrar en la baraja. */
+.cg-abanico{position:absolute;top:-6px;z-index:5;width:min(560px,90vw);max-height:min(560px,78vh);display:flex;flex-direction:column;
+ border:1px solid #e8c46a88;border-radius:10px;background:linear-gradient(#1b1710f7,#0d0b08f7);box-shadow:0 24px 60px #000e,0 0 0 1px #000;
+ animation:cg-abanico-abre .22s cubic-bezier(.2,.7,.2,1) both}
+.cg-abanico.is-derecha{left:calc(100% + var(--grosor) + 14px);transform-origin:0 20px}
+.cg-abanico.is-izquierda{right:calc(100% + 14px);transform-origin:100% 20px}
+@keyframes cg-abanico-abre{from{opacity:0;transform:scale(.94)}}
+.cg-abanico header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:12px 14px 10px;border-bottom:1px solid #e8c46a33}
+.cg-abanico header small{display:block;font:600 10px/1.4 var(--font-sans,Arial,sans-serif);letter-spacing:.16em;text-transform:uppercase;color:#c9a24a}
+.cg-abanico header strong{font:500 19px/1.2 var(--font-serif,Georgia,serif);color:#f3e3b5}
+.cg-abanico header>span{display:flex;align-items:center;gap:10px;font-size:13px;color:#a9aaa5}
+.cg-abanico-cerrar{display:grid;place-items:center;width:30px;height:30px;border:1px solid #e8c46a55;border-radius:4px;color:#f0d68a}
+.cg-abanico-cerrar:hover,.cg-abanico-cerrar:focus-visible{background:#e8c46a1a;outline:none}
+.cg-abanico ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:12px;margin:0;padding:14px;list-style:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.cg-abanico li{animation:cg-mini-reparte .34s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--k) * 22ms)}
+@keyframes cg-mini-reparte{from{opacity:0;transform:translate(-28px,-10px) rotate(-10deg) scale(.9)}}
+.cg-abanico footer{display:flex;justify-content:flex-end;padding:10px 14px;border-top:1px solid #e8c46a33}
+.cg-mini{--marco:#c9a24a;--tinte:#5a4a1f;position:relative;display:flex;flex-direction:column;width:100%;aspect-ratio:63/88;padding:4px;border-radius:8px;cursor:pointer;text-align:center;color:inherit;
+ background:linear-gradient(150deg,color-mix(in srgb,var(--marco) 55%,#1a140a),#100c07 55%);box-shadow:0 0 0 1px #000a,0 8px 16px -8px #000d;transition:transform .18s cubic-bezier(.2,.7,.2,1),box-shadow .18s}
+.cg-mini:hover,.cg-mini:focus-visible{transform:translateY(-4px) rotate(-1deg);outline:none;box-shadow:0 0 0 1px var(--marco),0 12px 22px -8px #000e,0 0 16px -6px var(--marco)}
+.cg-mini-arte{position:relative;display:block;flex:none;height:62%;overflow:hidden;border:1px solid color-mix(in srgb,var(--marco) 65%,transparent);border-radius:5px}
+.cg-mini-arte .cg-art{position:absolute;inset:0;aspect-ratio:auto;height:100%;background:radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--tinte) 90%,#000),#0c0b0e 70%)}
+.cg-mini-arte .cg-art img{object-fit:cover;object-position:center 22%}
+.cg-mini-arte .cg-placeholder>span{display:none}
+.cg-mini-arte .cg-placeholder svg{width:34px;height:auto}
+.cg-mini-rango{position:absolute;top:7px;right:7px;display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--marco);border-radius:50%;background:#0d0a06dd;font:700 10px/1 Georgia,serif;color:#f3e3b5}
+.cg-mini strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:5px 2px 0;font:600 11.5px/1.2 var(--font-serif,Georgia,serif);color:#f3e3b5}
+.cg-mini small{margin-top:auto;font:10px/1.4 var(--font-sans,Arial,sans-serif);letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--marco) 75%,#bbb)}
 .cg-baraja-cab{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin:6px 0 18px;padding:14px 16px;border:1px solid #e8c46a55;border-radius:4px;background:linear-gradient(100deg,#2a211233,transparent)}
 .cg-baraja-cab h3{margin:2px 0 4px;font:500 26px/1.15 var(--font-serif,Georgia,serif);color:#f3e3b5}
 .cg-baraja-cab p{margin:0;font-size:14px;color:#a9aaa5}
@@ -201,7 +227,7 @@
 .cg-mesa.is-baraja .cg-carta{animation-name:cg-carta-reparte}
 @keyframes cg-carta-reparte{from{opacity:0;transform:translate(-40px,-30px) rotate(-8deg) scale(.92)}}
 @media(max-width:700px){
- .cg-mesa{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px;padding:12px 12px 6px 2px}
+ .cg-mesa{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 16px;padding:12px 12px 6px 2px}
  .cg-carta{padding:4px;border-radius:10px}
  .cg-carta .cg-open{border-radius:7px}
  .cg-carta-cab{padding:5px 6px;font-size:9px}
@@ -216,11 +242,20 @@
  .cg-carta-pie{padding:5px 6px 6px}
  .cg-carta-chips>span{font-size:9.5px;padding:1px 4px}
  .cg-carta-sello{font-size:9.5px}
- .cg-baraja-carta{border-radius:10px;transform:translate(calc((var(--i) + 1) * 4px),calc((var(--i) + 1) * -4px)) rotate(calc((var(--i) + 1) * 2deg))}
- .cg-baraja-abrir{right:-8px;top:-12px;font-size:9.5px;padding:4px 4px 4px 7px}
+}
+@media(max-width:700px){
+ /* En móvil el grosor se reduce para el hueco más estrecho y el abanico es una hoja inferior. */
+ .cg-baraja{--paso-movil:.6}
+ .cg-baraja-carta{border-radius:10px;transform:translate(calc(var(--i) * var(--paso) * .6),calc(var(--i) * var(--paso) * -.5))}
+ .cg-baraja.is-abierta .cg-baraja-carta{transform:translate(calc(var(--i) * var(--paso) * .6),calc(var(--i) * var(--paso) * -.5))}
+ .cg-baraja-abrir{font-size:9.5px;padding:3px 4px 3px 7px;bottom:-19px}
+ .cg-abanico,.cg-abanico.is-derecha,.cg-abanico.is-izquierda{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;max-height:72dvh;border-radius:14px 14px 0 0;transform-origin:50% 100%;padding-bottom:env(safe-area-inset-bottom)}
+ .cg-abanico ul{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}
 }
 @media(max-width:380px){.cg-mesa{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){
+ .cg-abanico,.cg-abanico li{animation:none}
+ .cg-mini{transition:none}
  .cg-carta,.cg-mesa.is-baraja .cg-carta{animation:none;transition:none}
  .cg-carta:hover,.cg-carta:focus-within{transform:none}
  .cg-carta-arte .cg-art img,.cg-baraja-carta{transition:none}

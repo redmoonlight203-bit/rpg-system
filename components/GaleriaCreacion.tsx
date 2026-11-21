@@ -3,7 +3,7 @@ import {duenoDe,duenosConPersonales,filtrarAmbito,type FiltroAmbito} from "../li
 import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Search, ImagePlus, Upload, Link2, Save, ImageOff, Swords, Shield, Users, Sparkles, Package, Crown, Shapes, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, ImagePlus, Upload, Link2, Save, ImageOff, X, Swords, Shield, Users, Sparkles, Package, Crown, Shapes, Pencil, Trash2 } from "lucide-react";
 import { TIPOS, EFECTOS_NOMBRE, efectosDe, formula, type TipoCreacion, type Efecto } from "../lib/creacion";
 import { EVENTOS, EFECTOS_REGLA, DESTINOS, type CondicionRegla, type EfectoRegla, type ValorRegla, type Regla } from "../lib/reglas";
 import { type ReglaPasiva } from "../lib/pasivas";
@@ -93,14 +93,56 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
       const mazo = baraja ? [] : props.items.filter((i) => i.personal_de === item.id);
       const carta = <Carta key={item.id} item={item} props={props} dueno={baraja ? null : dueno(item)} orden={orden} portada={!!baraja && item.id === ambito} onAbrir={() => abrir(item.id)} />;
       if (!mazo.length) return carta;
-      return <div key={item.id} className="cg-baraja" style={{ "--n": Math.min(3, mazo.length) } as React.CSSProperties}>
-        {mazo.slice(0, 3).map((m, k) => <span key={m.id} className={`cg-baraja-carta cg-tipo-${props.tipoDe(m)}`} style={{ "--i": k } as React.CSSProperties} aria-hidden="true"><span className="cg-baraja-dorso" /></span>)}
-        {carta}
-        <button type="button" className="cg-baraja-abrir" onClick={() => { setAmbito(item.id); setTipo("todos"); setClasificacion("todos"); }} aria-label={`Abrir la baraja de ${item.nombre}: ${mazo.length} cartas personales`}><span>Baraja</span><b>{mazo.length}</b></button>
-      </div>;
+      return <Baraja key={item.id} dueno={item} mazo={mazo} props={props} onAbrirCarta={abrir} onEntrar={() => { setAmbito(item.id); setTipo("todos"); setClasificacion("todos"); }}>{carta}</Baraja>;
     })}</div>}
     {!props.cargando && !visibles.length && <div className="cg-empty"><Shapes size={30} /><h3>No hay creaciones con estos filtros</h3><p>Prueba otro nombre o muestra toda tu colección.</p><button className="cg-button" onClick={() => { setBusqueda(""); setTipo("todos"); setClasificacion("todos"); setAmbito("todas"); }}>Limpiar filtros</button></div>}
   </section>;
+}
+
+/**
+ * Baraja de un personaje: tantos dorsos detrás como cartas tiene (el grosor nunca invade la carta vecina).
+ * Al pasar el ratón (o al pulsar «Baraja» en pantallas táctiles) se abre en abanico con las cartas boca arriba,
+ * y cada una se puede abrir sin entrar en la baraja.
+ */
+function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEntrar, children }: { dueno: T; mazo: T[]; props: Props<T>; onAbrirCarta: (id: string) => void; onEntrar: () => void; children: React.ReactNode }) {
+  const [abierta, setAbierta] = useState(false), [lado, setLado] = useState<"derecha" | "izquierda">("derecha");
+  const caja = useRef<HTMLDivElement>(null), espera = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Grosor total de la baraja: 18 px como máximo, repartidos entre todas sus cartas (cabe en el hueco entre cartas).
+  const paso = Math.min(3, 18 / mazo.length);
+  function abrir() {
+    clearTimeout(espera.current);
+    const r = caja.current?.getBoundingClientRect();
+    if (r) setLado(r.right + Math.min(560, innerWidth * .9) + 24 > innerWidth && r.left > innerWidth - r.right ? "izquierda" : "derecha");
+    setAbierta(true);
+  }
+  const intencion = () => { clearTimeout(espera.current); espera.current = setTimeout(abrir, 220); };
+  const cerrar = (demora = 180) => { clearTimeout(espera.current); espera.current = setTimeout(() => setAbierta(false), demora); };
+  useEffect(() => () => clearTimeout(espera.current), []);
+  useEffect(() => {
+    if (!abierta) return;
+    const tecla = (e: KeyboardEvent) => { if (e.key === "Escape") setAbierta(false); };
+    const fuera = (e: PointerEvent) => { if (!caja.current?.contains(e.target as Node)) setAbierta(false); };
+    addEventListener("keydown", tecla); addEventListener("pointerdown", fuera);
+    return () => { removeEventListener("keydown", tecla); removeEventListener("pointerdown", fuera); };
+  }, [abierta]);
+  const id = `baraja-${dueno.id}`;
+  return <div ref={caja} className={`cg-baraja ${abierta ? "is-abierta" : ""}`} style={{ "--paso": `${paso}px`, "--grosor": `${paso * mazo.length}px` } as React.CSSProperties}
+    onPointerEnter={(e) => { if (e.pointerType === "mouse") intencion(); }} onPointerLeave={(e) => { if (e.pointerType === "mouse") cerrar(); }}
+    onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) cerrar(0); }}>
+    <span className="cg-baraja-pila" aria-hidden="true">{mazo.map((m, i) => <span key={m.id} className={`cg-baraja-carta cg-tipo-${props.tipoDe(m)}`} style={{ "--i": mazo.length - i } as React.CSSProperties} />)}</span>
+    {children}
+    <button type="button" className="cg-baraja-abrir" aria-expanded={abierta} aria-controls={id} onClick={() => (abierta ? setAbierta(false) : abrir())} aria-label={`Baraja de ${dueno.nombre}: ${mazo.length} cartas personales`}><span>Baraja</span><b>{mazo.length}</b></button>
+    {abierta && <div id={id} className={`cg-abanico is-${lado}`} role="dialog" aria-label={`Baraja de ${dueno.nombre}`} onPointerEnter={() => clearTimeout(espera.current)}>
+      <header><div><small>Baraja personal</small><strong>{dueno.nombre}</strong></div><span>{mazo.length === 1 ? "1 carta" : `${mazo.length} cartas`}<button type="button" className="cg-abanico-cerrar" aria-label="Cerrar la baraja" onClick={() => setAbierta(false)}><X size={16} /></button></span></header>
+      <ul>{mazo.map((m, i) => { const t = props.tipoDe(m); return <li key={m.id} style={{ "--k": Math.min(i, 18) } as React.CSSProperties}>
+        <button type="button" className={`cg-mini cg-tipo-${props.esMonstruo?.(m) ? "monstruo" : t}`} onClick={() => onAbrirCarta(m.id)} title={m.descripcion || m.nombre}>
+          <span className="cg-mini-arte"><Portada src={m.imagen_url} nombre={m.nombre} tipo={t} icono={props.iconoDe(m)} /></span>
+          <span className="cg-mini-rango">{m.clase || "D"}</span>
+          <strong>{m.nombre}</strong><small>{TIPOS.find((x) => x.valor === t)?.nombre}</small>
+        </button></li>; })}</ul>
+      <footer><button type="button" className="cg-button" onClick={onEntrar}>Ver la baraja completa</button></footer>
+    </div>}
+  </div>;
 }
 
 /** Carta de La creación: proporción de naipe (63×88), marco por tipo y arte recortado para que siempre cuadre. */
