@@ -23,7 +23,8 @@
 - 3.1–3.4 hechos (16-11) con lo medible desde el código y la base: recorridos en ciclo-juego.md, clasificación, auditoría y decisión por pantalla en pantallas.md, menús reordenados.
 - 3.6 (16-11): errores traducidos y «Reintentar» en las pantallas núcleo. Faltan las de apoyo.
 - Decisiones del usuario (16-11): Pactos con Kuroi enlazado para el jugador; Guía visual se queda.
-- SEGURIDAD (prioridad): 17 tablas con «Permitir todo» siguen permitiendo escribir a cualquier usuario con sesión; ya no a anónimos. Ver pantallas.md → Seguridad.
+- SEGURIDAD resuelta (21-11): las 17 tablas con «Permitir todo» ya solo las escribe Kuroi (o el propio jugador donde corresponde). Ver pantallas.md → Seguridad.
+- 3.6 completado (21-11): «Reintentar» también en party, árbol, experiencia y tiendas.
 - 3.7–3.8: select * y móvil; tiempos reales requieren sesión con personas.
 - Nota: no esconder reglas ni alma únicamente por la clasificación propuesta: son funciones actuales de creación y cuenta que requieren revisión de uso.
 

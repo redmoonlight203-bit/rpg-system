@@ -6,6 +6,7 @@ import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent} from 'reac
 import Link from 'next/link';
 import {GitBranch,Plus,Sparkles,Lock,Check,Trash2,Save,ArrowLeft,TrendingUp,RefreshCw} from 'lucide-react';
 import {supabase} from '../lib/supabase';
+import {mensajeError} from '../lib/errores';
 import {distribuirArbol,descendientes,type NodoArbol} from '../lib/arbol';
 import {experienciaParaNivel} from '../lib/progresion';
 import './arbol.css';
@@ -16,7 +17,7 @@ type Formulario={id:string;padre:string;tipo:NodoArbol['tipo'];nombre:string;des
 const vacio=(padre=''):Formulario=>({id:'',padre,tipo:'rama',nombre:'',descripcion:'',habilidad:'',atributo:'',incremento:'1',coste:'1',nivel:'1'});
 export default function ArbolHabilidades({gm=false}:{gm?:boolean}){
  const [personajes,setPersonajes]=useState<Personaje[]>([]),[id,setId]=useState(''),[lectura,setLectura]=useState<Lectura|null>(null),[habilidades,setHabilidades]=useState<Habilidad[]>([]),[duenos,setDuenos]=useState<Record<string,string>>({});
- const [seleccion,setSeleccion]=useState(''),[form,setForm]=useState<Formulario|null>(null),[busqueda,setBusqueda]=useState(''),[error,setError]=useState(''),[aviso,setAviso]=useState(''),[ocupado,setOcupado]=useState(false),[cargando,setCargando]=useState(true),[sincronizado,setSincronizado]=useState(false);
+ const [seleccion,setSeleccion]=useState(''),[form,setForm]=useState<Formulario|null>(null),[busqueda,setBusqueda]=useState(''),[error,setError]=useState(''),[aviso,setAviso]=useState(''),[ocupado,setOcupado]=useState(false),[cargando,setCargando]=useState(true),[sincronizado,setSincronizado]=useState(false),[intento,setIntento]=useState(0);
  const scrollArbol=useRef<HTMLDivElement>(null);
  const bloqueo=useRef(false),peticion=useRef(0),eleccionActual=useRef(id);eleccionActual.current=id;
  useEffect(()=>{let vivo=true;async function iniciar(){try{
@@ -26,11 +27,11 @@ export default function ArbolHabilidades({gm=false}:{gm?:boolean}){
   const preferido=gm?new URLSearchParams(window.location.search).get('personaje'):localStorage.getItem('personaje_activo_id');
   setId(String(r.data?.find(p=>String(p.id)===preferido)?.id||r.data?.[0]?.id||''));
   if(gm){const [h,u]=await Promise.all([supabase.from('forja_maestra').select('*').in('tipo_creacion',['habilidad','pasiva','personaje']).eq('estado','aprobado').order('nombre'),supabase.from('perfiles').select('id,email')]);if(h.error||u.error)throw h.error||u.error;if(vivo){const filas=(h.data||[]) as Habilidad[];setHabilidades(filas.filter(f=>f.tipo_creacion!=='personaje').map(f=>({id:f.id,nombre:f.nombre,descripcion:f.descripcion,tipo_creacion:f.tipo_creacion,personal_de:f.personal_de??null,dueno:duenoDe(f,filas)})));setDuenos(Object.fromEntries((u.data||[]).map(p=>[p.id,p.email])));}}
- }catch(e){if(vivo)setError((e as Error).message);}finally{if(vivo)setCargando(false);}}void iniciar();return()=>{vivo=false;};},[gm]);
+ }catch(e){if(vivo)setError(mensajeError(e));}finally{if(vivo)setCargando(false);}}void iniciar();return()=>{vivo=false;};},[gm,intento]);
  const cargar=useCallback(async()=>{if(!id)return;const num=++peticion.current;try{
   const r=await supabase.rpc('arbol_leer',{p_personaje:Number(id)});if(r.error)throw r.error;
   if(num===peticion.current&&eleccionActual.current===id){setLectura(r.data as Lectura);setPersonajes(prev=>prev.map(p=>String(p.id)===id?(r.data as Lectura).personaje:p));}
- }catch(e){if(num===peticion.current&&eleccionActual.current===id)setError((e as Error).message);}},[id]);
+ }catch(e){if(num===peticion.current&&eleccionActual.current===id)setError(mensajeError(e));}},[id]);
  useTiempoReal(cargar);
  useEffect(()=>{if(!id)return;void cargar();const canal=supabase.channel(`arbol-${gm?'gm':'pj'}-${id}`).on('postgres_changes',{event:'*',schema:'public',table:'arbol_nodos',filter:`personaje_id=eq.${id}`},()=>void cargar()).on('postgres_changes',{event:'UPDATE',schema:'public',table:'personajes',filter:`id=eq.${id}`},()=>void cargar()).subscribe(estado=>setSincronizado(estado==='SUBSCRIBED'));
   const refrescar=()=>{if(!document.hidden)void cargar();};const t=setInterval(refrescar,5000);window.addEventListener('focus',refrescar);return()=>{clearInterval(t);window.removeEventListener('focus',refrescar);void supabase.removeChannel(canal);};},[id,gm,cargar]);
@@ -41,13 +42,13 @@ export default function ArbolHabilidades({gm=false}:{gm?:boolean}){
  function cambiar(valor:string){if(bloqueo.current)return;++peticion.current;setId(valor);setLectura(null);setSeleccion('');setForm(null);setAviso('');setError('');setSincronizado(false);if(!gm)localStorage.setItem('personaje_activo_id',valor);}
  async function operar(nombre:string,args:Record<string,unknown>,mensaje:string){if(bloqueo.current)return;bloqueo.current=true;setOcupado(true);setError('');setAviso('');try{
   const r=await supabase.rpc(nombre,{p_personaje:Number(id),...args});if(r.error)throw r.error;setAviso(mensaje);setForm(null);await cargar();
- }catch(e){setError((e as Error).message);}finally{bloqueo.current=false;setOcupado(false);}}
+ }catch(e){setError(mensajeError(e));}finally{bloqueo.current=false;setOcupado(false);}}
  function guardar(e:FormEvent){e.preventDefault();if(!form)return;void operar('arbol_guardar',{p_nodo:form.id||null,p_padre:form.padre||null,p_tipo:form.tipo,p_nombre:form.nombre,p_descripcion:form.descripcion,p_habilidad:form.habilidad||null,p_atributo:form.atributo||null,p_incremento:form.tipo==='estadistica'?Number(form.incremento):null,p_coste:form.tipo==='rama'?0:Number(form.coste),p_nivel:Number(form.nivel)},'Rama guardada. El jugador la verá en su árbol.');}
  function editar(n:NodoArbol){setForm({id:n.id,padre:n.padre_id||'',tipo:n.tipo,nombre:n.nombre,descripcion:n.descripcion,habilidad:n.habilidad_id||'',atributo:n.atributo||'',incremento:String(n.incremento||1),coste:String(n.coste||1),nivel:String(n.nivel_minimo)});}
  return <main className={`arbol-page ${gm?'arbol-gm':''}`}>
   <Link className="arbol-back" href={gm?'/dm/experiencia':'/ficha/personaje'}><ArrowLeft size={16}/>{gm?'Experiencia y niveles':'Volver al personaje'}</Link>
   <Cabecera kanji="樹" migas={gm?'Kuroi · Progresión':'Reencarnado · Sendas del poder'} titulo="Árbol de habilidades" subtitulo={gm?'Prepara el futuro de cada personaje: conecta ramas, habilidades y mejoras de estadísticas.':'Cada personaje tiene su propio camino. Ganas 3 puntos por nivel y decides dónde invertirlos.'}/>
-  {error&&<p className="arbol-error" role="alert">{error}</p>}{aviso&&<p className="arbol-notice" role="status">{aviso}</p>}
+  {error&&<p className="arbol-error" role="alert">{error} <button type="button" className="arbol-reintentar" disabled={ocupado} onClick={()=>{setError('');if(id)void cargar();else setIntento(i=>i+1);}}>Reintentar</button></p>}{aviso&&<p className="arbol-notice" role="status">{aviso}</p>}
   <section className="arbol-toolbar"><label>Personaje<select disabled={ocupado} value={id} onChange={e=>cambiar(e.target.value)}><option value="" disabled>Elige un personaje</option>{personajes.map(p=><option key={p.id} value={p.id}>{p.nombre} · #{p.id}{gm?` · ${duenos[p.user_id]||'Jugador'}`:''}</option>)}</select></label><span className="arbol-live">{sincronizado?'● En tiempo real':'Actualización automática'}</span><button onClick={()=>void cargar()} disabled={ocupado||!id} aria-label="Actualizar árbol"><RefreshCw size={18}/></button>{gm&&id&&<button disabled={ocupado} onClick={()=>{setForm(vacio());setSeleccion('');}}><Plus size={17}/>Nueva rama</button>}</section>
   {cargando?<p className="arbol-empty">Cargando personajes…</p>:!id?<p className="arbol-empty">No hay personajes vivos y aprobados. Cada uno tendrá su árbol individual al ser aprobado.</p>:!pj?<p className="arbol-empty">Abriendo árbol…</p>:<>
    <section className="arbol-summary"><div><span className="arbol-eyebrow">{pj.raza} / NIVEL {pj.nivel}</span><h2>{pj.nombre}</h2><p>{pj.exp_total.toLocaleString('es-DO')} XP{pj.nivel<100?` · Siguiente nivel: ${experienciaParaNivel(pj.nivel+1).toLocaleString('es-DO')} XP`:''}</p></div><div className="arbol-points"><strong>{pj.puntos_habilidad}</strong><span>PUNTOS DISPONIBLES</span><small>+3 por cada nivel ganado</small></div></section>
