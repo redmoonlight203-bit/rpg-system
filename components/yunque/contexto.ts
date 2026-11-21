@@ -39,8 +39,8 @@ export function faltantesDe(b:Borrador,ctx:ContextoTaller,id:string):string[]{
  return faltantesRequisitos(item.requisitos_uso,linaje(ctx.categorias,b.clasificacion).flatMap(c=>[c.clave,c.nombre]),{...valoresBorrador(b,ctx,false),nivel:mallaActiva(b,ctx)?b.nivelMaximo:1},b.habilidades);
 }
 /** La colección vista como piezas enlazables (tipo resuelto con las familias). */
-export function enlazables(ctx:ContextoTaller,excluir?:string):(Enlazable&{icono?:string|null;clase?:string;imagen?:string})[]{
- return activas(ctx).filter(c=>c.id!==excluir).map(c=>({id:c.id,nombre:c.nombre,tipo:tipoDe(c,ctx.categorias),slot_tipo:c.slot_tipo,icono:c.icono,clase:c.clase,imagen:c.imagen_url}));
+export function enlazables(ctx:ContextoTaller,excluir?:string):(Enlazable&{icono?:string|null;clase?:string;imagen?:string;personal_de?:string|null})[]{
+ return activas(ctx).filter(c=>c.id!==excluir).map(c=>({id:c.id,nombre:c.nombre,tipo:tipoDe(c,ctx.categorias),slot_tipo:c.slot_tipo,icono:c.icono,clase:c.clase,imagen:c.imagen_url,personal_de:c.personal_de??null}));
 }
 /** Cambios del borrador al elegir familia: atributos y rangos por defecto de la familia (igual que la Forja). */
 export function cambiosClasificacion(b:Borrador,ctx:ContextoTaller,clave:string):Partial<Borrador>{

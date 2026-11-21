@@ -126,3 +126,131 @@
 @media(hover:none){.cg-open:hover:not(:focus-visible) .cg-tooltip{display:none}}
 .cg-tooltip .help-summary,.cg-effect-tooltip .help-summary{overflow-wrap:anywhere;white-space:pre-line}
 .cg-alma-estado{display:inline-flex;border:1px solid var(--color-neutral-500);border-radius:2px;padding:3px 9px;font-size:13px;color:var(--color-neutral-200);background:color-mix(in srgb, var(--color-neutral-700) 40.00%, transparent)}
+/* Creaciones personales */
+.cg-personal{display:inline-flex;align-self:flex-start;border:1px solid color-mix(in srgb,var(--color-gold-soft,#d6b46a) 60%,transparent);border-radius:2px;padding:2px 8px;font-size:12px;color:var(--color-gold-soft,#d6b46a);background:color-mix(in srgb,var(--color-gold-soft,#d6b46a) 10%,transparent)}
+.cg-personales-aviso{margin:0 0 12px;font-size:14px;color:var(--color-text-muted,#a9aaa5)}
+.cg-personales-aviso button{color:var(--color-gold-soft,#d6b46a);text-decoration:underline}
+
+/* ── Cartas de La creación ─────────────────────────────────────────────────────
+   Marco ilustrado por tipo (public/arte/marcos), teñido según el rango. El arte llena el interior y se recorta
+   (cover) para que siempre cuadre. Proporción 2:3, la de los marcos. Los tamaños de letra usan unidades del
+   contenedor (cqi): la misma carta sirve para la galería, el móvil y el abanico. */
+.cg-mesa{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:48px 26px;align-items:start;padding:14px 18px 8px 4px}
+.cg-carta{--marco:#e0b955;--tinte:#4a2a1c;--tinta:#f6e6b8;--filtro:none;--brillo:#e0b95555;--sx:12%;--st:9%;--sb:14%;
+ position:relative;min-width:0;aspect-ratio:2/3;container-type:inline-size;filter:drop-shadow(0 14px 18px #000b);
+ transition:transform .22s cubic-bezier(.2,.7,.2,1),filter .22s;animation:cg-carta-entra .42s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--orden,0) * 28ms)}
+.cg-carta:hover,.cg-carta:focus-within{transform:translateY(-6px) rotate(-.4deg);filter:drop-shadow(0 20px 22px #000d) drop-shadow(0 0 14px var(--brillo))}
+@keyframes cg-carta-entra{from{opacity:0;transform:translateY(14px) scale(.97)}}
+/* Zona segura de texto de cada marco (medida sobre la imagen). */
+.cg-tipo-objeto{--sx:12%;--st:8.5%;--sb:14%}
+.cg-tipo-habilidad{--sx:12.5%;--st:9.5%;--sb:13.5%}
+.cg-tipo-titulo,.cg-tipo-pasiva,.cg-tipo-otro{--sx:14%;--st:8%;--sb:15%}
+.cg-tipo-personaje{--sx:15%;--st:11%;--sb:15.5%}
+.cg-tipo-monstruo{--sx:14.5%;--st:11%;--sb:13.5%}
+/* Rango: color del marco (filtro sobre el oro y el carmesí originales), acento del texto y fondo del arte. */
+.cg-rango-f{--filtro:grayscale(1) brightness(.82) contrast(1.05);--marco:#a9a9a9;--tinta:#e6e6e6;--tinte:#26262a;--brillo:#bbbbbb44}
+.cg-rango-d{--filtro:sepia(.45) saturate(.75) hue-rotate(-14deg) brightness(.82);--marco:#c08350;--tinta:#f2dcc4;--tinte:#3a2418;--brillo:#c0835055}
+.cg-rango-c{--filtro:hue-rotate(95deg) saturate(.9);--marco:#5fc795;--tinta:#d8f5e6;--tinte:#123a2a;--brillo:#5fc79555}
+.cg-rango-b{--filtro:hue-rotate(175deg) saturate(.85) brightness(1.05);--marco:#6fb6e8;--tinta:#dcefff;--tinte:#132c44;--brillo:#6fb6e855}
+.cg-rango-a{--filtro:hue-rotate(235deg) saturate(1.15);--marco:#b088f0;--tinta:#efe4ff;--tinte:#2c1a4a;--brillo:#b088f066}
+.cg-rango-s{--filtro:none;--marco:#e0b955;--tinta:#f6e6b8;--tinte:#4a2a1c;--brillo:#e0b95566}
+.cg-rango-z{--filtro:hue-rotate(-32deg) saturate(1.6) brightness(.92);--marco:#ef5a4a;--tinta:#ffe0d8;--tinte:#4a1010;--brillo:#ef5a4a77}
+.cg-rango-kuroi{--filtro:grayscale(1) contrast(1.4) brightness(.78);--marco:#d6c8ff;--tinta:#ffffff;--tinte:#0c0a14;--brillo:#9a7cff88}
+.forja-theme .cg-carta .cg-open,.cg-carta .cg-open{position:absolute;inset:0;display:block;width:100%;height:100%;padding:0;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
+.cg-carta .cg-open:focus-visible{outline:2px solid var(--marco);outline-offset:4px;border-radius:6%}
+.cg-carta-arte{position:absolute;inset:3.5%;overflow:hidden;border-radius:5% / 3.4%;background:radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--tinte) 95%,#000),#08070b 75%)}
+.cg-carta-arte .cg-art{position:absolute;inset:0;aspect-ratio:auto;height:100%;background:none}
+.cg-carta-arte .cg-art img{object-fit:cover;object-position:center 22%;transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.cg-carta:hover .cg-carta-arte .cg-art img{transform:scale(1.05)}
+.cg-carta-arte .cg-placeholder{position:absolute;inset:0;display:grid;place-items:center;padding-bottom:28%;color:var(--marco)}
+.cg-carta-arte .cg-placeholder>span{display:none}
+.cg-carta-arte .cg-placeholder svg{width:30cqi;height:auto;opacity:.7}
+.cg-carta-velo{position:absolute;inset:3.5%;border-radius:5% / 3.4%;pointer-events:none;
+ background:linear-gradient(#000a,transparent 20%,transparent 40%,color-mix(in srgb,var(--tinte) 40%,#050407e6) 66%,#050407f2)}
+.cg-carta-marco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;user-select:none;filter:var(--filtro)}
+.cg-rango-kuroi .cg-carta-marco{filter:var(--filtro) drop-shadow(0 0 3cqi #9a7cffaa)}
+.cg-carta-cab{position:absolute;top:var(--st);left:var(--sx);right:var(--sx);display:flex;align-items:center;justify-content:space-between;gap:2cqi;
+ font:700 max(9px,4.4cqi)/1 var(--font-sans,Arial,sans-serif);letter-spacing:.16em;text-transform:uppercase;color:var(--tinta);text-shadow:0 1px 3px #000,0 0 8px #000}
+.cg-carta-tipo{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cg-carta-rango{position:relative;isolation:isolate;flex:none;display:grid;place-items:center;width:max(20px,12cqi);height:max(20px,12cqi);font:700 max(10px,5.6cqi)/1 Georgia,serif;letter-spacing:0;color:var(--tinta)}
+.cg-carta-rango::before{content:"";position:absolute;inset:16%;z-index:-1;transform:rotate(45deg);border:1px solid var(--marco);background:radial-gradient(circle,color-mix(in srgb,var(--tinte) 80%,#000),#050407);box-shadow:0 0 2.6cqi -.4cqi var(--marco)}
+.cg-carta-info{position:absolute;left:var(--sx);right:var(--sx);bottom:var(--sb);display:grid;gap:1.6cqi;text-shadow:0 1px 3px #000}
+.cg-carta-nombre{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font:600 max(12px,7.4cqi)/1.15 var(--font-serif,Georgia,serif);color:var(--tinta)}
+.cg-carta-clasif{margin-top:-1cqi;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:max(9px,4.4cqi)/1.2 var(--font-sans,Arial,sans-serif);letter-spacing:.06em;color:var(--marco)}
+.cg-carta-texto{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font:max(9.5px,5.4cqi)/1.4 var(--font-sans,Arial,sans-serif);color:#d6d0c2}
+.cg-carta-pie{display:grid;gap:1.4cqi;padding-top:1.8cqi;border-top:1px solid color-mix(in srgb,var(--marco) 40%,transparent)}
+.cg-carta-sello{justify-self:start;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:.4cqi 2.6cqi;border-radius:2px;font:600 max(9px,4.6cqi)/1.5 var(--font-sans,Arial,sans-serif);letter-spacing:.04em;color:var(--tinta);background:color-mix(in srgb,var(--marco) 28%,#000a);border:1px solid color-mix(in srgb,var(--marco) 60%,transparent);text-shadow:none}
+.cg-carta-sello.is-alma{color:#efe4ff;border-color:#a98ae6;background:#2c1a4acc}
+.cg-carta-chips{display:flex;gap:1.6cqi;overflow:hidden;white-space:nowrap}
+.cg-carta-chips>span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:.3cqi 2.2cqi;border:1px solid #ffffff26;border-radius:2px;background:#0008;font:max(9px,4.8cqi)/1.5 var(--font-sans,Arial,sans-serif);color:#c7ccce;text-shadow:none}
+.cg-carta-chips b{margin-left:1cqi;color:var(--tinta)}
+.cg-carta.is-portada::before{content:"Portada";position:absolute;top:-11px;left:50%;z-index:3;translate:-50% 0;padding:2px 10px;border-radius:2px;font:700 10px/1.6 var(--font-sans,Arial,sans-serif);letter-spacing:.16em;text-transform:uppercase;color:#1a1408;background:linear-gradient(#f2d98c,#c9a24a)}
+/* Carta pequeña (abanico de la baraja): solo arte, marco, rango y nombre. */
+.cg-carta.is-mini{animation:none;filter:drop-shadow(0 8px 10px #000c)}
+.cg-carta.is-mini .cg-carta-cab{font-size:0}
+.cg-carta.is-mini .cg-carta-tipo{display:none}
+.cg-carta.is-mini .cg-carta-cab{justify-content:flex-end}
+.cg-carta.is-mini .cg-carta-nombre{font-size:max(10.5px,9cqi);text-align:center}
+.cg-carta.is-mini .cg-carta-info{text-align:center}
+/* La ayuda aparece tras una pausa para no tapar la carta al pasar el ratón. */
+.cg-carta .cg-tooltip{display:block;visibility:hidden;opacity:0;transition:opacity .15s,visibility 0s .15s}
+.cg-carta .cg-open:hover .cg-tooltip,.cg-carta .cg-open:focus-visible .cg-tooltip{visibility:visible;opacity:1;transition:opacity .2s .8s,visibility 0s .8s}
+
+/* ── Baraja detrás de su personaje ─────────────────────────────────────────
+   Un dorso por cada carta. El grosor total (--grosor, ≤ 18 px) cabe en el hueco de la rejilla: nunca toca a la vecina. */
+.cg-baraja{position:relative;isolation:isolate;z-index:1}
+.cg-baraja.is-abierta{z-index:40}
+.cg-baraja-pila{position:absolute;inset:0;z-index:-1;pointer-events:none}
+.cg-baraja-carta{position:absolute;inset:0;border-radius:6% / 4%;border:1px solid color-mix(in srgb,var(--marco) 45%,#000);
+ background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--marco) 30%,transparent) 0 9%,transparent 10%),linear-gradient(150deg,color-mix(in srgb,var(--marco) 40%,#140f08),#0d0a07 60%);
+ box-shadow:1px -1px 0 color-mix(in srgb,var(--marco) 45%,#d8c8a0 20%),0 0 0 .5px #000;transform:translate(calc(var(--i) * var(--paso)),calc(var(--i) * var(--paso) * -.8));transition:transform .3s cubic-bezier(.2,.7,.2,1)}
+.cg-baraja.is-abierta .cg-baraja-carta{transform:translate(calc(var(--i) * var(--paso) * 1.15),calc(var(--i) * var(--paso) * -1))}
+.cg-baraja-abrir{position:absolute;left:50%;bottom:-22px;z-index:4;translate:-50% 0;display:flex;align-items:center;gap:6px;padding:4px 5px 4px 10px;border:1px solid #e8c46a;border-radius:2px;
+ background:linear-gradient(#2a2112,#14100a);color:#f0d68a;font:600 11px/1 var(--font-sans,Arial,sans-serif);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;box-shadow:0 6px 14px #000b;cursor:pointer}
+.cg-baraja-abrir b{display:grid;place-items:center;min-width:24px;height:20px;padding:0 5px;border-radius:2px;background:#e8c46a;color:#1a1408;font-size:12px;letter-spacing:0}
+.cg-baraja-abrir:hover,.cg-baraja-abrir:focus-visible,.cg-baraja-abrir[aria-expanded=true]{background:linear-gradient(#3a2d16,#1c160c);outline:none;box-shadow:0 0 0 2px #e8c46a66,0 6px 14px #000b}
+/* Abanico: las cartas boca arriba, sin entrar en la baraja. */
+.cg-abanico{position:absolute;top:-6px;z-index:5;width:min(560px,90vw);max-height:min(560px,78vh);display:flex;flex-direction:column;
+ border:1px solid #e8c46a88;border-radius:10px;background:linear-gradient(#1b1710,#0d0b08);box-shadow:0 24px 60px #000e,0 0 0 1px #000;
+ animation:cg-abanico-abre .22s cubic-bezier(.2,.7,.2,1) both}
+.cg-abanico.is-derecha{left:calc(100% + var(--grosor) + 14px);transform-origin:0 20px}
+.cg-abanico.is-izquierda{right:calc(100% + 14px);transform-origin:100% 20px}
+@keyframes cg-abanico-abre{from{opacity:0;transform:scale(.94)}}
+.cg-abanico header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding:12px 14px 10px;border-bottom:1px solid #e8c46a33}
+.cg-abanico header small{display:block;font:600 10px/1.4 var(--font-sans,Arial,sans-serif);letter-spacing:.16em;text-transform:uppercase;color:#c9a24a}
+.cg-abanico header strong{font:500 19px/1.2 var(--font-serif,Georgia,serif);color:#f3e3b5}
+.cg-abanico header>span{display:flex;align-items:center;gap:10px;font-size:13px;color:#a9aaa5}
+.cg-abanico-cerrar{display:grid;place-items:center;width:30px;height:30px;border:1px solid #e8c46a55;border-radius:4px;color:#f0d68a}
+.cg-abanico-cerrar:hover,.cg-abanico-cerrar:focus-visible{background:#e8c46a1a;outline:none}
+.cg-abanico ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:12px;margin:0;padding:14px;list-style:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.cg-abanico li{animation:cg-mini-reparte .34s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--k) * 22ms)}
+@keyframes cg-mini-reparte{from{opacity:0;transform:translate(-28px,-10px) rotate(-10deg) scale(.9)}}
+.cg-abanico footer{display:flex;justify-content:flex-end;padding:10px 14px;border-top:1px solid #e8c46a33}
+.cg-baraja-cab{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin:6px 0 18px;padding:14px 16px;border:1px solid #e8c46a55;border-radius:4px;background:linear-gradient(100deg,#2a211233,transparent)}
+.cg-baraja-cab h3{margin:2px 0 4px;font:500 26px/1.15 var(--font-serif,Georgia,serif);color:#f3e3b5}
+.cg-baraja-cab p{margin:0;font-size:14px;color:#a9aaa5}
+.cg-baraja-cab .cg-button{display:inline-flex;align-items:center;gap:6px}
+/* Al abrir la baraja, las cartas se reparten una a una. */
+.cg-mesa.is-baraja .cg-carta{animation-name:cg-carta-reparte}
+@keyframes cg-carta-reparte{from{opacity:0;transform:translate(-40px,-30px) rotate(-8deg) scale(.92)}}
+@media(max-width:700px){
+ .cg-mesa{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 16px;padding:12px 12px 6px 2px}
+ .cg-carta-texto{-webkit-line-clamp:1}
+}
+@media(max-width:700px){
+ /* En móvil el grosor se reduce para el hueco más estrecho y el abanico es una hoja inferior. */
+ .cg-baraja{--paso-movil:.6}
+ .cg-baraja-carta{transform:translate(calc(var(--i) * var(--paso) * .6),calc(var(--i) * var(--paso) * -.5))}
+ .cg-baraja.is-abierta .cg-baraja-carta{transform:translate(calc(var(--i) * var(--paso) * .6),calc(var(--i) * var(--paso) * -.5))}
+ .cg-baraja-abrir{font-size:9.5px;padding:3px 4px 3px 7px;bottom:-19px}
+ .cg-abanico,.cg-abanico.is-derecha,.cg-abanico.is-izquierda{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;max-height:72dvh;border-radius:14px 14px 0 0;transform-origin:50% 100%;padding-bottom:env(safe-area-inset-bottom)}
+ .cg-abanico ul{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}
+}
+@media(max-width:380px){.cg-mesa{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){
+ .cg-abanico,.cg-abanico li{animation:none}
+ .cg-carta,.cg-mesa.is-baraja .cg-carta{animation:none;transition:none}
+ .cg-carta:hover,.cg-carta:focus-within{transform:none}
+ .cg-carta-arte .cg-art img,.cg-baraja-carta{transition:none}
+ .cg-carta:hover .cg-carta-arte .cg-art img{transform:none}
+}

@@ -4,7 +4,7 @@ import PortadaYunque from '../../PortadaYunque';
 import IconoYugen from '../../IconoYugen';
 import {Medallon} from '../../ui/Juego';
 import {Fichas,Rueda,type Opcion} from '../Controles';
-import {TIPOS,clasificacionesPara,type TipoCreacion} from '../../../lib/creacion';
+import {TIPOS,clasificacionesPara,tipoDe,type TipoCreacion} from '../../../lib/creacion';
 import {esMonstruo} from '../../../lib/progresion';
 import {vacio,type Borrador} from '../../../lib/yunque-borrador';
 import {atributosVisibles,cambiosClasificacion,esMonstruoB,mallaActiva,type ContextoTaller} from '../contexto';
@@ -31,7 +31,7 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
  const familias=clasificacionesPara(b.tipo,ctx.categorias).filter(c=>b.tipo!=='personaje'||esMonstruo(ctx.categorias,c.clave)===b.ramaMonstruo);
  const atributos=atributosVisibles(b,ctx);
  function cambiarTipo(tipo:TipoCreacion){
-  fijar({ramaMonstruo:false,tipo,malla:tipo==='personaje'?b.malla:b.malla&&!b.ramaMonstruo,
+  fijar({ramaMonstruo:false,tipo,personal_de:tipo==='personaje'?'':b.personal_de||'',malla:tipo==='personaje'?b.malla:b.malla&&!b.ramaMonstruo,
    clasificacion:clasificacionesPara(tipo,ctx.categorias).some(c=>c.clave===b.clasificacion&&!esMonstruo(ctx.categorias,c.clave))?b.clasificacion:'',
    slot:tipo==='objeto'?b.slot:tipo==='titulo'?'titulo':'ninguno',habilidades:tipo==='personaje'?b.habilidades:[],equipamiento:tipo==='personaje'?b.equipamiento:{},efectos:tipo==='personaje'?[]:b.efectos});
  }
@@ -54,6 +54,19 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
   <label className="yq-campo yq-campo--nombre"><span>Nombre</span><input aria-label="Nombre de la creación" maxLength={160} value={b.nombre} placeholder="Espada de Mao, Kion, Bola de fuego…" onChange={e=>fijar({nombre:e.target.value})}/></label>
   {familias.length?<Fichas etiqueta="Familia" opciones={familias.map(c=>({valor:c.clave,nombre:c.nombre}))} valor={b.clasificacion} onChange={clave=>fijar(cambiosClasificacion(b,ctx,clave))} tono="oro"/>
    :<p className="yq-nota">Aún no hay familias para este tipo. Créalas en Estadísticas.</p>}
+  {b.tipo!=='personaje'&&(()=>{
+   // Creación personal: pertenece a un personaje y no se mezcla con las generales. Otros pueden aprenderla cumpliendo sus requisitos.
+   const personajes=ctx.creaciones.filter(c=>(c.tipo_creacion??tipoDe(c,ctx.categorias))==='personaje'&&c.estado!=='rechazado').sort((x,y)=>x.nombre.localeCompare(y.nombre,'es'));
+   const huerfana=!!b.personal_de&&!personajes.some(p=>p.id===b.personal_de);
+   return <label className="yq-campo yq-campo--personal"><span>Ámbito</span>
+    <select aria-label="Ámbito de la creación" value={b.personal_de||''} onChange={e=>fijar({personal_de:e.target.value})}>
+     <option value="">General · disponible para todos</option>
+     {huerfana&&<option value={b.personal_de}>Personal de un personaje que ya no existe</option>}
+     {personajes.map(p=><option key={p.id} value={p.id}>Personal de {p.nombre}</option>)}
+    </select>
+    <small>{b.personal_de?'Sale con su personaje, no entre las generales. Otros pueden aprenderla si cumplen sus requisitos.':'Aparece en la Forja y al crear cualquier personaje.'}</small>
+   </label>;
+  })()}
   {b.tipo==='objeto'&&<>
    <Fichas etiqueta="Dónde se equipa" opciones={RANURAS} valor={b.slot} onChange={slot=>fijar({slot})}/>
    <label className="yq-conmutador"><input type="checkbox" role="switch" checked={b.consumible} onChange={e=>fijar({consumible:e.target.checked})}/><span aria-hidden="true"/>Se consume al usarlo</label>

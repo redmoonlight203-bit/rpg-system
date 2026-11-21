@@ -378,7 +378,7 @@ export default function TallerYunque({b,setB,ctx,onGuardar,guardando,error,crear
   (a?.isConnected?a:botonFicha.current)?.focus();
  }
  const patchFicha=(p:Partial<Borrador>)=>{ejecutar(Object.entries(p).map(([k,v])=>({op:'fijar',ruta:[k],valor:v})));};
- const piezasColeccion=useMemo(()=>b.tipo==='personaje'?piezasVinculo(piezasEnlace):[],[b.tipo,piezasEnlace]);
+ const piezasColeccion=useMemo(()=>b.tipo==='personaje'?piezasVinculo(piezasEnlace,{id:b.id,nombre:b.nombre},ctx.creaciones):[],[b.tipo,b.id,b.nombre,piezasEnlace,ctx.creaciones]);
  const errores=grafo.nodos.filter(n=>n.error);
  const lleva=NUCLEO_LLEVA[b.tipo]||[];
  const agregar=(tipo:TipoNodo)=>operar({op:'agregar',tipo,padre:'nucleo'});
