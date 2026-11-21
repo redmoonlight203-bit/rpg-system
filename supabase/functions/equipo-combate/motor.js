@@ -1797,6 +1797,8 @@ export function cambiarEquipo(c, actorId, seleccion, rng = dadoSeguro) {
                 throw Error(`${pieza.nombre}: ${faltan.join('; ')}`);
             elegido[slot] = pieza;
         }
+        if (n.fase === 'en_curso' && n.politica?.modo !== 'entrenamiento' && (anterior.titulo?.id || '') !== (elegido.titulo?.id || ''))
+            throw Error('El título solo se puede cambiar fuera de combate.');
         if ((elegido.mano_der?.slot_tipo === 'dos_manos' && elegido.mano_izq) || (elegido.mano_izq?.slot_tipo === 'dos_manos' && elegido.mano_der))
             throw Error('Un arma de dos manos ocupa ambas manos.');
         if (JSON.stringify(Object.entries(seleccionEquipo(m)).sort()) === JSON.stringify(Object.entries(seleccion).filter(([, id]) => id).sort()))

@@ -10,15 +10,18 @@ import type {Regla} from '../lib/reglas';
 import type {Efecto} from '../lib/creacion';
 import SelectorIconoYugen from './SelectorIconoYugen';
 import ImagenIconoLogro from './ImagenIconoLogro';
+import {RetirarTitulos} from './ColeccionTitulos';
 type Titulo={id:string;nombre:string;descripcion:string;imagen_url:string;icono:string;stats:Record<string,number>;reglas:Regla[];reglas_pasivas:{nombre:string}[];configuracion_dados:Efecto[]};
 type Entidad={id:string;nombre:string;tipo_creacion:string};
 type Cuenta={id:string;email:string};
+type AjusteTitulo={especial:boolean;efecto_narrativo:string;afecta_party:boolean};
 type Personaje={id:number;nombre:string;user_id:string};
 const campo='mt-1 block w-full rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-neutral-100';
 const boton='rounded-lg border border-amber-700 px-4 py-2 disabled:opacity-40';
 export default function LogrosYTitulos(){
  const [logros,setLogros]=useState<LogroYugen[]>([]),[titulos,setTitulos]=useState<Titulo[]>([]),[entidades,setEntidades]=useState<Entidad[]>([]),[cuentas,setCuentas]=useState<Cuenta[]>([]),[personajes,setPersonajes]=useState<Personaje[]>([]);
- const [form,setForm]=useState<LogroYugen>(nuevoLogro),[modo,setModo]=useState<'editar'|'entregar'>('editar'),[error,setError]=useState(''),[aviso,setAviso]=useState(''),[ocupado,setOcupado]=useState(false),[imagenPendiente,setImagenPendiente]=useState(false);
+ const [ajustes,setAjustes]=useState<Record<string,AjusteTitulo>>({}),[ajuste,setAjuste]=useState<AjusteTitulo>({especial:false,efecto_narrativo:'',afecta_party:false});
+ const [form,setForm]=useState<LogroYugen>(nuevoLogro),[modo,setModo]=useState<'editar'|'entregar'|'retirar'>('editar'),[error,setError]=useState(''),[aviso,setAviso]=useState(''),[ocupado,setOcupado]=useState(false),[imagenPendiente,setImagenPendiente]=useState(false);
  const [logroManual,setLogroManual]=useState(''),[usuario,setUsuario]=useState(''),[personaje,setPersonaje]=useState(''),[completar,setCompletar]=useState(true),[cantidad,setCantidad]=useState(1),[motivo,setMotivo]=useState('');
  const bloqueo=useRef(false),solicitud=useRef<{clave:string;id:string}|null>(null),edicion=useRef(0);
  async function cargar(){
@@ -28,13 +31,16 @@ export default function LogrosYTitulos(){
    supabase.from('forja_maestra').select('id,nombre,tipo_creacion').eq('estado','aprobado').in('tipo_creacion',['personaje','objeto']).order('nombre'),
    supabase.from('perfiles').select('id,email').eq('rol','REENCARNADO').eq('estado','aprobado').order('email'),
    supabase.from('personajes').select('id,nombre,user_id').eq('estado_aprobacion','aprobado').order('nombre'),
+   supabase.from('titulos_ajustes').select('titulo_forja_id,especial,efecto_narrativo,afecta_party'),
   ]);
   for(const r of rs)if(r.error)throw r.error;
   setLogros(rs[0].data||[]);setTitulos(rs[1].data||[]);setEntidades(rs[2].data||[]);setCuentas(rs[3].data||[]);setPersonajes(rs[4].data||[]);
+  const mapa=Object.fromEntries((rs[5].data||[]).map((a:{titulo_forja_id:string}&AjusteTitulo)=>[a.titulo_forja_id,{especial:a.especial,efecto_narrativo:a.efecto_narrativo,afecta_party:a.afecta_party}]));setAjustes(mapa);return mapa;
  }
  useEffect(()=>{const t=setTimeout(()=>void cargar().catch(e=>setError(e.message)),0);return()=>clearTimeout(t);},[]);
  const patch=(p:Partial<LogroYugen>)=>setForm(f=>({...f,...p}));
- function elegir(id:string){edicion.current++;setForm({...nuevoLogro(),...logros.find(l=>l.id===id)});setError('');setAviso('');}
+ function elegir(id:string){edicion.current++;const l=logros.find(l=>l.id===id);setForm({...nuevoLogro(),...l});elegirTitulo(l?.titulo_forja_id||null);setError('');setAviso('');}
+ function elegirTitulo(id:string|null){patch({titulo_forja_id:id});setAjuste(id&&ajustes[id]?{...ajustes[id]}:{especial:false,efecto_narrativo:'',afecta_party:false});}
  const titulo=titulos.find(t=>t.id===form.titulo_forja_id),evento=DISPARADORES_LOGRO.find(e=>e.id===form.evento)!;
  const seleccionado=logros.find(l=>l.id===logroManual);
  const condiciones=(p:Partial<CondicionesLogro>)=>patch({condiciones:{...form.condiciones,...p}});
@@ -46,7 +52,9 @@ export default function LogrosYTitulos(){
   try{
    const payload={nombre:form.nombre,descripcion:form.descripcion,icono:form.icono||'corona',imagen_url:form.imagen_url,evento:form.evento,objetivo:form.evento==='enemigo_derrotado'?form.objetivo:null,meta:form.meta,alcance:form.alcance,campana:form.campana,secreto:form.secreto,titulo:titulo.nombre,titulo_forja_id:titulo.id,color:form.color,activo:form.activo,criterio:form.criterio,condiciones:condicionesParaEvento(form.evento,form.condiciones)};
    const r=await (form.id?supabase.from('logros_yugen').update(payload).eq('id',form.id):supabase.from('logros_yugen').insert(payload)).select('*').single();
-   if(r.error)throw r.error;setForm({...nuevoLogro(),...r.data});await cargar();setAviso('Logro guardado y asociado a '+titulo.nombre+'.');
+   if(r.error)throw r.error;
+   const a=await supabase.rpc('titulo_ajustar',{p_titulo:titulo.id,p_especial:ajuste.especial,p_efecto:ajuste.efecto_narrativo.trim(),p_party:ajuste.afecta_party});if(a.error)throw a.error;
+   setForm({...nuevoLogro(),...r.data});await cargar();setAviso('Logro guardado y asociado a '+titulo.nombre+(ajuste.especial?(ajuste.afecta_party?' (especial: activo en toda la party).':' (especial: activo en el personaje principal).'):ajuste.afecta_party?' (afecta a toda la party de quien lo lleve).':'.'));
   }catch(e){setError((e as Error).message);}finally{bloqueo.current=false;setOcupado(false);}
  }
  async function conceder(e:FormEvent){
@@ -54,13 +62,13 @@ export default function LogrosYTitulos(){
   const args={p_logro:logroManual,p_usuario:usuario,p_personaje:seleccionado.alcance==='personaje'?Number(personaje):null,p_cantidad:cantidad,p_completar:completar,p_motivo:motivo.trim()};
   const clave=JSON.stringify(args);if(solicitud.current?.clave!==clave)solicitud.current={clave,id:crypto.randomUUID()};
   bloqueo.current=true;setOcupado(true);setError('');setAviso('');
-  try{const r=await supabase.rpc('logro_conceder',{...args,p_solicitud:solicitud.current.id});if(r.error)throw r.error;solicitud.current=null;setAviso(r.data.desbloqueado?'Logro concedido. El título está disponible en el baúl del alma del jugador.':`Progreso registrado: ${r.data.cantidad}/${seleccionado.meta}.`);}
+  try{const r=await supabase.rpc('logro_conceder',{...args,p_solicitud:solicitud.current.id});if(r.error)throw r.error;solicitud.current=null;setAviso(r.data.desbloqueado?'Logro concedido. El título ya pertenece a la cuenta del jugador y puede activarlo en cualquiera de sus personajes.':`Progreso registrado: ${r.data.cantidad}/${seleccionado.meta}.`);}
   catch(e){setError((e as Error).message);}finally{bloqueo.current=false;setOcupado(false);}
  }
  return <section className="space-y-5">
-  <div className="flex flex-wrap gap-3"><button className={boton} aria-pressed={modo==='editar'} onClick={()=>{setModo('editar');setAviso('');}}>Crear o editar logros</button><button className={boton} aria-pressed={modo==='entregar'} onClick={()=>{setModo('entregar');setAviso('');}}>Conceder logro como GM</button></div>
+  <div className="flex flex-wrap gap-3"><button className={boton} aria-pressed={modo==='editar'} onClick={()=>{setModo('editar');setAviso('');}}>Crear o editar logros</button><button className={boton} aria-pressed={modo==='entregar'} onClick={()=>{setModo('entregar');setAviso('');}}>Conceder logro como GM</button><button className={boton} aria-pressed={modo==='retirar'} onClick={()=>{setModo('retirar');setAviso('');}}>Retirar títulos</button></div>
   {error&&<p role="alert" className="text-red-300">{error}</p>}{aviso&&<p role="status" className="text-green-300">{aviso}</p>}
-  {modo==='entregar'?<form className="space-y-4 rounded-xl border border-amber-900 p-5" onSubmit={conceder}>
+  {modo==='retirar'?<RetirarTitulos cuentas={cuentas}/>:modo==='entregar'?<form className="space-y-4 rounded-xl border border-amber-900 p-5" onSubmit={conceder}>
    <h2 className="text-xl font-bold">Conceder por una decisión del GM</h2><p className="text-neutral-400">Sirve para una sesión presencial, un hito narrativo o cualquier situación decidida por ti. No necesita un combate ni un evento de la app. También puedes conceder manualmente los logros automáticos.</p>
    <label className="block">Logro<select className={campo} required disabled={ocupado} value={logroManual} onChange={e=>{setLogroManual(e.target.value);setPersonaje('');}}><option value="">Elegir logro guardado…</option>{logros.map(l=><option key={l.id} value={l.id}>{l.nombre}{l.titulo_forja_id?'':' · Falta asociar título'}</option>)}</select></label>
    {seleccionado&&<div className="flex gap-3 rounded-lg bg-neutral-900 p-3"><ImagenIconoLogro icono={seleccionado.icono} imagen={seleccionado.imagen_url} nombre={seleccionado.nombre}/><div><strong>{seleccionado.nombre}</strong><p>{seleccionado.descripcion}</p><p className="text-amber-300">Título: {seleccionado.titulo}</p>{seleccionado.criterio&&<p>Referencia para el GM: {seleccionado.criterio}</p>}</div></div>}
@@ -78,9 +86,15 @@ export default function LogrosYTitulos(){
    {form.alcance==='campana'&&<label className="block">Campaña<input className={campo} required maxLength={100} value={form.campana} disabled={ocupado} onChange={e=>patch({campana:e.target.value})}/></label>}
    <fieldset className="space-y-3 rounded-xl border border-neutral-700 p-4" disabled={ocupado}>
     <legend className="px-2 font-semibold">Título que concede</legend><p>Elige un título ya creado en la Forja. Conserva su descripción, estadísticas, acciones y pasivas narrativas o de combate.</p>
-    <p className="text-sm text-neutral-400">Si creas un título en otra pestaña, pulsa Actualizar títulos al volver.</p><button type="button" className={boton} onClick={()=>void cargar().catch(e=>setError(e.message))}>Actualizar títulos</button>{!titulos.length&&<p className="text-amber-200">Todavía no hay títulos aprobados. Crea uno en la Forja eligiendo el tipo Título.</p>}<select className={campo} aria-label="Título existente de la Forja" required value={form.titulo_forja_id||''} onChange={e=>patch({titulo_forja_id:e.target.value||null})}><option value="">Elegir título aprobado…</option>{titulos.map(t=><option key={t.id} value={t.id}>{t.nombre}</option>)}</select>
+    <p className="text-sm text-neutral-400">Si creas un título en otra pestaña, pulsa Actualizar títulos al volver.</p><button type="button" className={boton} onClick={()=>void cargar().catch(e=>setError(e.message))}>Actualizar títulos</button>{!titulos.length&&<p className="text-amber-200">Todavía no hay títulos aprobados. Crea uno en la Forja eligiendo el tipo Título.</p>}<select className={campo} aria-label="Título existente de la Forja" required value={form.titulo_forja_id||''} onChange={e=>elegirTitulo(e.target.value||null)}><option value="">Elegir título aprobado…</option>{titulos.map(t=><option key={t.id} value={t.id}>{t.nombre}</option>)}</select>
     {titulo&&<article className="rounded-lg bg-neutral-900 p-4"><div className="flex gap-3"><ImagenIconoLogro icono={titulo.icono||'corona'} imagen={titulo.imagen_url} nombre={titulo.nombre}/><div><h3 className="font-bold text-amber-200">{titulo.nombre}</h3><p className="whitespace-pre-wrap">{titulo.descripcion||'Sin descripción narrativa.'}</p></div></div><div className="mt-3 flex flex-wrap gap-3">{Object.entries(titulo.stats||{}).map(([k,v])=><span key={k}>{k}: {v>0?'+':''}{v}</span>)}</div>{titulo.reglas?.map(r=><p className="mt-2 text-sm" key={r.id}>{describirRegla(r).resumen}</p>)}{titulo.reglas_pasivas?.map((p,i)=><p className="mt-2 text-sm" key={i}>{p.nombre}</p>)}{titulo.configuracion_dados?.map(e=><p className="mt-2 text-sm" key={e.id}>{describirEfecto(e,e.nombre).resumen}</p>)}</article>}
-    <p className="text-sm text-neutral-400">Se entrega al baúl del alma. El jugador lo envía a un personaje y lo equipa en el espacio Título para activar sus efectos. Mostrarlo en el perfil no activa sus pasivas.</p>
+    {titulo&&<div className="space-y-3 rounded-lg border border-amber-900/60 p-4">
+     <label className="flex items-start gap-3"><input type="checkbox" className="mt-1" checked={ajuste.especial} onChange={e=>setAjuste(a=>({...a,especial:e.target.checked}))}/><span><strong>Título especial</strong><br/><span className="text-sm text-neutral-400">No se equipa: su efecto se aplica en cuanto se desbloquea (al personaje principal, o a toda la party si marcas la opción siguiente). Si está desactivado, cada personaje lleva un único título activo y solo puede cambiarlo fuera de combate.</span></span></label>
+     <label className="flex items-start gap-3"><input type="checkbox" className="mt-1" checked={ajuste.afecta_party} onChange={e=>setAjuste(a=>({...a,afecta_party:e.target.checked}))}/><span><strong>Afecta a toda la party</strong><br/><span className="text-sm text-neutral-400">{ajuste.especial?'El efecto llega al personaje principal y a sus compañeros activos.':'Mientras un miembro lo lleve activo, su efecto llega también al resto de la party.'}</span></span></label>
+     <label className="block">Efecto narrativo<textarea className={campo} maxLength={1000} value={ajuste.efecto_narrativo} onChange={e=>setAjuste(a=>({...a,efecto_narrativo:e.target.value}))} placeholder="Ej.: Ventaja en las negociaciones con mercaderes de Ambrosía."/></label>
+     <p className="text-sm text-neutral-400">El efecto narrativo se muestra al jugador y a ti durante las negociaciones de la tienda. Los cambios valen para todos los logros que conceden este título.</p>
+    </div>}
+    <p className="text-sm text-neutral-400">El título se entrega a la cuenta del jugador. Desde Logros y títulos lo activa en cualquiera de sus personajes (uno a la vez por personaje), o desde el espacio Título del equipamiento.</p>
     <Link href="/dm/forja" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Abrir la Forja para crear o editar un título</Link>
    </fieldset>
    <fieldset className="space-y-3 rounded-xl border border-neutral-700 p-4" disabled={ocupado||imagenPendiente}>

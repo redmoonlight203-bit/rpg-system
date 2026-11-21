@@ -1652,6 +1652,7 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
    if(!espacio||!pieza||(pieza.tipo_creacion&&!['objeto','titulo'].includes(pieza.tipo_creacion))||!espacio.tipos.includes(pieza.slot_tipo||'ninguno'))throw Error('Objeto incompatible o fuera del inventario.');
    if(usados.has(id))throw Error('Una misma pieza no puede ocupar dos espacios.');usados.add(id);const faltan=requisitosFuente(m,pieza);if(faltan.length)throw Error(`${pieza.nombre}: ${faltan.join('; ')}`);elegido[slot]=pieza;
   }
+  if(n.fase==='en_curso'&&n.politica?.modo!=='entrenamiento'&&(anterior.titulo?.id||'')!==(elegido.titulo?.id||''))throw Error('El título solo se puede cambiar fuera de combate.');
   if((elegido.mano_der?.slot_tipo==='dos_manos'&&elegido.mano_izq)||(elegido.mano_izq?.slot_tipo==='dos_manos'&&elegido.mano_der))throw Error('Un arma de dos manos ocupa ambas manos.');
   if(JSON.stringify(Object.entries(seleccionEquipo(m)).sort())===JSON.stringify(Object.entries(seleccion).filter(([,id])=>id).sort()))throw Error('No hay cambios de equipamiento.');
   const antiguos=new Set(Object.values(anterior).map(p=>p.id).filter(Boolean)),nuevos=new Set(Object.values(elegido).map(p=>p.id).filter(Boolean));

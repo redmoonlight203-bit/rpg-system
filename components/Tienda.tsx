@@ -9,12 +9,13 @@ import { Hammer, ShoppingBag, RefreshCw, Handshake, Plus, X } from "lucide-react
 import { supabase } from "../lib/supabase";
 import { destinosPersonaje, type DestinoPersonaje } from "../lib/personajes";
 import {Billetera,type Moneda} from "./Billetera";
+import {VentajasTitulos} from "./ColeccionTitulos";
 import "./tienda.css";
 
 type Plantilla = { id:string; nombre:string; descripcion:string; tipo_creacion?:string; clase:string };
 type Oferta = {
  id:string; forja_id:string|null; nombre:string; descripcion:string; tipo:string; clase:string;
- estado:"disponible"|"negociando"|"aceptada"|"retirada"; negociador_nombre:string|null;
+ estado:"disponible"|"negociando"|"aceptada"|"retirada"; negociador_nombre:string|null; negociador_id?:string|null;
  propuesta:string|null; modo_precio:"presencial"|"monedas"; moneda_id:string|null; precio:number|null;
  destino_personaje:DestinoPersonaje|null; plantilla:{ligado_al_alma:boolean|null}|null;
 };
@@ -53,7 +54,7 @@ export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
    }
    const m=await supabase.from("monedas").select("id,nombre,simbolo").order("created_at");if(m.error)throw m.error;setMonedas(m.data||[]);
    const r=await supabase.from("tienda_ofertas")
-    .select("id,forja_id,nombre,descripcion,tipo,clase,estado,negociador_nombre,propuesta,modo_precio,moneda_id,precio,destino_personaje,plantilla:forja_maestra(ligado_al_alma)")
+    .select("id,forja_id,nombre,descripcion,tipo,clase,estado,negociador_id,negociador_nombre,propuesta,modo_precio,moneda_id,precio,destino_personaje,plantilla:forja_maestra(ligado_al_alma)")
     .eq("tienda",almas?"almas":"general").order("created_at",{ascending:false})
     .overrideTypes<Oferta[],{merge:false}>();
    if(r.error)throw r.error;
@@ -107,6 +108,7 @@ export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
     <p className="tienda-description">{o.descripcion}</p>
     <p className="tienda-precio">{o.modo_precio==="monedas"?`${Number(o.precio).toLocaleString("es-DO")} ${monedaOferta}`:"A discutir en persona"}</p>
     {esNegociacion&&<p className="tienda-private"><Handshake size={15}/>{gm?`Negociando con ${o.negociador_nombre||"un jugador"}`:"Reservada para ti y el GM"}</p>}
+    {esNegociacion&&<VentajasTitulos usuario={o.negociador_id}/>}
     {o.destino_personaje&&<p className="tienda-private"><strong>Entrega como</strong> {destinosPersonaje[o.destino_personaje]}</p>}
     {almas&&o.plantilla?.ligado_al_alma&&!o.destino_personaje&&<p className="tienda-private">Entrega al baúl del alma</p>}
     {o.propuesta&&o.estado!=="disponible"&&<blockquote className="tienda-propuesta"><strong>Propuesta del jugador</strong>{o.propuesta}</blockquote>}
