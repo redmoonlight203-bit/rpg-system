@@ -97,6 +97,178 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
+const { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION } = (() => {
+const PATRONES_OJO = [
+    { valor: 'anillos', nombre: 'Anillos' },
+    { valor: 'aspas', nombre: 'Aspas' },
+    { valor: 'espiral', nombre: 'Espiral' },
+    { valor: 'estrella', nombre: 'Estrella' },
+    { valor: 'rejilla', nombre: 'Rejilla' },
+    { valor: 'petalos', nombre: 'Pétalos' },
+    { valor: 'rendija', nombre: 'Rendija' },
+    { valor: 'luna', nombre: 'Luna' },
+];
+const DIRECCIONES_OCULARES = ['n', 'ne', 'e', 'se', 's', 'so', 'o', 'no'];
+const NOMBRE_DIRECCION = { n: 'norte', ne: 'noreste', e: 'este', se: 'sureste', s: 'sur', so: 'suroeste', o: 'oeste', no: 'noroeste' };
+/** Desplazamiento de cada dirección en el tablero (y crece hacia abajo: el norte es y-1). */
+const VECTOR_DIRECCION = {
+    n: { x: 0, y: -1 }, ne: { x: 1, y: -1 }, e: { x: 1, y: 0 }, se: { x: 1, y: 1 },
+    s: { x: 0, y: 1 }, so: { x: -1, y: 1 }, o: { x: -1, y: 0 }, no: { x: -1, y: -1 },
+};
+const ATRIBUTOS_BONO_OCULAR = [['bono_impacto', 'Ataque'], ['dano', 'Daño'], ['armadura', 'Armadura'], ['salvacion', 'Salvación'], ['iniciativa', 'Iniciativa'], ['movimiento', 'Movimiento']];
+function nuevaVision() {
+    return {
+        nombre: 'Ojo despierto', modo: 'abrir', duracion: 3, mantenimiento_ph: 0, alcance: 6,
+        apariencia: { color: '#c0263a', secundario: '#14070a', patron: 'aspas', marcas: 3, velo: 2 },
+        revelar: { vida: true, estados: true },
+        puntos_debiles: { cantidad: 1, cambia: 'ronda', recompensa: { ventaja: true } },
+    };
+}
+/** Dirección desde la que llega `atacante` respecto a `objetivo` (8 rumbos), o null si comparten casilla. */
+function direccionAtaque(objetivo, atacante) {
+    const dx = Math.sign(atacante.x - objetivo.x), dy = Math.sign(atacante.y - objetivo.y);
+    if (!dx && !dy)
+        return null;
+    return DIRECCIONES_OCULARES.find(d => VECTOR_DIRECCION[d].x === dx && VECTOR_DIRECCION[d].y === dy) || null;
+}
+/** Hash FNV-1a de 32 bits: misma semilla, mismos puntos débiles en el servidor y en la interfaz. */
+function hash(texto) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < texto.length; i++) {
+        h ^= texto.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+}
+/** Elige `cantidad` direcciones distintas de forma determinista a partir de una semilla. */
+function puntosDebiles(semilla, cantidad) {
+    const n = Math.max(1, Math.min(4, Math.floor(cantidad) || 1));
+    let s = hash(semilla) || 1;
+    const libres = [...DIRECCIONES_OCULARES], elegidas = [];
+    for (let i = 0; i < n; i++) {
+        s = Math.imul(s ^ (s >>> 15), 0x2c1b3c6d) >>> 0;
+        s = (s ^ (s >>> 12)) >>> 0;
+        elegidas.push(libres.splice(s % libres.length, 1)[0]);
+    }
+    return elegidas;
+}
+/** Suma varias recompensas (varios ojos sobre el mismo punto). */
+function sumarRecompensas(lista) {
+    const r = {};
+    for (const x of lista) {
+        if (x.ventaja)
+            r.ventaja = true;
+        if (x.critico)
+            r.critico = true;
+        if (x.impacto)
+            r.impacto = (r.impacto || 0) + x.impacto;
+        if (x.dano)
+            r.dano = (r.dano || 0) + x.dano;
+        if (x.perforar)
+            r.perforar = Math.min(100, (r.perforar || 0) + x.perforar);
+        if (x.dados && x.caras) {
+            r.dados = (r.dados || 0) + x.dados;
+            r.caras = Math.max(r.caras || 0, x.caras);
+        }
+    }
+    return r;
+}
+function describirRecompensa(r) {
+    const partes = [
+        r.ventaja ? 'ventaja en el impacto' : '',
+        r.impacto ? `${r.impacto > 0 ? '+' : ''}${r.impacto} al impacto` : '',
+        r.critico ? 'crítico seguro' : '',
+        r.dados && r.caras ? `+${r.dados}d${r.caras} de daño` : '',
+        r.dano ? `${r.dano > 0 ? '+' : ''}${r.dano} de daño` : '',
+        r.perforar ? `ignora el ${r.perforar} % de la armadura` : '',
+    ].filter(Boolean);
+    return partes.join(', ') || 'sin recompensa';
+}
+const COLOR = /^#[0-9a-fA-F]{6}$/;
+const entero = (v, min, max) => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+function validarVision(v) {
+    if (v === undefined)
+        return null;
+    if (!v || typeof v !== 'object' || Array.isArray(v))
+        return 'Visión inválida.';
+    const o = v;
+    if (typeof o.nombre !== 'string' || !o.nombre.trim() || o.nombre.length > 80)
+        return 'Ponle un nombre al ojo (máximo 80 caracteres).';
+    if (!['abrir', 'con_accion', 'permanente'].includes(o.modo))
+        return 'Elige cómo se activa el ojo.';
+    if (o.sin_accion !== undefined && typeof o.sin_accion !== 'boolean')
+        return 'Configuración de acción inválida.';
+    if (!entero(o.duracion, 0, 99))
+        return 'La duración del ojo va de 0 (todo el combate) a 99 turnos.';
+    if (o.mantenimiento_ph !== undefined && !entero(o.mantenimiento_ph, 0, 100))
+        return 'El mantenimiento va de 0 a 100 PH por turno.';
+    if (!entero(o.alcance, 0, 100))
+        return 'El alcance de la mirada va de 0 (todo el tablero) a 100 casillas.';
+    if (o.atraviesa_muros !== undefined && typeof o.atraviesa_muros !== 'boolean')
+        return 'Configuración de muros inválida.';
+    const a = o.apariencia;
+    if (!a || typeof a !== 'object')
+        return 'Configura la apariencia del ojo.';
+    if (!COLOR.test(a.color) || (a.secundario !== undefined && !COLOR.test(a.secundario)))
+        return 'Los colores del ojo deben ser #rrggbb.';
+    if (!PATRONES_OJO.some(p => p.valor === a.patron))
+        return 'Patrón del ojo desconocido.';
+    if (!entero(a.marcas, 0, 9) || !entero(a.velo, 0, 3))
+        return 'Marcas de 0 a 9 y velo de 0 a 3.';
+    if (a.imagen_url !== undefined && (typeof a.imagen_url !== 'string' || a.imagen_url.length > 2048 || (a.imagen_url && !/^(https?:\/\/|\/[^/])/.test(a.imagen_url))))
+        return 'La imagen del ojo debe ser una URL pública.';
+    if (o.revelar !== undefined) {
+        if (!o.revelar || typeof o.revelar !== 'object')
+            return 'Revelación inválida.';
+        for (const [k, x] of Object.entries(o.revelar))
+            if (!['vida', 'atributos', 'acciones', 'pasivas', 'estados', 'ocultos'].includes(k) || typeof x !== 'boolean')
+                return 'Revelación inválida.';
+    }
+    if (o.puntos_debiles !== undefined) {
+        const p = o.puntos_debiles;
+        if (!p || !entero(p.cantidad, 1, 4) || !['ronda', 'combate'].includes(p.cambia) || !p.recompensa || typeof p.recompensa !== 'object')
+            return 'Puntos débiles: de 1 a 4 direcciones y una recompensa.';
+        const r = p.recompensa;
+        if ((r.ventaja !== undefined && typeof r.ventaja !== 'boolean') || (r.critico !== undefined && typeof r.critico !== 'boolean'))
+            return 'Recompensa inválida.';
+        if ((r.impacto !== undefined && !entero(r.impacto, -50, 50)) || (r.dano !== undefined && !entero(r.dano, -1000, 1000)) || (r.perforar !== undefined && !entero(r.perforar, 0, 100)))
+            return 'Recompensa: impacto ±50, daño ±1000 y perforación 0-100 %.';
+        if ((r.dados !== undefined || r.caras !== undefined) && !(entero(r.dados, 1, 20) && entero(r.caras, 2, 100)))
+            return 'Dados extra: de 1 a 20 dados de 2 a 100 caras.';
+    }
+    if (o.anticipar !== undefined && (!o.anticipar || !entero(o.anticipar.armadura, 1, 50)))
+        return 'Anticipación: de 1 a 50 de armadura.';
+    if (o.amenazas !== undefined && typeof o.amenazas !== 'boolean')
+        return 'Configuración de amenazas inválida.';
+    if (o.bonos !== undefined) {
+        if (!o.bonos || typeof o.bonos !== 'object' || Object.keys(o.bonos).length > 12)
+            return 'Bonos del ojo inválidos.';
+        for (const [k, x] of Object.entries(o.bonos))
+            if (!/^[a-z_][a-z0-9_]{0,63}$/.test(k) || !entero(x, -999, 999))
+                return 'Bonos del ojo: atributos válidos entre -999 y 999.';
+    }
+    return null;
+}
+function describirVision(v) {
+    const activacion = v.modo === 'permanente' ? 'Siempre abierto' : v.modo === 'con_accion' ? 'Se abre al usar esta acción' : `La acción abre o cierra el ojo${v.sin_accion ? ' sin gastar el turno' : ''}`;
+    const tiempo = v.modo === 'permanente' ? '' : v.duracion ? ` durante ${v.duracion} turno${v.duracion === 1 ? '' : 's'}` : ' hasta el final del combate';
+    const r = v.revelar || {};
+    const revela = [r.vida && 'vida', r.atributos && 'atributos', r.acciones && 'acciones', r.pasivas && 'pasivas', r.estados && 'estados', r.ocultos && 'lo oculto'].filter(Boolean);
+    const detalles = [
+        `${activacion}${tiempo}.`,
+        v.mantenimiento_ph ? `Mantenerlo cuesta ${v.mantenimiento_ph} PH al inicio de cada turno.` : '',
+        `Mirada: ${v.alcance ? `${v.alcance} casillas` : 'todo el tablero'}${v.atraviesa_muros ? ', atraviesa muros' : ''}.`,
+        revela.length ? `Revela de los enemigos: ${revela.join(', ')}.` : '',
+        v.puntos_debiles ? `Ve ${v.puntos_debiles.cantidad} punto${v.puntos_debiles.cantidad === 1 ? '' : 's'} débil${v.puntos_debiles.cantidad === 1 ? '' : 'es'} por enemigo (${v.puntos_debiles.cambia === 'ronda' ? 'cambian cada ronda' : 'fijos todo el combate'}); atacar desde esa dirección da ${describirRecompensa(v.puntos_debiles.recompensa)}.` : '',
+        v.anticipar ? `Anticipa los golpes de quien ve: +${v.anticipar.armadura} de armadura.` : '',
+        v.amenazas ? 'Muestra hasta dónde pueden llegar los enemigos en su turno.' : '',
+        v.bonos && Object.keys(v.bonos).length ? `Mientras está abierto: ${Object.entries(v.bonos).map(([k, x]) => `${k.replaceAll('_', ' ')} ${x > 0 ? '+' : ''}${x}`).join(', ')}.` : '',
+    ].filter(Boolean);
+    return { resumen: `${v.nombre}: ${detalles.slice(0, 2).join(' ')}`, detalles };
+}
+
+return { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION };
+})();
 export function validarRequisitos(r) {
     if (r === undefined)
         return null;
@@ -552,6 +724,7 @@ function entrar(c, m, rng) {
     m.estados = m.estados.filter((e) => !e.inicio);
     for (const k of Object.keys(m.cooldowns))
         m.cooldowns[k] = Math.max(0, m.cooldowns[k] - 1);
+    mantenerVisiones(c, m);
     for (const r of reglas(m))
         if (r.evento === "inicio_turno" && cumple(m, r)) {
             recuperar(m, r);
@@ -594,6 +767,9 @@ function iniciarInterno(c, rng) {
     n.fase = "en_curso";
     for (const m of n.miembros)
         emitirMotor(n, 'inicio_combate', m, m, m, rng);
+    for (const m of n.miembros)
+        if (combatienteActivo(m))
+            mantenerVisiones(n, m);
     const vivo = orden(n).find(combatienteActivo);
     if (!vivo) {
         cerrarEncuentro(n, 'Sin combatientes activos', null);
@@ -879,7 +1055,8 @@ export function acciones(m) {
     const definiciones = lista.flatMap(a => a.efecto.transformacion ? [a.efecto.transformacion] : []);
     const exclusivos = new Set(definiciones.flatMap(d => d.etapas.flatMap(e => e.habilidades || [])));
     const permitidos = new Set(definiciones.find(d => d.id === m.transformacion?.definicion_id)?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.habilidades || []);
-    return lista.filter(a => !reaccionDe(a.efecto)).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
+    // Un ojo permanente sin dados propios es una pasiva: no aparece como acción.
+    return lista.filter(a => !reaccionDe(a.efecto)).filter(a => !(a.efecto.vision?.modo === 'permanente' && !(a.efecto.cantidad > 0))).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
         const d = a.efecto.transformacion;
         if (d && m.transformacion?.definicion_id === d.id) {
             const i = d.etapas.findIndex(e => e.id === m.transformacion?.etapa_id);
@@ -1097,6 +1274,9 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         throw Error("Solo puede actuar el personaje de turno.");
     if (a.transformacion?.descontrolada && !autonomo)
         throw Error('La criatura está fuera de control: su turno es automático.');
+    const ojo = accionId.startsWith('hab:') || accionId.startsWith('equipo:') ? acciones(a).find(v => v.id === accionId) : undefined;
+    if (ojo?.efecto.vision?.modo === 'abrir')
+        return abrirOjo(n, a, ojo);
     if (a.accion_usada)
         throw Error("Ya utilizó su acción.");
     if (accionId.startsWith('regla:')) {
@@ -1279,6 +1459,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         }
     }
     log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+    if (e.vision?.modo === 'con_accion')
+        activarVision(n, a, e);
     if (dash && centro) {
         for (const m of n.miembros)
             m.posicion = posiciones[m.id];
@@ -1389,6 +1571,16 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     }
     let arm = (estadisticas(t).armadura || 0) +
         antes.reduce((v, r) => v + (r.bonos.armadura || 0), 0) + (n.mapa?.celdas[`${posicionesTablero(n)[t.id].x},${posicionesTablero(n)[t.id].y}`] === 'cobertura' && distanciaCasillas(posicionesTablero(n)[a.id], posicionesTablero(n)[t.id]) > 1 ? 2 : 0);
+    const debil = golpeOcular(n, a, t);
+    const anticipa = anticipacion(n, t, a);
+    if (anticipa) {
+        arm += anticipa;
+        log(n, `${t.nombre} anticipa el golpe con su ojo: +${anticipa} ARM.`);
+    }
+    if (debil)
+        log(n, `${a.nombre} ve un punto débil de ${t.nombre} (${debil.ojos.join(', ')}) y ataca desde el ${NOMBRE_DIRECCION[debil.direccion]}: ${describirRecompensa(debil.recompensa)}.`);
+    if (debil?.recompensa.perforar)
+        arm = Math.floor(arm * (100 - debil.recompensa.perforar) / 100);
     if (tiene(t, "escarcha"))
         arm = Math.floor(arm / 2);
     arm = Math.max(0, arm -
@@ -1413,9 +1605,14 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
                 a.ronda_asistida = n.ronda;
             }
         }
-        const impacto = d + (s.bono_impacto || 0);
+        if (debil?.recompensa.ventaja) {
+            const segundo = rng(20);
+            log(n, `Ventaja por el punto débil: ${d} y ${segundo}.`);
+            d = Math.max(d, segundo);
+        }
+        const impacto = d + (s.bono_impacto || 0) + (debil?.recompensa.impacto || 0);
         totalAtaque = impacto;
-        critico = d === 20;
+        critico = d === 20 || (!!debil?.recompensa.critico && d !== 1);
         acierta = critico || (d !== 1 && impacto >= arm);
         n.resultado =
             d === 1
@@ -1491,7 +1688,11 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         quitarEstado(t, "marca_luz");
         dadosTotal += dados(n, 1, 6, rng, "Estallido de Marca de Luz");
     }
-    let total = Math.max(0, dadosTotal * (critico ? 2 : 1) + e.modificador + (s.dano || 0));
+    if (debil?.recompensa.dados && debil.recompensa.caras)
+        dadosTotal += dados(n, debil.recompensa.dados, debil.recompensa.caras, rng, "Punto débil");
+    if (debil?.recompensa.critico && !critico && n.regla !== "impacto")
+        critico = true;
+    let total = Math.max(0, dadosTotal * (critico ? 2 : 1) + e.modificador + (s.dano || 0) + (debil?.recompensa.dano || 0));
     log(n, `Daño: dados ${dadosTotal}${critico ? " × 2 (crítico)" : ""} + modificador ${e.modificador} + bono ${s.dano || 0} = ${total}.`);
     if (combo && elemento === "electricidad") {
         total *= 2;
@@ -1612,7 +1813,7 @@ export function responderReaccion(c, defensor, aceptar, rng = dadoSeguro) {
 }
 function animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro) {
     const pos = posicionesTablero(c);
-    const propio = efecto?.efecto === 'transformacion' || efecto?.tablero?.afecta === 'yo' || accionId === 'volver_forma';
+    const propio = efecto?.efecto === 'transformacion' || efecto?.tablero?.afecta === 'yo' || accionId === 'volver_forma' || efecto?.vision?.modo === 'abrir';
     const hasta = propio ? pos[actorId] : centro || pos[objetivoId] || pos[actorId];
     const area = efecto?.tablero && hasta ? areaDesde(pos[actorId], hasta, efecto.tablero, dimensionesTablero(c)) : undefined;
     n.evento_visual = { ...n.evento_visual, id: n.evento_visual?.id || crypto.randomUUID(), nombre: efecto?.nombre || accionId, dados: n.evento_visual?.dados || [], animacion: efecto?.animacion || 'impacto', vfx: efecto?.vfx, desde: pos[actorId], hasta, area,
@@ -2289,4 +2490,182 @@ function aplicarTerreno(c, m, rng = dadoSeguro) {
         recibir(c, m, m, { ...basico(), efecto: 'dano' }, 2, [], rng);
         log(c, `${m.nombre}: terreno peligroso, 2 de daño.`);
     }
+}
+const BAJO_TIERRA = /\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i;
+const bajoTierra = (m) => m.estados.some(e => BAJO_TIERRA.test(e.nombre || '') || BAJO_TIERRA.test(e.tipo || ''));
+/** Ojos abiertos de un combatiente: los activados (estados) y los permanentes de sus habilidades y equipo. */
+export function visionesActivas(m) {
+    if (m.vida <= 0)
+        return [];
+    const lista = m.estados.filter(e => e.vision).map(e => ({ clave: e.id, vision: e.vision, restantes: e.vision.duracion && e.vision.modo !== 'permanente' ? e.restantes : null }));
+    const fuentes = [...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length), ...Object.values(piezas(m))];
+    const efectos = [...fuentes.flatMap(f => f.efectos || []), ...(m.configuracion.efectos || [])];
+    for (const e of efectos)
+        if (e.vision?.modo === 'permanente' && !lista.some(x => x.clave === 'vision:' + e.id))
+            lista.push({ clave: 'vision:' + e.id, vision: e.vision, restantes: null });
+    return lista;
+}
+function activarVision(c, m, e) {
+    const v = e.vision, clave = 'vision:' + e.id;
+    quitarEstado(m, clave);
+    m.estados.push({ id: clave, tipo: clave, nombre: v.nombre, restantes: v.modo === 'permanente' ? 0 : v.duracion, creado: m.turnos, bonos: { ...(v.bonos || {}) }, vision: v });
+    normalizar(m);
+    if (v.modo !== 'permanente')
+        log(c, `${m.nombre} abre ${v.nombre}${v.duracion ? ` durante ${v.duracion} turnos` : ''}.`);
+}
+/** Acción de un ojo en modo «abrir»: lo abre pagando sus costes o, si ya está abierto, lo cierra gratis. */
+function abrirOjo(n, a, act) {
+    const e = act.efecto, v = e.vision, clave = 'vision:' + e.id;
+    if (a.estados.some(x => x.id === clave)) {
+        quitarEstado(a, clave);
+        normalizar(a);
+        log(n, `${a.nombre} cierra ${v.nombre}.`);
+        return n;
+    }
+    if (a.accion_usada && !v.sin_accion)
+        throw Error('Ya utilizó su acción.');
+    if ((a.cooldowns[act.id] || 0) > 0)
+        throw Error('Habilidad en enfriamiento.');
+    const s = estadisticas(a), coste = e.coste_ph || 0, fatiga = e.coste_fatiga || 0;
+    if (coste > 0 && (s.silencio_ph || 0) > 0)
+        throw Error('Silencio del Núcleo impide gastar PH.');
+    if (phDisponibles(a) < coste)
+        throw Error('PH insuficientes.');
+    if (fatiga && (a.agotado || a.fatiga + fatiga > (s.fatiga || 0)))
+        throw Error('Fatiga insuficiente para abrir el ojo.');
+    a.ph -= coste;
+    a.fatiga += fatiga;
+    if (fatiga)
+        a.uso_fatiga = true;
+    if (!v.sin_accion)
+        a.accion_usada = true;
+    if (act.enfriamiento)
+        a.cooldowns[act.id] = act.enfriamiento + 1;
+    if (coste || fatiga)
+        log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+    activarVision(n, a, e);
+    return n;
+}
+/** Inicio de turno: los ojos permanentes se abren solos y los demás cobran su mantenimiento. */
+function mantenerVisiones(c, m) {
+    for (const x of visionesActivas(m))
+        if (x.vision.modo === 'permanente' && !m.estados.some(e => e.id === x.clave)) {
+            const id = x.clave.slice(7);
+            activarVision(c, m, { ...basico(), id, vision: x.vision });
+        }
+    for (const e of [...m.estados]) {
+        const coste = e.vision && e.vision.modo !== 'permanente' ? e.vision.mantenimiento_ph || 0 : 0;
+        if (!coste)
+            continue;
+        if (phDisponibles(m) >= coste) {
+            m.ph -= coste;
+            log(c, `${m.nombre}: mantener ${e.nombre} cuesta ${coste} PH.`);
+        }
+        else {
+            quitarEstado(m, e.id);
+            log(c, `${m.nombre}: sin PH para mantener ${e.nombre}; el ojo se cierra.`);
+        }
+    }
+    normalizar(m);
+}
+function observa(c, o, t, v, pos) {
+    if (t.id === o.id || t.bando === o.bando || t.vida <= 0)
+        return false;
+    const po = pos[o.id], pt = pos[t.id];
+    if (!po || !pt)
+        return false;
+    if (v.alcance && distanciaCasillas(po, pt) > v.alcance)
+        return false;
+    if (!v.atraviesa_muros && !lineaVisible(po, pt, c.mapa))
+        return false;
+    return !bajoTierra(t) || !!v.revelar?.ocultos;
+}
+function puntosDe(c, o, t, clave, v) {
+    const p = v.puntos_debiles;
+    return puntosDebiles(`${clave}:${o.id}:${t.id}:${p.cambia === 'ronda' ? c.ronda : 'combate'}`, p.cantidad);
+}
+/** Si `a` ataca a `t` desde uno de los puntos débiles que ven sus ojos, la recompensa combinada. */
+export function golpeOcular(c, a, t) {
+    const pos = posicionesTablero(c), pa = pos[a.id], pt = pos[t.id];
+    if (!pa || !pt)
+        return null;
+    const direccion = direccionAtaque(pt, pa);
+    if (!direccion)
+        return null;
+    const recompensas = [], ojos = [];
+    for (const { clave, vision } of visionesActivas(a)) {
+        if (!vision.puntos_debiles || !observa(c, a, t, vision, pos))
+            continue;
+        if (puntosDe(c, a, t, clave, vision).includes(direccion)) {
+            recompensas.push(vision.puntos_debiles.recompensa);
+            ojos.push(vision.nombre);
+        }
+    }
+    return recompensas.length ? { recompensa: sumarRecompensas(recompensas), ojos, direccion } : null;
+}
+/** Armadura extra de `t` contra un atacante que alguno de sus ojos está viendo. */
+function anticipacion(c, t, a) {
+    const pos = posicionesTablero(c);
+    return visionesActivas(t).reduce((total, { vision }) => total + (vision.anticipar && observa(c, t, a, vision, pos) ? vision.anticipar.armadura : 0), 0);
+}
+const NOMBRE_EFECTO_OCULAR = { dano: 'daño', curacion: 'curación', recuperar_ph: 'recupera PH', reducir_fatiga: 'reduce fatiga', estado: 'estado', crear_arma: 'crea un arma', transformacion: 'transformación' };
+function resumenOcular(e) {
+    const dadosTexto = e.cantidad && e.caras ? `${e.cantidad}d${e.caras}${e.modificador ? (e.modificador > 0 ? '+' : '') + e.modificador : ''}` : '';
+    return [NOMBRE_EFECTO_OCULAR[e.efecto] || e.efecto, dadosTexto, e.elemento && e.elemento !== 'ninguno' ? e.elemento : '', e.tablero ? `alcance ${e.tablero.alcance}${e.tablero.forma !== 'individual' ? `, ${e.tablero.forma}` : ''}` : '', e.estado ? `«${e.estado}»` : '', e.vision ? `ojo: ${e.vision.nombre}` : ''].filter(Boolean).join(' · ');
+}
+/** Lo que ven los ojos abiertos de un combatiente: solo información de enemigos dentro de su mirada. */
+export function vistaOcular(c, id) {
+    const o = c.miembros.find(m => m.id === id);
+    if (!o || c.fase === 'finalizado')
+        return null;
+    const activas = visionesActivas(o);
+    if (!activas.length)
+        return null;
+    const pos = posicionesTablero(c), { columnas, filas } = dimensionesTablero(c);
+    const objetivos = {}, recompensas = {}, amenaza = new Set();
+    for (const t of c.miembros)
+        for (const { clave, vision: v } of activas) {
+            if (!observa(c, o, t, v, pos))
+                continue;
+            const x = objetivos[t.id] ||= {};
+            if (v.puntos_debiles) {
+                x.puntos = [...new Set([...(x.puntos || []), ...puntosDe(c, o, t, clave, v)])];
+                (recompensas[t.id] ||= []).push(v.puntos_debiles.recompensa);
+            }
+            const r = v.revelar || {}, d = x.detalle || {};
+            if (r.ocultos && bajoTierra(t))
+                x.revela_oculto = true;
+            if (r.vida) {
+                d.vida = { actual: t.vida, max: maxVida(t) };
+                d.ph = { actual: phDisponibles(t), max: estadisticas(t).ph || 0 };
+            }
+            if (r.atributos)
+                d.atributos = Object.fromEntries(Object.entries(estadisticas(t)).filter(([, n]) => typeof n === 'number' && Number.isFinite(n)));
+            if (r.acciones)
+                d.acciones = acciones(t).map(a => ({ nombre: a.nombre, resumen: resumenOcular(a.efecto), coste_ph: a.efecto.coste_ph || 0 }));
+            if (r.pasivas)
+                d.pasivas = [...new Set([...pasivasAplicables(t).map(p => p.nombre), ...reglas(t).map(p => p.nombre)].filter(Boolean))];
+            if (r.estados)
+                d.estados = t.estados.map(e => ({ nombre: e.nombre, restantes: e.restantes }));
+            if (Object.keys(d).length)
+                x.detalle = d;
+            if (v.amenazas) {
+                const sinMover = { ...c, miembros: c.miembros.map(m => m.id === t.id ? { ...m, movimiento: undefined } : m) };
+                const p = pos[t.id];
+                for (const k of [`${p.x},${p.y}`, ...Object.keys(casillasAlcanzables(sinMover, t.id))]) {
+                    const [cx, cy] = k.split(',').map(Number);
+                    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                        const ax = cx + dx, ay = cy + dy;
+                        if (ax >= 0 && ay >= 0 && ax < columnas && ay < filas && c.mapa?.celdas[`${ax},${ay}`] !== 'muro')
+                            amenaza.add(`${ax},${ay}`);
+                    }
+                }
+            }
+        }
+    for (const [tid, lista] of Object.entries(recompensas))
+        objetivos[tid].recompensa = describirRecompensa(sumarRecompensas(lista));
+    return {
+        visiones: activas.map(({ clave, vision, restantes }) => ({ clave, nombre: vision.nombre, apariencia: vision.apariencia, restantes, alcance: vision.alcance })),
+        objetivos, ...(amenaza.size ? { amenaza: [...amenaza] } : {}),
+    };
 }

@@ -6,7 +6,7 @@ export const NODO={ancho:260,alto:140,separacionX:80,separacionY:40};
 export type Tamano={w:number;h:number};
 export type Tamanos=Record<string,Tamano>;
 const BASE:Record<TipoNodo,number>={nucleo:0,accion:1,pasiva:1,vinculo:1,requisitos:1,invocacion:1,
- alcance:2,salvacion:2,estado:2,reaccion:2,transformacion:2,recurso:2,vfx:2,tabla_armas:2,cuando:2,si:3,entonces:4};
+ alcance:2,salvacion:2,estado:2,reaccion:2,transformacion:2,recurso:2,vfx:2,tabla_armas:2,vision:2,cuando:2,si:3,entonces:4};
 const finito=(n:unknown)=>typeof n==='number'&&Number.isFinite(n);
 const medida=(tam:Tamanos,id:string):Tamano=>{const t=tam[id];return {w:t&&finito(t.w)&&t.w>0?t.w:NODO.ancho,h:t&&finito(t.h)&&t.h>0?t.h:NODO.alto};};
 /**

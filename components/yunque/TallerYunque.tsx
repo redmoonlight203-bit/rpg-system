@@ -52,7 +52,7 @@ const ANCHO_LISTA=1024;
 const suscribirAncho=(f:()=>void)=>{window.addEventListener('resize',f);return ()=>window.removeEventListener('resize',f);};
 const esEstrecha=()=>window.innerWidth<ANCHO_LISTA;
 const ICONO_EFECTO:Record<Efecto['efecto'],string>={desplazamiento:'ojo',dano:'espada',curacion:'pocion',estado:'fuego',crear_arma:'arco',transformacion:'alma',recuperar_ph:'agua',reducir_fatiga:'vida'};
-const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
+const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision'];
 const NUCLEO_LLEVA:Record<string,TipoNodo[]>={personaje:['cuando','vinculo'],pasiva:['pasiva','cuando'],objeto:['accion','cuando','pasiva'],habilidad:['accion','cuando'],titulo:['accion','cuando'],otro:['accion','cuando','pasiva']};
 /** Disposición guardada por creación; una pieza nueva creada dentro de un personaje no comparte la del personaje nuevo. */
 const prefijoPosicion='yunque:posiciones:';

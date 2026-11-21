@@ -1,5 +1,6 @@
 import {formula, type Efecto, type Reaccion, type ResultadoReaccion} from './creacion';
 import {type Regla, type EfectoRegla, type CondicionRegla} from './reglas';
+import {describirVision} from './vision';
 export type AyudaClara={resumen:string;detalles:string[]};
 const elementos:Record<string,string>={fuego:'fuego',agua:'agua',hielo:'hielo',electricidad:'electricidad',luz_sagrada:'luz sagrada'};
 const atributo=(s:string)=>({vida:'vida máxima',hp:'vida máxima',vida_actual:'vida actual',ph:'PH',ph_actual:'PH actuales',fatiga:'Fatiga máxima',fatiga_actual:'Fatiga actual',armadura:'armadura',bono_impacto:'bonificación al ataque',salvacion:'bonificación de salvación'}[s]||s.replaceAll('_',' '));
@@ -48,6 +49,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  if(e.duracion>0)detalles.push(`Duración: ${e.duracion} turnos${e.efecto==='crear_arma'?' propios':''}.`);
  if(e.efecto==='dano'&&claveElemento==='fuego')detalles.push('Puede quemar al objetivo si falla su salvación de 12.');
  if(e.efecto==='dano'&&claveElemento==='agua')detalles.push('Deja al objetivo Mojado y permite combinaciones elementales.');
+ if(e.vision){const v=describirVision(e.vision);if(e.vision.modo==='abrir'){resumen=`Abre o cierra ${e.vision.nombre}.`;detalles.splice(0,detalles.length,...detalles.filter(d=>/PH|Fatiga/.test(d)));}else if(e.vision.modo==='permanente'&&!e.cantidad)resumen=`${e.vision.nombre}: siempre abierto.`;detalles.push(...v.detalles);}
  return {resumen:(typeof e.descripcion==="string"&&e.descripcion.trim())||resumen,detalles};
 }
 export function condicionClara(c:CondicionRegla):string {

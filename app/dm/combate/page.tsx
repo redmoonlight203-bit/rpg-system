@@ -40,7 +40,7 @@ import {escalarMalla,type RangoNivel} from "../../../lib/progresion";
 import {
   nuevoCombate,
   posicionesTablero, dimensionesTablero, casillasAlcanzables, movimientoRestante, desplazar, levantarse, phDisponibles, registrarCambiosVida,
-  agregar, agregarParty,
+  agregar, agregarParty, vistaOcular,
   mover,
   retirar,
   iniciar,
@@ -315,7 +315,7 @@ export default function CampoCombate() {
         c,
         actor.id,
         elegida,
-        objetivoId || (elegida === "guardia" || ["crear_arma","transformacion"].includes(efecto?.efecto||"")||efecto?.tablero?.origen_area==='lanzador' ? actor.id : destino),
+        objetivoId || (elegida === "guardia" || ["crear_arma","transformacion"].includes(efecto?.efecto||"")||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir' ? actor.id : destino),
         (caras) => {
           const valor = dadoSeguro(caras);
           dados.push({ caras, valor });
@@ -1101,7 +1101,7 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
-          {c.miembros.length>0&&<TableroCombate mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}} puedeEjecutar={!!actor&&actor.vida>0&&!actor.accion_usada&&c.fase==='en_curso'} onEjecutar={sel=>{if(sel.objetivo)setObjetivo(sel.objetivo);if(sel.centro)setCentro(sel.centro);void resolver(sel.objetivo,{centro:sel.centro});}}/>}
+          {c.miembros.length>0&&<TableroCombate ocular={actor&&c.fase==='en_curso'?vistaOcular(c,actor.id):null} turnoPropio={c.fase==='en_curso'&&!!actor&&c.actual===actor.id} mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}} puedeEjecutar={!!actor&&actor.vida>0&&!actor.accion_usada&&c.fase==='en_curso'} onEjecutar={sel=>{if(sel.objetivo)setObjetivo(sel.objetivo);if(sel.centro)setCentro(sel.centro);void resolver(sel.objetivo,{centro:sel.centro});}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (

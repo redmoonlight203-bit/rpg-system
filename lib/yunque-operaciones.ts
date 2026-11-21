@@ -3,6 +3,7 @@ import {nuevoEfecto,EFECTOS_NOMBRE,type Efecto} from "./creacion";
 import {nuevaRegla,type Regla,type EfectoRegla,type CondicionRegla} from "./reglas";
 import type {ReglaPasiva} from "./pasivas";
 import {reaccionDe} from "./combate";
+import {nuevaVision} from "./vision";
 import {aGrafo,type Nodo,type Puerto,type Ruta,type TipoNodo} from "./yunque-grafo";
 /**
  * Operaciones PURAS sobre el Borrador: cada gesto del lienzo es una `Operacion`.
@@ -15,7 +16,7 @@ export type Operacion=
  |{op:'quitar';nodo:string}
  |{op:'duplicar';nodo:string}
  |{op:'pegar';fragmento:Fragmento;padre?:string;rama?:'exito'|'fallo'};
-const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
+const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision'];
 const PELIGROSAS=['__proto__','constructor','prototype'];
 const uuid=()=>crypto.randomUUID();
 const falla=(m:string):never=>{throw new Error(m);};
@@ -71,6 +72,7 @@ function aplicarModulo(e:Efecto,tipo:TipoNodo,datos:unknown):void{
   case 'transformacion':e.efecto='transformacion';e.transformacion=d;return;
   case 'recurso':e.recurso=d;return;
   case 'vfx':e.vfx=d;return;
+  case 'vision':e.vision=d;return;
   case 'tabla_armas':
    if(e.tablero)falla('Una tabla de armas no se combina con un alcance en el tablero: quita el alcance primero.');
    e.efecto='crear_arma';e.tabla_armas=d;if(e.duracion<1)e.duracion=1;if(e.cantidad<1)e.cantidad=1;return;
@@ -85,6 +87,7 @@ function defectoModulo(tipo:TipoNodo):unknown{
   case 'transformacion':return {id:uuid(),nombre:'Transformación',tipo:'forma',etapas:[{id:uuid(),nombre:'Etapa 1',stats:{vida:10}}]};
   case 'recurso':return {nombre:'Recurso',inicial:0,cambio:1};
   case 'vfx':return {};
+  case 'vision':return nuevaVision();
   case 'tabla_armas':return {caras:2,resultados:[1,2].map(cara=>({cara,nombre:`Arma ${cara}`,cantidad:1,caras:6,modificador:0,tipo_dano:'',arma_slot:'mano_der'}))};
  }
  return falla('Módulo desconocido.');
@@ -93,7 +96,7 @@ const tieneModulo=(e:Efecto,tipo:TipoNodo):boolean=>{
  switch(tipo){
   case 'alcance':return !!e.tablero;case 'salvacion':return !!e.salvacion;case 'estado':return e.efecto==='estado';
   case 'reaccion':return !!reaccionDe(e);case 'transformacion':return !!e.transformacion||e.efecto==='transformacion';
-  case 'recurso':return !!e.recurso;case 'vfx':return !!e.vfx;case 'tabla_armas':return !!e.tabla_armas;
+  case 'recurso':return !!e.recurso;case 'vfx':return !!e.vfx;case 'tabla_armas':return !!e.tabla_armas;case 'vision':return !!e.vision;
  }
  return false;
 };
@@ -235,6 +238,7 @@ export function aplicar(b:Borrador,o:Operacion):Borrador{
     case 'transformacion':delete e!.transformacion;if(e!.efecto==='transformacion')e!.efecto='dano';return r;
     case 'recurso':delete e!.recurso;return r;
     case 'vfx':delete e!.vfx;return r;
+    case 'vision':delete e!.vision;return r;
     case 'tabla_armas':delete e!.tabla_armas;if(e!.efecto==='crear_arma')e!.efecto='dano';return r;
     case 'invocacion':r.invocacion=null;return r;
     case 'requisitos':r.requisitos_uso={};return r;

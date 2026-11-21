@@ -4,9 +4,14 @@ const entrada=new URL('../lib/combate.ts',import.meta.url),salida=new URL('../su
 const compilar=archivo=>ts.transpileModule(readFileSync(archivo,'utf8'),{fileName:archivo.pathname,compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 // El mismo motor autónomo se ejecuta en Node y en ambos endpoints de Deno.
 // Encapsular la dependencia evita colisiones con funciones del combate (maxVida).
-const motor=compilar(entrada).replace(/^import \{([^}]+)\} from ["']\.\/transformaciones["'];$/m,(_linea,nombres)=>{
+const motor0=compilar(entrada).replace(/^import \{([^}]+)\} from ["']\.\/transformaciones["'];$/m,(_linea,nombres)=>{
  const transformaciones=compilar(new URL('../lib/transformaciones.ts',import.meta.url)).replace(/^export /gm,'');
  return `const {${nombres}} = (() => {\n${transformaciones}\nreturn {${nombres}};\n})();`;
+});
+// La primitiva «Visión» (lib/vision.ts) es pura: se incrusta igual que las transformaciones.
+const motor=motor0.replace(/^import \{([^}]+)\} from ["']\.\/vision["'];$/m,(_linea,nombres)=>{
+ const vision=compilar(new URL('../lib/vision.ts',import.meta.url)).replace(/^export /gm,'');
+ return `const {${nombres}} = (() => {\n${vision}\nreturn {${nombres}};\n})();`;
 });
 if(/^import /m.test(motor))throw Error('Falta incorporar una dependencia del motor Edge.');
 const content='// GENERADO por scripts/preparar-motor-edge.mjs. No editar directamente.\n'+motor;

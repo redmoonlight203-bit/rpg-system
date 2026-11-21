@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import{readFileSync}from'node:fs';import ts from'typescript';import vm from'node:vm';
 function load(path,deps={}){const js=ts.transpileModule(readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;const exports={};vm.runInNewContext(js,{exports,require:k=>deps[k],crypto,Array,Number,Object,Set,Map,Math});return exports;}
-const stats=load('../lib/estadisticas.ts');const c=load('../lib/creacion.ts',{'./estadisticas':stats});
+const stats=load('../lib/estadisticas.ts');const c=load('../lib/creacion.ts',{'./estadisticas':stats,'./vision':load('../lib/vision.ts')});
 const cats=[{id:'r',clave:'razas',nombre:'Razas'},{id:'h',clave:'humanos',nombre:'Humanos',parent_id:'r'},{id:'o',clave:'objetos',nombre:'Objetos'},{id:'a',clave:'armas',nombre:'Armas',parent_id:'o'},{id:'s',clave:'habilidades',nombre:'Habilidades'},{id:'m',clave:'magias',nombre:'Magias',parent_id:'s'}];
 test('solo subcategorías y cada tipo tiene sus clasificaciones',()=>{assert.equal(c.subcategorias(cats).length,3);assert.equal(c.clasificacionesPara('personaje',cats).map(x=>x.nombre).join(','),'Humanos');assert.equal(c.clasificacionesPara('habilidad',cats)[0].nombre,'Magias');});
 test('tipo inferido conserva el catálogo antiguo',()=>{assert.equal(c.tipoDe({id:'1',nombre:'espada',tipo:'armas'},cats),'objeto');assert.equal(c.tipoDe({id:'1',nombre:'elfo',tipo:'humanos'},cats),'personaje');});

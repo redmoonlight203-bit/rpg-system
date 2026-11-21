@@ -13,7 +13,7 @@ import {TableroCombate,BarraCombate,type FichaTablero} from '../TableroCombate';
 import type {TiradaVisual} from '../AnimacionDados';
 import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,
  type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
-import {acciones,deshacer,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
+import {vistaOcular,acciones,deshacer,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
  type Accion,type Combate,type Posicion,type RNG} from '../../lib/combate';
 import type {Efecto} from '../../lib/creacion';
 import type {ProcedenciaMapa,SuperficieMapa} from '../../lib/mapas-procedurales';
@@ -198,7 +198,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  function resolver(sel:{accion?:string;objetivo?:string;centro?:Posicion}={}){
   const id=sel.accion||elegida,ef=lista.find(a=>a.id===id)?.efecto;
   // Igual que la página de combate: guardia, armas creadas, transformaciones y rugidos se lanzan sobre uno mismo.
-  const propio=id==='guardia'||['crear_arma','transformacion'].includes(ef?.efecto||'')||ef?.tablero?.origen_area==='lanzador';
+  const propio=id==='guardia'||['crear_arma','transformacion'].includes(ef?.efecto||'')||ef?.tablero?.origen_area==='lanzador'||ef?.vision?.modo==='abrir';
   paso((x,rng)=>usar(x,id,propio?DOLL:(sel.objetivo??destino),rng,forzar,sel.centro||centro||undefined),'Esa acción no se pudo usar.',()=>{setCentro(null);setObjetivo('');setMoviendo(false);});
  }
  function atras(){
@@ -256,7 +256,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   <div className="yq-arena-tablero">
    {/* El aviso de reinicio flota sobre el tablero: no empuja la barra ni los botones mientras se juega. */}
    {reinicio&&<p key={reinicio.n} role="status" className="yq-arena-reinicio">{reinicio.texto}</p>}
-   <TableroCombate mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?elegido:DOLL}
+   <TableroCombate ocular={colocando?null:vistaOcular(c,DOLL)} turnoPropio={enCurso&&c.actual===DOLL} mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?elegido:DOLL}
     centro={colocando?null:centro} puedeApuntar={enCurso&&(colocando||!portador?.accion_usada)} onApuntar={alApuntar}
     evento={c.evento_visual} fichas={fichas} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino}
     moviendo={moviendo&&enCurso&&!colocando} alcanzables={alcanzables} ocupado={!enCurso}

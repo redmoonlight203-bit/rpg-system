@@ -24,7 +24,7 @@ export function capaDe(estados?:readonly string[]|null):Capa{
  return 'suelo';
 }
 
-type EfectoMinimo={efecto?:string;nombre?:string;suelo?:boolean;coste_ph?:number;coste_fatiga?:number;tablero?:{origen_area?:string;alcance?:number;forma?:string}};
+type EfectoMinimo={efecto?:string;nombre?:string;suelo?:boolean;coste_ph?:number;coste_fatiga?:number;tablero?:{origen_area?:string;alcance?:number;forma?:string};vision?:{modo?:string}};
 /** Igual que el motor: un efecto «solo suelo» no alcanza a quien vuela. */
 export function alcanzaCapa(efecto:EfectoMinimo|undefined,capa:Capa):{ok:boolean;motivo?:string}{
  if(efecto?.suelo&&capa==='aire')return {ok:false,motivo:'No alcanza: el objetivo está en el aire.'};
@@ -33,7 +33,7 @@ export function alcanzaCapa(efecto:EfectoMinimo|undefined,capa:Capa):{ok:boolean
 
 /** Acciones que no necesitan objetivo en el tablero: se ejecutan sobre quien actúa. */
 export function esAccionPropia(id:string,efecto?:EfectoMinimo){
- return id==='guardia'||['crear_arma','transformacion'].includes(efecto?.efecto||'')||efecto?.tablero?.origen_area==='lanzador';
+ return id==='guardia'||['crear_arma','transformacion'].includes(efecto?.efecto||'')||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir';
 }
 
 /** Un objetivo es «natural» para la acción si el clic directo puede ejecutarla sin sorpresas. */

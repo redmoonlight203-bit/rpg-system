@@ -4,11 +4,12 @@ import {EVENTOS,EFECTOS_REGLA,validarReglas,type Regla,type EfectoRegla,type Con
 import {describirEfecto,describirRegla,describirReaccion,condicionClara} from "./descripciones";
 import {validarPasivas,EVENTOS_PASIVA,CONDICIONES_PASIVA} from "./pasivas";
 import {reaccionDe,validarTactica,validarRequisitos} from "./combate";
+import {describirVision,validarVision} from "./vision";
 /**
  * Grafo DERIVADO del Borrador (solo lectura): `aGrafo` nunca modifica `b`.
  * El Borrador es la única fuente de verdad; las ediciones son operaciones puras sobre él.
  */
-export type TipoNodo='nucleo'|'accion'|'alcance'|'salvacion'|'estado'|'reaccion'|'transformacion'|'recurso'|'vfx'|'tabla_armas'|'cuando'|'si'|'entonces'|'pasiva'|'vinculo'|'invocacion'|'requisitos';
+export type TipoNodo='nucleo'|'accion'|'alcance'|'salvacion'|'estado'|'reaccion'|'transformacion'|'recurso'|'vfx'|'tabla_armas'|'vision'|'cuando'|'si'|'entonces'|'pasiva'|'vinculo'|'invocacion'|'requisitos';
 export type Ruta=(string|number)[];
 export type Puerto={id:string;lado:'entrada'|'salida';acepta:TipoNodo[];etiqueta?:string};
 export type Nodo={id:string;tipo:TipoNodo;ruta:Ruta;titulo:string;frase:string;error:string|null;puertos:Puerto[]};
@@ -18,7 +19,7 @@ export type Grafo={nodos:Nodo[];cables:Cable[]};
 export type ContextoGrafo={creaciones:{id:string;nombre:string;tipo_creacion?:string;estado?:string}[]};
 /** Una creación archivada o pendiente ya no está en La Creación: sus vínculos se marcan como rotos. */
 export const vigente=(c:{estado?:string}):boolean=>!c.estado||c.estado==='aprobado';
-const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
+const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision'];
 const entrada=(acepta:TipoNodo[],etiqueta?:string):Puerto=>({id:'entrada',lado:'entrada',acepta,...(etiqueta?{etiqueta}:{})});
 const salida=(id:string,acepta:TipoNodo[],etiqueta?:string):Puerto=>({id,lado:'salida',acepta,...(etiqueta?{etiqueta}:{})});
 const SIEMPRE:CondicionRegla={tipo:'siempre'};
@@ -56,6 +57,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(e.recurso)modulo('recurso','recurso','Recurso',`${e.recurso.nombre}: inicia en ${e.recurso.inicial}, cambia ${e.recurso.cambio}.`);
   if(e.vfx)modulo('vfx','vfx','Animación','Animación configurada.');
   if(e.tabla_armas)modulo('tabla_armas','tabla_armas','Tabla de armas',`d${e.tabla_armas.caras}: un arma por cara.`);
+  if(e.vision)modulo('vision','vision','Visión',texto(()=>describirVision(e.vision!).resumen,'Ojo sin describir.'),fallo(()=>validarVision(e.vision)));
  });
  // Reglas: cuando → si (→ si anidados) → entonces (→ ramas éxito/fallo)
  b.reglas.forEach((r:Regla,i)=>{

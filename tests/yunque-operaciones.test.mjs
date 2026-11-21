@@ -33,7 +33,7 @@ test('agregar accion añade nuevoEfecto() al final de efectos',()=>{
  assert.ok(nuevo.id);
 });
 test('agregar módulos deja un efecto que valida y aparece en el grafo',()=>{
- for(const t of ['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas']){
+ for(const t of ['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision']){
   const b=base();b.efectos=[{...nuevoEfecto(),nombre:'Golpe'}];
   const id='accion:'+b.efectos[0].id;
   const r=aplicar(b,{op:'agregar',tipo:t,padre:id});

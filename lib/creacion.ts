@@ -2,6 +2,7 @@ import type {ConfiguracionVFX} from "./vfx";
 import type { DefinicionTransformacion } from "./transformaciones";
 import {validarPortada} from "./imagenes-creacion";
 import {validarReglas} from "./reglas";
+import {validarVision,type Vision} from "./vision";
 import { linaje, type CategoriaBase } from "./estadisticas";
 export type TipoCreacion =
   "personaje" | "habilidad" | "objeto" | "titulo" | "pasiva" | "otro";
@@ -93,6 +94,8 @@ export type Reaccion = {
 export type Efecto = {
   /** Primitiva «Reacción» configurada en la Forja. Tiene prioridad sobre `defensa`. */
   reaccion?: Reaccion;
+  /** Primitiva «Visión»: habilidad ocular (puntos débiles, revelar, anticipar…). */
+  vision?: Vision;
   ley_limitless?:boolean;
   axioma?:boolean;
   suelo?:boolean;
@@ -257,6 +260,8 @@ export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
     const errorVFX=validarAnimacion(e.vfx);if(errorVFX)return errorVFX;
+    const errorVision=validarVision(e.vision);if(errorVision)return errorVision;
+    if(e.vision&&e.vision.modo==='abrir'&&e.tablero&&e.tablero.afecta!=='yo')return 'Un ojo que se abre con su propia acción no apunta a otros: quita el alcance o usa «Se abre al usar la acción».';
     if(e.efecto==="transformacion"){
       const d=e.transformacion;
       if(!d||!d.id||!d.nombre||!["forma","poder"].includes(d.tipo)||!Array.isArray(d.etapas)||d.etapas.length<1||d.etapas.length>12||d.etapas.some(v=>!v.id||!v.nombre||!v.stats||!Object.keys(v.stats).length||Object.keys(v.stats).some(k=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k))||Object.values(v.stats).some(n=>!Number.isFinite(n)||n<0||n>1000000)))return "Configura una transformación válida con etapas y estadísticas.";

@@ -1,6 +1,7 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {agruparPorAmbito} from './creaciones-personales';
 import {nuevoEfecto,type Efecto} from "./creacion";
+import {nuevaVision} from "./vision";
 import {EVENTOS,EFECTOS_REGLA,nuevaRegla,type Regla,type EfectoRegla,type CondicionRegla,type EventoRegla} from "./reglas";
 import type {ReglaPasiva} from "./pasivas";
 import {aGrafo,leerRuta,type Nodo,type Ruta,type TipoNodo} from "./yunque-grafo";
@@ -25,7 +26,7 @@ export const FAMILIAS_GRIMORIO:{clave:FamiliaGrimorio;nombre:string;ayuda:string
 export type Pieza={clave:string;familia:FamiliaGrimorio;tipo:TipoNodo;nombre:string;ayuda:string;icono:string;fragmentos:Fragmento[];
  /** Subgrupo dentro de la familia (p. ej. «Personales de Kion», «Generales»). Las piezas llegan ya ordenadas por grupo. */
  grupo?:string};
-const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas'];
+const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision'];
 const falla=(m:string):never=>{throw new Error(m);};
 const clon=<T,>(x:T):T=>structuredClone(x);
 const una=(clave:string,familia:FamiliaGrimorio,tipo:TipoNodo,nombre:string,ayuda:string,icono:string,datos:unknown):Pieza=>({clave,familia,tipo,nombre,ayuda,icono,fragmentos:[{tipo,datos}]});
@@ -55,6 +56,9 @@ const MODULOS_PIEZAS:Pieza[]=[
  una('modulo:recurso','modulos','recurso','Recurso','Una reserva que sube o baja','pocion',{nombre:'Recurso',inicial:0,cambio:1}),
  una('modulo:vfx','modulos','vfx','Animación','Cómo se ve al usarla','rayo',{}),
  una('modulo:tabla_armas','modulos','tabla_armas','Tabla de armas','Un arma al azar por cara','espada',{caras:2,resultados:[1,2].map(cara=>({cara,nombre:`Arma ${cara}`,cantidad:1,caras:6,modificador:0,tipo_dano:'',arma_slot:'mano_der'}))}),
+ una('modulo:vision','modulos','vision','Visión ocular','Un ojo: puntos débiles, revelar…','ojo',nuevaVision()),
+ una('modulo:vision-analitica','modulos','vision','Ojo analítico','Revela vida, acciones y pasivas','ojo',{...nuevaVision(),nombre:'Ojo analítico',duracion:0,mantenimiento_ph:1,alcance:0,apariencia:{color:'#3a8fd6',secundario:'#0a1a2a',patron:'rejilla',marcas:4,velo:1},revelar:{vida:true,atributos:true,acciones:true,pasivas:true,estados:true},puntos_debiles:undefined}),
+ una('modulo:vision-cazadora','modulos','vision','Ojo cazador','Puntos débiles con crítico','ojo',{...nuevaVision(),nombre:'Ojo cazador',modo:'con_accion',duracion:2,apariencia:{color:'#e0a21a',secundario:'#2a1400',patron:'rendija',marcas:1,velo:2},revelar:{vida:true},puntos_debiles:{cantidad:2,cambia:'ronda',recompensa:{critico:true}}}),
  una('modulo:invocacion','modulos','invocacion','Invocación','Traer a una criatura','espectro',{claseMaxima:'C',maxHabilidades:1,modo:'jugador_en_combate',duracionTurnos:3}),
 ];
 // ---- Eventos: una regla nueva con ese evento ----

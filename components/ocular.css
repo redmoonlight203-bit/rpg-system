@@ -1,0 +1,39 @@
+/* Primitiva «Visión»: ojo dibujado, velo del tablero, puntos débiles y panel revelado.
+   Animaciones únicas con transform/opacity y desactivadas con movimiento reducido (design.md). */
+.ojo-visual{display:block;flex-shrink:0;filter:drop-shadow(0 0 10px color-mix(in srgb,var(--ojo,#c0263a) 45%,transparent))}
+.ojo-visual.is-abriendo .ojo-visual-globo{transform-box:fill-box;transform-origin:center;animation:ojo-abrir .7s cubic-bezier(.2,1.2,.4,1) both}
+.ojo-visual.is-abriendo .ojo-visual-iris{transform-box:fill-box;transform-origin:center;animation:ojo-iris .9s ease-out both}
+@keyframes ojo-abrir{from{transform:scaleY(.05)}to{transform:none}}
+@keyframes ojo-iris{from{transform:rotate(-120deg) scale(.6);opacity:.2}to{transform:none;opacity:1}}
+
+/* Velo sobre el tablero durante el turno con el ojo abierto. */
+.ocular-velo{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:var(--ocular-opacidad,.5);
+ background:radial-gradient(ellipse 75% 70% at 50% 50%,transparent 45%,color-mix(in srgb,var(--ojo) 55%,transparent) 100%),
+  linear-gradient(color-mix(in srgb,var(--ojo) 10%,transparent),color-mix(in srgb,var(--ojo) 10%,transparent));
+ mix-blend-mode:screen;animation:ocular-velo .8s ease-out both}
+@keyframes ocular-velo{from{opacity:0}to{opacity:var(--ocular-opacidad,.5)}}
+.ocular-hud{position:absolute;top:10px;left:10px;z-index:9;display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border:1px solid var(--ojo);background:color-mix(in srgb,var(--color-well) 88%,transparent);border-radius:2px;max-width:calc(100% - 20px);pointer-events:auto;animation:ocular-hud .5s cubic-bezier(.2,1.3,.4,1) both}
+.ocular-hud strong{display:block;font:500 14px var(--font-serif);color:var(--color-text)}
+.ocular-hud small{display:block;font-size:12px;color:var(--color-text-muted)}
+.ocular-hud button{min-height:32px;margin-left:4px;padding:2px 10px;border:1px solid var(--color-line-strong);background:transparent;color:var(--color-text);border-radius:2px;font-size:12px}
+.ocular-hud button[aria-pressed=true]{border-color:var(--ojo);color:var(--color-gold-bright)}
+@keyframes ocular-hud{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+/* Puntos débiles: flechas brillantes en el lado débil de la ficha y casilla de ataque marcada. */
+.ocular-puntos{position:absolute;inset:0;z-index:7;pointer-events:none}
+.ocular-punto{position:absolute;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:14px solid var(--ojo);filter:drop-shadow(0 0 5px var(--ojo)) drop-shadow(0 0 1px #000);
+ transform:translate(-50%,-50%) rotate(var(--giro))}
+.ocular-celda{position:absolute;inset:3px;z-index:1;pointer-events:none;border:2px dashed var(--ojo);background:color-mix(in srgb,var(--ojo) 18%,transparent);border-radius:2px}
+.ocular-amenaza{position:absolute;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--color-crimson) 18%,transparent) 0 3px,transparent 3px 10px)}
+.ocular-revelado{position:absolute;inset:2px;z-index:3;pointer-events:none;border:1px solid var(--ojo);border-radius:50%;box-shadow:inset 0 0 10px color-mix(in srgb,var(--ojo) 55%,transparent)}
+
+/* Panel con lo que revela el ojo de la unidad enfocada. */
+.ocular-panel{grid-column:1/-1;display:grid;gap:8px;padding:10px 12px;border:1px solid var(--ojo);background:linear-gradient(120deg,color-mix(in srgb,var(--ojo) 12%,transparent),transparent 70%);border-radius:2px}
+.ocular-panel header{display:flex;align-items:center;gap:8px;font:600 12px var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--color-gold-soft)}
+.ocular-panel .ocular-debil{font-size:13px;color:var(--color-text)}
+.ocular-panel .ocular-debil b{color:var(--ojo)}
+.ocular-atributos{display:flex;flex-wrap:wrap;gap:6px}
+.ocular-atributos span{padding:2px 8px;border:1px solid var(--color-line);background:var(--color-canvas);font-size:12px;border-radius:2px;font-variant-numeric:tabular-nums}
+.ocular-lista{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--color-text)}
+.ocular-lista small{color:var(--color-text-muted)}
+@media(prefers-reduced-motion:reduce){.ojo-visual.is-abriendo .ojo-visual-globo,.ojo-visual.is-abriendo .ojo-visual-iris,.ocular-velo,.ocular-hud{animation:none}}
