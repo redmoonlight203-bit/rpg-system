@@ -1427,7 +1427,14 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         if (!nombre.trim() || !Number.isSafeInteger(inicial) || inicial < 0 || !Number.isSafeInteger(cambio))
             throw Error('Recurso inválido.');
         const recursos = a.recursos_especiales ??= {};
-        const saldo = (Object.hasOwn(recursos, nombre) ? recursos[nombre] : inicial) + cambio;
+        const previo = Object.hasOwn(recursos, nombre) ? recursos[nombre] : inicial;
+        if (e.recurso.descargar) {
+            if (e.efecto !== 'dano' || previo < 1)
+                throw Error('Necesitas energía almacenada para descargarla.');
+            e = { ...e, modificador: e.modificador + previo };
+            log(n, 'Descarga de ' + previo + ' puntos de ' + nombre + '.');
+        }
+        const saldo = e.recurso?.descargar ? 0 : previo + cambio;
         if (saldo < 0)
             throw Error(nombre + ': saldo insuficiente.');
         a.recursos_especiales = { ...recursos, [nombre]: saldo };
@@ -1483,6 +1490,39 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         if (a.vida <= 0)
             return n;
     }
+    if (e.aprendizaje) {
+        const objetivo = objetivos[0], clave = objetivo && a.hechizos_observados?.[objetivo.id];
+        const fuente = objetivo?.configuracion.habilidades?.find(h => (h.forja_id || h.id) === clave);
+        if (!clave || !fuente)
+            throw Error('Selecciona al lanzador de un hechizo que hayas visto durante este encuentro.');
+        if (requisitosFuente(a, fuente).length)
+            throw Error('Faltan requisitos para aprender este hechizo.');
+        if (a.configuracion.habilidades?.some(h => (h.forja_id || h.id) === clave))
+            throw Error('Ya conoces ese hechizo.');
+        const { cd, bono } = e.aprendizaje;
+        if (!Number.isInteger(cd) || cd < 1 || cd > 100 || !Number.isInteger(bono) || Math.abs(bono) > 100)
+            throw Error('Aprendizaje sin una CD válida.');
+        const tirada = rng(20);
+        log(n, a.nombre + ' intenta aprender ' + fuente.nombre + ': ' + tirada + ' + ' + bono + ' contra CD ' + cd + '.');
+        if (tirada + bono >= cd) {
+            a.configuracion.habilidades = [...(a.configuracion.habilidades || []), { ...copia(fuente), id: clave, forja_id: clave }];
+            a.hechizos_aprendidos = [...new Set([...(a.hechizos_aprendidos || []), clave])];
+            log(n, a.nombre + ' aprende ' + fuente.nombre + '.');
+        }
+        else
+            log(n, 'No logra aprender el hechizo.');
+        return n;
+    }
+    const magia = (a.configuracion.habilidades || []).find(h => accionId === 'hab:' + h.id + ':' + e.id);
+    const claveMagia = magia?.forja_id || magia?.id;
+    if (claveMagia && (e.naturaleza === 'magica' || coste > 0) && !e.reaccion && !e.defensa) {
+        for (const testigo of n.miembros) {
+            if (testigo.id === a.id || !combatienteActivo(testigo) || tiene(testigo, 'ciego') || !testigo.configuracion.habilidades?.some(h => h.efectos?.some(ef => ef.aprendizaje)))
+                continue;
+            if (lineaVisible(posiciones[testigo.id], origen, n.mapa))
+                testigo.hechizos_observados = { ...testigo.hechizos_observados, [a.id]: claveMagia };
+        }
+    }
     if (e.efecto === "crear_arma") {
         if (e.tabla_armas) {
             const tabla = e.tabla_armas;
@@ -1523,6 +1563,14 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         const supera = e.salvacion
             ? salvacion(n, t, e.salvacion.cd, e.salvacion.atributo, rng)
             : false;
+        if (e.aterrizar) {
+            if (!tiene(t, 'vuelo'))
+                throw Error('Elige un objetivo en vuelo.');
+            quitarEstado(t, 'vuelo');
+            aplicarTerreno(n, t, rng);
+            log(n, t.nombre + ' aterriza de forma controlada.');
+            return n;
+        }
         if (e.vuelo) {
             estado(t, 'vuelo', 'En vuelo', 2, {});
             log(n, t.nombre + ' alza el vuelo durante dos turnos.');
