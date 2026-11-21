@@ -9,3 +9,9 @@ test('lanza antigua alcanza dos bloques; arco ocho, con límites inclusivos',()=
 test('la magia antigua recibe seis bloques y no ignora PH ni límites',()=>{const h=efecto({nombre:'Bola de fuego',tipo_dano:'Fuego',coste_ph:1});const b=campo(6,{habilidad:h});assert.equal(c.acciones(b.miembros[0]).find(a=>a.id==='hab:h:e').efecto.tablero.alcance,6);assert.equal(c.actuar(b,'a','hab:h:e','b',()=>4).miembros[0].ph,4);fuera(campo(7,{habilidad:h}),'hab:h:e');assert.throws(()=>c.actuar(campo(1,{habilidad:h,ph:0}),'a','hab:h:e','b'),/PH insuficientes/);});
 test('un alcance explícito prevalece y las armas temporales también están limitadas',()=>{const h=efecto({tablero:{alcance:3,forma:'individual',tamano:0,afecta:'enemigos'}});assert.ok(c.actuar(campo(3,{habilidad:h}),'a','hab:h:e','b',()=>4).miembros[1].vida<30);fuera(campo(4,{habilidad:h}),'hab:h:e');const b=campo(3);b.miembros[0].arma={nombre:'Lanza efímera',slot:'mano_der',restantes:3,creada:0,efecto:efecto({efecto:'crear_arma',arma_nombre:'Lanza efímera'})};fuera(b);});
 test('las reglas activas no infligen daño global fuera de su alcance',()=>{const b=campo(7);b.miembros[0].configuracion.reglas=[{id:'r',nombre:'Pulso',evento:'usar',condicion:{tipo:'siempre'},efectos:[{tipo:'dano',destino:'enemigos',valor:8}],coste_ph:1,coste_fatiga:0,enfriamiento:0,usos:0,prioridad:0}];const n=c.actuar(b,'a','regla:propio:r','a',()=>4);assert.equal(n.miembros[1].vida,30);});
+test('el arco ofrece un único disparo y conserva el identificador antiguo al ejecutar',()=>{
+ const arma={id:'arco',nombre:'Arco',slot_tipo:'dos_manos',stats:{},efectos:[efecto({id:'flecha',nombre:'Disparo'})]};
+ const b=campo(2,{arma});const disparos=c.acciones(b.miembros[0]).filter(a=>a.efecto.id==='flecha');
+ assert.equal(disparos.length,1);assert.equal(disparos[0].id,'equipo:mano_der:flecha');
+ for(const id of ['ataque',disparos[0].id])assert.ok(c.actuar(b,'a',id,'b',()=>4).miembros[1].vida<30);
+});

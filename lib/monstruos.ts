@@ -1,8 +1,10 @@
+import {escalarMalla} from './progresion';
 import {SLOTS,type Efecto} from './creacion';
 import {faltantesRequisitos,type Fuente,type Config} from './combate';
+import {validarPortada} from './imagenes-creacion';
 import type {Rango} from './forja';
-export type EquipoMonstruo={modo:'catalogo'|'generado';opciones:string[];nombre?:string;dos_manos?:boolean;rangos?:Record<string,Rango>;dados?:number;caras?:number};
-export type VarianteMonstruo={id:string;nombre:string;peso:number;bonos:Record<string,number>;habilidades:string[];pasivas:string[];equipamiento:Record<string,EquipoMonstruo>};
+export type EquipoMonstruo={porcentajes?:Record<string,number>;modo:'catalogo'|'generado';opciones:string[];nombre?:string;dos_manos?:boolean;rangos?:Record<string,Rango>;dados?:number;caras?:number};
+export type VarianteMonstruo={rangos?:Record<string,Rango>;imagen_url?:string;id:string;nombre:string;peso:number;bonos:Record<string,number>;habilidades:string[];pasivas:string[];equipamiento:Record<string,EquipoMonstruo>};
 export type ConfiguracionMonstruo={variantes:VarianteMonstruo[]};
 export type FuenteMonstruo=Fuente & {id:string;tipo_creacion:string;estado?:string;es_grupo?:boolean;stats_rango?:Record<string,Rango>;configuracion_dados?:Efecto[]};
 export function validarMonstruo(config:ConfiguracionMonstruo|null|undefined,catalogo:FuenteMonstruo[]):string|null{
@@ -10,13 +12,21 @@ export function validarMonstruo(config:ConfiguracionMonstruo|null|undefined,cata
  if(!Array.isArray(config.variantes)||config.variantes.length>30)return 'Define un máximo de 30 variantes.';
  const ids=new Set<string>();
  for(const v of config.variantes){
+  if(v.imagen_url && validarPortada(v.imagen_url))return 'Imagen de variante inválida.';
   if(!v.id||ids.has(v.id)||!v.nombre.trim()||v.nombre.length>100)return 'Cada variante necesita nombre e identificador únicos.';ids.add(v.id);
   if(!Number.isFinite(v.peso)||v.peso<=0||v.peso>1000)return 'El peso de aparición debe estar entre 1 y 1000.';
+  for(const [clave,r] of Object.entries(v.rangos||{})){
+   if(['nivel','experiencia','exp_total'].includes(clave)||!r||!Number.isFinite(r.min)||!Number.isFinite(r.max)||r.min<0||r.max<r.min||r.max>1000000)return 'Revisa los rangos de la variante.';
+  }
   if(Object.entries(v.bonos).some(([k,n])=>['nivel','exp_total','experiencia'].includes(k)||!Number.isFinite(n)||Math.abs(n)>1000000))return 'Ajustes de estadísticas inválidos.';
   for(const [tipo,lista] of [['habilidad',v.habilidades],['pasiva',v.pasivas]] as const){if(lista.length>20||new Set(lista).size!==lista.length||lista.some(id=>!catalogo.some(c=>c.id===id&&c.tipo_creacion===tipo)))return 'Hay poderes repetidos o no disponibles en una variante.';}
   for(const [slot,e] of Object.entries(v.equipamiento)){
    const s=SLOTS.find(s=>s.clave===slot);if(!s)return 'Espacio de equipo desconocido.';
    if(e.modo==='catalogo'){
+    if(e.porcentajes){
+     const valores=Object.values(e.porcentajes);
+     if(new Set(e.opciones).size!==e.opciones.length||e.opciones.some(id=>!Object.hasOwn(e.porcentajes!,id))||Object.keys(e.porcentajes).some(id=>!e.opciones.includes(id))||valores.some(p=>!Number.isFinite(p)||p<0||p>100)||valores.reduce((s,p)=>s+p,0)>100.000001)return 'Los porcentajes de cada espacio deben sumar como máximo 100%.';
+    }
     if(!e.opciones.length||e.opciones.some(id=>!catalogo.some(c=>c.id===id&&c.tipo_creacion==='objeto'&&s.tipos.includes(c.slot_tipo||''))))return 'Selecciona objetos compatibles de La Creación en cada espacio configurado.';
    }else if(e.modo==='generado'){
     if(!e.nombre?.trim()||!Object.keys(e.rangos||{}).length)return 'El equipo generado necesita nombre y rangos.';
@@ -35,28 +45,37 @@ export function elegirVariante(config:ConfiguracionMonstruo,id:string,rng:()=>nu
  if(!config.variantes.length)throw Error('Esta especie no tiene variantes.');return config.variantes[config.variantes.length-1];
 }
 /** Copias efímeras: jamás modifica el catálogo ni guarda nuevas creaciones. */
-export function prepararVariante<T extends {nombre:string;stats:Record<string,number>;configuracion:Config}>(f:T,variante:VarianteMonstruo,catalogo:FuenteMonstruo[],rng:()=>number=Math.random):T{
+export function prepararVariante<T extends {nombre:string;stats:Record<string,number>;configuracion:Config}>(f:T,variante:VarianteMonstruo,catalogo:FuenteMonstruo[],rng:()=>number=Math.random,nivelMaximo=20):T{
  const error=validarMonstruo({variantes:[variante]},catalogo);if(error)throw Error(error);
- const base={...(f.configuracion.stats_base||f.stats)};
+ const base={...(f.configuracion.stats_base||f.stats),...escalarMalla(variante.rangos||{},f.stats.nivel||1,nivelMaximo,rng)};
  for(const [k,v] of Object.entries(variante.bonos))base[k]=Math.max(0,(base[k]||0)+v);
  const razas=[f.configuracion.raza||'',...(f.configuracion.linaje_raza||[])];
  const fuente=(id:string):Fuente=>{const c=catalogo.find(c=>c.id===id);if(!c)throw Error('Creación no disponible.');return {...c,stats:c.es_grupo?sortear(c.stats_rango||{},rng):{...c.stats},efectos:c.configuracion_dados||c.efectos||[]};};
- const equipo:Record<string,Fuente>={};
+ const original=variante.id==='original';
+ const equipo:Record<string,Fuente>=original?{...f.configuracion.equipamiento}:{};
+ for(const slot of Object.keys(variante.equipamiento))delete equipo[slot];
  for(const [slot,e] of Object.entries(variante.equipamiento)){
   if(slot==='mano_izq'&&equipo.mano_der?.slot_tipo==='dos_manos')continue;
   if(e.modo==='catalogo'){
    const elegibles=e.opciones.filter(id=>{const c=catalogo.find(c=>c.id===id)!;return !faltantesRequisitos(c.requisitos_uso,razas,base,[...(f.configuracion.habilidades||[]).map(h=>h.forja_id||h.id||''),...variante.habilidades]).length;});
+   if(e.porcentajes){
+    let tirada=Math.min(.999999999,Math.max(0,rng()))*100;
+    const id=e.opciones.find(id=>(tirada-=e.porcentajes![id])<0);
+    if(id&&elegibles.includes(id))equipo[slot]=fuente(id);
+   }else{
    if(!elegibles.length)throw Error(`${variante.nombre}: no cumple los requisitos del equipo de ${slot}.`);
    equipo[slot]=fuente(elegibles[Math.min(elegibles.length-1,Math.floor(rng()*elegibles.length))]);
+   }
   }else{
    const stats=sortear(e.rangos||{},rng);const mano=slot.startsWith('mano');
    equipo[slot]={id:crypto.randomUUID(),nombre:e.nombre!,tipo_creacion:'objeto',slot_tipo:mano?(e.dos_manos?'dos_manos':'mano'):SLOTS.find(s=>s.clave===slot)!.tipos[0],stats,descripcion:'Equipo generado para esta aparición.',efectos:mano?[{id:'ataque',nombre:`Ataca con ${e.nombre}`,efecto:'dano',cantidad:e.dados!,caras:e.caras!,modificador:stats.dano||0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0}]:[]};
   }
-  if(slot==='mano_izq'&&equipo[slot].slot_tipo==='dos_manos')delete equipo.mano_der;
+  if(slot==='mano_izq'&&equipo[slot]?.slot_tipo==='dos_manos')delete equipo.mano_der;
+  if(slot==='mano_der'&&equipo[slot]?.slot_tipo==='dos_manos')delete equipo.mano_izq;
  }
  const bonos:Record<string,number>={};for(const p of Object.values(equipo))for(const [k,v] of Object.entries(p.stats))if(!['peso','durabilidad','dados_dano','caras_dano','dano','nivel'].includes(k))bonos[k]=(bonos[k]||0)+v;
  const stats={...base};for(const [k,v] of Object.entries(bonos))stats[k]=(stats[k]||0)+v;
  const habilidades=[...new Map([...(f.configuracion.habilidades||[]),...variante.habilidades.map(fuente)].map(h=>[h.id,h])).values()];
  const pasivas=[...(f.configuracion.pasivas||[]),...variante.pasivas.filter(id=>!f.configuracion.pasivas?.some(p=>p.id===id)).map(id=>{const c=fuente(id);return {id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]};})];
- return {...f,nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
+ return {...f,nombre:original?f.nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,variante_id:variante.id,...(variante.imagen_url?{imagen_url:variante.imagen_url}:{}),stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
 }

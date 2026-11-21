@@ -9,3 +9,25 @@ test('piezas generadas tienen identidad propia, rango cerrado y ataque funcional
 test('dos manos impide equipo simultáneo en la otra mano',()=>{const p={...v(),equipamiento:{mano_der:{modo:'catalogo',opciones:['baston']},mano_izq:{modo:'catalogo',opciones:['daga']}}};const n=m.prepararVariante(ficha(),p,[item('baston','dos_manos'),item('daga')]);assert.equal(n.configuracion.equipamiento.mano_izq,undefined);});
 test('rechaza equipo incompatible, desaparecido o con requisitos incumplidos',()=>{const p={...v(),equipamiento:{pechera:{modo:'catalogo',opciones:['daga']}}};assert.ok(m.validarMonstruo({variantes:[p]},[item('daga')]));const q={...v(),equipamiento:{mano_der:{modo:'catalogo',opciones:['daga']}}};assert.throws(()=>m.prepararVariante(ficha(),q,[{...item('daga'),requisitos_uso:{nivel_minimo:10}}]));assert.throws(()=>m.prepararVariante(ficha(),q,[]));});
 test('variantes ponderadas y habilidades adicionales respetan tipos y unicidad',()=>{const config={variantes:[v('Asesino'),{...v('Mago'),peso:10}]};assert.equal(m.elegirVariante(config,'aleatorio',()=>.8).nombre,'Mago');assert.throws(()=>m.elegirVariante(config,'inexistente'));assert.ok(m.validarMonstruo({variantes:[{...v(),peso:0}]},[]));assert.ok(m.validarMonstruo({variantes:[{...v(),habilidades:['a','a']}]},[{id:'a',nombre:'a',tipo_creacion:'habilidad',stats:{}}]));});
+
+test('la aparición conserva el retrato propio o hereda el de la especie',()=>{
+ const base=ficha();
+ base.configuracion.imagen_url='/especie.webp';
+ const propia=m.prepararVariante(base,{...v(),imagen_url:'/variante.webp'},[]);
+ assert.equal(propia.configuracion.imagen_url,'/variante.webp');
+ assert.equal(m.prepararVariante(base,v(),[]).configuracion.imagen_url,'/especie.webp');
+ assert.equal(base.configuracion.imagen_url,'/especie.webp');
+});
+test('rangos propios y porcentajes solo afectan a la aparición',()=>{
+ const catalogo=[item('daga'),item('maza')];
+ const perfil={...v(),rangos:{vida:{min:10,max:36}},equipamiento:{mano_der:{modo:'catalogo',opciones:['daga','maza'],porcentajes:{daga:0,maza:75}}}};
+ const f=ficha();
+ assert.equal(m.prepararVariante(f,perfil,catalogo,()=>0,3).stats.vida,36);
+ assert.equal(m.prepararVariante(f,perfil,catalogo,()=>0,3).configuracion.equipamiento.mano_der.id,'maza');
+ assert.equal(m.prepararVariante(f,perfil,catalogo,()=>.75,3).configuracion.equipamiento.mano_der,undefined);
+ perfil.equipamiento.mano_der.porcentajes.maza=100;
+ assert.equal(m.prepararVariante(f,perfil,catalogo,()=>.999,3).configuracion.equipamiento.mano_der.id,'maza');
+ perfil.equipamiento.mano_der.porcentajes.daga=1;
+ assert.ok(m.validarMonstruo({variantes:[perfil]},catalogo));
+ assert.equal(f.stats.vida,20);
+});
