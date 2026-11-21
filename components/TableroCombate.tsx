@@ -222,7 +222,16 @@ export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,on
  const [segundoClic]=useSegundoClic();
  const phReal=Number.isFinite(actor.ph)?Math.max(0,Math.min(actor.ph,actor.stats?(Number.isFinite(actor.stats.ph)?actor.stats.ph:0):actor.ph)):0;
  const motivoDe=(a?:Accion)=>a?.bloqueada||((a?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(a?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!a?.regla)?'Fatiga insuficiente.':a?.enfriamiento?`Espera ${a.enfriamiento} turnos`:a&&phReal<a.efecto.coste_ph?'PH insuficientes':'');
- const visibles=acciones.filter(a=>categoria==='axioma'?a.efecto.axioma:!a.efecto.axioma&&(categoria==='todas'||a.id!=='ataque'));
+ const [busqueda,setBusqueda]=useState(''),[pagina,setPagina]=useState(0);
+ const filtrar=(nombre:string)=>nombre.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const filtradas=acciones.filter(a=>{
+  if(categoria==='axioma')return !!a.efecto.axioma;
+  if(a.efecto.axioma)return false;
+  if(categoria==='habilidades'&&!/^(hab:|motor-hab:|regla:)/.test(a.id))return false;
+  return true;
+ }).filter(a=>acciones.length<=8||filtrar(a.nombre).includes(filtrar(busqueda.trim())));
+ const ultima=Math.max(0,Math.ceil(filtradas.length/8)-1),actual=Math.min(pagina,ultima);
+ const visibles=filtradas.slice(actual*8,actual*8+8);
  const libre=puede&&!ocupado&&!actor.accion_usada;
  // Ranuras numeradas (teclas 1–9): acciones, guardia y consumibles, en el orden en que se ven.
  type Ranura={id:string;tipo:'accion'|'guardia'|'consumible';propia:boolean;deshabilitada:boolean};
@@ -281,6 +290,7 @@ export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,on
    <PanelHeroe actor={actor} phReal={phReal} puede={puede}/>
    <div className="tactical-controls">
     <div className="tactical-tabs"><button aria-pressed={categoria==='todas'} onClick={()=>setCategoria('todas')}>Todas</button><button aria-pressed={categoria==='habilidades'} onClick={()=>setCategoria('habilidades')}>Habilidades</button><span>{!puede?'Espera tu turno':actor.accion_usada?'Acción utilizada':'1 acción disponible'}</span></div>
+    {acciones.length>8&&<div className="tactical-tabs"><input type="search" aria-label="Buscar ataque o habilidad" placeholder="Buscar acción…" value={busqueda} onChange={e=>{setBusqueda(e.target.value);setPagina(0);}}/>{ultima>0&&<><button type="button" disabled={!actual} aria-label="Página anterior" onClick={()=>setPagina(actual-1)}>‹</button><span>{actual+1} / {ultima+1}</span><button type="button" disabled={actual===ultima} aria-label="Página siguiente" onClick={()=>setPagina(actual+1)}>›</button></>}{!filtradas.length&&<span>Sin coincidencias</span>}</div>}
     <div className="tactical-slots" role="group" aria-label="Barra de acciones">
      <button className={moviendo?'chosen':''} disabled={!puede||ocupado||movimiento<=0||actor.derribado} aria-pressed={moviendo} onClick={onMovimiento} {...hover('mover')}><Footprints/><strong>Mover</strong><small>{movimiento} casillas</small></button>
      {actor.derribado&&<button disabled={!puede||ocupado} onClick={onLevantarse}><Footprints/><strong>Levantarse</strong><small>½ movimiento</small></button>}

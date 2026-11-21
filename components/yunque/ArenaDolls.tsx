@@ -23,11 +23,12 @@ import type {Grafo} from '../../lib/yunque-grafo';
 import type {Borrador} from '../../lib/yunque-borrador';
 import {valoresBorrador,type ContextoTaller} from './contexto';
 import '../../app/ficha/jugador.css';
+import {elegirVariante} from '../../lib/monstruos';
 import './arena.css';
 
 type Props={b:Borrador;ctx:ContextoTaller;grafo:Grafo;onEncender:(ids:string[])=>void};
 type Ajustes=Partial<AjustesDoll>;
-type Entrada={b:Borrador;creaciones:ContextoTaller['creaciones'];firma:string;doll:Ajustes;saco:Ajustes};
+type Entrada={variante?:string;b:Borrador;creaciones:ContextoTaller['creaciones'];firma:string;doll:Ajustes;saco:Ajustes};
 type Estado=Entrada&{combate:Combate|null;error:string};
 
 const DOLL='doll',SACO='saco';
@@ -65,11 +66,14 @@ function sueloArena(columnas:number,filas:number):ProcedenciaMapa{
 function firmaCreaciones(b:Borrador,creaciones:ContextoTaller['creaciones']):string{
  if(b.tipo!=='personaje')return '';
  const ids=new Set([...b.habilidades,...b.pasivas,...Object.values(b.equipamiento||{})].filter(Boolean));
+ for(const v of b.monstruo?.variantes||[]){
+  for(const id of [...v.habilidades,...v.pasivas,...Object.values(v.equipamiento).flatMap(e=>e.opciones)])ids.add(id);
+ }
  return JSON.stringify(creaciones.filter(c=>ids.has(c.id)));
 }
 function construir(e:Entrada,ctx:ContextoTaller,sacos:Posicion[]):Estado{
  const arena:ContextoArena={creaciones:e.creaciones,stats:e.b.tipo==='personaje'?valoresBorrador(e.b,ctx):{}};
- const r=crearArena(e.b,arena,e.doll,e.saco,{sacos});
+ const r=crearArena(e.b,arena,e.doll,e.saco,{sacos,variante:e.variante});
  return 'error' in r?{...e,combate:null,error:r.error}:{...e,combate:r.combate,error:''};
 }
 const miembro=(c:Combate|null,id:string)=>c?.miembros.find(m=>m.id===id);
@@ -160,7 +164,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const elegida=lista.some(a=>a.id===accion)||accion==='guardia'?accion:lista[0]?.id||'ataque';
  const efecto=lista.find(a=>a.id===elegida)?.efecto;
  const destino=c?.miembros.some(m=>m.id===objetivo)?objetivo:'';
- const imagenDoll=b.tipo==='personaje'&&b.imagen.trim()?b.imagen.trim():IMAGEN_DOLL;
+ const imagenDoll=portador?.configuracion.imagen_url||(b.tipo==='personaje'&&b.imagen.trim()?b.imagen.trim():IMAGEN_DOLL);
  const fichas=useMemo<FichaTablero[]>(()=>{
   if(!c)return [];
   const p=seguro(()=>posicionesTablero(c),{} as Record<string,Posicion>);
@@ -205,8 +209,15 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   try{const n=deshacer(c);setEstado(s=>({...s,combate:n}));recordar(n);limpiarJugada();}
   catch(e){setVoz(kuroi(e,'No hay nada que deshacer.'));}
  }
+ function generarVariante(){
+  const todas=b.monstruo?.variantes||[];
+  const otras=todas.filter(v=>v.id!==(estado.variante||'original'));
+  const perfil=elegirVariante({variantes:otras.length?otras:todas},'aleatorio');
+  setEstado(construir({b,creaciones:ctx.creaciones,firma,doll,saco,variante:perfil.id},ctx,disposicion.current));
+  setAccion('');limpiarJugada();
+ }
  function reiniciar(){
-  setEstado(construir({b,creaciones:ctx.creaciones,firma,doll,saco},ctx,disposicion.current));
+  setEstado(construir({b,creaciones:ctx.creaciones,firma,doll,saco,variante:estado.variante},ctx,disposicion.current));
   limpiarJugada();
  }
  function alApuntar(p:Posicion,id?:string){
@@ -246,6 +257,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    </div>
    <div className="yq-arena-grupo">
    <button type="button" disabled={!deshacible} onClick={atras} title="Deshacer el último paso de la prueba"><Undo2 size={14} aria-hidden="true"/><span className="yq-etiqueta">Deshacer</span></button>
+   {!!b.monstruo?.variantes.length&&<button type="button" onClick={generarVariante}>Generar variante</button>}
    <button type="button" className="yq-arena-reiniciar" onClick={reiniciar} title="Empezar la prueba de nuevo (los sacos se quedan donde están)"><RotateCcw size={14} aria-hidden="true"/><span className="yq-etiqueta">Reiniciar</span></button>
    {ampliada?<button ref={botonVolver} type="button" className="yq-arena-ampliar" onClick={cerrarAmpliada}><Minimize2 size={14} aria-hidden="true"/>Volver</button>
     :<button ref={botonAmpliar} type="button" className="yq-arena-ampliar" onClick={abrirAmpliada}><Maximize2 size={14} aria-hidden="true"/>Ampliar</button>}

@@ -820,8 +820,9 @@ function basico() {
         coste_ph: 0,
     };
 }
-export function acciones(m) {
+export function acciones(m, incluirAlias = false) {
     const lista = [];
+    let ataqueDeEquipo;
     if (m.transformacion && !m.transformacion.descontrolada)
         lista.push({ id: 'volver_forma', nombre: 'Volver a la forma original', efecto: { ...basico(), efecto: 'transformacion' }, enfriamiento: 0 });
     if (m.arma)
@@ -838,32 +839,40 @@ export function acciones(m) {
             enfriamiento: 0,
         });
     else {
-        const p = ['mano_der', 'mano_izq'].map(slot => piezas(m)[slot]).find(p => p?.efectos?.some(e => e.efecto === 'dano'));
-        if (p)
-            lista.push({ id: 'ataque', nombre: `Atacar con ${p.nombre}`, efecto: p.efectos.find(e => e.efecto === 'dano'), enfriamiento: 0, ilustracion: ilustracionFuente(p) });
+        const equipo = piezas(m);
+        const slot = ['mano_der', 'mano_izq'].find(k => equipo[k]?.efectos?.some(e => e.efecto === 'dano'));
+        if (slot) {
+            const pieza = equipo[slot];
+            const efecto = pieza.efectos.find(e => e.efecto === 'dano');
+            ataqueDeEquipo = `equipo:${slot}:${efecto.id}`;
+            lista.push({ id: ataqueDeEquipo, nombre: `${pieza.nombre} · ${efecto.nombre}`, efecto, enfriamiento: 0, ilustracion: ilustracionFuente(pieza) });
+            if (incluirAlias)
+                lista.push({ ...lista[lista.length - 1], id: 'ataque' });
+        }
         else if (manosLibres(m) > 0)
             lista.push({ id: 'ataque', nombre: 'Ataque desarmado', efecto: basico(), enfriamiento: 0 });
     }
-    if ((m.arma || lista.some(a => a.id === 'ataque' && a.efecto.id !== 'basico')) && manosLibres(m) > 0)
+    if ((m.arma || ataqueDeEquipo) && manosLibres(m) > 0)
         lista.push({ id: 'desarmado', nombre: 'Ataque desarmado · mano libre', efecto: basico(), enfriamiento: 0 });
     for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length))
         for (const e of h.efectos || [])
             lista.push({
                 id: `hab:${h.id}:${e.id}`,
-                nombre: `${h.nombre} · ${e.nombre}`,
+                nombre: h.nombre === e.nombre ? h.nombre : `${h.nombre} · ${e.nombre}`,
                 ilustracion: ilustracionFuente(h),
                 efecto: e,
                 enfriamiento: Math.max(0, h.stats.enfriamiento || h.stats.cooldown || 0),
             });
     for (const [slot, p] of Object.entries(piezas(m)).filter(([, p]) => !requisitosFuente(m, p).length))
         for (const e of p.efectos || [])
-            lista.push({
-                id: `equipo:${slot}:${e.id}`,
-                nombre: `${p.nombre} · ${e.nombre}`,
-                ilustracion: ilustracionFuente(p),
-                efecto: e,
-                enfriamiento: 0,
-            });
+            if (`equipo:${slot}:${e.id}` !== ataqueDeEquipo)
+                lista.push({
+                    id: `equipo:${slot}:${e.id}`,
+                    nombre: `${p.nombre} · ${e.nombre}`,
+                    ilustracion: ilustracionFuente(p),
+                    efecto: e,
+                    enfriamiento: 0,
+                });
     for (const h of m.motor?.habilidades || [])
         lista.push({ id: `motor-hab:${h.id}`, nombre: h.accion.nombre, efecto: h.accion, enfriamiento: 0 });
     for (const { clave, regla, fuente } of reglasMotor(m))
@@ -1099,7 +1108,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         const t = n.miembros.find(m => m.id === objetivoId) || a;
         if (phDisponibles(a) < entrada.regla.coste_ph)
             throw Error('PH insuficientes.');
-        const alcance = acciones(a).find(v => v.id === accionId)?.efecto.tablero;
+        const alcance = acciones(a, true).find(v => v.id === accionId)?.efecto.tablero;
         const posiciones = posicionesTablero(n);
         if (alcance && distanciaCasillas(posiciones[a.id], posiciones[t.id]) > alcance.alcance)
             throw Error('El destino está fuera del alcance de la habilidad.');
@@ -1123,7 +1132,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         a.accion_usada = true;
         return n;
     }
-    const act = acciones(a).find((v) => v.id === accionId);
+    const act = acciones(a, true).find((v) => v.id === accionId);
     if (!act)
         throw Error("La acción no existe.");
     if ((a.cooldowns[act.id] || 0) > 0)
@@ -1500,7 +1509,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
 }
 export function actuar(c, actorId, accionId, objetivoId, rng = dadoSeguro, forzar = false, centro) {
     const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro), rng);
-    const actor = c.miembros.find(m => m.id === actorId), efecto = actor ? acciones(actor).find(a => a.id === accionId)?.efecto : undefined;
+    const actor = c.miembros.find(m => m.id === actorId), efecto = actor ? acciones(actor, true).find(a => a.id === accionId)?.efecto : undefined;
     return animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro);
 }
 function animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro) {

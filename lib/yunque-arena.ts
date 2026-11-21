@@ -1,6 +1,7 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {vigente,type Grafo} from "./yunque-grafo";
 import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG} from "./combate";
+import {prepararVariante} from "./monstruos";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
@@ -94,7 +95,7 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  return {id:DOLL,forja_id:null,nombre:'Doll portador',stats,configuracion:config};
 }
 /** Disposición de la arena que sobrevive a los reinicios: dónde está cada saco (uno por posición, como mucho tres). */
-export type Disposicion={sacos?:Posicion[]};
+export type Disposicion={sacos?:Posicion[];variante?:string};
 export function prepararArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>={},saco:Partial<AjustesDoll>={},disposicion:Disposicion={},rng:RNG=dadoSeguro):{combate:Combate}|{error:string}{
  try{
   const fallo=validarEfectos(b.efectos||[])||validarReglas(b.reglas||[])||validarPasivas(b.reglas_pasivas||[]);
@@ -105,7 +106,13 @@ export function prepararArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesD
   c.regla='directo';
   c.politica={...c.politica!,modo:'entrenamiento',automatico:false};
   c.mapa={...MAPA,celdas:{}};
-  c=agregar(c,portador(b,ctx,doll),'jugador',iniciativa(20));
+  let ficha=portador(b,ctx,doll);
+  const perfil=b.tipo==='personaje'&&b.monstruo?.variantes.find(v=>v.id===(disposicion.variante||'original'));
+  if(perfil){
+   const catalogo=ctx.creaciones.filter(vigente).map(p=>({...p,stats:p.stats||{},tipo_creacion:p.tipo_creacion||'otro'}));
+   ficha=prepararVariante(ficha,perfil,catalogo,Math.random,b.nivelMaximo);
+  }
+  c=agregar(c,ficha,'jugador',iniciativa(20));
   const pedidas=(disposicion.sacos?.length?disposicion.sacos:[undefined]).slice(0,SACOS.length);
   const ocupadas=new Set([clave(POSICION_DOLL)]);
   for(const [i,pedida] of pedidas.entries()){

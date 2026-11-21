@@ -178,7 +178,7 @@ export default function CampoCombate() {
         setRetratos({ ...retratosCombate, ...Object.fromEntries(Object.entries(saved).filter(([, v]) => typeof v === "string")) } as Record<string, string>);
     } catch { /* El combate funciona aunque el almacenamiento esté desactivado. */ }
   }, []);
-  const claveRetrato = useCallback((m: Combatiente) => m.personaje_id ? `jugador:${m.personaje_id}` : `forja:${m.forja_id || m.id}`, []);
+  const claveRetrato = useCallback((m: Combatiente) => m.personaje_id ? `jugador:${m.personaje_id}` : `forja:${m.forja_id || m.id}${m.configuracion.variante_id ? ":variante:"+m.configuracion.variante_id : ""}`, []);
   const fotoDe = useCallback((m: Combatiente) =>
     m.transformacion?.imagen_etapa || retratos[claveRetrato(m)] || m.configuracion.imagen_url, [claveRetrato, retratos]);
   function configurarRetrato(m: Combatiente, value: string) {
@@ -516,7 +516,7 @@ export default function CampoCombate() {
       for(const perfil of perfiles){
        let copia={...f,id:crypto.randomUUID()};
        if(plantilla.es_grupo&&plantilla.stats_rango){const base={...escalarMalla(plantilla.stats_rango,nivel,plantilla.nivel_maximo||20),nivel};const stats:Record<string,number>={...base};for(const [k,v] of Object.entries(f.configuracion.bonos_equipamiento||{}))stats[k]=(stats[k]||0)+v;copia={...copia,stats,configuracion:{...f.configuracion,stats_base:base}};}
-       if(config?.variantes?.length)copia=prepararVariante(copia,elegirVariante(config,perfil),catalogoVariantes!.data as FuenteMonstruo[]);
+       if(config?.variantes?.length && (perfil!=='original' || config.variantes.some(v=>v.id===perfil)))copia=prepararVariante(copia,elegirVariante(config,perfil),catalogoVariantes!.data as FuenteMonstruo[],Math.random,plantilla.nivel_maximo||20);
        next=agregar(next,copia,bando);
       }
       await guardar(next);
@@ -1039,7 +1039,7 @@ export default function CampoCombate() {
                     {p.stats.armadura || 0} ARM
                   </p>
                   {p.origen==="forja"&&<label className="flex items-center gap-2 text-xs text-neutral-300">Nivel al entrar al combate<input type="number" min={1} max={p.nivel_maximo||100} step={1} value={nivelesSeleccionados[p.id]??p.nivel??1} onChange={e=>setNivelesSeleccionados(prev=>({...prev,[p.id]:Math.max(1,Math.min(p.nivel_maximo||100,Number(e.target.value)||1))}))} onClick={e=>e.stopPropagation()} className="w-20 rounded border border-neutral-700 bg-well p-1 text-white" /></label>}
-                  {!!p.configuracion_monstruo?.variantes?.length&&<div className="space-y-2 text-xs"><label>Variante<select aria-label={`Variante de ${p.nombre}`} className="w-full rounded border border-neutral-700 bg-well p-2" value={variantesSeleccionadas[p.id]||'aleatorio'} onChange={e=>setVariantesSeleccionadas({...variantesSeleccionadas,[p.id]:e.target.value})}><option value="aleatorio">Sortear variante por aparición</option><option value="una_de_cada">Una de cada variante</option>{p.configuracion_monstruo.variantes.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}</select></label>{variantesSeleccionadas[p.id]!=='una_de_cada'&&<label>Cantidad<input type="number" min={1} max={20} value={cantidadesSeleccionadas[p.id]||1} onChange={e=>setCantidadesSeleccionadas({...cantidadesSeleccionadas,[p.id]:Math.max(1,Math.min(20,Math.floor(Number(e.target.value)||1)))})} className="ml-2 w-16 rounded bg-well p-1"/></label>}</div>}
+                  {!!p.configuracion_monstruo?.variantes?.length&&<div className="space-y-2 text-xs"><label>Variante<select aria-label={`Variante de ${p.nombre}`} className="w-full rounded border border-neutral-700 bg-well p-2" value={variantesSeleccionadas[p.id]||'aleatorio'} onChange={e=>setVariantesSeleccionadas({...variantesSeleccionadas,[p.id]:e.target.value})}><option value="aleatorio">Sortear variante por aparición</option>{!p.configuracion_monstruo.variantes.some(v=>v.id==='original')&&<option value="original">Original</option>}<option value="una_de_cada">Una de cada variante</option>{p.configuracion_monstruo.variantes.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}</select></label>{variantesSeleccionadas[p.id]!=='una_de_cada'&&<label>Cantidad<input type="number" min={1} max={20} value={cantidadesSeleccionadas[p.id]||1} onChange={e=>setCantidadesSeleccionadas({...cantidadesSeleccionadas,[p.id]:Math.max(1,Math.min(20,Math.floor(Number(e.target.value)||1)))})} className="ml-2 w-16 rounded bg-well p-1"/></label>}</div>}
                   <div className="battle-source-actions">
                     <button
                       disabled={bloqueado || c.fase !== "preparacion"}

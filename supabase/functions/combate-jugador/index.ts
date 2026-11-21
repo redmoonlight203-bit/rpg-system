@@ -60,7 +60,7 @@ Deno.serve(async req=>{
     next=actuar(c,m.id,body.accion_id,body.objetivo_id,rng,body.forzar===true,body.centro);resultado=next.resultado;
    }else throw Error('Operación no permitida.');
    if(body.operacion!=='mover'){
-    const accion=body.operacion==='actuar'?acciones(m).find(a=>a.id===body.accion_id):undefined;
+    const accion=body.operacion==='actuar'?acciones(m,true).find(a=>a.id===body.accion_id):undefined;
     next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:m.nombre,dados,resultado,arma_visual:tipoArmaVisual(accion,body.accion_id,m)};
    }
    delete next.historial;
