@@ -42,7 +42,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
  const patch=(p:Partial<Efecto>)=>operar({op:'fijar',ruta:nodo.ruta,valor:limpio({...e,...p})});
  function cambiarEfecto(v:Efecto['efecto']){
   if(v===e.efecto)return;
-  const p:Partial<Efecto>={efecto:v,tabla_armas:undefined};
+  const p:Partial<Efecto>={efecto:v,tabla_armas:undefined,aprendizaje:undefined,aterrizar:undefined};
   if(v==='crear_arma')Object.assign(p,{tablero:undefined,arma_nombre:e.arma_nombre||'Nueva arma',arma_slot:e.arma_slot||'mano_der',duracion:Math.max(1,e.duracion||3)});
   if(v==='desplazamiento')p.tablero={alcance:e.tablero?.alcance||3,forma:'individual',tamano:0,afecta:'todos'};
   if(v==='estado')Object.assign(p,{estado_tipo:'aturdido',estado:e.estado||'Aturdido',duracion:Math.max(1,e.duracion)});
@@ -74,6 +74,8 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
    <Fichas etiqueta="Comportamiento" opciones={ESTADOS} valor={e.estado_tipo||'narrativo'} onChange={estado_tipo=>patch({estado_tipo})} tono="arcano"/>
    <label className="yq-campo"><span>Nombre del estado</span><input maxLength={200} value={e.estado} onChange={v=>patch({estado:v.target.value})}/></label>
   </>}
+  {e.efecto==='estado'&&<><label className="yq-conmutador"><input type="checkbox" checked={!!e.aterrizar} onChange={v=>patch({aterrizar:v.target.checked||undefined,vuelo:undefined,aprendizaje:undefined})}/> Aterrizar desde la capa de vuelo</label><label className="yq-conmutador"><input type="checkbox" checked={!!e.aprendizaje} onChange={v=>patch({aterrizar:undefined,vuelo:undefined,aprendizaje:v.target.checked?{bono:0,cd:15}:undefined})}/>Aprender el último hechizo observado del objetivo</label>
+   {e.aprendizaje&&<div className="yq-costes">{(['bono','cd'] as const).map(k=><label key={k}>{k==='cd'?'CD del GM':'Bono al d20'}<Rueda nombre={k} etiqueta={k==='cd'?'CD de aprendizaje':'Bono de aprendizaje'} valor={e.aprendizaje![k]} min={k==='cd'?1:-100} max={100} onChange={v=>patch({aprendizaje:{...e.aprendizaje!,[k]:v}})}/></label>)}</div>}</>}
   {elemental&&<Fichas etiqueta="Elemento" opciones={ELEMENTOS} valor={elementoDe(e)} onChange={elemento=>patch({elemento})} tono="arcano"/>}
   <Fichas etiqueta="Naturaleza" opciones={NATURALEZAS} valor={e.naturaleza||'automatica'} onChange={cambiarNaturaleza}/>
   <div className="yq-costes">

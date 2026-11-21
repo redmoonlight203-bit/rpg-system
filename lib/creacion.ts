@@ -98,8 +98,10 @@ export type Efecto = {
   suelo?:boolean;
   portal?:boolean;
   vuelo?:boolean;
+  aterrizar?:boolean;
   defensa?:'inercia'|'absorcion'|'reciproco'|'ancla'|'reflejo';
-  recurso?: {nombre:string; inicial:number; cambio:number};
+  recurso?: {nombre:string; inicial:number; cambio:number; descargar?:boolean};
+  aprendizaje?:{bono:number;cd:number};
   companero_magico?:string;
   vfx?: ConfiguracionVFX;
   animacion?: "proyectil"|"destello"|"aura"|"impacto"|"trayectoria"|"desplazamiento"|"ninguna";
@@ -308,6 +310,8 @@ export function validarEfectos(efectos: Efecto[]): string | null {
     }
 
     if (e.requisito_forma && (!/^[a-z_][a-z0-9_]*$/.test(e.requisito_forma.atributo) || !Number.isFinite(e.requisito_forma.minimo))) return 'Requisito de forma inválido.';
+    if(e.aprendizaje&&(e.efecto!=='estado'||!Number.isInteger(e.aprendizaje.bono)||Math.abs(e.aprendizaje.bono)>100||!Number.isInteger(e.aprendizaje.cd)||e.aprendizaje.cd<1||e.aprendizaje.cd>100))return 'Revisa el bono y la CD de aprendizaje.';
+    if(e.recurso?.descargar&&e.efecto!=='dano')return 'Descargar la reserva requiere una acción de daño.';
     if (e.reaccion !== undefined) { const fallo = validarReaccion(e.reaccion); if (fallo) return `${e.nombre||'Reacción'}: ${fallo}`; }
     if (e.elemento && !ELEMENTOS.includes(e.elemento))
       return "Elemento inválido.";
