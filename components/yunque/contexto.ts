@@ -1,8 +1,6 @@
 // Contexto que el taller del Yunque recibe de la Forja (catálogo cargado) y cálculos derivados del borrador.
-import {calcularClase} from '../../lib/clases';
 import {faltantesRequisitos} from '../../lib/combate';
 import {tipoDe} from '../../lib/creacion';
-import {evaluarInvocacion} from '../../lib/invocaciones';
 import {atributosEfectivos,linaje,type CategoriaBase} from '../../lib/estadisticas';
 import type {Enlazable} from '../../lib/yunque-vinculos';
 import {esMonstruo} from '../../lib/progresion';
@@ -34,15 +32,6 @@ export function valoresBorrador(b:Borrador,ctx:ContextoTaller,medio=true):Record
 }
 /** Creaciones aprobadas de la colección (las que se pueden enlazar o copiar). */
 export const activas=(ctx:ContextoTaller)=>ctx.creaciones.filter(c=>c.estado==='aprobado');
-/** Clase calculada como la Forja: base del borrador y, en personajes, el poder de lo que tiene enlazado. */
-export function claseDe(b:Borrador,ctx:ContextoTaller){
- const bonos=b.reglas_pasivas.reduce<Record<string,number>>((n,r)=>{for(const [k,v] of Object.entries(r.bonos))n[k]=(n[k]||0)+Math.max(0,v);return n;},{});
- const base=calcularClase(valoresBorrador(b,ctx),b.efectos,bonos,b.reglas.reduce((n,r)=>n+r.efectos.length,0));
- if(b.tipo!=='personaje')return base;
- const vinculado=evaluarInvocacion({claseMaxima:'KUROI',modo:'plantilla_temporal',duracionTurnos:1,maxHabilidades:20},{nombre:b.nombre||'Personaje',stats:{},habilidades:b.habilidades,pasivas:b.pasivas},activas(ctx)).puntuacion;
- if(!vinculado)return base;
- return {...base,...calcularClase({poder_base:base.puntuacion,poder_vinculado:vinculado}),atributos:base.atributos,acciones:base.acciones,pasivas:base.pasivas+vinculado,reglas:base.reglas};
-}
 /** Requisitos de uso que el personaje del borrador no cumple para la creación `id` (como `faltantes` de la Forja). */
 export function faltantesDe(b:Borrador,ctx:ContextoTaller,id:string):string[]{
  const item=ctx.creaciones.find(f=>f.id===id);
