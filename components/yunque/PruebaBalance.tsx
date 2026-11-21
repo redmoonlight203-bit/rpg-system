@@ -112,10 +112,11 @@ export default function PruebaBalance({ balance }: { balance: ReturnType<typeof 
   const { entrada, informe: r, error } = balance;
   const [b] = entrada;
   return <div className="yq-ficha-prueba">
-    <p>El índice compara el daño en cinco rondas de Impacto con el de un portador desarmado. Se actualiza al editar el borrador.</p>
+    <p>La clase toma el mayor rendimiento medido en cinco rondas: ofensiva, defensa, apoyo o control. Un índice de 1 iguala la referencia de ese rol.</p>
     {error && <p role="status">{error}</p>}
     {r && <>
       <p role="status"><strong>{r.ipe === null ? 'Índice de potencia indeterminado' : `Índice de potencia equivalente · ${numero.format(r.ipe)}`}</strong></p>
+      <p>{Object.entries(r.indices).map(([rol,indice])=>`${rol}: ${indice===null?'sin referencia':numero.format(indice)}`).join(' · ')}</p>
       <ul>{r.avisos.map(aviso => <li key={aviso}>{aviso}</li>)}</ul>
       {r.informe.map(({ escenario, creacion: m, referencia, rendimientoPorAccion, incidencias }) =>
         <details key={escenario.id}>

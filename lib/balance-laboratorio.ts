@@ -6,7 +6,7 @@ import { clasePorIPE } from './clases';
 import { vacio, type Borrador } from './yunque-borrador';
 import { prepararArena, DOLL_BASE, type AjustesDoll, type ContextoArena } from './yunque-arena';
 
-export const VERSION_BALANCE = 'ipe-1.0';
+export const VERSION_BALANCE = 'ipe-1.0.1';
 export const SEMILLA_BALANCE = 20261120;
 export const RONDAS_BALANCE = 5;
 export const ESCENARIOS_BALANCE = [
@@ -23,6 +23,7 @@ type Escenario = typeof ESCENARIOS_BALANCE[number];
 type Metricas = {
   dano: number;
   accionesPropias: number;
+  aperturasPropias: number;
   pico: number;
   curacion: number;
   danoRecibido: number;
@@ -50,7 +51,7 @@ export const REPETICIONES_CLASE = 12;
 
 function agregarMetricas(): Metricas {
   return {
-    accionesPropias: 0, dano: 0, pico: 0, curacion: 0, danoRecibido: 0, acciones: 0, phGastado: 0,
+    accionesPropias: 0, aperturasPropias: 0, dano: 0, pico: 0, curacion: 0, danoRecibido: 0, acciones: 0, phGastado: 0,
     fatigaGanada: 0, hpPropioPerdido: 0, accionesEnemigasNegadas: 0, accionesRivales: 0, caidas: 0,
   };
 }
@@ -151,7 +152,13 @@ function simular(
         }
         try {
           c = medirPaso(c, actuar(c, actor.id, accion.id, destino, turnoRng), m, propia, !propia);
-          if (propia) { m.acciones++; if(esPropia(accion))m.accionesPropias++; }
+          if (propia) {
+            if (esPropia(accion)) {
+              m.accionesPropias++;
+              if (!m.acciones) m.aperturasPropias++;
+            }
+            m.acciones++;
+          }
           else m.accionesRivales++;
           break;
         } catch (error) {
@@ -219,7 +226,8 @@ export function evaluarBalance(
   const totales = informe.reduce((t, v) => ({
     dano: t.dano + (borrador.tipo==='personaje' || v.creacion.accionesPropias>0
       ? v.creacion.dano : Math.max(0,v.creacion.dano-v.referencia.dano)),
-    pico: t.pico + v.creacion.pico,
+    pico: t.pico + (borrador.tipo==='personaje' || v.creacion.aperturasPropias>0
+      ? v.creacion.pico : Math.max(0,v.creacion.pico-v.referencia.pico)),
     referencia: t.referencia + v.referencia.dano,
     picoReferencia: t.picoReferencia + v.referencia.pico,
   }), { dano: 0, pico: 0, referencia: 0, picoReferencia: 0 });
@@ -233,6 +241,12 @@ export function evaluarBalance(
   const ipe = medidos.length ? Math.max(...medidos) : null;
   const ipePico = totales.picoReferencia > 0 ? totales.pico / totales.picoReferencia : null;
   const avisos = ['Se toma el mayor índice medido de ofensiva, defensa, apoyo o control. Los efectos narrativos requieren revisión.'];
+  if (borrador.tipo==='habilidad' && informe.every(v=>v.creacion.accionesPropias===0)) {
+    avisos.push('La habilidad no se activó en los escenarios probados. Revisa sus condiciones, alcance y recursos.');
+  }
+  if (informe.some(v=>v.creacion.hpPropioPerdido>0)) {
+    avisos.push('Actuar produjo pérdida de HP propios. El informe separa esa exposición del daño infligido al rival.');
+  }
   if (informe.some(v => v.incidencias.length)) avisos.push('Hubo acciones descartadas. Revisa el desglose de cada escenario.');
   if (informe.some(v => v.creacion.accionesEnemigasNegadas > 0)) avisos.push('La creación puede negar acciones enemigas en los escenarios probados.');
   if (ipe !== null && ipePico !== null && ipePico >= 2 && ipePico >= ipe * 1.5) {

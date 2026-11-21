@@ -98,3 +98,8 @@ test('un objeto vacío no recibe la clase del portador desarmado',()=>{
   assert.equal(r.ipe,0);
   assert.equal(r.clase,'F');
 });
+
+test('una pieza vacía tampoco recibe el pico de ataque de su portador',()=>{
+  const r=evaluarBalance(vacio(),{creaciones:[],stats:{}},{repeticiones:2});
+  assert.equal(r.clasePico,'F');
+});
