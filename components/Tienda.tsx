@@ -54,14 +54,14 @@ export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
    if(accion==="cancelar"){setTrato(null);setPropuesta("");setVista("activas");}
    if(["negociar","proponer"].includes(accion)){setTrato(null);setPropuesta("");setVista("negociaciones");}
    setAviso(accion==="cancelar"?"Negociación cancelada. El objeto vuelve al escaparate sin generar cobros.":accion==="proponer"?"Propuesta actualizada. Solo tú y el GM pueden verla.":accion==="publicar"?"Oferta publicada para todos.":accion==="negociar"?"Oferta reservada para ti. El GM confirmará el acuerdo.":accion==="rechazar"?"Negociación rechazada. La oferta vuelve al escaparate.":accion==="aceptar"?"Acuerdo aceptado. La compra se entregó al jugador y el precio fijo, si existe, ya fue descontado.":"Oferta retirada.");
-  }catch(e){setError((e as {message?:string}).message||"No se pudo completar la operación.");}
+  }catch(e){setError(mensajeError(e,"No se pudo completar la operación."));}
   finally{await cargar();bloqueo.current=false;setOcupado(false);}
  }
  function publicar(e:FormEvent){e.preventDefault();if(modo==="monedas"&&(!moneda||!Number.isSafeInteger(Number(precio))||Number(precio)<1)){setError("Selecciona moneda y precio entero positivo.");return;}if(elegida&&descripcion.trim())void operar("publicar");}
  const visibles=ofertas.filter(o=>vista==="historial"?["aceptada","retirada"].includes(o.estado):vista==="negociaciones"?o.estado==="negociando":["disponible","negociando"].includes(o.estado));
  if(!cargando&&almas&&!gm&&!permitido&&!error)return <main className="tienda"><h1>Tienda no disponible</h1><Link href="/ficha">Volver a mi ficha</Link></main>;
  return <main className="tienda"><Cabecera kanji={almas?"魂":"市"} migas={gm?"Kuroi · Mundo":"Reencarnado · Tienda"} titulo={almas?"Tienda de almas":"La tienda"} subtitulo={almas?"Cuerpos y creaciones del alma, con precio en monedas o acuerdos presenciales.":"Creaciones con precio en monedas o acuerdos presenciales."} acciones={<div className="tienda-actions"><Link href={gm?"/dm/forja":"/ficha"}>{gm?"Volver a la Forja":"Volver a mi ficha"}</Link><button disabled={ocupado} onClick={()=>{setError("");void cargar(true);}} aria-label="Actualizar tienda"><RefreshCw size={16} aria-hidden="true"/></button></div>}/>
- {error&&<p role="alert" className="tienda-error">{error}</p>}{aviso&&<p role="status" className="tienda-aviso">{aviso}</p>}
+ {error&&<p role="alert" className="tienda-error">{error} <button type="button" className="tienda-reintentar" disabled={ocupado} onClick={()=>{setError("");void cargar(true);}}>Reintentar</button></p>}{aviso&&<p role="status" className="tienda-aviso">{aviso}</p>}
  {!gm&&permitido&&<Billetera/>}
  {(gm||colmena)&&<div className="tienda-access">{almas?"Escaparate exclusivo de Mentes colmena":"Escaparate general"}<Link href={gm?(almas?"/dm/mercado":"/dm/tienda-almas"):(almas?"/ficha/tienda":"/ficha/tienda-almas")}>{almas?"Ir a tienda general":"Ir a Tienda de almas"}</Link></div>}
  <div className={gm?"tienda-workspace":""}>

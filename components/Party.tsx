@@ -20,6 +20,7 @@ import {
   Heart,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { mensajeError } from "../lib/errores";
 import FichaVital from "./FichaVital";
 import {
   EditorEquipoCombate,
@@ -60,6 +61,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
     [nivel, setNivel] = useState("1"),
     [buscar, setBuscar] = useState(""),
     [error, setError] = useState(""),
+    [intento, setIntento] = useState(0),
     [aviso, setAviso] = useState(""),
     [cargando, setCargando] = useState(true),
     [ocupado, setOcupado] = useState(false);
@@ -105,7 +107,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
           }
         } else if (vivo) setUsuario(user.id);
       } catch (e) {
-        if (vivo) setError((e as Error).message);
+        if (vivo) setError(mensajeError(e));
       } finally {
         if (vivo) setCargando(false);
       }
@@ -114,7 +116,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
     return () => {
       vivo = false;
     };
-  }, [gm]);
+  }, [gm, intento]);
   const cargar = useCallback(async () => {
     if (!usuario) return;
     try {
@@ -141,7 +143,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
         setRetirados(r.data || []);
       }
     } catch (e) {
-      if (vigente.current === usuario) setError((e as Error).message);
+      if (vigente.current === usuario) setError(mensajeError(e));
     }
   }, [usuario, gm]);
   useEffect(() => {
@@ -199,7 +201,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
       setNombre("");
       await cargar();
     } catch (e) {
-      setError((e as Error).message);
+      setError(mensajeError(e));
     } finally {
       bloqueo.current = false;
       setOcupado(false);
@@ -231,7 +233,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
       });
       setEditor({ personaje: p, contexto, revision: 0 });
     } catch (e) {
-      setError((e as Error).message);
+      setError(mensajeError(e));
     } finally {
       bloqueo.current = false;
       setOcupado(false);
@@ -395,7 +397,19 @@ export default function Party({ gm = false }: { gm?: boolean }) {
       />
       {error && (
         <p role="alert" className="pj-notice pj-error">
-          {error}
+          {error}{" "}
+          <button
+            type="button"
+            className="party-reintentar"
+            disabled={ocupado}
+            onClick={() => {
+              setError("");
+              if (usuario) void cargar();
+              else setIntento((i) => i + 1);
+            }}
+          >
+            Reintentar
+          </button>
         </p>
       )}
       {aviso && (

@@ -147,3 +147,11 @@
  .tactical-cell .tactical-token{transition:none}
  .tactical-cell.capa-agua .capa-sombra,.tactical-cell.capa-plano .capa-sombra,.tactical-cell.pending,.tactical-slots>button.pending,.heroe-activo,.resumen-turno,.campo-preview,.campo-nota{animation:none}
 }
+
+/* ── Móvil en horizontal / pantallas bajas ─────────────────────────────────
+   La barra fija (sticky) mide unos 280 px: con 500 px de alto o menos tapaba casi todo el tablero.
+   Ahí pasa a ir debajo del tablero; se llega a ella desplazando la página. */
+@media(max-height:500px){
+ .tactical-hud{position:static;margin-top:16px}
+ .tactical-field .tactical-scroll{height:calc(100dvh - 110px)}
+}
