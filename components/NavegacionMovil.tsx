@@ -8,7 +8,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, Hammer, Swords, ShoppingBag, Sliders, MoreHorizontal, Dices, X, BookOpen, Handshake, Sparkles, Shield, TrendingUp } from "lucide-react";
 
-export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: boolean; colmena?: boolean }) {
+export default function NavegacionMovil({ gm = false }: { gm?: boolean }) {
   const pathname = usePathname();
   const [rutaMenu, setRutaMenu] = useState<string | null>(null);
   const abierto = rutaMenu === pathname;
@@ -42,7 +42,7 @@ export default function NavegacionMovil({ gm = false, colmena = false }: { gm?: 
     { href: "/ficha/deudas", label: "Pactos con Kuroi", icon: Handshake },
     { href: "/ficha/logros", label: "Logros, títulos e historial", icon: Sparkles },
     { href: "/ficha/arena", label: "Arena de entrenamiento", icon: Swords },
-    ...(colmena ? [{ href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users }] : []),
+    { href: "/ficha/tienda-almas", label: "Tienda de almas", icon: Users },
   ];
   const activo = (href: string) => pathname === href || (href !== "/ficha" && href !== "/dm" && pathname.startsWith(href + "/"));
   return <div className="mobile-navigation" onKeyDown={e => { if (e.key === "Escape") { setAbierto(false); boton.current?.focus(); } }}>

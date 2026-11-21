@@ -1,4 +1,10 @@
 import { atributosEfectivos, linaje, type CategoriaBase } from "./estadisticas";
+export const destinosPersonaje = {
+  npc: "Compañero NPC",
+  cuerpo: "Cuerpo principal",
+} as const;
+export type DestinoPersonaje = keyof typeof destinosPersonaje;
+
 export type Raza = CategoriaBase & {
   descripcion?: string;
   pasiva_racial?: { nombre: string; descripcion: string };
