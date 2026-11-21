@@ -9,6 +9,7 @@ import RequisitosYunque from '../../RequisitosYunque';
 import {EditorTransformacion} from '../../EditorTransformacion';
 import {TablaArmas} from '../../TablaArmas';
 import SelectorVFX from '../../SelectorVFX';
+import EditorVision from './EditorVision';
 import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
 import {AtributoFichas} from './EditorSi';
 import {reaccionDe} from '../../../lib/combate';
@@ -97,6 +98,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
    </div>;
   }
   case 'vfx':return <div className="yq-editor yq-legado"><SelectorVFX valor={e.vfx} onChange={vfx=>patch({vfx})}/></div>;
+  case 'vision':return e.vision?<EditorVision efecto={e} onChange={vision=>patch({vision})}/>:null;
   case 'tabla_armas':{
    const armas=ctx.creaciones.filter(c=>(c.tipo_creacion??tipoDe(c,ctx.categorias))==='objeto'&&['mano','dos_manos'].includes(c.slot_tipo));
    return <div className="yq-editor yq-legado"><TablaArmas efecto={e} armas={armas} onChange={tabla=>{if(tabla)patch({tabla_armas:tabla});else operar({op:'quitar',nodo:nodo.id});}}/></div>;

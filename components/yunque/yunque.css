@@ -354,7 +354,7 @@
 /* Anchos de cada tipo de nodo al abrir su editor. */
 .yq-taller .yq-nodo.is-seleccionado:is([data-tipo=cuando],[data-tipo=entonces]){width:460px}
 .yq-taller .yq-nodo.is-seleccionado:is([data-tipo=si],[data-tipo=pasiva],[data-tipo=salvacion],[data-tipo=estado],[data-tipo=recurso]){width:420px}
-.yq-taller .yq-nodo.is-seleccionado:is([data-tipo=alcance],[data-tipo=reaccion],[data-tipo=transformacion],[data-tipo=vfx],[data-tipo=tabla_armas],[data-tipo=invocacion],[data-tipo=requisitos]){width:560px}
+.yq-taller .yq-nodo.is-seleccionado:is([data-tipo=alcance],[data-tipo=reaccion],[data-tipo=transformacion],[data-tipo=vfx],[data-tipo=tabla_armas],[data-tipo=vision],[data-tipo=invocacion],[data-tipo=requisitos]){width:560px}
 
 /* ── Controles de los editores de regla ── */
 .yq-taller .yq-fichas--rejilla>div{display:grid;grid-template-columns:repeat(var(--yq-columnas,3),minmax(0,1fr));gap:5px}
@@ -650,3 +650,16 @@
 
 .yq-taller .yq-barra{flex-wrap:wrap}
 .yq-taller .yq-selector{min-width:0;max-width:min(16rem,100%);padding:.4rem;background:var(--color-canvas);color:inherit;border:1px solid var(--color-line)}
+/* Módulo «Visión»: editor de ojos. */
+.yq-taller .yq-vision{display:grid;gap:14px}
+.yq-taller .yq-vision-cabecera{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;padding:12px;border:1px solid var(--color-line);background:radial-gradient(circle at 15% 50%,color-mix(in srgb,var(--color-arcane) 18%,transparent),transparent 60%)}
+.yq-taller .yq-vision-identidad{display:grid;gap:10px;min-width:0}
+.yq-taller .yq-vision-colores{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.yq-taller .yq-vision-colores input[type=color]{width:44px;height:32px;padding:0;border:1px solid var(--color-line-strong);background:transparent;cursor:pointer}
+.yq-taller .yq-vision-grupo,.yq-taller .yq-vision-revelar{display:grid;gap:10px;margin:0;padding:10px;border:1px solid var(--color-line);min-width:0}
+.yq-taller .yq-vision-revelar{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.yq-taller .yq-vision-grupo legend,.yq-taller .yq-vision-revelar legend{padding:0 6px;font:600 11.5px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
+.yq-taller .yq-vision-revelar small{font-size:11.5px;color:var(--color-text-muted)}
+.yq-taller .yq-vision-resumen{margin:0;padding:10px 12px 10px 28px;border-left:2px solid var(--color-arcane);font:13px/1.6 var(--font-sans);color:var(--color-text)}
+.yq-taller .yq-error{margin:0;padding:8px 12px;border:1px solid var(--color-crimson);color:var(--color-danger-text);font-size:13px}
+@media(max-width:520px){.yq-taller .yq-vision-cabecera{grid-template-columns:1fr;justify-items:center}}

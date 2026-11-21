@@ -2,10 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
-const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import .* from '\.\.\/equipo-combate\/motor.js';/m,'const {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles}=motor;');
+const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import .* from '\.\.\/equipo-combate\/motor.js';/m,'const {actuar,siguiente,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles,vistaOcular}=motor;');
 const jugador='00000000-0000-0000-0000-000000000001', combate='00000000-0000-0000-0000-000000000002';
-function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false}={}){
- let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
+function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false,ojo=null}={}){
+ let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);if(ojo)c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'ojo',nombre:'Ojo',efecto:'estado',estado:'Ojo',cantidad:0,caras:4,modificador:0,tipo_dano:'',duracion:0,coste_ph:0,vision:ojo}]}];c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
  if(area){c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Azul',stats:{},efectos:[{id:'azul',nombre:'Azul',efecto:'dano',cantidad:2,caras:6,modificador:0,tipo_dano:'energia',estado:'',duracion:0,coste_ph:2,salvacion:{cd:12,atributo:'salvacion',exito:'mitad'},tablero:{alcance:6,forma:'circulo',tamano:2,afecta:'enemigos',desplazamiento:{tipo:'atraer',casillas:2,cuando:'siempre'},derribo:'fallo_salvacion'}}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:6,y:1};}
 
  if(sinPH){c.miembros[0].stats.ph=0;c.miembros[0].ph=99;}
@@ -41,4 +41,14 @@ test('repetir action_id después de confirmar devuelve estado sin ejecutar otra 
 });
 test('un timeout SQL se devuelve como resultado incierto, para consultar antes de reintentar',async()=>{
  const s=servidor({timeoutCommit:true});const r=await s.handler(req({operacion:'actuar',version:3,accion_id:'guardia',objetivo_id:'a',action_id:crypto.randomUUID()}));const data=await r.json();assert.equal(data.code,'57014');assert.equal(data.incierta,true);
+});
+
+test('la visión ocular solo viaja al jugador con el ojo abierto y con lo que ve',async()=>{
+ let data=await (await servidor().handler(req({}))).json();assert.equal(data.ocular,null);
+ const ojo={nombre:'Ojo de prueba',modo:'permanente',duracion:0,alcance:0,apariencia:{color:'#aa2233',patron:'anillos',marcas:2,velo:1},revelar:{vida:true,acciones:true},puntos_debiles:{cantidad:1,cambia:'ronda',recompensa:{ventaja:true}}};
+ data=await (await servidor({ojo}).handler(req({}))).json();
+ assert.equal(data.ocular.visiones[0].nombre,'Ojo de prueba');
+ const visto=data.ocular.objetivos.b;assert.equal(visto.detalle.vida.max,100);assert.ok(visto.detalle.acciones.length>0);assert.equal(visto.puntos.length,1);
+ assert.equal(data.ocular.objetivos.a,undefined,'no se analiza a sí mismo');
+ assert.equal(visto.detalle.atributos,undefined,'solo revela lo configurado');
 });

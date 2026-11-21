@@ -26,7 +26,27 @@ const KION:Plantilla[]=(Object.keys(PLANTILLAS_REACCION) as (keyof typeof PLANTI
  fragmentos:[accion('kion-'+k,{nombre:NOMBRE_KION[k].nombre,cantidad:0,coste_ph:2,ley_limitless:true,reaccion:structuredClone(PLANTILLAS_REACCION[k])})],
 }));
 
+// ---- Habilidades oculares (primitiva «Visión»). Ejemplos originales: cualquier ojo se construye igual. ----
+const OJOS:Plantilla[]=[
+ {id:'ojo-eclipse',nombre:'Ojo del Eclipse',descripcion:'Ojo que se abre: ve puntos débiles, anticipa y revela',icono:'ojo',para:'habilidad',
+  fragmentos:[accion('ojo-eclipse',{nombre:'Despertar el Ojo del Eclipse',efecto:'estado',estado:'Ojo del Eclipse',estado_tipo:'narrativo',cantidad:0,caras:4,coste_ph:3,naturaleza:'magica',
+   descripcion:'Una luna negra se dibuja en el iris. Mientras esté abierto ves dónde se quiebra la guardia de cada enemigo.',
+   vision:{nombre:'Ojo del Eclipse',modo:'abrir',sin_accion:true,duracion:0,mantenimiento_ph:1,alcance:7,
+    apariencia:{color:'#7b3fe4',secundario:'#f2c14e',patron:'luna',marcas:3,velo:2},
+    revelar:{vida:true,acciones:true,estados:true},
+    puntos_debiles:{cantidad:1,cambia:'ronda',recompensa:{ventaja:true,dados:1,caras:6}},
+    anticipar:{armadura:2},amenazas:true,bonos:{iniciativa:2}}})]},
+ {id:'mirada-cazador',nombre:'Mirada del cazador',descripcion:'Un ataque que abre el ojo y busca el crítico',icono:'arco',para:'habilidad',
+  fragmentos:[accion('mirada-cazador',{nombre:'Mirada del cazador',cantidad:1,caras:8,naturaleza:'fisica',tablero:{alcance:5,forma:'individual',tamano:0,afecta:'enemigos'},
+   vision:{nombre:'Ojo de cazador',modo:'con_accion',duracion:2,alcance:8,apariencia:{color:'#e0a21a',secundario:'#2a1400',patron:'rendija',marcas:1,velo:1},
+    revelar:{vida:true},puntos_debiles:{cantidad:2,cambia:'ronda',recompensa:{critico:true,perforar:50}}}})]},
+ {id:'ojo-verdad',nombre:'Ojo de la verdad',descripcion:'Siempre abierto: revela todo, incluso lo oculto',icono:'ojo',para:'habilidad',
+  fragmentos:[accion('ojo-verdad',{nombre:'Ojo de la verdad',efecto:'estado',estado:'Ojo de la verdad',estado_tipo:'narrativo',cantidad:0,caras:4,
+   vision:{nombre:'Ojo de la verdad',modo:'permanente',duracion:0,alcance:0,atraviesa_muros:true,apariencia:{color:'#d8e6f0',secundario:'#1b2a38',patron:'estrella',marcas:6,velo:1},
+    revelar:{vida:true,atributos:true,acciones:true,pasivas:true,estados:true,ocultos:true}}})]},
+];
 export const PLANTILLAS:Plantilla[]=[
+ ...OJOS,
  // 01 · Fuego de luz: el fuego deja una quemadura que arde cada turno hasta superar una salvación CD 12.
  {id:'golpe-quemadura',nombre:'Golpe con quemadura',descripcion:'Golpe de fuego que deja una quemadura persistente',icono:'fuego',para:'habilidad',
   fragmentos:[accion('fuego-de-luz',{nombre:'Fuego de luz',cantidad:1,caras:8,elemento:'fuego',naturaleza:'magica',coste_ph:2,tipo_dano:'fuego',

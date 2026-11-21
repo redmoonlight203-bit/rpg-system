@@ -4,8 +4,8 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 function load(path,deps={}){const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:k=>deps[k],crypto,Set});return exports;}
-const stats=load('../lib/estadisticas.ts'),c=load('../lib/creacion.ts',{'./estadisticas':stats}),r=load('../lib/reglas.ts');
-const d=load('../lib/descripciones.ts',{'./creacion':c});
+const stats=load('../lib/estadisticas.ts'),c=load('../lib/creacion.ts',{'./estadisticas':stats,'./vision':load('../lib/vision.ts')}),r=load('../lib/reglas.ts');
+const d=load('../lib/descripciones.ts',{'./creacion':c,'./vision':load('../lib/vision.ts')});
 const e={id:'basico',nombre:'Ataque desarmado',efecto:'dano',cantidad:1,caras:4,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0};
 test('ataque desarmado se explica como un puñetazo y omite valores irrelevantes',()=>{const a=d.describirEfecto(e);assert.equal(a.resumen,'Ataca con el puño.');assert.equal(a.detalles.join(' '),'Daño: 1d4.');});
 test('una descripción propia tiene prioridad, sin ocultar el coste real',()=>{const a=d.describirEfecto({...e,descripcion:'Golpea con tu mano de piedra.',coste_ph:2,coste_fatiga:1});assert.equal(a.resumen,'Golpea con tu mano de piedra.');assert.match(a.detalles.join(' '),/Consume 2 PH/);assert.match(a.detalles.join(' '),/Genera 1 de Fatiga/);});
