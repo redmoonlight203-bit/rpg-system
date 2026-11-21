@@ -78,7 +78,9 @@
 .tactical-tabs{height:24px;margin:0;white-space:nowrap;overflow:hidden}
 .tactical-slots{display:flex;flex-wrap:nowrap;gap:6px;height:94px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scrollbar-width:thin}
 .tactical-slots>button{flex:0 0 86px;width:86px;height:88px;min-height:0;overflow:hidden;gap:3px;padding:15px 4px 4px;justify-content:flex-start}
-.tactical-slots>button>svg,.tactical-slots>button>img{flex:none;width:20px;height:20px;object-fit:contain}
+.tactical-slots>button>svg{flex:none;width:20px;height:20px}
+.tactical-slot-arte{position:relative;display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:50%;border:1px solid #96815b88;background:#17131a}
+.tactical-slot-arte>svg{width:100%;height:100%}
 .tactical-slots strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:100%;font-size:11.5px;line-height:13px;max-height:26px;min-height:26px;overflow-wrap:break-word;hyphens:auto}
 .tactical-slots small{display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px;line-height:13px}
 .tactical-slots>button.pending{outline:2px dashed var(--color-gold-bright,#e8c46a);outline-offset:-4px;animation:campo-pendiente 1s ease-in-out infinite}
@@ -101,7 +103,6 @@
 .heroe-retrato{position:relative;width:62px;height:78px}
 .heroe-retrato .battle-portrait{position:relative;display:flex;align-items:center;justify-content:center;width:62px;height:78px;overflow:hidden;border:1px solid var(--color-yellow-600,#ca8a04);border-radius:8px;background:radial-gradient(circle at 50% 35%,#3a3b40,#131416);color:var(--color-gold-bright,#e8c46a);font:600 22px var(--font-serif,Georgia,serif)}
 .heroe-activo.en-turno .heroe-retrato .battle-portrait{box-shadow:0 0 0 1px var(--color-gold-bright,#e8c46a),0 0 16px 2px color-mix(in srgb,var(--color-gold-bright,#e8c46a) 45%,transparent)}
-.heroe-retrato img{width:100%;height:100%;object-fit:cover}
 .heroe-retrato .tactical-action-pip{position:absolute;right:-7px;bottom:-7px;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#111;border:1px solid currentColor;font-size:11px}
 .heroe-datos{display:grid;gap:4px;min-width:0}
 .heroe-nombre{display:flex;align-items:center;gap:6px;min-width:0;font:600 14px var(--font-serif,Georgia,serif);color:var(--color-parchment,#f3e7c9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

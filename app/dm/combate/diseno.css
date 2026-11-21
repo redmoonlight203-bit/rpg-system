@@ -64,7 +64,6 @@
 .battle-target-name.target-selected:not(:disabled){color:var(--color-orange-200)}
 .battle-portrait{display:grid;place-items:center;position:relative;isolation:isolate;width:64px;height:72px;flex-shrink:0;border:1px solid var(--color-yellow-600);border-radius:2px;overflow:hidden;background:radial-gradient(circle at 25% 15%,var(--color-yellow-600),var(--color-neutral-800) 60%,var(--color-neutral-950));color:var(--color-gold-soft);font:600 24px Georgia,serif}
 .team-enemigo .battle-portrait{background:radial-gradient(circle at 25% 15%,var(--color-yellow-700),var(--color-neutral-900) 60%,var(--color-neutral-950));border-color:var(--color-yellow-700);color:var(--color-red-300)}
-.battle-portrait img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
 .battle-portrait.compact{width:34px;height:38px;border-radius:2px;font-size:14px}
 .battle-owner-tag{font:13px/1.5 Arial,sans-serif;color:var(--color-neutral-400);display:block}
 .battle-vital{margin-top:12px}

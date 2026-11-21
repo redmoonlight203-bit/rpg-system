@@ -9,7 +9,9 @@ import { TIPOS, EFECTOS_NOMBRE, efectosDe, formula, type TipoCreacion, type Efec
 import { EVENTOS, EFECTOS_REGLA, DESTINOS, type CondicionRegla, type EfectoRegla, type ValorRegla, type Regla } from "../lib/reglas";
 import { type ReglaPasiva } from "../lib/pasivas";
 import { validarPortada } from "../lib/imagenes-creacion";
+import { imagenCreacion } from "../lib/arte-creacion";
 import { publicarArchivoImagen } from "../lib/imagenes-storage";
+import FotoEncuadrada from "./FotoEncuadrada";
 import IconoYugen from "./IconoYugen";
 import SelectorIconoYugen from "./SelectorIconoYugen";
 import {describirEfecto,describirRegla,type AyudaClara} from "../lib/descripciones";
@@ -39,16 +41,11 @@ type Props<T extends PiezaGaleria> = {
   onNueva: () => void; onImagen: (id: string, value: string, icono: string) => Promise<void>;
 };
 const iconos = { personaje: Users, habilidad: Swords, pasiva: Shield, objeto: Package, titulo: Crown, otro: Shapes };
-function Portada({ src, nombre, tipo, icono }: { src?: string; nombre: string; tipo: TipoCreacion; icono:string }) {
-  const [fallida, setFallida] = useState("");
-  const valida = src && !validarPortada(src);
-  return <div className={`cg-art cg-art-${tipo}`}>
-    {valida && fallida !== src ?
-      // User-selected external covers and inline raster uploads require no image host configuration.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={nombre} loading="lazy" referrerPolicy="no-referrer" onError={() => setFallida(src)} /> :
-      <div className="cg-placeholder"><IconoYugen id={icono} size={62}/><span>{src ? "Imagen no disponible" : "Emblema de Yugen"}</span></div>}
-  </div>;
+function Portada({ src, tipo, icono, circular }: { src?: string; tipo: TipoCreacion; icono: string; circular?: boolean }) {
+  return <span className={`cg-art cg-art-${tipo}`}>
+    <FotoEncuadrada src={src && !validarPortada(src) ? src : undefined} circular={circular}
+      fallback={<span className="cg-placeholder"><IconoYugen id={icono} size={62}/><span>{src ? "Imagen no disponible" : "Emblema de Yugen"}</span></span>} />
+  </span>;
 }
 function atributos(item: PiezaGaleria) {
   return Object.entries(item.es_grupo ? item.stats_rango || {} : item.stats || {}).filter(([key]) => !["dados_dano", "caras_dano"].includes(key));
@@ -141,16 +138,17 @@ function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEn
   </div>;
 }
 
-/** Carta de La creación: marco propio de su tipo, teñido según su rango; el arte llena el interior y siempre cuadra. */
-function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir, mini }: { item: T; props: Props<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir: () => void; mini?: boolean }) {
+/** Carta de La creación: marco propio de su tipo, teñido según su rango. */
+function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir, mini }: { item: T; props: Props<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir?: () => void; mini?: boolean }) {
   const tipoItem = props.tipoDe(item), monstruo = !!props.esMonstruo?.(item), rango = rangoDe(item.clase);
   const tipoCarta = monstruo ? "monstruo" : tipoItem;
   const chips = atributos(item).slice(0, 2);
   const nombreTipo = monstruo ? "Monstruo" : TIPOS.find((t) => t.valor === tipoItem)?.nombre;
-  const Etiqueta = mini ? "div" : "article";
+  const Etiqueta = mini || !onAbrir ? "div" : "article";
+  const Cara = onAbrir ? "button" : "span";
   return <Etiqueta className={`cg-carta cg-tipo-${tipoCarta} ${rango.css} ${portada ? "is-portada" : ""} ${mini ? "is-mini" : ""}`} style={{ "--orden": Math.min(orden, 24) } as React.CSSProperties}>
-    <button type="button" className="cg-open cg-carta-cara" onClick={onAbrir} aria-label={`Ver detalles de ${item.nombre}${mini ? "" : `, ${nombreTipo}, rango ${rango.clave}`}`} aria-describedby={mini ? undefined : `creacion-ayuda-${item.id}`} title={mini ? item.descripcion || item.nombre : undefined}>
-      <span className="cg-carta-arte"><Portada src={item.imagen_url} nombre={item.nombre} tipo={tipoItem} icono={props.iconoDe(item)} /></span>
+    <Cara type={onAbrir ? "button" : undefined} className={onAbrir ? "cg-open cg-carta-cara" : "cg-carta-cara"} onClick={onAbrir} aria-label={onAbrir ? `Ver detalles de ${item.nombre}${mini ? "" : `, ${nombreTipo}, rango ${rango.clave}`}` : undefined} aria-describedby={onAbrir && !mini ? `creacion-ayuda-${item.id}` : undefined} title={onAbrir && mini ? item.descripcion || item.nombre : undefined}>
+      <span className="cg-carta-arte"><Portada src={imagenCreacion(item.id, item.imagen_url)} tipo={tipoItem} icono={props.iconoDe(item)} /></span>
       <span className="cg-carta-velo" aria-hidden="true" />
       {/* eslint-disable-next-line @next/next/no-img-element -- marco decorativo local, sin optimización de Next */}
       <img className="cg-carta-marco" src={marcoDe(tipoItem, monstruo)} alt="" aria-hidden="true" decoding="async" loading="lazy" draggable={false} />
@@ -164,8 +162,8 @@ function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onA
           <span className="cg-carta-chips">{chips.map(([key, value]) => <span key={key}>{props.etiqueta(item, key)} <b>{valor(value)}</b></span>)}{!chips.length && <span>{item.es_grupo ? "Malla" : "Único"}</span>}</span>
         </span></>}
       </span>
-      {!mini && <span className="cg-tooltip" role="tooltip" id={`creacion-ayuda-${item.id}`}><ContenidoAyuda ayuda={ayudaCreacion(item)}/></span>}
-    </button>
+      {onAbrir && !mini && <span className="cg-tooltip" role="tooltip" id={`creacion-ayuda-${item.id}`}><ContenidoAyuda ayuda={ayudaCreacion(item)}/></span>}
+    </Cara>
   </Etiqueta>;
 }
 
@@ -208,6 +206,8 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
     finally { bloqueo.current = false; setGuardando(false); }
   }
   const tipo = props.tipoDe(item);
+  const imagenVisible = imagenCreacion(item.id, editando ? imagen : forma?.imagen || imagen);
+  const iconoVisible = props.iconoDe({...item,icono});
   const acciones = efectosDe(item);
   const relaciones = [...(item.habilidades || []), ...(item.pasivas || []), ...Object.values(item.equipamiento || {})];
   return <section className="cg-detail" aria-label={`Detalles de ${item.nombre}`}>
@@ -218,15 +218,20 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
           {formas.map((f,i)=><option key={i} value={i}>{f.nombre}</option>)}
         </select>
       </label>}
-      <div className="cg-detail-cover"><Portada src={editando ? imagen : forma?.imagen || imagen} nombre={editando ? item.nombre : forma?.nombre || item.nombre} tipo={tipo} icono={props.iconoDe({...item,icono})} /><span className="cg-rank">{item.clase || "D"}</span></div>
-      <button className="cg-button cg-image-toggle" disabled={ocupado} onClick={() => setEditando(!editando)} aria-expanded={editando}><ImagePlus size={16} />{item.imagen_url ? "Cambiar imagen o icono" : "Elegir imagen o icono"}</button>
-      {editando && <div className="cg-image-editor"><h3>Imagen o emblema</h3><p>Elige tu propia ilustración. También se mostrará en esta ficha.</p><fieldset disabled={ocupado}>
+      <div className="cg-detail-cover"><Portada src={imagenVisible} tipo={tipo} icono={iconoVisible} /><span className="cg-rank">{item.clase || "D"}</span></div>
+      <button className="cg-button cg-image-toggle" disabled={ocupado} onClick={() => setEditando(!editando)} aria-expanded={editando}><ImagePlus size={16} />{imagenCreacion(item.id, item.imagen_url) ? "Cambiar imagen o icono" : "Elegir imagen o icono"}</button>
+      {editando && <div className="cg-image-editor"><h3>Imagen o emblema</h3>
+        <div className="cg-encuadres">
+          <figure><Carta item={{...item, imagen_url: imagen, icono}} props={props} dueno={null} orden={0} /><figcaption>Tarjeta</figcaption></figure>
+          <figure><div className="cg-vista-ficha"><Portada src={imagenVisible} tipo={tipo} icono={iconoVisible} circular /></div><figcaption>Ficha circular</figcaption></figure>
+        </div>
+        <fieldset disabled={ocupado}>
         <div className="cg-symbol-editor"><h4>Icono de Yugen</h4><p>Se usa cuando no hay imagen o no se puede cargar. Automático utiliza el símbolo de la raza o categoría.</p><SelectorIconoYugen value={icono} onChange={setIcono} automatico={props.iconoDe({...item,icono:null})} disabled={ocupado}/></div>
         <label><Link2 size={14} />URL de la imagen<input type="text" placeholder="https://…" value={imagen.startsWith("data:") ? "" : imagen} onChange={(e) => { setImagen(e.target.value); setError(""); }} /></label>
         <span className="cg-or">o selecciona un archivo</span>
         <label className="cg-upload"><Upload size={20} /><strong>Publicar imagen</strong><span>PNG, JPG o WebP · visible mediante enlace público</span><input aria-label="Insertar imagen desde archivo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { void archivo(e.target.files?.[0]); e.target.value = ""; }} /></label>
         {imagen.startsWith("data:") && <p className="cg-local-image">Imagen de archivo lista para guardar.</p>}
-        <div className="cg-image-actions"><button className="cg-button" disabled={!imagen} onClick={() => { setImagen(""); setError(""); }}><ImageOff size={14} />Quitar imagen</button><button className="cg-button" onClick={() => { setImagen(item.imagen_url || ""); setIcono(item.icono||""); setError(""); setEditando(false); }}>Cancelar</button></div>
+        <div className="cg-image-actions"><button className="cg-button" disabled={!imagen} onClick={() => { setImagen(""); setError(""); }}><ImageOff size={14} />{imagenCreacion(item.id) ? "Restaurar ilustración" : "Quitar imagen"}</button><button className="cg-button" onClick={() => { setImagen(item.imagen_url || ""); setIcono(item.icono||""); setError(""); setEditando(false); }}>Cancelar</button></div>
         <button className="cg-button cg-primary" disabled={!dirty} onClick={() => void guardar()}><Save size={16} />Guardar presentación</button>
       </fieldset><small>Los archivos se optimizan y publican en Storage; cualquiera con el enlace podrá verlos.</small></div>}
       {ocupado && <p role="status">{procesando ? "Preparando imagen…" : "Guardando imagen…"}</p>}{error && <p className="cg-error" role="alert">{error}</p>}{aviso && <p className="cg-success" role="status">{aviso}</p>}{dirty && <p className="cg-unsaved">Presentación sin guardar</p>}

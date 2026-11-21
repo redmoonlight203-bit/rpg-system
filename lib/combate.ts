@@ -150,6 +150,7 @@ export type Combate = {
   progreso_confirmado?: boolean;
 };
 export type Accion = {
+  ilustracion?: { forja_id?: string; imagen_url?: string };
   regla_detalle?: Regla;
   bloqueada?: string;
   id: string;
@@ -158,6 +159,10 @@ export type Accion = {
   enfriamiento: number;
   regla?: string;
 };
+function ilustracionFuente(fuente: Pick<Fuente, "id" | "forja_id" | "imagen_url">): Accion["ilustracion"] {
+  const forja_id = fuente.forja_id || fuente.id;
+  return forja_id || fuente.imagen_url ? { forja_id, imagen_url: fuente.imagen_url } : undefined;
+}
 export type RNG = (caras: number) => number;
 export function dadoSeguro(caras: number) {
   if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
@@ -849,7 +854,7 @@ export function acciones(m: Combatiente) {
     });
   else {
     const p = ['mano_der','mano_izq'].map(slot=>piezas(m)[slot]).find(p=>p?.efectos?.some(e=>e.efecto==='dano'));
-    if (p) lista.push({id:'ataque',nombre:`Atacar con ${p.nombre}`,efecto:p.efectos!.find(e=>e.efecto==='dano')!,enfriamiento:0});
+    if (p) lista.push({id:'ataque',nombre:`Atacar con ${p.nombre}`,efecto:p.efectos!.find(e=>e.efecto==='dano')!,enfriamiento:0,ilustracion:ilustracionFuente(p)});
     else if (manosLibres(m)>0) lista.push({id:'ataque',nombre:'Ataque desarmado',efecto:basico(),enfriamiento:0});
   }
   if ((m.arma || lista.some(a=>a.id==='ataque'&&a.efecto.id!=='basico')) && manosLibres(m)>0)
@@ -859,6 +864,7 @@ export function acciones(m: Combatiente) {
       lista.push({
         id: `hab:${h.id}:${e.id}`,
         nombre: `${h.nombre} · ${e.nombre}`,
+        ilustracion: ilustracionFuente(h),
         efecto: e,
         enfriamiento: Math.max(
           0,
@@ -870,11 +876,12 @@ export function acciones(m: Combatiente) {
       lista.push({
         id: `equipo:${slot}:${e.id}`,
         nombre: `${p.nombre} · ${e.nombre}`,
+        ilustracion: ilustracionFuente(p),
         efecto: e,
         enfriamiento: 0,
       });
   for (const h of m.motor?.habilidades || []) lista.push({id:`motor-hab:${h.id}`,nombre:h.accion.nombre,efecto:h.accion,enfriamiento:0});
-  for (const {clave, regla} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,regla_detalle:regla,bloqueada:regla.usos>0&&(m.motor?.usos[clave]||0)>=regla.usos?'Sin usos restantes.':undefined,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
+  for (const {clave, regla, fuente} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,regla_detalle:regla,ilustracion:fuente&&ilustracionFuente(fuente),bloqueada:regla.usos>0&&(m.motor?.usos[clave]||0)>=regla.usos?'Sin usos restantes.':undefined,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
   const definiciones=lista.flatMap(a=>a.efecto.transformacion?[a.efecto.transformacion]:[]);
   const exclusivos=new Set(definiciones.flatMap(d=>d.etapas.flatMap(e=>e.habilidades||[])));
   const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
@@ -1497,15 +1504,15 @@ function pasivasEtapaActiva(m:Combatiente) {
 }
 
 export function reglasMotor(m:Combatiente) {
- const fuentes = [
+ const fuentes: { id: string; reglas: Regla[]; fuente?: Pick<Fuente, "id" | "forja_id" | "imagen_url"> }[] = [
   {id:'propio',reglas:m.configuracion.reglas||[]},
   ...(m.transformacion?[{id:`etapa:${m.transformacion.definicion_id}:${m.transformacion.etapa_id}`,reglas:pasivasEtapaActiva(m)}]:[]),
-  ...pasivasAplicables(m).map((p,i)=>({id:`pasiva:${p.id||i}`,reglas:p.reglas_motor||[]})),
-  ...(m.configuracion.habilidades||[]).filter(p=>!requisitosFuente(m,p).length).map((p,i)=>({id:`hab:${p.id||i}`,reglas:p.reglas||[]})),
-  ...Object.entries(piezas(m)).filter(([,p])=>!requisitosFuente(m,p).length).map(([slot,p])=>({id:`equipo:${p.id||slot}`,reglas:p.reglas||[]})),
+  ...pasivasAplicables(m).map((p,i)=>({id:`pasiva:${p.id||i}`,reglas:p.reglas_motor||[],fuente:p})),
+  ...(m.configuracion.habilidades||[]).filter(p=>!requisitosFuente(m,p).length).map((p,i)=>({id:`hab:${p.id||i}`,reglas:p.reglas||[],fuente:p})),
+  ...Object.entries(piezas(m)).filter(([,p])=>!requisitosFuente(m,p).length).map(([slot,p])=>({id:`equipo:${p.id||slot}`,reglas:p.reglas||[],fuente:p})),
  ];
  const vistos=new Set<string>();
- return fuentes.flatMap(f=>f.reglas.map(regla=>({clave:`${f.id}:${regla.id}`,regla}))).filter(r=>{if(vistos.has(r.clave))return false;vistos.add(r.clave);return true;}).sort((a,b)=>b.regla.prioridad-a.regla.prioridad||a.clave.localeCompare(b.clave));
+ return fuentes.flatMap(f=>f.reglas.map(regla=>({clave:`${f.id}:${regla.id}`,regla,fuente:f.fuente}))).filter(r=>{if(vistos.has(r.clave))return false;vistos.add(r.clave);return true;}).sort((a,b)=>b.regla.prioridad-a.regla.prioridad||a.clave.localeCompare(b.clave));
 }
 type ContextoMotor = {alcanceManual?:number;c:Combate;yo:Combatiente;actor:Combatiente;objetivo:Combatiente;rng:RNG;efecto?:Efecto;cantidad:number;profundidad:number;fuente?:string;estado_terminado?:string};
 function sujetoMotor(ctx:ContextoMotor,s:Sujeto) {return s==='actor'?ctx.actor:s==='objetivo'?ctx.objetivo:ctx.yo;}

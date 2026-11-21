@@ -135,6 +135,10 @@ export function faltantesRequisitos(r, razas, stats, conocidas = []) {
 }
 function baseRequisitos(m) { return Object.fromEntries(Object.entries(m.stats).map(([k, v]) => [k, v - (m.configuracion.bonos_equipamiento?.[k] || 0)])); }
 function requisitosFuente(m, f) { return faltantesRequisitos(f.requisitos_uso, [m.configuracion.raza || '', ...(m.configuracion.linaje_raza || [])], baseRequisitos(m), [...(m.configuracion.habilidades_conocidas || []), ...(m.configuracion.habilidades || []).map(h => h.forja_id || h.id || '')]); }
+function ilustracionFuente(fuente) {
+    const forja_id = fuente.forja_id || fuente.id;
+    return forja_id || fuente.imagen_url ? { forja_id, imagen_url: fuente.imagen_url } : undefined;
+}
 export function dadoSeguro(caras) {
     if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
         throw Error("El dado requiere caras enteras entre 2 y 4294967296.");
@@ -836,7 +840,7 @@ export function acciones(m) {
     else {
         const p = ['mano_der', 'mano_izq'].map(slot => piezas(m)[slot]).find(p => p?.efectos?.some(e => e.efecto === 'dano'));
         if (p)
-            lista.push({ id: 'ataque', nombre: `Atacar con ${p.nombre}`, efecto: p.efectos.find(e => e.efecto === 'dano'), enfriamiento: 0 });
+            lista.push({ id: 'ataque', nombre: `Atacar con ${p.nombre}`, efecto: p.efectos.find(e => e.efecto === 'dano'), enfriamiento: 0, ilustracion: ilustracionFuente(p) });
         else if (manosLibres(m) > 0)
             lista.push({ id: 'ataque', nombre: 'Ataque desarmado', efecto: basico(), enfriamiento: 0 });
     }
@@ -847,6 +851,7 @@ export function acciones(m) {
             lista.push({
                 id: `hab:${h.id}:${e.id}`,
                 nombre: `${h.nombre} · ${e.nombre}`,
+                ilustracion: ilustracionFuente(h),
                 efecto: e,
                 enfriamiento: Math.max(0, h.stats.enfriamiento || h.stats.cooldown || 0),
             });
@@ -855,14 +860,15 @@ export function acciones(m) {
             lista.push({
                 id: `equipo:${slot}:${e.id}`,
                 nombre: `${p.nombre} · ${e.nombre}`,
+                ilustracion: ilustracionFuente(p),
                 efecto: e,
                 enfriamiento: 0,
             });
     for (const h of m.motor?.habilidades || [])
         lista.push({ id: `motor-hab:${h.id}`, nombre: h.accion.nombre, efecto: h.accion, enfriamiento: 0 });
-    for (const { clave, regla } of reglasMotor(m))
+    for (const { clave, regla, fuente } of reglasMotor(m))
         if (regla.evento === 'usar')
-            lista.push({ id: `regla:${clave}`, nombre: regla.nombre, regla_detalle: regla, bloqueada: regla.usos > 0 && (m.motor?.usos[clave] || 0) >= regla.usos ? 'Sin usos restantes.' : undefined, efecto: { ...basico(), efecto: 'estado', estado: regla.nombre, cantidad: 0, coste_ph: regla.coste_ph, coste_fatiga: regla.coste_fatiga }, enfriamiento: regla.enfriamiento, regla: clave });
+            lista.push({ id: `regla:${clave}`, nombre: regla.nombre, regla_detalle: regla, ilustracion: fuente && ilustracionFuente(fuente), bloqueada: regla.usos > 0 && (m.motor?.usos[clave] || 0) >= regla.usos ? 'Sin usos restantes.' : undefined, efecto: { ...basico(), efecto: 'estado', estado: regla.nombre, cantidad: 0, coste_ph: regla.coste_ph, coste_fatiga: regla.coste_fatiga }, enfriamiento: regla.enfriamiento, regla: clave });
     const definiciones = lista.flatMap(a => a.efecto.transformacion ? [a.efecto.transformacion] : []);
     const exclusivos = new Set(definiciones.flatMap(d => d.etapas.flatMap(e => e.habilidades || [])));
     const permitidos = new Set(definiciones.find(d => d.id === m.transformacion?.definicion_id)?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.habilidades || []);
@@ -1538,12 +1544,12 @@ export function reglasMotor(m) {
     const fuentes = [
         { id: 'propio', reglas: m.configuracion.reglas || [] },
         ...(m.transformacion ? [{ id: `etapa:${m.transformacion.definicion_id}:${m.transformacion.etapa_id}`, reglas: pasivasEtapaActiva(m) }] : []),
-        ...pasivasAplicables(m).map((p, i) => ({ id: `pasiva:${p.id || i}`, reglas: p.reglas_motor || [] })),
-        ...(m.configuracion.habilidades || []).filter(p => !requisitosFuente(m, p).length).map((p, i) => ({ id: `hab:${p.id || i}`, reglas: p.reglas || [] })),
-        ...Object.entries(piezas(m)).filter(([, p]) => !requisitosFuente(m, p).length).map(([slot, p]) => ({ id: `equipo:${p.id || slot}`, reglas: p.reglas || [] })),
+        ...pasivasAplicables(m).map((p, i) => ({ id: `pasiva:${p.id || i}`, reglas: p.reglas_motor || [], fuente: p })),
+        ...(m.configuracion.habilidades || []).filter(p => !requisitosFuente(m, p).length).map((p, i) => ({ id: `hab:${p.id || i}`, reglas: p.reglas || [], fuente: p })),
+        ...Object.entries(piezas(m)).filter(([, p]) => !requisitosFuente(m, p).length).map(([slot, p]) => ({ id: `equipo:${p.id || slot}`, reglas: p.reglas || [], fuente: p })),
     ];
     const vistos = new Set();
-    return fuentes.flatMap(f => f.reglas.map(regla => ({ clave: `${f.id}:${regla.id}`, regla }))).filter(r => { if (vistos.has(r.clave))
+    return fuentes.flatMap(f => f.reglas.map(regla => ({ clave: `${f.id}:${regla.id}`, regla, fuente: f.fuente }))).filter(r => { if (vistos.has(r.clave))
         return false; vistos.add(r.clave); return true; }).sort((a, b) => b.regla.prioridad - a.regla.prioridad || a.clave.localeCompare(b.clave));
 }
 function sujetoMotor(ctx, s) { return s === 'actor' ? ctx.actor : s === 'objetivo' ? ctx.objetivo : ctx.yo; }

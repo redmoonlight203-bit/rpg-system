@@ -34,7 +34,6 @@
 .cg-art-pasiva{background:radial-gradient(ellipse at 55% 30%,var(--color-neutral-700),var(--color-neutral-800) 55%,var(--color-neutral-950))}
 .cg-art-objeto{background:radial-gradient(ellipse at 55% 30%,var(--color-cyan-800),var(--color-neutral-900) 55%,var(--color-neutral-950))}
 .cg-art-titulo{background:radial-gradient(ellipse at 55% 30%,var(--color-yellow-800),var(--color-ember) 55%,var(--color-cyan-950))}
-.cg-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .35s}
 .cg-card:hover .cg-art img{transform:scale(1.035)}
 .cg-placeholder{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--color-cyan-500)}
 .cg-placeholder>svg{opacity:.55}
@@ -58,7 +57,6 @@
 .cg-detail-visual{position:sticky;top:20px;min-width:0}
 .cg-detail-cover{position:relative;border:1px solid var(--color-cyan-800);border-radius:2px;overflow:hidden}
 .cg-detail-cover .cg-art{aspect-ratio:3/4}
-.cg-detail-cover .cg-art img{object-fit:contain;background:var(--color-well)}
 .cg-detail-cover .cg-placeholder svg{width:70px;height:70px}
 .cg-image-toggle{width:100%;margin-top:12px}
 .cg-detail-heading{border-bottom:1px solid var(--color-neutral-700);padding-bottom:23px}
@@ -132,8 +130,8 @@
 .cg-personales-aviso button{color:var(--color-gold-soft,#d6b46a);text-decoration:underline}
 
 /* ── Cartas de La creación ─────────────────────────────────────────────────────
-   Marco ilustrado por tipo (public/arte/marcos), teñido según el rango. El arte llena el interior y se recorta
-   (cover) para que siempre cuadre. Proporción 2:3, la de los marcos. Los tamaños de letra usan unidades del
+   Marco ilustrado por tipo (public/arte/marcos), teñido según el rango. Proporción 2:3,
+   la de los marcos. Los tamaños de letra usan unidades del
    contenedor (cqi): la misma carta sirve para la galería, el móvil y el abanico. */
 .cg-mesa{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:48px 26px;align-items:start;padding:14px 18px 8px 4px}
 .cg-carta{--marco:#e0b955;--tinte:#4a2a1c;--tinta:#f6e6b8;--filtro:none;--brillo:#e0b95555;--sx:12%;--st:9%;--sb:14%;
@@ -160,13 +158,14 @@
 .cg-carta .cg-open:focus-visible{outline:2px solid var(--marco);outline-offset:4px;border-radius:6%}
 .cg-carta-arte{position:absolute;inset:3.5%;overflow:hidden;border-radius:5% / 3.4%;background:radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--tinte) 95%,#000),#08070b 75%)}
 .cg-carta-arte .cg-art{position:absolute;inset:0;aspect-ratio:auto;height:100%;background:none}
-.cg-carta-arte .cg-art img{object-fit:cover;object-position:center 22%;transition:transform .45s cubic-bezier(.2,.7,.2,1)}
-.cg-carta:hover .cg-carta-arte .cg-art img{transform:scale(1.05)}
+.cg-carta-arte .foto-encuadrada{--foto-arriba:13%;--foto-abajo:43%;--foto-lados:9%}
+.cg-carta.is-mini .cg-carta-arte .foto-encuadrada{--foto-abajo:31%}
+.cg-carta.is-portada .cg-carta-arte .foto-encuadrada{--foto-abajo:47%}
 .cg-carta-arte .cg-placeholder{position:absolute;inset:0;display:grid;place-items:center;padding-bottom:28%;color:var(--marco)}
 .cg-carta-arte .cg-placeholder>span{display:none}
 .cg-carta-arte .cg-placeholder svg{width:30cqi;height:auto;opacity:.7}
 .cg-carta-velo{position:absolute;inset:3.5%;border-radius:5% / 3.4%;pointer-events:none;
- background:linear-gradient(#000a,transparent 20%,transparent 40%,color-mix(in srgb,var(--tinte) 40%,#050407e6) 66%,#050407f2)}
+ background:linear-gradient(#000a,transparent 16%,transparent 55%,color-mix(in srgb,var(--tinte) 40%,#050407e6) 67%,#050407f2)}
 .cg-carta-marco{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;user-select:none;filter:var(--filtro)}
 .cg-rango-kuroi .cg-carta-marco{filter:var(--filtro) drop-shadow(0 0 3cqi #9a7cffaa)}
 .cg-carta-cab{position:absolute;top:var(--st);left:var(--sx);right:var(--sx);display:flex;align-items:center;justify-content:space-between;gap:2cqi;
@@ -192,6 +191,14 @@
 .cg-carta.is-mini .cg-carta-cab{justify-content:flex-end}
 .cg-carta.is-mini .cg-carta-nombre{font-size:max(10.5px,9cqi);text-align:center}
 .cg-carta.is-mini .cg-carta-info{text-align:center}
+.cg-encuadres{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:center;gap:14px;margin:10px 0 16px}
+.cg-encuadres figure{min-width:0;margin:0;text-align:center}
+.cg-encuadres .cg-carta{animation:none;filter:none;transform:none}
+.cg-encuadres figcaption{margin-top:6px;font-size:12px;color:var(--color-text-muted,var(--color-neutral-400))}
+.cg-vista-ficha{position:relative;width:min(100%,76px);aspect-ratio:1;margin:auto;overflow:hidden;border:1px solid var(--color-gold-soft);border-radius:50%;background:var(--color-well)}
+.cg-vista-ficha .cg-art{position:absolute;inset:0;height:auto;aspect-ratio:1}
+.cg-vista-ficha .cg-placeholder>span{display:none}
+.cg-vista-ficha .cg-placeholder svg{width:32px;height:32px}
 /* La ayuda aparece tras una pausa para no tapar la carta al pasar el ratón. */
 .cg-carta .cg-tooltip{display:block;visibility:hidden;opacity:0;transition:opacity .15s,visibility 0s .15s}
 .cg-carta .cg-open:hover .cg-tooltip,.cg-carta .cg-open:focus-visible .cg-tooltip{visibility:visible;opacity:1;transition:opacity .2s .8s,visibility 0s .8s}
