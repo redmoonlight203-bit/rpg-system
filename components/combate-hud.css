@@ -74,20 +74,21 @@
 
 /* ── Barra inferior: ranuras de tamaño constante ─────────────────────────── */
 .tactical-dock{display:grid;grid-template-columns:minmax(230px,270px) minmax(0,1fr) 88px;align-items:stretch}
-.tactical-controls{min-width:0;display:grid;grid-template-rows:24px 94px;gap:6px}
+.tactical-controls{--ranura-ancho:104px;--ranura-arte:66px;min-width:0;display:grid;grid-template-rows:24px auto;gap:6px}
 .tactical-tabs{height:24px;margin:0;white-space:nowrap;overflow:hidden}
-.tactical-slots{display:flex;flex-wrap:nowrap;gap:6px;height:94px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scrollbar-width:thin}
-.tactical-slots>button{flex:0 0 86px;width:86px;height:88px;min-height:0;overflow:hidden;gap:3px;padding:15px 4px 4px;justify-content:flex-start}
-.tactical-slots>button>svg{flex:none;width:20px;height:20px}
-.tactical-slot-arte{position:relative;display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:50%;border:1px solid #96815b88;background:#17131a}
-.tactical-slot-arte>svg{width:100%;height:100%}
-.tactical-slots strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:100%;font-size:11.5px;line-height:13px;max-height:26px;min-height:26px;overflow-wrap:break-word;hyphens:auto}
-.tactical-slots small{display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px;line-height:13px}
+.tactical-slots{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 4px;scrollbar-width:thin}
+.tactical-slots>button{flex:0 0 var(--ranura-ancho);width:var(--ranura-ancho);min-height:0;overflow:hidden;gap:3px;padding:16px 6px 5px;justify-content:flex-start}
+.tactical-slots>button>svg{flex:none;width:24px;height:var(--ranura-arte)}
+.tactical-slot-arte{position:relative;display:grid;place-items:center;flex:none;width:100%;height:var(--ranura-arte);overflow:hidden;border-radius:4px;background:#17131a}
+.tactical-slot-arte>svg{width:24px;height:24px}
+.tactical-hud .tactical-slots>button:has(.tactical-slot-arte):disabled{opacity:.65}
+.tactical-slots strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;flex:none;overflow:hidden;max-width:100%;font-size:12px;line-height:14px;height:28px;overflow-wrap:break-word;hyphens:auto}
+.tactical-slots small{display:block;flex:none;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px;line-height:14px}
 .tactical-slots>button.pending{outline:2px dashed var(--color-gold-bright,#e8c46a);outline-offset:-4px;animation:campo-pendiente 1s ease-in-out infinite}
 .tactical-slots-sep{flex:0 0 1px;margin:10px 2px;background:color-mix(in srgb,var(--color-yellow-500,#eab308) 45%,transparent)}
 .tactical-consumable{border-color:color-mix(in srgb,var(--color-emerald-400,#34d399) 45%,transparent)!important}
 .tactical-count{position:absolute;right:5px;top:2px;font-size:12px;font-weight:700;color:var(--color-emerald-300,#6ee7b7)}
-.tactical-cooldown{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:#000a;color:#fff;font:700 22px var(--font-serif,Georgia,serif);pointer-events:none}
+.tactical-cooldown{position:absolute;top:19px;right:9px;z-index:2;display:grid;place-items:center;min-width:20px;height:20px;padding-inline:4px;border:1px solid #ffffff40;border-radius:4px;background:#17131a;color:#fff;font:700 13px/1 var(--font-sans,system-ui);pointer-events:none}
 .tactical-end{height:auto;min-height:0}
 /* Panel de información: altura fija, el texto largo se desplaza dentro. */
 .tactical-description{height:96px;overflow:hidden;align-items:stretch}
@@ -133,11 +134,11 @@
  .tactical-field-tools{justify-content:space-between;gap:6px}
  .tactical-field-tools>small{display:none}
  .tactical-field-tools .arena-full{padding:4px 8px}
- .tactical-dock{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 124px}
+ .tactical-dock{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto}
  .heroe-activo{grid-column:1;border:0;padding:0;grid-template-columns:44px minmax(0,1fr);gap:8px}
  .heroe-retrato,.heroe-retrato .battle-portrait{width:44px;height:54px}
  .tactical-dock>.tactical-end{grid-column:2;grid-row:1;align-self:center;width:auto;flex-direction:row;padding:8px;border-radius:6px}
- .tactical-controls{grid-column:1/-1;grid-row:2;grid-template-rows:24px 94px}
+ .tactical-controls{--ranura-ancho:94px;--ranura-arte:56px;grid-column:1/-1;grid-row:2}
  .tactical-description{height:92px}
  .tactical-description>div:last-child{max-width:46%}
  .campo-preview{font-size:12px;padding:8px 10px}
@@ -150,7 +151,7 @@
 }
 
 /* ── Móvil en horizontal / pantallas bajas ─────────────────────────────────
-   La barra fija (sticky) mide unos 280 px: con 500 px de alto o menos tapaba casi todo el tablero.
+   Con 500 px de alto o menos, la barra fija (sticky) tapa casi todo el tablero.
    Ahí pasa a ir debajo del tablero; se llega a ella desplazando la página. */
 @media(max-height:500px){
  .tactical-hud{position:static;margin-top:16px}

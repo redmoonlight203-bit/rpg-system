@@ -209,7 +209,7 @@ export function PanelHeroe({actor,phReal,puede}:{actor:ActorBarra;phReal:number;
 }
 
 function ArteRanura({src,respaldo}:{src?:string;respaldo:React.ReactNode}){
- return src ? <span className="tactical-slot-arte" aria-hidden="true"><FotoEncuadrada src={src} circular fallback={respaldo}/></span> : respaldo;
+ return src ? <span className="tactical-slot-arte" aria-hidden="true"><FotoEncuadrada src={src} fallback={respaldo}/></span> : respaldo;
 }
 
 export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras,onLevantarse,inventario,consumibles=[],onConsumible,onSiguiente}:{actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;

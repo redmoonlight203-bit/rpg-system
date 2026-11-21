@@ -104,7 +104,7 @@
 }
 .yq-taller .yq-arena-lado .tactical-actor{flex:1;min-width:0;border:0;padding:0}
 .yq-taller .yq-arena-lado .tactical-actor .battle-portrait{width:36px;height:42px}
-.yq-taller .yq-arena-lado .tactical-controls{order:0;grid-template-rows:auto auto}
+.yq-taller .yq-arena-lado .tactical-controls{--ranura-ancho:80px;--ranura-arte:50px;order:0;grid-template-rows:auto auto}
 .yq-taller .yq-arena-lado .tactical-tabs {
   flex-wrap: wrap;
   gap: 4px 10px;
@@ -112,7 +112,6 @@
   overflow: visible;
   white-space: normal;
 }
-.yq-taller .yq-arena-lado .tactical-slots>button{flex-basis:70px;min-height:64px}
 .yq-taller .yq-arena-lado .tactical-slots strong{font-size:12px}
 .yq-taller .yq-arena-lado .tactical-slots small{font-size:11px}
 .yq-taller .yq-arena-lado .tactical-end{flex:none;align-self:center;width:auto;flex-direction:row;padding:6px 10px;border-radius:6px}
