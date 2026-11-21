@@ -1,8 +1,9 @@
 import {SLOTS,type Efecto} from './creacion';
 import {faltantesRequisitos,type Fuente,type Config} from './combate';
+import {validarPortada} from './imagenes-creacion';
 import type {Rango} from './forja';
 export type EquipoMonstruo={modo:'catalogo'|'generado';opciones:string[];nombre?:string;dos_manos?:boolean;rangos?:Record<string,Rango>;dados?:number;caras?:number};
-export type VarianteMonstruo={id:string;nombre:string;peso:number;bonos:Record<string,number>;habilidades:string[];pasivas:string[];equipamiento:Record<string,EquipoMonstruo>};
+export type VarianteMonstruo={imagen_url?:string;id:string;nombre:string;peso:number;bonos:Record<string,number>;habilidades:string[];pasivas:string[];equipamiento:Record<string,EquipoMonstruo>};
 export type ConfiguracionMonstruo={variantes:VarianteMonstruo[]};
 export type FuenteMonstruo=Fuente & {id:string;tipo_creacion:string;estado?:string;es_grupo?:boolean;stats_rango?:Record<string,Rango>;configuracion_dados?:Efecto[]};
 export function validarMonstruo(config:ConfiguracionMonstruo|null|undefined,catalogo:FuenteMonstruo[]):string|null{
@@ -10,6 +11,7 @@ export function validarMonstruo(config:ConfiguracionMonstruo|null|undefined,cata
  if(!Array.isArray(config.variantes)||config.variantes.length>30)return 'Define un máximo de 30 variantes.';
  const ids=new Set<string>();
  for(const v of config.variantes){
+  if(v.imagen_url && validarPortada(v.imagen_url))return 'Imagen de variante inválida.';
   if(!v.id||ids.has(v.id)||!v.nombre.trim()||v.nombre.length>100)return 'Cada variante necesita nombre e identificador únicos.';ids.add(v.id);
   if(!Number.isFinite(v.peso)||v.peso<=0||v.peso>1000)return 'El peso de aparición debe estar entre 1 y 1000.';
   if(Object.entries(v.bonos).some(([k,n])=>['nivel','exp_total','experiencia'].includes(k)||!Number.isFinite(n)||Math.abs(n)>1000000))return 'Ajustes de estadísticas inválidos.';
@@ -58,5 +60,5 @@ export function prepararVariante<T extends {nombre:string;stats:Record<string,nu
  const stats={...base};for(const [k,v] of Object.entries(bonos))stats[k]=(stats[k]||0)+v;
  const habilidades=[...new Map([...(f.configuracion.habilidades||[]),...variante.habilidades.map(fuente)].map(h=>[h.id,h])).values()];
  const pasivas=[...(f.configuracion.pasivas||[]),...variante.pasivas.filter(id=>!f.configuracion.pasivas?.some(p=>p.id===id)).map(id=>{const c=fuente(id);return {id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]};})];
- return {...f,nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
+ return {...f,nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,variante_id:variante.id,...(variante.imagen_url?{imagen_url:variante.imagen_url}:{}),stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
 }

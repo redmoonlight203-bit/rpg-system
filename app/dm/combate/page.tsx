@@ -179,6 +179,7 @@ export default function CampoCombate() {
     } catch { /* El combate funciona aunque el almacenamiento esté desactivado. */ }
   }, []);
   function claveRetrato(m: Combatiente) {
+    if (m.configuracion.variante_id) return `forja:${m.forja_id || m.id}:variante:${m.configuracion.variante_id}`;
     return m.personaje_id ? `jugador:${m.personaje_id}` : `forja:${m.forja_id || m.id}`;
   }
   function configurarRetrato(m: Combatiente, value: string) {
@@ -569,7 +570,7 @@ export default function CampoCombate() {
   }
   const fichasTablero=useMemo(()=>{
     const posiciones=posicionesTablero(c);
-    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[m.personaje_id?`jugador:${m.personaje_id}`:`forja:${m.forja_id||m.id}`]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
+    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[claveRetrato(m)]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
   },[c,retratos]);
   const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
   useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
@@ -625,7 +626,7 @@ export default function CampoCombate() {
           )}
         </div>
         <div className="battle-identity">
-        <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)]} />
+        <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)] || m.configuracion.imagen_url} />
         <div><h3>
           <button
             className={`battle-target-name ${destino === m.id ? "target-selected" : ""}`}
@@ -1079,7 +1080,7 @@ export default function CampoCombate() {
               <span>INICIATIVA · D20</span>
               <div>{[...c.miembros].sort((a, b) => b.iniciativa - a.iniciativa).map((m) => (
                 <button key={m.id} className={`battle-initiative-token ${c.actual === m.id ? "active" : ""} ${m.vida <= 0 ? "is-down" : ""}`} onClick={() => mostrarIniciativa(m)} aria-current={c.actual === m.id ? "step" : undefined} title={`Ver tirada de iniciativa de ${m.nombre}`}>
-                  <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)]} compacto />
+                  <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)] || m.configuracion.imagen_url} compacto />
                   <span>{m.nombre}<b><Dices size={13} />{m.iniciativa}</b></span>
                 </button>
               ))}{!c.miembros.length && <p>Añade personajes para ordenar sus turnos.</p>}</div>

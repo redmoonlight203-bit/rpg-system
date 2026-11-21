@@ -9,3 +9,12 @@ test('piezas generadas tienen identidad propia, rango cerrado y ataque funcional
 test('dos manos impide equipo simultáneo en la otra mano',()=>{const p={...v(),equipamiento:{mano_der:{modo:'catalogo',opciones:['baston']},mano_izq:{modo:'catalogo',opciones:['daga']}}};const n=m.prepararVariante(ficha(),p,[item('baston','dos_manos'),item('daga')]);assert.equal(n.configuracion.equipamiento.mano_izq,undefined);});
 test('rechaza equipo incompatible, desaparecido o con requisitos incumplidos',()=>{const p={...v(),equipamiento:{pechera:{modo:'catalogo',opciones:['daga']}}};assert.ok(m.validarMonstruo({variantes:[p]},[item('daga')]));const q={...v(),equipamiento:{mano_der:{modo:'catalogo',opciones:['daga']}}};assert.throws(()=>m.prepararVariante(ficha(),q,[{...item('daga'),requisitos_uso:{nivel_minimo:10}}]));assert.throws(()=>m.prepararVariante(ficha(),q,[]));});
 test('variantes ponderadas y habilidades adicionales respetan tipos y unicidad',()=>{const config={variantes:[v('Asesino'),{...v('Mago'),peso:10}]};assert.equal(m.elegirVariante(config,'aleatorio',()=>.8).nombre,'Mago');assert.throws(()=>m.elegirVariante(config,'inexistente'));assert.ok(m.validarMonstruo({variantes:[{...v(),peso:0}]},[]));assert.ok(m.validarMonstruo({variantes:[{...v(),habilidades:['a','a']}]},[{id:'a',nombre:'a',tipo_creacion:'habilidad',stats:{}}]));});
+
+test('la aparición conserva el retrato propio o hereda el de la especie',()=>{
+ const base=ficha();
+ base.configuracion.imagen_url='/especie.webp';
+ const propia=m.prepararVariante(base,{...v(),imagen_url:'/variante.webp'},[]);
+ assert.equal(propia.configuracion.imagen_url,'/variante.webp');
+ assert.equal(m.prepararVariante(base,v(),[]).configuracion.imagen_url,'/especie.webp');
+ assert.equal(base.configuracion.imagen_url,'/especie.webp');
+});
