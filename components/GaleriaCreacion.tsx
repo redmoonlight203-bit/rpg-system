@@ -1,4 +1,5 @@
 "use client";
+import {marcoDe,rangoDe} from "../lib/cartas";
 import {duenoDe,duenosConPersonales,filtrarAmbito,type FiltroAmbito} from "../lib/creaciones-personales";
 import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
@@ -129,39 +130,43 @@ function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEn
   return <div ref={caja} className={`cg-baraja ${abierta ? "is-abierta" : ""}`} style={{ "--paso": `${paso}px`, "--grosor": `${paso * mazo.length}px` } as React.CSSProperties}
     onPointerEnter={(e) => { if (e.pointerType === "mouse") intencion(); }} onPointerLeave={(e) => { if (e.pointerType === "mouse") cerrar(); }}
     onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) cerrar(0); }}>
-    <span className="cg-baraja-pila" aria-hidden="true">{mazo.map((m, i) => <span key={m.id} className={`cg-baraja-carta cg-tipo-${props.tipoDe(m)}`} style={{ "--i": mazo.length - i } as React.CSSProperties} />)}</span>
+    <span className="cg-baraja-pila" aria-hidden="true">{mazo.map((m, i) => <span key={m.id} className={`cg-baraja-carta ${rangoDe(m.clase).css}`} style={{ "--i": mazo.length - i } as React.CSSProperties} />)}</span>
     {children}
     <button type="button" className="cg-baraja-abrir" aria-expanded={abierta} aria-controls={id} onClick={() => (abierta ? setAbierta(false) : abrir())} aria-label={`Baraja de ${dueno.nombre}: ${mazo.length} cartas personales`}><span>Baraja</span><b>{mazo.length}</b></button>
     {abierta && <div id={id} className={`cg-abanico is-${lado}`} role="dialog" aria-label={`Baraja de ${dueno.nombre}`} onPointerEnter={() => clearTimeout(espera.current)}>
       <header><div><small>Baraja personal</small><strong>{dueno.nombre}</strong></div><span>{mazo.length === 1 ? "1 carta" : `${mazo.length} cartas`}<button type="button" className="cg-abanico-cerrar" aria-label="Cerrar la baraja" onClick={() => setAbierta(false)}><X size={16} /></button></span></header>
-      <ul>{mazo.map((m, i) => { const t = props.tipoDe(m); return <li key={m.id} style={{ "--k": Math.min(i, 18) } as React.CSSProperties}>
-        <button type="button" className={`cg-mini cg-tipo-${props.esMonstruo?.(m) ? "monstruo" : t}`} onClick={() => onAbrirCarta(m.id)} title={m.descripcion || m.nombre}>
-          <span className="cg-mini-arte"><Portada src={m.imagen_url} nombre={m.nombre} tipo={t} icono={props.iconoDe(m)} /></span>
-          <span className="cg-mini-rango">{m.clase || "D"}</span>
-          <strong>{m.nombre}</strong><small>{TIPOS.find((x) => x.valor === t)?.nombre}</small>
-        </button></li>; })}</ul>
+      <ul>{mazo.map((m, i) => <li key={m.id} style={{ "--k": Math.min(i, 18) } as React.CSSProperties}><Carta item={m} props={props} dueno={null} orden={0} mini onAbrir={() => onAbrirCarta(m.id)} /></li>)}</ul>
       <footer><button type="button" className="cg-button" onClick={onEntrar}>Ver la baraja completa</button></footer>
     </div>}
   </div>;
 }
 
-/** Carta de La creación: proporción de naipe (63×88), marco por tipo y arte recortado para que siempre cuadre. */
-function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir }: { item: T; props: Props<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir: () => void }) {
-  const tipoItem = props.tipoDe(item), monstruo = !!props.esMonstruo?.(item);
+/** Carta de La creación: marco propio de su tipo, teñido según su rango; el arte llena el interior y siempre cuadra. */
+function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir, mini }: { item: T; props: Props<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir: () => void; mini?: boolean }) {
+  const tipoItem = props.tipoDe(item), monstruo = !!props.esMonstruo?.(item), rango = rangoDe(item.clase);
+  const tipoCarta = monstruo ? "monstruo" : tipoItem;
   const chips = atributos(item).slice(0, 2);
-  return <article className={`cg-carta cg-tipo-${monstruo ? "monstruo" : tipoItem} ${portada ? "is-portada" : ""}`} style={{ "--orden": Math.min(orden, 24) } as React.CSSProperties}>
-    <button className="cg-open cg-carta-cara" onClick={onAbrir} aria-label={`Ver detalles de ${item.nombre}`} aria-describedby={`creacion-ayuda-${item.id}`}>
-      <span className="cg-carta-cab"><span className="cg-carta-tipo">{monstruo ? "Monstruo" : TIPOS.find((t) => t.valor === tipoItem)?.nombre}</span><span className="cg-carta-rango" title="Clase">{item.clase || "D"}</span></span>
+  const nombreTipo = monstruo ? "Monstruo" : TIPOS.find((t) => t.valor === tipoItem)?.nombre;
+  const Etiqueta = mini ? "div" : "article";
+  return <Etiqueta className={`cg-carta cg-tipo-${tipoCarta} ${rango.css} ${portada ? "is-portada" : ""} ${mini ? "is-mini" : ""}`} style={{ "--orden": Math.min(orden, 24) } as React.CSSProperties}>
+    <button type="button" className="cg-open cg-carta-cara" onClick={onAbrir} aria-label={`Ver detalles de ${item.nombre}${mini ? "" : `, ${nombreTipo}, rango ${rango.clave}`}`} aria-describedby={mini ? undefined : `creacion-ayuda-${item.id}`} title={mini ? item.descripcion || item.nombre : undefined}>
       <span className="cg-carta-arte"><Portada src={item.imagen_url} nombre={item.nombre} tipo={tipoItem} icono={props.iconoDe(item)} /></span>
-      <span className="cg-carta-nombre"><strong>{item.nombre}</strong><small>{props.clasificacion(item.tipo)}</small></span>
-      <span className="cg-carta-texto">{item.descripcion || "Abre esta creación para conocer sus detalles."}</span>
-      <span className="cg-carta-pie">
-        {dueno ? <span className="cg-carta-sello">Personal de {dueno}</span> : item.ligado_al_alma ? <span className="cg-carta-sello is-alma">{item.alma_en_uso ? "Alma única · En uso" : "Alma única"}</span> : null}
-        <span className="cg-carta-chips">{chips.map(([key, value]) => <span key={key}>{props.etiqueta(item, key)} <b>{valor(value)}</b></span>)}{!chips.length && <span>{item.es_grupo ? "Malla" : "Único"}</span>}</span>
+      <span className="cg-carta-velo" aria-hidden="true" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- marco decorativo local, sin optimización de Next */}
+      <img className="cg-carta-marco" src={marcoDe(tipoItem, monstruo)} alt="" aria-hidden="true" decoding="async" loading="lazy" draggable={false} />
+      <span className="cg-carta-cab"><span className="cg-carta-tipo">{nombreTipo}</span><span className="cg-carta-rango" title={`Rango ${rango.clave} · ${rango.nombre}`}>{rango.clave === "KUROI" ? "K" : rango.clave}</span></span>
+      <span className="cg-carta-info">
+        <strong className="cg-carta-nombre">{item.nombre}</strong>
+        {!mini && <><small className="cg-carta-clasif">{props.clasificacion(item.tipo)}</small>
+        <span className="cg-carta-texto">{item.descripcion || "Abre esta creación para conocer sus detalles."}</span>
+        <span className="cg-carta-pie">
+          {dueno ? <span className="cg-carta-sello">Personal de {dueno}</span> : item.ligado_al_alma ? <span className="cg-carta-sello is-alma">{item.alma_en_uso ? "Alma única · En uso" : "Alma única"}</span> : null}
+          <span className="cg-carta-chips">{chips.map(([key, value]) => <span key={key}>{props.etiqueta(item, key)} <b>{valor(value)}</b></span>)}{!chips.length && <span>{item.es_grupo ? "Malla" : "Único"}</span>}</span>
+        </span></>}
       </span>
-      <span className="cg-tooltip" role="tooltip" id={`creacion-ayuda-${item.id}`}><ContenidoAyuda ayuda={ayudaCreacion(item)}/></span>
+      {!mini && <span className="cg-tooltip" role="tooltip" id={`creacion-ayuda-${item.id}`}><ContenidoAyuda ayuda={ayudaCreacion(item)}/></span>}
     </button>
-  </article>;
+  </Etiqueta>;
 }
 
 function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; props: Props<T>; volver: () => void }) {

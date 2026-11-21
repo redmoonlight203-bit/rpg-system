@@ -31,3 +31,10 @@ Cada creación de la Forja (habilidad, pasiva, objeto, título…) es **general*
 - **Abanico:** al pasar el ratón (o al tocar «Baraja N» en móvil) se abre un panel con todas sus cartas boca arriba; cada una abre su detalle sin entrar en la baraja. En escritorio se abre hacia el lado con espacio; en móvil es una hoja inferior. Se cierra al salir, con Esc, tocando fuera o con la X.
 - «Ver la baraja completa» entra en la vista de baraja: cabecera «Baraja personal», el personaje como portada y sus cartas repartiéndose una a una; «Volver a la colección» regresa a las generales.
 - Animaciones solo con `transform`/`opacity`, desactivadas con `prefers-reduced-motion`. Comprobado en navegador en escritorio y 390 px: alturas y ventanas de arte idénticas, sin scroll horizontal.
+
+## Marcos por tipo y color por rango (2026-11-21)
+
+- Cada tipo tiene su marco ilustrado (`public/arte/marcos/<tipo>.webp`, 512×768, fondo transparente): personaje (curvas y nudo), monstruo (espinas), habilidad (cuchillas), objeto (metal atornillado), otro (art déco con gemas). **Título** (gótico con estandarte) y **pasiva** (laureles) usan el art déco hasta recibir sus archivos: basta con guardarlos como `titulo.webp` y `pasiva.webp` y apuntar `pasiva` a su archivo en `lib/cartas.ts`.
+- La carta tiene la proporción de los marcos (2:3). El arte llena el interior y se recorta para que cuadre; el marco va encima. El texto se coloca en la zona segura medida en cada marco.
+- El rango (clase F–KUROI) tiñe el marco y los acentos: F hierro, D bronce, C jade, B acero azul, A arcano, S oro (colores originales), Z sangre y KUROI negro con halo violeta. Los dorsos de la baraja también toman el color del rango de cada carta.
+- `lib/cartas.ts` (marco por tipo y rango) con pruebas en `tests/cartas.test.mjs`.
