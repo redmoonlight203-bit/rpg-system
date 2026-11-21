@@ -8,21 +8,19 @@ import {X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import FormasHistoria from '../FormasHistoria';
 import EditorMonstruo from '../EditorMonstruo';
-import {BarraVital} from '../ui/Juego';
 import {Interruptor} from './Controles';
 import NaturalezaAdquirida from './NaturalezaAdquirida';
-import {activas,atributosVisibles,claseDe,esMonstruoB,type ContextoTaller} from './contexto';
-import {CLASES_YUGEN,UMBRALES_CLASE} from '../../lib/clases';
+import PruebaBalance, {type useBalanceBorrador} from './PruebaBalance';
+import {activas,atributosVisibles,esMonstruoB,type ContextoTaller} from './contexto';
 import type {FuenteMonstruo} from '../../lib/monstruos';
 import type {Borrador} from '../../lib/yunque-borrador';
 
-type Props={b:Borrador;patch:(p:Partial<Borrador>)=>void;ctx:ContextoTaller;abierto:boolean;onCerrar:()=>void;
+type Props={balance:ReturnType<typeof useBalanceBorrador>;b:Borrador;patch:(p:Partial<Borrador>)=>void;ctx:ContextoTaller;abierto:boolean;onCerrar:()=>void;
  /** Al abrir, el foco va a esta sección (id) o, sin ella, al botón de cerrar. */
  ancla?:string|null};
 const NATURALEZA={seccion:'yq-ficha-seccion',titulo:'yq-ficha-titulo',ayuda:'yq-nota',etiqueta:'yq-campo',campo:'',aviso:'yq-nota is-aviso'};
-const redondo=(n:number)=>Math.round(n*100)/100;
 
-export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla}:Props){
+export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla,balance}:Props){
  const cerrar=useRef<HTMLButtonElement>(null);
  // Al abrirse (o cambiar de ancla), el foco entra en el cajón; tras pintar, para que ya no sea `inert`.
  useEffect(()=>{
@@ -42,8 +40,6 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla}:Props){
   const tecla=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!e.defaultPrevented){e.preventDefault();cerrarRef.current();}};
   window.addEventListener('keydown',tecla);return ()=>window.removeEventListener('keydown',tecla);
  },[abierto]);
- const clase=claseDe(b,ctx);
- const i=CLASES_YUGEN.indexOf(clase.clase as typeof CLASES_YUGEN[number]),siguiente=UMBRALES_CLASE[i+1];
  const monstruo=esMonstruoB(b,ctx);
  // En el cuerpo del documento: la página del taller lleva un `transform` (entrada de escena) que anclaría `position:fixed` a ella.
  const cliente=useSyncExternalStore(sinCambios,()=>true,()=>false);
@@ -56,22 +52,13 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla}:Props){
   </header>
   <div className="yq-cajon-cuerpo yq-desplazable">
    <section className="yq-ficha-clase" aria-label="Clase calculada">
-    <b>{clase.clase}</b>
+    <b>{balance.informe?.clase??(balance.error?'—':'…')}</b>
     <div>
-     <strong>{clase.puntuacion} puntos de poder</strong>
-     <span>{siguiente!==undefined?`Clase ${CLASES_YUGEN[i+1]} desde ${siguiente}`:'La clase más alta'}</span>
-     {siguiente!==undefined&&<BarraVital etiqueta="Hacia la siguiente clase" tipo="exp" valor={redondo(clase.puntuacion-UMBRALES_CLASE[i])} max={siguiente-UMBRALES_CLASE[i]}/>}
+     <strong>{balance.informe?.clase?'Clase del borrador':balance.error?'Simulación no disponible':'Calculando clase del borrador'}</strong>
     </div>
     <details className="yq-ficha-como">
      <summary>Cómo se calcula</summary>
-     <p>Vida × 0.1, PH × 0.2, energía y resistencia × 0.01, otros atributos positivos × 1. Se añade la acción más potente, los bonos pasivos y las reglas. Peso, durabilidad y enfriamiento no puntúan. En mallas se usa el punto medio.{b.tipo==='personaje'?' En personajes se suma el poder de sus habilidades y pasivas enlazadas.':''}</p>
-     <dl className="yq-desglose">
-      <div><dt>Atributos</dt><dd>{redondo(clase.atributos)}</dd></div>
-      <div><dt>Acción más fuerte</dt><dd>{redondo(clase.acciones)}</dd></div>
-      <div><dt>Bonos pasivos{b.tipo==='personaje'?' y vínculos':''}</dt><dd>{redondo(clase.pasivas)}</dd></div>
-      <div><dt>Reglas</dt><dd>{redondo(clase.reglas)}</dd></div>
-     </dl>
-     <p className="yq-ficha-umbrales">{CLASES_YUGEN.map((c,k)=>`${c}: desde ${UMBRALES_CLASE[k]}`).join(' · ')}</p>
+     {abierto&&<PruebaBalance balance={balance}/>}
     </details>
    </section>
    <label className="yq-campo"><span>Descripción</span><textarea rows={3} maxLength={5000} value={b.descripcion} onChange={e=>patch({descripcion:e.target.value})} placeholder="Qué es, a simple vista."/></label>

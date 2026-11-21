@@ -1,0 +1,8 @@
+.yq-cajon .yq-ficha-prueba{display:grid;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--color-line);font:13px/1.45 var(--font-sans);color:var(--color-text-muted)}
+.yq-cajon .yq-ficha-prueba :is(p,ul){margin:0}
+.yq-cajon .yq-ficha-prueba details p{margin-top:4px}
+.yq-cajon .yq-ficha-prueba ul{padding-inline-start:18px}
+.yq-cajon .yq-ficha-prueba button{justify-self:start;padding:5px 8px;border:1px solid var(--color-line);color:var(--color-gold-soft);background:var(--color-canvas)}
+.yq-cajon .yq-ficha-prueba fieldset{display:grid;gap:5px;margin:4px 0 0;padding:8px;border:1px solid var(--color-line)}
+.yq-cajon .yq-ficha-prueba label{display:grid;gap:4px}
+.yq-cajon .yq-ficha-prueba input{width:100%;padding:5px 8px;border:1px solid var(--color-line);background:var(--color-canvas);color:var(--color-text)}

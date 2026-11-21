@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import {RecuperacionesGM} from "../../components/RecuperacionesGM";
+import {ActivarBalanceGM} from "../../components/ActivarBalanceGM";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { mensajeError } from "../../lib/errores";
@@ -73,6 +75,8 @@ export default function MesaDeKuroi() {
           </div>
         </>
       )}
+      <RecuperacionesGM/>
+      <ActivarBalanceGM/>
     </main>
   );
 }

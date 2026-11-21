@@ -1,6 +1,7 @@
 "use client";
 import {Cabecera} from "../../../components/layout/Cabecera";
 import {mensajeError} from '../../../lib/errores';
+import {presupuestoEncuentro} from "../../../lib/presupuesto-encuentro";
 import MetricasCombate from "../../../components/MetricasCombate";
 import EstadoAccionCombate from "../../../components/EstadoAccionCombate";
 import {useAccionSegura} from "../../../lib/useAccionSegura";
@@ -80,6 +81,7 @@ import ContenidoAyuda from "../../../components/ContenidoAyuda";
 import "./combate.css";
 import "./diseno.css";
 type Personaje = {
+  balance_ipe?:number|null;
   imagen_url?:string;
   configuracion_monstruo?:ConfiguracionMonstruo|null;
   id: string;
@@ -365,15 +367,18 @@ export default function CampoCombate() {
       setAccion('ataque');setObjetivo('');setCentro(null);setModoMovimiento(false);setEditorEquipo(null);
     });
   }
+  async function cargarPerfilesEncuentro(){
+    const campos="id,nombre,imagen_url,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel,configuracion_monstruo" as const;
+    const consulta=<T extends string>(seleccion:T)=>supabase.from("forja_maestra").select(seleccion)
+      .eq("tipo_creacion","personaje").eq("estado","aprobado").order("nombre");
+    const perfiles=await consulta(`${campos},balance_ipe` as const);
+    if(perfiles.error?.code==='42703')return consulta(campos);
+    return perfiles;
+  }
   async function cargar(inicial = false) {
     try {
       const [p, b, j] = await Promise.all([
-        supabase
-          .from("forja_maestra")
-          .select("id,nombre,imagen_url,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel,configuracion_monstruo")
-          .eq("tipo_creacion", "personaje")
-          .eq("estado", "aprobado")
-          .order("nombre"),
+        cargarPerfilesEncuentro(),
         supabase
           .from("combates_yugen")
           .select("id,nombre,version")
@@ -551,6 +556,7 @@ export default function CampoCombate() {
       : "";
   const elegidaActual = elegida;
   // Consumibles de la mochila del actor en la barra (fijados por quien dirige el turno, solo en este navegador).
+  const presupuestos=useMemo(()=>presupuestoEncuentro(c.miembros,catalogo),[c.miembros,catalogo]);
   const [fijados,setFijados]=useState<string[]>([]);
   useEffect(()=>{setFijados(leerFijados(actor?.id||''));},[actor?.id]);
   const mochilaActor=useMemo(()=>actor?(actor.configuracion.reserva||[]).map(p=>({id:p.id||'',nombre:p.nombre,consumible:!!p.consumible,imagen_url:p.imagen_url,acciones:accionesObjeto(actor,p)})):[],[actor]);
@@ -1105,6 +1111,10 @@ export default function CampoCombate() {
                   <span>{c.miembros.filter((m) => m.bando === b).length}</span>
                   {c.fase === "preparacion" && <button className="battle-button battle-add" disabled={bloqueado} onClick={abrirBiblioteca}><Plus size={14} /> Añadir</button>}
                 </div>
+                {c.fase==='preparacion' && presupuestos[b].participantes>0 && <p>
+                  Presupuesto de catálogo · {presupuestos[b].medidos ? `${presupuestos[b].ipe.toFixed(2)} IPE` : 'Sin medición'}
+                  {' · '}{presupuestos[b].medidos}/{presupuestos[b].participantes} participantes medidos
+                </p>}
                 {c.miembros.some((m) => m.bando === b) ? (
                   <div className="battle-team-grid">
                     {c.miembros.filter((m) => m.bando === b).map(tarjeta)}
