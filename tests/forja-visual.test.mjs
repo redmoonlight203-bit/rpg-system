@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import vm from 'node:vm';
 import ts from 'typescript';
@@ -21,7 +22,7 @@ function cargar(path){
  vm.runInNewContext(ts.transpileModule(readFileSync(path,'utf8'),{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{exports,require,crypto,console,setTimeout,clearTimeout,URL,Blob});
  return exports;
 }
-const raiz=resolve(dirname(new URL(import.meta.url).pathname),'..');
+const raiz=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const reglas=cargar(resolve(raiz,'lib/reglas.ts'));
 const creacion=cargar(resolve(raiz,'lib/creacion.ts'));
 const render=(archivo,componente,props)=>renderToStaticMarkup(React.createElement(cargar(resolve(raiz,archivo))[componente],props));

@@ -43,7 +43,6 @@
 .yq-taller .yq-arena-tablero .tactical-area-summary>span{grid-column:1/-1;grid-row:2;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .yq-taller .yq-arena-tablero .tactical-area-summary>button{grid-column:2;grid-row:1}
 .yq-taller .is-compacta .tactical-area-summary{padding:6px 8px;font-size:12px}
-.yq-taller .yq-arena-tablero .tactical-token .battle-portrait img{object-position:50% 14%}
 .yq-taller .yq-arena-fin{position:absolute;z-index:40;inset:0;display:grid;place-content:center;justify-items:center;gap:6px;padding:12px;background:color-mix(in srgb,#000 62%,transparent);text-align:center}
 .yq-taller .yq-arena-fin strong{font:600 18px var(--font-display);letter-spacing:.12em;text-transform:uppercase;color:var(--color-gold-bright)}
 .yq-taller .yq-arena-fin span{font:italic 13px var(--font-serif);color:var(--color-parchment)}

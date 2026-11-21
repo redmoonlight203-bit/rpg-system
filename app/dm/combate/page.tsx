@@ -12,7 +12,7 @@ import EditorMapaCombate from "../../../components/EditorMapaCombate";
 import PantallaCombate from "../../../components/PantallaCombate";
 import {ConfigurarCiclo,ResumenEncuentro} from "../../../components/CicloEncuentro";
 import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {elegirVariante,prepararVariante,type ConfiguracionMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
 import InvocarCombate from "../../../components/InvocarCombate";
@@ -178,9 +178,9 @@ export default function CampoCombate() {
         setRetratos({ ...retratosCombate, ...Object.fromEntries(Object.entries(saved).filter(([, v]) => typeof v === "string")) } as Record<string, string>);
     } catch { /* El combate funciona aunque el almacenamiento esté desactivado. */ }
   }, []);
-  function claveRetrato(m: Combatiente) {
-    return m.personaje_id ? `jugador:${m.personaje_id}` : `forja:${m.forja_id || m.id}`;
-  }
+  const claveRetrato = useCallback((m: Combatiente) => m.personaje_id ? `jugador:${m.personaje_id}` : `forja:${m.forja_id || m.id}`, []);
+  const fotoDe = useCallback((m: Combatiente) =>
+    m.transformacion?.imagen_etapa || retratos[claveRetrato(m)] || m.configuracion.imagen_url, [claveRetrato, retratos]);
   function configurarRetrato(m: Combatiente, value: string) {
     const url = value.trim();
     if (url && !/^https?:\/\//i.test(url) && !/^\/(?!\/)/.test(url)) {
@@ -569,8 +569,8 @@ export default function CampoCombate() {
   }
   const fichasTablero=useMemo(()=>{
     const posiciones=posicionesTablero(c);
-    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:m.transformacion?.imagen_etapa||retratos[m.personaje_id?`jugador:${m.personaje_id}`:`forja:${m.forja_id||m.id}`]||m.configuracion.imagen_url,estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
-  },[c,retratos]);
+    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:fotoDe(m),estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
+  },[c,fotoDe]);
   const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
   useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
@@ -625,7 +625,7 @@ export default function CampoCombate() {
           )}
         </div>
         <div className="battle-identity">
-        <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)]} />
+        <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={fotoDe(m)} />
         <div><h3>
           <button
             className={`battle-target-name ${destino === m.id ? "target-selected" : ""}`}
@@ -1079,7 +1079,7 @@ export default function CampoCombate() {
               <span>INICIATIVA · D20</span>
               <div>{[...c.miembros].sort((a, b) => b.iniciativa - a.iniciativa).map((m) => (
                 <button key={m.id} className={`battle-initiative-token ${c.actual === m.id ? "active" : ""} ${m.vida <= 0 ? "is-down" : ""}`} onClick={() => mostrarIniciativa(m)} aria-current={c.actual === m.id ? "step" : undefined} title={`Ver tirada de iniciativa de ${m.nombre}`}>
-                  <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={retratos[claveRetrato(m)]} compacto />
+                  <RetratoCombate activo={c.fase === "en_curso" && c.actual === m.id} nombre={m.nombre} src={fotoDe(m)} compacto />
                   <span>{m.nombre}<b><Dices size={13} />{m.iniciativa}</b></span>
                 </button>
               ))}{!c.miembros.length && <p>Añade personajes para ordenar sus turnos.</p>}</div>
@@ -1131,7 +1131,7 @@ export default function CampoCombate() {
             ))}
           </div>
           </details>
-          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:actor.transformacion?.imagen_etapa||retratos[claveRetrato(actor)]||actor.configuracion.imagen_url}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
+          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:fotoDe(actor)}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
           {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select

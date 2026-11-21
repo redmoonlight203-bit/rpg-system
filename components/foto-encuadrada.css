@@ -1,0 +1,53 @@
+.foto-encuadrada {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.foto-encuadrada img.foto-encuadrada-fondo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(8px) brightness(.38);
+  transform: scale(1.16);
+}
+
+.foto-encuadrada-ventana {
+  position: absolute;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  inset: var(--foto-arriba, 0%) var(--foto-lados, 0%) var(--foto-abajo, 0%);
+}
+
+.foto-encuadrada img.foto-encuadrada-frente {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  mask-image: linear-gradient(to right, transparent, #000 5% 95%, transparent),
+              linear-gradient(to bottom, transparent, #000 5% 95%, transparent);
+  mask-composite: intersect;
+}
+
+.foto-encuadrada-circular {
+  border-radius: 50%;
+}
+
+.foto-encuadrada-circular .foto-encuadrada-ventana {
+  inset: 50% auto auto 50%;
+  width: var(--foto-ancho, 68%);
+  height: var(--foto-alto, 68%);
+  transform: translate(-50%, -50%);
+}
+
+.foto-encuadrada-circular img.foto-encuadrada-frente {
+  width: 100%;
+  height: 100%;
+}

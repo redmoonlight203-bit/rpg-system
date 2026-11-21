@@ -14,7 +14,7 @@ import {validarPasivas} from "./pasivas";
 export type AjustesDoll={vida:number;ph:number;fatiga:number;armadura:number;salvacion:number};
 export const DOLL_BASE:AjustesDoll={vida:40,ph:20,fatiga:10,armadura:0,salvacion:0};
 export const SACO_BASE:AjustesDoll={vida:60,ph:0,fatiga:0,armadura:0,salvacion:0};
-export type PiezaArena = Pick<Creacion,"id"|"nombre"> & Partial<Pick<Creacion,"estado"|"stats"|"configuracion_dados"|"slot_tipo"|"tipo_creacion"|"consumible"|"reglas"|"reglas_pasivas"|"requisitos_uso">>;
+export type PiezaArena = Pick<Creacion,"id"|"nombre"> & Partial<Pick<Creacion,"estado"|"stats"|"configuracion_dados"|"slot_tipo"|"tipo_creacion"|"consumible"|"reglas"|"reglas_pasivas"|"requisitos_uso"|"imagen_url">>;
 export type ContextoArena={raciales?:Config['pasivas'];linaje?:string[];creaciones:PiezaArena[];stats:Record<string,number>}; // stats: valores del borrador ya resueltos (valoresBorrador)
 export type Golpe={cantidad:number;caras:number;naturaleza:'fisica'|'magica';elemento?:string};
 const DOLL='doll',SACO='saco',NOMBRE_SACO='Saco de golpes';
@@ -51,7 +51,7 @@ function ranuraDe(tipo:string|undefined,slot:string):string{
 }
 const ranura=(b:Borrador)=>ranuraDe(b.tipo,b.slot);
 function fuenteObjeto(c:PiezaArena):Fuente{
- return {id:c.id,forja_id:c.id,nombre:c.nombre,stats:{...(c.stats||{})},efectos:c.configuracion_dados||[],slot_tipo:c.slot_tipo,tipo_creacion:c.tipo_creacion,consumible:c.consumible,reglas:c.reglas||[],reglas_pasivas:c.reglas_pasivas||[],requisitos_uso:c.requisitos_uso};
+ return {id:c.id,forja_id:c.id,nombre:c.nombre,stats:{...(c.stats||{})},efectos:c.configuracion_dados||[],slot_tipo:c.slot_tipo,tipo_creacion:c.tipo_creacion,consumible:c.consumible,imagen_url:c.imagen_url,reglas:c.reglas||[],reglas_pasivas:c.reglas_pasivas||[],requisitos_uso:c.requisitos_uso};
 }
 function conEquipo(stats:Record<string,number>,equipo:Record<string,Fuente>){
  const bonos:Record<string,number>={};
@@ -80,13 +80,13 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
   return {id:DOLL,forja_id:null,nombre:b.nombre.trim()||'Portador',stats,configuracion:config};
  }
  const base:Record<string,number>={...DOLL_BASE,...doll};
- if(b.tipo==='habilidad')config.habilidades=[{id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,reglas:b.reglas,tipo_creacion:'habilidad'}];
+ if(b.tipo==='habilidad')config.habilidades=[{id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,reglas:b.reglas,tipo_creacion:'habilidad',imagen_url:b.imagen}];
  else if(b.tipo==='pasiva')config.pasivas=[{id,nombre,reglas:b.reglas_pasivas,reglas_motor:b.reglas}];
  else{
   // objeto, título u otro: la pieza va en su ranura.
   // El motor solo acepta tipos de pieza en `slot_tipo`: si el borrador guarda la ranura (mano_der), se pasa a su tipo y la ranura queda aparte para volver a equiparla.
   const sitio=ranura(b),espacio=SLOTS.find(s=>s.clave===b.slot);
-  const pieza:Fuente&{ranura:string}={ranura:sitio,id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,slot_tipo:espacio?espacio.tipos[0]:b.slot,tipo_creacion:b.tipo,consumible:b.consumible,reglas:b.reglas,reglas_pasivas:b.reglas_pasivas};
+  const pieza:Fuente&{ranura:string}={ranura:sitio,id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,slot_tipo:espacio?espacio.tipos[0]:b.slot,tipo_creacion:b.tipo,consumible:b.consumible,imagen_url:b.imagen,reglas:b.reglas,reglas_pasivas:b.reglas_pasivas};
   config.equipamiento={[sitio]:pieza};
  }
  const {stats,bonos}=conEquipo(base,config.equipamiento||{});
