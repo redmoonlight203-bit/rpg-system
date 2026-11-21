@@ -1,4 +1,6 @@
-begin;
+create function public.forja_activar_bases_ipe() returns void language plpgsql security invoker set search_path=public,pg_temp as $activar$
+begin
+ if not coalesce(private.tienda_es_gm(),false) then raise exception 'Solo Kuroi puede activar el balance.' using errcode='42501'; end if;
 -- Solo definiciones del catálogo. Las fichas individuales conservan sus valores.
 create temporary table balance_semillas on commit drop as
 select raza as categoria, clave, atributos[pos] as valor, historicos[pos] as anterior
@@ -26,4 +28,6 @@ where clave='gigantes' and pasiva_racial=$original${"nombre":"Regeneración Giga
 
 update public.categorias_forja set pasiva_racial=$nuevo${"nombre": "Instinto Salvaje", "descripcion": "Una vez por encuentro gasta una acción y 2 Fatiga para ganar +2 daño, +1 impacto y +1 movimiento durante cuatro turnos.", "reglas": [{"id": "bestia_transformacion_parcial", "nombre": "Transformación parcial", "evento": "usar", "condicion": {"tipo": "siempre"}, "efectos": [{"tipo": "transformar", "destino": "yo", "clave": "instinto_salvaje", "nombre": "Instinto Salvaje", "duracion": 4, "cambios": [{"atributo": "dano", "operacion": "sumar", "valor": 2}, {"atributo": "bono_impacto", "operacion": "sumar", "valor": 1}, {"atributo": "movimiento", "operacion": "sumar", "valor": 1}]}], "coste_ph": 0, "coste_fatiga": 2, "enfriamiento": 0, "usos": 1, "prioridad": 0}], "reglas_pasivas": []}$nuevo$::jsonb
 where clave='hombres_bestia' and pasiva_racial=$original${"nombre":"Instinto Salvaje","descripcion":"La percepción y fuerza de su linaje animal les permite una transformación parcial: cuesta una acción y 2 Fatiga, aumenta +2 daño y +1 impacto por tres turnos. Las particularidades de cada especie se definen por personaje.","reglas":[{"id":"bestia_transformacion_parcial","nombre":"Transformación parcial","evento":"usar","condicion":{"tipo":"siempre"},"efectos":[{"tipo":"transformar","destino":"yo","clave":"instinto_salvaje","nombre":"Instinto Salvaje","duracion":3,"cambios":[{"atributo":"dano","operacion":"sumar","valor":2},{"atributo":"bono_impacto","operacion":"sumar","valor":1}]}],"coste_ph":0,"coste_fatiga":2,"enfriamiento":0,"usos":1,"prioridad":0}],"reglas_pasivas":[]}$original$::jsonb;
-commit;
+end;$activar$;
+revoke all on function public.forja_activar_bases_ipe() from public,anon;
+grant execute on function public.forja_activar_bases_ipe() to authenticated;

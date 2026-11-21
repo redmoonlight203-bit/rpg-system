@@ -32,5 +32,6 @@ try {
   }
   await assert.rejects(db.query('update forja_maestra set balance_ipe=-1'));
   await db.exec(migration('20261120183100_bases_raciales_balance.sql'));
+  await db.exec('select public.forja_activar_bases_ipe()');
   assert.deepEqual((await db.query("select clave,valor_defecto::int v from config_estadisticas where categoria='elfos' order by clave")).rows,[{clave:'movimiento',v:7},{clave:'vida',v:18}]);
 } finally { await db.close(); }
