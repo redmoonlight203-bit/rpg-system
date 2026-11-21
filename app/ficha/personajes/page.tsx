@@ -4,16 +4,21 @@ import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, User, ArrowLeft, Check, Heart } from "lucide-react";
+import { Plus, User, ArrowLeft, Check, Heart, Sparkles, Lock } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import {
   definiciones,
-  razasVivas,
+  razasDisponibles,
   valoresIniciales,
+  LUGAR_INICIAL,
+  LUGAR_RAZA_UNICA,
   type Personaje,
   type Raza,
   type Atributo,
+  type PropuestaRaza,
 } from "../../../lib/personajes";
+import PortadaYunque from "../../../components/PortadaYunque";
+import PropuestaRazaUnica from "../../../components/PropuestaRazaUnica";
 import { linaje, imagenDeRaza } from "../../../lib/estadisticas";
 import IconoYugen from "../../../components/IconoYugen";
 import FichaVital from "../../../components/FichaVital";
@@ -24,7 +29,9 @@ export default function PersonajesJugador() {
   const [personajes, setPersonajes] = useState<Personaje[]>([]),
     [categorias, setCategorias] = useState<Raza[]>([]),
     [atributos, setAtributos] = useState<Atributo[]>([]),
-    [lugares, setLugares] = useState<string[]>([]),
+    [propuestas, setPropuestas] = useState<PropuestaRaza[]>([]),
+    [usuario, setUsuario] = useState(""),
+    [proponiendo, setProponiendo] = useState(false),
     [colmena, setColmena] = useState(false);
   const [cargando, setCargando] = useState(true),
     [error, setError] = useState(""),
@@ -37,7 +44,8 @@ export default function PersonajesJugador() {
     [nombre, setNombre] = useState(""),
     [historia, setHistoria] = useState(""),
     [defecto, setDefecto] = useState(""),
-    [lugar, setLugar] = useState(""),
+    [imagen, setImagen] = useState(""),
+    [subiendo, setSubiendo] = useState(false),
     [stats, setStats] = useState<Record<string, number>>({}),
     [buscar, setBuscar] = useState("");
   const cargar = useCallback(async () => {
@@ -49,7 +57,8 @@ export default function PersonajesJugador() {
         router.replace("/login");
         return;
       }
-      const [p, c, a, u] = await Promise.all([
+      setUsuario(user.id);
+      const [p, c, a, u, rp] = await Promise.all([
         supabase
           .from("personajes")
           .select("*")
@@ -61,23 +70,21 @@ export default function PersonajesJugador() {
         supabase.from("config_estadisticas").select("*"),
         supabase
           .from("perfiles")
-          .select("mente_colmena,lugares_conocidos")
+          .select("mente_colmena")
           .eq("id", user.id)
           .single(),
+        supabase
+          .from("razas_propuestas")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
       ]);
-      for (const r of [p, c, a, u]) if (r.error) throw Error(r.error.message);
+      for (const r of [p, c, a, u, rp]) if (r.error) throw Error(r.error.message);
+      setPropuestas(rp.data || []);
       setPersonajes(p.data || []);
       setCategorias(c.data || []);
       setAtributos(a.data || []);
       setColmena(!!u.data?.mente_colmena);
-      const ls = [
-        ...new Set<string>([
-          "Montaña Shiro (Prueba de vida)",
-          ...(u.data?.lugares_conocidos || []),
-        ]),
-      ];
-      setLugares(ls);
-      setLugar((v) => v || ls[0]);
       const activo = localStorage.getItem("personaje_activo_id");
       if (activo && !p.data?.some((x) => String(x.id) === activo))
         localStorage.removeItem("personaje_activo_id");
@@ -98,7 +105,7 @@ export default function PersonajesJugador() {
   }, [cargar]);
   const raza = categorias.find((c) => c.id === razaId),
     defs = definiciones(categorias, atributos, razaId),
-    vivas = razasVivas(categorias),
+    vivas = razasDisponibles(categorias, usuario),
     pasivas = raza
       ? linaje(categorias, raza.clave)
           .map((c) => categorias.find((x) => x.id === c.id)!)
@@ -106,6 +113,52 @@ export default function PersonajesJugador() {
       : [];
   const puedeCrear =
     colmena || !personajes.some((p) => p.estado_aprobacion !== "rechazado");
+  // Solo quien ya tiene un personaje aprobado puede proponer una raza única.
+  const puedeProponer = personajes.some(
+      (p) => p.estado_aprobacion === "aprobado" && p.estado_vida === "vivo",
+    ),
+    propuestaAbierta = propuestas.find((x) =>
+      ["borrador", "propuesta"].includes(x.estado),
+    ),
+    lugarAparicion = raza?.raza_unica_de ? LUGAR_RAZA_UNICA : LUGAR_INICIAL;
+  async function retirarPropuesta(x: PropuestaRaza, confirmar: boolean) {
+    if (
+      confirmar &&
+      !window.confirm(`¿Retirar la propuesta «${x.nombre}»? Se borrará por completo.`)
+    )
+      return;
+    setError("");
+    const r = await supabase.rpc("raza_propuesta_retirar", { p_id: x.id });
+    if (r.error) setError(mensajeError(r.error, "No se pudo retirar la propuesta."));
+    await cargar();
+  }
+  const motivoBloqueo = puedeProponer
+    ? propuestaAbierta?.estado === "propuesta"
+      ? "Tu raza única está en revisión del GM."
+      : ""
+    : "Necesitas un personaje aprobado por el GM para proponer una raza única.";
+  const botonRazaUnica = (
+    <div className="pj-raza-unica-acceso">
+      <button
+        type="button"
+        disabled={!!motivoBloqueo}
+        aria-describedby="motivo-raza-unica"
+        onClick={() => {
+          setError("");
+          setProponiendo(true);
+        }}
+      >
+        {motivoBloqueo ? <Lock size={15} /> : <Sparkles size={15} />}
+        {propuestaAbierta?.estado === "borrador"
+          ? "Continuar raza única"
+          : "Elegir raza única"}
+      </button>
+      <small id="motivo-raza-unica">
+        {motivoBloqueo ||
+          "Propón una raza fuera de la lista. El GM debe aprobarla."}
+      </small>
+    </div>
+  );
   async function enviar() {
     if (bloqueo.current) return;
     bloqueo.current = true;
@@ -117,9 +170,10 @@ export default function PersonajesJugador() {
         p_nombre: nombre,
         p_historia: historia,
         p_defecto: defecto,
-        p_lugar: lugar,
+        p_lugar: null,
         p_atributos: stats,
         p_personaje: editando,
+        p_imagen: imagen || null,
       });
       if (error) throw Error(error.message);
       setCreando(false);
@@ -128,6 +182,7 @@ export default function PersonajesJugador() {
       setHistoria("");
       setDefecto("");
       setRazaId("");
+      setImagen("");
       setPaso(1);
       setAviso(
         "Personaje enviado. El GM revisará tu ficha antes de entrar al mundo.",
@@ -151,7 +206,7 @@ export default function PersonajesJugador() {
             cure o te permita descansar.
           </p>
         </div>
-        {!creando && (
+        {!creando && !proponiendo && (
           <button
             disabled={cargando || !puedeCrear}
             onClick={() => {
@@ -160,6 +215,7 @@ export default function PersonajesJugador() {
               setHistoria("");
               setDefecto("");
               setRazaId("");
+              setImagen("");
               setCreando(true);
               setPaso(1);
               setError("");
@@ -192,6 +248,21 @@ export default function PersonajesJugador() {
         <p className="pj-empty">
           Reuniendo tus personajes y las reglas del mundo…
         </p>
+      ) : proponiendo ? (
+        <PropuestaRazaUnica
+          atributos={atributos}
+          propuesta={propuestaAbierta?.estado === "borrador" ? propuestaAbierta : null}
+          onCerrar={() => setProponiendo(false)}
+          onGuardada={(enviada) => {
+            setProponiendo(false);
+            setAviso(
+              enviada
+                ? "Raza única enviada. El GM la evaluará; si la rechaza, no quedará rastro de ella."
+                : "Borrador guardado. Solo tú puedes verlo.",
+            );
+            void cargar();
+          }}
+        />
       ) : creando ? (
         <>
           <button onClick={() => setCreando(false)} disabled={ocupado}>
@@ -257,6 +328,7 @@ export default function PersonajesJugador() {
                                 .map((x) => x.nombre)
                                 .join(" / ")}
                             </small>
+                            {c.raza_unica_de && <em>Tu raza única</em>}
                           </span>
                           {razaId === c.id && <Check size={18} />}
                         </button>
@@ -268,6 +340,7 @@ export default function PersonajesJugador() {
                       estadísticas.
                     </p>
                   )}
+                  {botonRazaUnica}
                   <div className="pj-actions">
                     <button
                       disabled={!raza || !defs.length}
@@ -290,17 +363,18 @@ export default function PersonajesJugador() {
                       required
                     />
                   </label>
-                  <label>
-                    Lugar de aparición
-                    <select
-                      value={lugar}
-                      onChange={(e) => setLugar(e.target.value)}
-                    >
-                      {lugares.map((l) => (
-                        <option key={l}>{l}</option>
-                      ))}
-                    </select>
-                  </label>
+                  <PortadaYunque
+                    titulo="Foto de tu personaje"
+                    nombre={nombre}
+                    imagen={imagen}
+                    icono={raza?.icono || "alma"}
+                    enlace={false}
+                    emblema={false}
+                    onProcesando={setSubiendo}
+                    onChange={(p) => {
+                      if (p.imagen !== undefined) setImagen(p.imagen);
+                    }}
+                  />
                   <label>
                     Historia
                     <textarea
@@ -359,7 +433,9 @@ export default function PersonajesJugador() {
                   </div>
                   <button
                     disabled={
-                      !nombre.trim() || !(stats.vida > 0 || stats.hp > 0)
+                      subiendo ||
+                      !nombre.trim() ||
+                      !(stats.vida > 0 || stats.hp > 0)
                     }
                     onClick={() => setPaso(3)}
                   >
@@ -369,9 +445,14 @@ export default function PersonajesJugador() {
               ) : (
                 <>
                   <span className="pj-eyebrow">03 / TU PRIMER PASO</span>
+                  {imagen && (
+                    <div className="y3-pj-figura pj-foto-revision">
+                      <RetratoRaza src={imagen} nombre={nombre} />
+                    </div>
+                  )}
                   <h2>{nombre}</h2>
                   <p>
-                    {raza?.nombre} · {lugar}
+                    {raza?.nombre} · Aparece en: {lugarAparicion}
                   </p>
                   <p>{historia || "Tu historia empieza aquí."}</p>
                   {defecto && <p>Rasgo especial: {defecto}</p>}
@@ -383,6 +464,12 @@ export default function PersonajesJugador() {
                       </div>
                     ))}
                   </div>
+                  {raza?.raza_unica_de && (
+                    <p className="pj-notice">
+                      Raza única: el GM revisará esta ficha con más rigor y
+                      decidirá tu lugar de aparición.
+                    </p>
+                  )}
                   <p className="pj-notice">
                     El GM aprobará tu ficha. Al llegar a 0 de vida en combate,
                     este cuerpo abandona tu gestión y pasa al cementerio.
@@ -415,6 +502,42 @@ export default function PersonajesJugador() {
         </>
       ) : (
         <>
+          <section className="pj-section pj-propuestas" aria-label="Raza única">
+            <span className="pj-eyebrow">RAZA ÚNICA</span>
+            {propuestas.map((x) => (
+              <article key={x.id} className="pj-propuesta">
+                {x.estado === "rechazada" ? (
+                  <>
+                    <p>
+                      El GM rechazó tu raza «{x.nombre}». La raza no se guardó en el
+                      mundo.
+                    </p>
+                    {x.comentarios_kuroi && <p>GM: {x.comentarios_kuroi}</p>}
+                    <button type="button" onClick={() => void retirarPropuesta(x, false)}>
+                      Entendido
+                    </button>
+                  </>
+                ) : x.estado === "aprobada" ? (
+                  <p>
+                    «{x.nombre}» fue aprobada y ya aparece en Reglas y estadísticas.
+                    Solo tú puedes elegirla al crear un personaje.
+                    {x.comentarios_kuroi ? ` GM: ${x.comentarios_kuroi}` : ""}
+                  </p>
+                ) : (
+                  <>
+                    <p>
+                      «{x.nombre || "Sin nombre"}» ·{" "}
+                      {x.estado === "borrador" ? "borrador (solo tú lo ves)" : "en revisión del GM"}
+                    </p>
+                    <button type="button" onClick={() => void retirarPropuesta(x, true)}>
+                      Retirar propuesta
+                    </button>
+                  </>
+                )}
+              </article>
+            ))}
+            {botonRazaUnica}
+          </section>
           {!puedeCrear && (
             <p className="pj-notice">
               Ya tienes un cuerpo o una solicitud en revisión. Mente colmena
@@ -424,7 +547,7 @@ export default function PersonajesJugador() {
           <div className="pj-grid">
             {personajes.map((p) => (
               <article key={p.id} className="pj-card y3-pj-carta">
-                <div className="y3-pj-figura" aria-hidden="true"><RetratoRaza src={imagenDeRaza(categorias, categorias.find((c) => c.id === p.categoria_id)?.clave || p.raza)} /></div>
+                <div className="y3-pj-figura" aria-hidden="true"><RetratoRaza src={p.imagen_url || imagenDeRaza(categorias, categorias.find((c) => c.id === p.categoria_id)?.clave || p.raza)} /></div>
                 <span className="pj-eyebrow">
                   {" "}
                   {p.estado_aprobacion} · {p.estado_vida}
@@ -462,7 +585,7 @@ export default function PersonajesJugador() {
                         setNombre(p.nombre);
                         setHistoria(p.historia || "");
                         setDefecto(p.defecto || "");
-                        setLugar(p.lugar_reencarnacion || lugares[0]);
+                        setImagen(p.imagen_url || "");
                         setRazaId(p.categoria_id || "");
                         setStats(p.atributos || {});
                         setPaso(p.categoria_id ? 2 : 1);

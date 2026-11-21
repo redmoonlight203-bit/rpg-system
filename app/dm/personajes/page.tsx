@@ -6,7 +6,7 @@ import {Button} from "../../../components/ui/Button";
 import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from "../../../lib/useTiempoReal";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Users, Heart, Skull, Check, Search, Moon, RotateCcw, Hammer } from "lucide-react";
+import { Users, Heart, Skull, Check, Search, Moon, RotateCcw, Hammer, Sparkles } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import {
   definiciones,
@@ -14,7 +14,10 @@ import {
   type Personaje,
   type Raza,
   type Atributo,
+  type PropuestaRaza,
 } from "../../../lib/personajes";
+import PortadaYunque from "../../../components/PortadaYunque";
+import RevisionRazasUnicas from "../../../components/RevisionRazasUnicas";
 import BaulAlma from "../../../components/BaulAlma";
 import NaturalezasYugen from "../../../components/NaturalezasYugen";
 import FichaVital from "../../../components/FichaVital";
@@ -58,7 +61,9 @@ export default function GestionPersonajes() {
     [cuentas, setCuentas] = useState<Cuenta[]>([]),
     [tumbas, setTumbas] = useState<Tumba[]>([]),
     [categorias, setCategorias] = useState<Raza[]>([]),
-    [atributos, setAtributos] = useState<Atributo[]>([]);
+    [atributos, setAtributos] = useState<Atributo[]>([]),
+    [propuestas, setPropuestas] = useState<PropuestaRaza[]>([]),
+    [subiendoFoto, setSubiendoFoto] = useState(false);
   const [error, setError] = useState(""),
     [aviso, setAviso] = useState(""),
     [cargando, setCargando] = useState(true),
@@ -86,7 +91,7 @@ export default function GestionPersonajes() {
         .single();
       if (rol.error || rol.data?.rol !== "KUROI")
         throw Error("Esta gestión está reservada al GM.");
-      const [p, u, t, c, a] = await Promise.all([
+      const [p, u, t, c, a, rp] = await Promise.all([
         supabase
           .from("personajes")
           .select("*")
@@ -101,9 +106,15 @@ export default function GestionPersonajes() {
           .order("fallecido_at", { ascending: false }),
         supabase.from("categorias_forja").select("*"),
         supabase.from("config_estadisticas").select("*"),
+        supabase
+          .from("razas_propuestas")
+          .select("*")
+          .eq("estado", "propuesta")
+          .order("updated_at", { ascending: true }),
       ]);
-      for (const x of [p, u, t, c, a])
+      for (const x of [p, u, t, c, a, rp])
         if (x.error) throw Error(x.error.message);
+      setPropuestas(rp.data || []);
       setPersonajes(p.data || []);
       setCuentas(u.data || []);
       setTumbas(t.data || []);
@@ -206,6 +217,7 @@ export default function GestionPersonajes() {
           defecto: seleccion.defecto,
           lugar_reencarnacion: seleccion.lugar_reencarnacion,
           comentarios_kuroi: seleccion.comentarios_kuroi,
+          imagen_url: seleccion.imagen_url || null,
           estado_aprobacion: estado,
         })
         .eq("id", seleccion.id)
@@ -294,6 +306,7 @@ export default function GestionPersonajes() {
         items={[
           { id: "vivos", etiqueta: "Personajes", icono: <Heart size={16} aria-hidden="true" /> },
           { id: "solicitudes", etiqueta: "Solicitudes", cuenta: pendientes.length, icono: <Check size={16} aria-hidden="true" /> },
+          { id: "razas", etiqueta: "Razas únicas", cuenta: propuestas.length, icono: <Sparkles size={16} aria-hidden="true" /> },
           { id: "cementerio", etiqueta: "Cementerio", cuenta: tumbas.length, icono: <Skull size={16} aria-hidden="true" /> },
           { id: "cuentas", etiqueta: "Jugadores", icono: <Users size={16} aria-hidden="true" /> },
         ]}
@@ -320,7 +333,17 @@ export default function GestionPersonajes() {
         <p className="pj-empty">Cargando campaña…</p>
       ) : (
         <>
-          {tab === "cuentas" ? (
+          {tab === "razas" ? (
+            <RevisionRazasUnicas
+              propuestas={propuestas}
+              atributos={atributos}
+              cuentas={cuentas}
+              onResuelta={(m) => {
+                setAviso(m);
+                void cargar();
+              }}
+            />
+          ) : tab === "cuentas" ? (
             <div className="pj-grid">
               {cuentas
                 .filter((c) =>
@@ -462,7 +485,7 @@ export default function GestionPersonajes() {
             <div className="pj-grid">
               {lista.map((p) => (
                 <article key={p.id} className="pj-card y3-pj-carta">
-                  <div className="y3-pj-figura" aria-hidden="true"><RetratoRaza src={imagenDeRaza(categorias, categorias.find((c) => c.id === p.categoria_id)?.clave || p.raza)} /></div>
+                  <div className="y3-pj-figura" aria-hidden="true"><RetratoRaza src={p.imagen_url || imagenDeRaza(categorias, categorias.find((c) => c.id === p.categoria_id)?.clave || p.raza)} /></div>
                   <span className="pj-eyebrow">
                     {" "}
                     {p.estado_aprobacion} · {p.estado_vida}
@@ -639,6 +662,29 @@ export default function GestionPersonajes() {
                         }
                       />
                     </label>
+                    <PortadaYunque
+                      titulo="Foto del personaje"
+                      nombre={seleccion.nombre}
+                      imagen={seleccion.imagen_url || ""}
+                      icono="alma"
+                      enlace={false}
+                      emblema={false}
+                      onProcesando={setSubiendoFoto}
+                      onChange={(c) => {
+                        if (c.imagen !== undefined)
+                          setSeleccion({ ...seleccion, imagen_url: c.imagen || null });
+                      }}
+                    />
+                    <label>
+                      Lugar de aparición (lo fija el GM)
+                      <input
+                        maxLength={200}
+                        value={seleccion.lugar_reencarnacion || ""}
+                        onChange={(e) =>
+                          setSeleccion({ ...seleccion, lugar_reencarnacion: e.target.value })
+                        }
+                      />
+                    </label>
                     <label>
                       Comentario del GM
                       <textarea
@@ -655,16 +701,16 @@ export default function GestionPersonajes() {
                       <button onClick={() => void borrar(seleccion)}>
                         Borrar personaje de la cuenta
                       </button>
-                      <button onClick={() => void guardar("aprobado")}>
+                      <button disabled={subiendoFoto} onClick={() => void guardar("aprobado")}>
                         <Check size={16} />
                         {seleccion.estado_aprobacion === "aprobado"
                           ? "Guardar ficha"
                           : "Aprobar personaje"}
                       </button>
-                      <button onClick={() => void guardar("editado")}>
+                      <button disabled={subiendoFoto} onClick={() => void guardar("editado")}>
                         Pedir revisión
                       </button>
-                      <button onClick={() => void guardar("rechazado")}>
+                      <button disabled={subiendoFoto} onClick={() => void guardar("rechazado")}>
                         Rechazar
                       </button>
                     </div>
