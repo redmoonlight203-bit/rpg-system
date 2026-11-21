@@ -647,3 +647,6 @@
 .yq-grimorio-piezas li.yq-pieza-con-grupo{margin-top:6px}
 .yq-grimorio-grupo{display:block;margin:0 0 4px;padding:0 2px;font:600 11px var(--font-sans,sans-serif);letter-spacing:.1em;text-transform:uppercase;color:var(--color-gold-soft,#d6b46a)}
 .yq-campo--personal small{display:block;margin-top:4px;font-size:12px;color:var(--color-text-muted,#a9aaa5)}
+
+.yq-taller .yq-barra{flex-wrap:wrap}
+.yq-taller .yq-selector{min-width:0;max-width:min(16rem,100%);padding:.4rem;background:var(--color-canvas);color:inherit;border:1px solid var(--color-line)}

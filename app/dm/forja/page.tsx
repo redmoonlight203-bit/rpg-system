@@ -15,13 +15,13 @@ import "./forja.css";
 import {supabase} from "../../../lib/supabase";
 import {atributosEfectivos,linaje,type CategoriaBase} from "../../../lib/estadisticas";
 import {validarValoresForja} from "../../../lib/forja";
-import {SLOTS,tipoDe,subcategorias,clasificacionesPara,efectosDe,validarEfectos,validarEquipamiento,type TipoCreacion} from "../../../lib/creacion";
+import {SLOTS,tipoDe,subcategorias,clasificacionesPara,efectosDe,validarEfectos,validarEquipamiento} from "../../../lib/creacion";
 import {ForjaOperacion,ForjaInstancias} from "../../../components/ForjaOperacion";
 import {validarMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
 import GaleriaCreacion from "../../../components/GaleriaCreacion";
 import {evaluarInvocacion} from "../../../lib/invocaciones";
 import NavyCompanera from "../../../components/NavyCompanera";
-import TallerYunque from "../../../components/yunque/TallerYunque";
+import TallerYunque,{type Suelto} from "../../../components/yunque/TallerYunque";
 import LimiteYunque from "../../../components/yunque/LimiteYunque";
 import {iconoCreacion,iconoValido} from "../../../lib/iconos-yugen";
 import {validarPortada} from "../../../lib/imagenes-creacion";
@@ -63,8 +63,45 @@ export default function Forja(){
  const ctxTaller=useMemo<ContextoTaller>(()=>({categorias,atributos,creaciones,naturalezas:naturalezasCatalogo,onProcesandoImagen:setImagenProcesando}),[categorias,atributos,creaciones,naturalezasCatalogo]);
  // Al entrar en «El yunque», el taller ocupa la ventana.
  useEffect(()=>{if(pestana==="yunque"&&!cargando)yunque.current?.scrollIntoView({block:"start"});},[pestana,cargando]);
- function nuevo(tipo:TipoCreacion=b.tipo){nuevaSesion();setB({...vacio(),tipo});setError("");setAviso("");setPestana("yunque");}
- function editar(f:Creacion){nuevaSesion();setB({personal_de:f.personal_de||"",formas:f.formas_historia||[],icono:f.icono||"",naturalezaVinculo:{...vinculoVacio(),...(f.naturaleza_vinculo||{})},ramaMonstruo:esMonstruo(categorias,f.tipo),monstruo:f.configuracion_monstruo||null,invocacion:f.configuracion_invocacion||null,requisitos_uso:f.requisitos_uso||{},consumible:!!f.consumible,id:f.id,nombre:f.nombre,tipo:tipoDe(f,categorias),clasificacion:f.tipo,descripcion:f.descripcion||"",historia:f.historia||"",requisitos:f.requisitos||"",defectos:f.defectos||"",imagen:f.imagen_url||"",clase:f.clase||"D",malla:!!f.es_grupo||esMonstruo(categorias,f.tipo),nivelMaximo:f.nivel_maximo||20,slot:f.slot_tipo||"ninguno",stats:f.stats||{},rangos:f.stats_rango||{},efectos:efectosDe(f),pasivas:f.pasivas||[],reglas:f.reglas||[],reglas_pasivas:f.reglas_pasivas||[],habilidades:Array.isArray(f.habilidades)?f.habilidades.filter(h=>typeof h==="string"):[],equipamiento:f.equipamiento||{},alma:!!f.ligado_al_alma,venta:!!f.es_vendible,precio:f.precio_sugerido||""});setError("");setPestana("yunque");}
+ function desdeCreacion(f:Creacion):Borrador{return {personal_de:f.personal_de||"",formas:f.formas_historia||[],icono:f.icono||"",naturalezaVinculo:{...vinculoVacio(),...(f.naturaleza_vinculo||{})},ramaMonstruo:esMonstruo(categorias,f.tipo),monstruo:f.configuracion_monstruo||null,invocacion:f.configuracion_invocacion||null,requisitos_uso:f.requisitos_uso||{},consumible:!!f.consumible,id:f.id,nombre:f.nombre,tipo:tipoDe(f,categorias),clasificacion:f.tipo,descripcion:f.descripcion||"",historia:f.historia||"",requisitos:f.requisitos||"",defectos:f.defectos||"",imagen:f.imagen_url||"",clase:f.clase||"D",malla:!!f.es_grupo||esMonstruo(categorias,f.tipo),nivelMaximo:f.nivel_maximo||20,slot:f.slot_tipo||"ninguno",stats:f.stats||{},rangos:f.stats_rango||{},efectos:efectosDe(f),pasivas:f.pasivas||[],reglas:f.reglas||[],reglas_pasivas:f.reglas_pasivas||[],habilidades:Array.isArray(f.habilidades)?f.habilidades.filter(h=>typeof h==="string"):[],equipamiento:f.equipamiento||{},alma:!!f.ligado_al_alma,venta:!!f.es_vendible,precio:f.precio_sugerido||""};}
+ // Conserva los cambios conectados al borrador mientras el usuario recorre el taller.
+ const [reservas,setReservas]=useState<Record<string,Borrador>>({});
+ const [ruta,setRuta]=useState<string[]>([]);
+ const [documento,setDocumento]=useState("nuevo-inicial");
+ const [mesa]=useState(()=>new Map<string,Suelto[]>());
+ const base=useRef<Borrador|null>(b);
+ const actual=b.id||documento;
+ function abrir(destino:string,borrador:Borrador,volver=false){
+  if(guardando||imagenProcesando||padre)return;
+  const baseActual=base.current;
+  if(destino===actual){setPestana("yunque");return;}
+  const conservar=b!==baseActual||mesa.has(actual);
+   setReservas(prev=>{
+    const copia={...prev};
+    if(conservar)copia[actual]=b;
+    delete copia[destino];
+    return copia;
+   });
+   setRuta(prev=>{
+    if(volver)return prev.slice(0,prev.lastIndexOf(destino));
+    const anteriores=prev.filter(id=>id!==actual&&id!==destino);
+    return b.id||conservar?[...anteriores,actual]:anteriores;
+   });
+  base.current=reservas[destino]?null:borrador;
+  nuevaSesion();setDocumento(destino);setB(borrador);setError("");setAviso("");setPestana("yunque");
+ }
+ function cambiar(id:string,volver=false){
+  const fila=activas.find(c=>c.id===id);
+  const reserva=reservas[id];
+  if(reserva&&(!reserva.id||fila))abrir(id,reserva,volver);
+  else if(fila)abrir(id,desdeCreacion(fila),volver);
+ }
+ function nuevo(){abrir(crypto.randomUUID(),vacio());}
+ function editar(f:Creacion){cambiar(f.id);}
+ const vinculadas=new Set([...b.habilidades,...b.pasivas,...Object.values(b.equipamiento)]);
+ const asociada=(f:Creacion)=>b.tipo==='personaje'&&(vinculadas.has(f.id)||!!b.id&&f.personal_de===b.id);
+ const anterior=ruta.slice().reverse().find(id=>activas.some(f=>f.id===id)||!!reservas[id]&&!reservas[id].id);
+ const nombreAnterior=anterior&&(reservas[anterior]?.nombre||activas.find(c=>c.id===anterior)?.nombre||"borrador");
  function valoresBorrador(p:Borrador,medio=false){const s={...p.stats};for(const a of atributosEfectivos(categorias,atributos,p.clasificacion)){s[a.clave]=(p.malla||p.tipo==="personaje"&&esMonstruo(categorias,p.clasificacion))?(p.rangos[a.clave]?medio?(p.rangos[a.clave].min+p.rangos[a.clave].max)/2:p.rangos[a.clave].min:a.valor_defecto??0):p.stats[a.clave]??a.valor_defecto??0;}return s;}
  function faltantes(id:string,personaje=b){const item=creaciones.find(f=>f.id===id);return item?faltantesRequisitos(item.requisitos_uso,linaje(categorias,personaje.clasificacion).flatMap(c=>[c.clave,c.nombre]),{...valoresBorrador(personaje),nivel:(personaje.malla||esMonstruo(categorias,personaje.clasificacion))?personaje.nivelMaximo:1},personaje.habilidades):['Creación no disponible.'];}
  function crearDentro(tipo:"objeto"|"titulo"|"habilidad"|"pasiva",slot?:string){nuevaSesion();setPadre({b:structuredClone(b),tipo,slot});const opciones=clasificacionesPara(tipo,categorias);const ranura=SLOTS.find(s=>s.clave===slot);setB({...vacio(),personal_de:b.tipo==='personaje'&&b.id?b.id:'',tipo,clasificacion:opciones.length===1?opciones[0].clave:'',slot:tipo==='titulo'?'titulo':ranura?.tipos[0]||'ninguno'});setError('');setAviso('');}
@@ -106,7 +143,7 @@ export default function Forja(){
    if(padre){const vuelta=structuredClone(padre.b),id=r.data.id as string;
     if(padre.tipo==='habilidad')vuelta.habilidades=[...new Set([...vuelta.habilidades,id])];else if(padre.tipo==='pasiva')vuelta.pasivas=[...new Set([...vuelta.pasivas,id])];else {const slot=padre.slot||SLOTS.find(s=>s.tipos.includes(b.slot)&&!vuelta.equipamiento[s.clave]&&(b.slot!=='dos_manos'||(!vuelta.equipamiento.mano_der&&!vuelta.equipamiento.mano_izq)))?.clave;if(slot){vuelta.equipamiento[slot]=id;if(b.slot==='dos_manos')delete vuelta.equipamiento[slot==='mano_der'?'mano_izq':'mano_der'];}}
     setB(vuelta);setPadre(null);setPestana('yunque');setAviso(vuelta.habilidades.includes(id)||vuelta.pasivas.includes(id)||Object.values(vuelta.equipamiento).includes(id)?'Creación guardada y asignada al personaje.':'Creación guardada. Ya está disponible en la colección para asignarla.');
-   }else if(sesion.current===sesionGuardada){const id=r.data.id as string;setB(actual=>actual.id===id?actual:{...actual,id});}
+   }else if(sesion.current===sesionGuardada){const id=r.data.id as string;const guardado={...b,id};base.current=guardado;setB(actual=>actual===b?guardado:{...actual,id});}
    await cargar(false);
    return true;
   }catch(e){return falla(mensajeError(e,"No se pudo guardar."));}finally{bloqueo.current=false;setGuardando(false);}
@@ -139,7 +176,7 @@ export default function Forja(){
  <details className="yugen-maintenance"><summary>Herramientas de imágenes</summary><MigradorRetratos onMigrado={()=>cargar(false)}/></details>
  {error&&pestana!=="yunque"&&<p role="alert" className="text-sm text-red-300">{error} <button onClick={()=>void cargar()} className="underline">Actualizar</button></p>}{aviso&&<p role="status" className="text-sm text-emerald-300">{aviso}</p>}
  {preparados&&<ForjaInstancias revision={revision}/>}
- {verPeticiones&&<section className={panel}><h2 className="text-lg">Peticiones pendientes</h2>{peticiones.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-3"><div><h3>{p.nombre}</h3><p className="text-sm text-neutral-400">{p.descripcion}</p></div><button disabled={!!padre} className={boton} onClick={()=>{nuevaSesion();setB({...vacio(),nombre:p.nombre,descripcion:p.descripcion,peticion:p});setPestana("yunque");}}>Abrir en el yunque</button></div>)}{!peticiones.length&&<p className="text-sm text-neutral-500">No hay peticiones pendientes.</p>}</section>}
+ {verPeticiones&&<section className={panel}><h2 className="text-lg">Peticiones pendientes</h2>{peticiones.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-3"><div><h3>{p.nombre}</h3><p className="text-sm text-neutral-400">{p.descripcion}</p></div><button disabled={!!padre} className={boton} onClick={()=>{abrir("peticion-"+p.id,reservas["peticion-"+p.id]||{...vacio(),nombre:p.nombre,descripcion:p.descripcion,peticion:p});}}>Abrir en el yunque</button></div>)}{!peticiones.length&&<p className="text-sm text-neutral-500">No hay peticiones pendientes.</p>}</section>}
  {operacion&&<ForjaOperacion item={operacion.item} modo={operacion.modo} onClose={()=>setOperacion(null)} onDone={()=>{if(operacion.modo==="batalla")setPreparados(true);setAviso(operacion.modo==="batalla"?"Instancias preparadas con su equipo y habilidades.":operacion.item.ligado_al_alma?"Pertenencia única entregada al baúl del alma de la cuenta.":operacion.item.tipo_creacion==="personaje"?"Personaje entregado a la cuenta.":"Copias entregadas al personaje.");setOperacion(null);setRevision(v=>v+1);}}/>}
  {pestana==="creacion"?<GaleriaCreacion
  esMonstruo={f=>esMonstruo(categorias,f.tipo)}
@@ -149,7 +186,14 @@ export default function Forja(){
  onNueva={()=>nuevo()} onEditar={editar} onEntregar={f=>setOperacion({item:f,modo:"inventario"})}
  onBatalla={f=>setOperacion({item:f,modo:"batalla"})} onEliminar={eliminar} onRestablecer={restablecer} onImagen={guardarImagen}
  />:<div ref={yunque} className="forja-yunque">{padre&&<aside className="yunque-resumen"><p>Creando para {padre.b.nombre||"el personaje"}. Su borrador está conservado.</p><button type="button" disabled={guardando} onClick={volverPadre}>Cancelar y volver al personaje</button></aside>}
- <LimiteYunque onVolver={()=>{volverPadre();setPestana("creacion");}}><TallerYunque b={b} setB={setB} ctx={ctxTaller} onGuardar={guardar} guardando={guardando||imagenProcesando} error={error} crearDentro={crearDentro} hijo={!!padre} onNuevaSesion={nuevaSesion}/></LimiteYunque>
+ <LimiteYunque onVolver={()=>{volverPadre();setPestana("creacion");}}><TallerYunque key={documento+(padre?"-hijo":"")} documento={documento} mesa={mesa} navegacion={<>
+  {anterior&&<button type="button" className="yq-boton" disabled={!!padre||guardando||imagenProcesando} onClick={()=>cambiar(anterior,true)}>← Volver a {nombreAnterior}</button>}
+  <select aria-label="Cambiar creación" className="yq-selector" value="" disabled={!!padre||guardando||imagenProcesando} onChange={e=>cambiar(e.target.value)}>
+   <option value="" disabled>Cambiar creación…</option>
+   <optgroup label="Borradores abiertos">{Object.entries(reservas).filter(([,v])=>!v.id).map(([id,v])=><option key={id} value={id}>{v.nombre||"Sin nombre"} · {v.tipo}</option>)}</optgroup>
+   {b.tipo==="personaje"&&<optgroup label="Asociadas al personaje">{activas.filter(asociada).map(f=><option key={f.id} value={f.id}>{f.nombre}</option>)}</optgroup>}
+   <optgroup label="Otras creaciones">{activas.filter(f=>f.id!==b.id&&!asociada(f)).map(f=><option key={f.id} value={f.id}>{f.nombre} · {tipoDe(f,categorias)}</option>)}</optgroup>
+  </select></>} onNuevo={nuevo} onEditarVinculo={cambiar} b={b} setB={setB} ctx={ctxTaller} onGuardar={guardar} guardando={guardando||imagenProcesando} error={error} crearDentro={crearDentro} hijo={!!padre} onNuevaSesion={nuevaSesion}/></LimiteYunque>
  </div>}
  <NavyCompanera activo={pestana==="yunque"} contexto={{nombre:b.nombre,tipo:b.tipo,clasificacion:b.clasificacion,descripcion:b.descripcion,efectos:b.efectos.length,reglas:b.reglas.length,pasivas:b.reglas_pasivas.length,requisitos:Object.keys(b.requisitos_uso||{}).length>0,guardando}}/>
  </div></main>;
