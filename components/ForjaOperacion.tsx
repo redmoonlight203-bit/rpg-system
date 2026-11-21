@@ -2,6 +2,7 @@
 import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
 import { formula, EFECTOS_NOMBRE, type Efecto } from "../lib/creacion";
+import { destinosPersonaje, type DestinoPersonaje } from "../lib/personajes";
 import { supabase } from "../lib/supabase";
 
 type Creacion = {
@@ -9,6 +10,9 @@ type Creacion = {
   nombre: string;
   es_grupo: boolean;
   ligado_al_alma?: boolean;
+  tipo_creacion?: string;
+  nivel?: number;
+  nivel_maximo?: number;
 };
 type Personaje = {
   id: number | string;
@@ -36,6 +40,9 @@ export function ForjaOperacion({
   const [personajes, setPersonajes] = useState<Personaje[]>([]);
   const [cuentas, setCuentas] = useState<{ id: string; email: string }[]>([]);
   const alAlma = modo === "inventario" && !!item.ligado_al_alma;
+  const darPersonaje = modo === "inventario" && !alAlma && item.tipo_creacion === "personaje";
+  const aCuenta = alAlma || darPersonaje;
+  const [destino, setDestino] = useState<DestinoPersonaje>("npc");
   const [personaje, setPersonaje] = useState("");
   const [cantidad, setCantidad] = useState("1");
   const [motivo, setMotivo] = useState(negociacionId ? "Compra en tienda" : "");
@@ -53,7 +60,7 @@ export function ForjaOperacion({
     let activo = true;
     void (async () => {
       try {
-        if (alAlma) {
+        if (aCuenta) {
           let q = supabase
             .from("perfiles")
             .select("id,email")
@@ -92,7 +99,7 @@ export function ForjaOperacion({
     return () => {
       activo = false;
     };
-  }, [modo, usuarioId, alAlma]);
+  }, [modo, usuarioId, aCuenta]);
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     if (bloqueo.current) return;
@@ -101,11 +108,19 @@ export function ForjaOperacion({
       return setError(item.ligado_al_alma?"Una creación ligada al alma tiene una única copia.":"Usa una cantidad de 1 a 50.");
     if (
       modo === "inventario" &&
-      !(alAlma
+      !(aCuenta
         ? cuentas.some((c) => c.id === personaje)
         : personajes.some((p) => String(p.id) === personaje))
     )
-      return setError("Selecciona el destinatario que recibirá las copias.");
+      return setError(aCuenta ? "Selecciona una cuenta de jugador." : "Selecciona el personaje destinatario.");
+    const entrega = {
+      p_usuario: personaje,
+      p_forja: item.id,
+      p_destino: destino,
+      p_nivel: item.es_grupo
+        ? Math.min(item.nivel ?? 1, item.nivel_maximo ?? 100)
+        : item.nivel ?? 1,
+    };
     const params = {
       p_forja: item.id,
       p_modo: modo,
@@ -114,13 +129,23 @@ export function ForjaOperacion({
       p_motivo: motivo.trim(),
       p_negociacion: negociacionId || null,
     };
-    const firma = JSON.stringify(params);
+    const firma = JSON.stringify(darPersonaje ? entrega : params);
     if (solicitud.current.firma !== firma)
       solicitud.current = { firma, id: crypto.randomUUID() };
     bloqueo.current = true;
     setOcupado(true);
     setError("");
     try {
+      if (darPersonaje) {
+        const r = await supabase.rpc("personaje_entregar", {
+          ...entrega,
+          p_solicitud: solicitud.current.id,
+        });
+        if (r.error) throw new Error(r.error.message);
+        if (r.data == null) throw new Error("No se confirmó la entrega del personaje.");
+        onDone();
+        return;
+      }
       const r = alAlma
         ? await supabase.rpc("alma_entregar", {
             p_usuario: personaje,
@@ -159,17 +184,21 @@ export function ForjaOperacion({
         <h2 id="operacion-titulo" className="text-xl font-semibold">
           {alAlma
             ? "Entregar al alma de la cuenta"
-            : modo === "inventario"
-              ? "Entregar a personaje"
-              : "Preparar para batalla"}
+            : darPersonaje
+              ? "Entregar personaje al jugador"
+              : modo === "inventario"
+                ? "Entregar a personaje"
+                : "Preparar para batalla"}
         </h2>
         <p>{item.nombre}</p>
-        <p className="text-sm text-neutral-400">
-          {item.es_grupo
-            ? "Malla: cada copia obtiene valores nuevos dentro de los rangos y los conserva."
-            : "Único / fijo: todas las copias conservan las estadísticas definidas."}
-        </p>
-        {alAlma && (
+        {!darPersonaje && (
+          <p className="text-sm text-neutral-400">
+            {item.es_grupo
+              ? "Malla: cada copia obtiene valores nuevos dentro de los rangos y los conserva."
+              : "Único / fijo: todas las copias conservan las estadísticas definidas."}
+          </p>
+        )}
+        {aCuenta && (
           <label className="block space-y-2 text-sm">
             <span>Cuenta del jugador</span>
             <select
@@ -186,13 +215,29 @@ export function ForjaOperacion({
                 </option>
               ))}
             </select>
-            <p>
-              Se entrega al baúl del alma, incluso si el jugador no tiene
-              personajes vivos.
-            </p>
+            {alAlma && (
+              <p>
+                Se entrega al baúl del alma, incluso si el jugador no tiene
+                personajes vivos.
+              </p>
+            )}
           </label>
         )}
-        {modo === "inventario" && !alAlma && (
+        {darPersonaje && (
+          <label className="block space-y-2 text-sm">
+            <span>Entregar como</span>
+            <select
+              className={input}
+              disabled={ocupado}
+              value={destino}
+              onChange={(e) => setDestino(e.target.value as DestinoPersonaje)}
+            >
+              <option value="npc">{destinosPersonaje.npc}</option>
+              <option value="cuerpo">{destinosPersonaje.cuerpo}</option>
+            </select>
+          </label>
+        )}
+        {modo === "inventario" && !aCuenta && (
           <label className="block space-y-2 text-sm">
             <span>Personaje destinatario</span>
             <select
@@ -218,38 +263,42 @@ export function ForjaOperacion({
             )}
           </label>
         )}
-        <label className="block space-y-2 text-sm">
-          <span>{item.ligado_al_alma?"Una única pertenencia del alma":"Cantidad de copias"}</span>
-          <input
-            disabled={ocupado || !!negociacionId || !!item.ligado_al_alma}
-            required
-            type="number"
-            min="1"
-            max={item.ligado_al_alma?1:50}
-            step="1"
-            className={input}
-            value={cantidad}
-            onChange={(e) => setCantidad(e.target.value)}
-          />
-        </label>
-        <label className="block space-y-2 text-sm">
-          <span>Motivo o encuentro</span>
-          <input
-            disabled={ocupado}
-            maxLength={500}
-            className={input}
-            placeholder="Botín de la taberna, recompensa…"
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-          />
-        </label>
-        <p className="text-xs text-neutral-500">
-          {alAlma
-            ? "La pertenencia queda en el baúl de la cuenta. El jugador decide a qué personaje enviarla."
-            : modo === "inventario"
-              ? "Se crea una entrada independiente por copia en el inventario de este personaje. No se equipa automáticamente."
-              : "Las instancias se guardarán en Preparados para batalla. Sus valores no se volverán a sortear al recargar."}
-        </p>
+        {!darPersonaje && (
+          <>
+            <label className="block space-y-2 text-sm">
+              <span>{item.ligado_al_alma ? "Una única pertenencia del alma" : "Cantidad de copias"}</span>
+              <input
+                disabled={ocupado || !!negociacionId || !!item.ligado_al_alma}
+                required
+                type="number"
+                min="1"
+                max={item.ligado_al_alma ? 1 : 50}
+                step="1"
+                className={input}
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value)}
+              />
+            </label>
+            <label className="block space-y-2 text-sm">
+              <span>Motivo o encuentro</span>
+              <input
+                disabled={ocupado}
+                maxLength={500}
+                className={input}
+                placeholder="Botín de la taberna, recompensa…"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
+            </label>
+            <p className="text-xs text-neutral-500">
+              {alAlma
+                ? "La pertenencia queda en el baúl de la cuenta. El jugador decide a qué personaje enviarla."
+                : modo === "inventario"
+                  ? "Se crea una entrada independiente por copia en el inventario de este personaje. No se equipa automáticamente."
+                  : "Las instancias se guardarán en Preparados para batalla. Sus valores no se volverán a sortear al recargar."}
+            </p>
+          </>
+        )}
         {error && (
           <p role="alert" className="text-sm text-red-300">
             {error}
@@ -270,9 +319,11 @@ export function ForjaOperacion({
           >
             {ocupado
               ? "Procesando…"
-              : modo === "inventario"
-                ? "Entregar copias"
-                : "Generar instancias"}
+              : darPersonaje
+                ? "Entregar personaje"
+                : modo === "inventario"
+                  ? "Entregar copias"
+                  : "Generar instancias"}
           </button>
         </div>
       </form>

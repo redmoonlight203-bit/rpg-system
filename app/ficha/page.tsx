@@ -1,15 +1,11 @@
 "use client";
-import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Swords,Users,ShoppingBag,Dices,Sparkles,ArrowUpRight,TrendingUp} from 'lucide-react';
-import {supabase} from '../../lib/supabase';
 import IconoYugen from '../../components/IconoYugen';
 import {Billetera} from '../../components/Billetera';
 import {Marco} from '../../components/ui/Juego';
 export default function NexoReencarnado(){
- const[colmena,setColmena]=useState(false);
- useEffect(()=>{let vivo=true;void(async()=>{const {data:{user}}=await supabase.auth.getUser();if(!user)return;const {data}=await supabase.from('perfiles').select('mente_colmena').eq('id',user.id).single();if(vivo)setColmena(!!data?.mente_colmena);})();return()=>{vivo=false;};},[]);
- const opciones=[{titulo:'Mi party',descripcion:'Gestiona a tus compañeros, su equipo y sus habilidades. Entran contigo al combate.',icon:Users,ruta:'/ficha/party'},{titulo:'Baúl del alma',descripcion:'Objetos, habilidades y personajes de tu cuenta. Envíalos a tus cuerpos y recupéralos cuando caigan.',icon:Sparkles,ruta:'/ficha/alma'},{titulo:'Experiencia y evolución',descripcion:'Sube de nivel, mejora tus atributos y descubre nuevas habilidades.',icon:TrendingUp,ruta:'/ficha/experiencia'},{titulo:'Tus personajes',descripcion:'Una mirada a tus cuerpos, sus habilidades y todo lo que llevan consigo.',icon:Users,ruta:'/ficha/personajes'},{titulo:'El campo de batalla',descripcion:'Entra al encuentro de tus personajes. Tu próxima decisión puede cambiarlo todo.',icon:Swords,ruta:'/ficha/combate'},{titulo:'Mesa de dados',descripcion:'Reúne tus dados, hazlos rodar y deja que el destino hable.',icon:Dices,ruta:'/ficha/tiradas'},{titulo:'La tienda de Kuroi',descripcion:'Objetos, poderes y acuerdos. Descubre qué tiene preparado el GM.',icon:ShoppingBag,ruta:'/ficha/tienda'},...(colmena?[{titulo:'Tienda de almas',descripcion:'Otros cuerpos, nuevas posibilidades. Un privilegio de la Mente colmena.',icon:Sparkles,ruta:'/ficha/tienda-almas'}]:[])];
+ const opciones=[{titulo:'Mi party',descripcion:'Gestiona a tus compañeros, su equipo y sus habilidades. Entran contigo al combate.',icon:Users,ruta:'/ficha/party'},{titulo:'Baúl del alma',descripcion:'Objetos, habilidades y personajes de tu cuenta. Envíalos a tus cuerpos y recupéralos cuando caigan.',icon:Sparkles,ruta:'/ficha/alma'},{titulo:'Experiencia y evolución',descripcion:'Sube de nivel, mejora tus atributos y descubre nuevas habilidades.',icon:TrendingUp,ruta:'/ficha/experiencia'},{titulo:'Tus personajes',descripcion:'Una mirada a tus cuerpos, sus habilidades y todo lo que llevan consigo.',icon:Users,ruta:'/ficha/personajes'},{titulo:'El campo de batalla',descripcion:'Entra al encuentro de tus personajes. Tu próxima decisión puede cambiarlo todo.',icon:Swords,ruta:'/ficha/combate'},{titulo:'Mesa de dados',descripcion:'Reúne tus dados, hazlos rodar y deja que el destino hable.',icon:Dices,ruta:'/ficha/tiradas'},{titulo:'La tienda de Kuroi',descripcion:'Objetos, poderes y acuerdos. Descubre qué tiene preparado el GM.',icon:ShoppingBag,ruta:'/ficha/tienda'},{titulo:'Tienda de almas',descripcion:'Encuentra un cuerpo principal o un nuevo compañero para tu party.',icon:Sparkles,ruta:'/ficha/tienda-almas'}];
  return <main className="y3-hub">
   <Marco brillo className="y3-hub-portal">
    <div className="y3-hub-texto">

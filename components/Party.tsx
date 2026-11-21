@@ -28,7 +28,7 @@ import {
   type ContextoEquipo,
 } from "./EditorEquipoCombate";
 import IconoYugen from "./IconoYugen";
-import type { Personaje } from "../lib/personajes";
+import { destinosPersonaje, type DestinoPersonaje, type Personaje } from "../lib/personajes";
 import "./personajes.css";
 import "./party.css";
 type Cuenta = { id: string; email: string };
@@ -45,6 +45,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
   const router = useRouter(),
     bloqueo = useRef(false),
     vigente = useRef("");
+  const solicitud = useRef<{ firma: string; id: string } | null>(null);
   const [editor, setEditor] = useState<{
     personaje: Personaje;
     contexto: ContextoEquipo;
@@ -56,6 +57,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
     [fuentes, setFuentes] = useState<Fuente[]>([]),
     [retirados, setRetirados] = useState<Personaje[]>([]);
   const [origen, setOrigen] = useState("forja"),
+    [destino, setDestino] = useState<DestinoPersonaje>("npc"),
     [fuente, setFuente] = useState(""),
     [nombre, setNombre] = useState(""),
     [nivel, setNivel] = useState("1"),
@@ -90,6 +92,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
               )
               .eq("tipo_creacion", "personaje")
               .eq("estado", "aprobado")
+              .not("ligado_al_alma", "is", true)
               .order("nombre"),
           ]);
           if (u.error || f.error) throw u.error || f.error;
@@ -196,6 +199,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
     try {
       const r = await supabase.rpc(rpc, args);
       if (r.error) throw r.error;
+      solicitud.current = null;
       setAviso(mensaje);
       setFuente("");
       setNombre("");
@@ -209,15 +213,31 @@ export default function Party({ gm = false }: { gm?: boolean }) {
   }
   function agregar(e: FormEvent) {
     e.preventDefault();
-    void operar(
-      "party_asignar",
-      {
+    if (bloqueo.current) return;
+    if (origen === "forja") {
+      const entrega = {
         p_usuario: usuario,
-        p_forja: origen === "forja" ? fuente : null,
-        p_personaje: origen === "retirado" ? Number(fuente) : null,
+        p_forja: fuente,
+        p_destino: destino,
         p_nombre: nombre.trim() || null,
         p_nivel: Number(nivel),
-      },
+      };
+      const firma = JSON.stringify(entrega);
+      if (solicitud.current?.firma !== firma) {
+        solicitud.current = { firma, id: crypto.randomUUID() };
+      }
+      void operar(
+        "personaje_entregar",
+        { ...entrega, p_solicitud: solicitud.current.id },
+        destino === "cuerpo"
+          ? "Cuerpo principal entregado. El jugador ya puede usarlo desde Personajes."
+          : "Compañero añadido. El jugador ya puede gestionarlo y controlarlo en combate.",
+      );
+      return;
+    }
+    void operar(
+      "party_asignar",
+      { p_usuario: usuario, p_personaje: Number(fuente) },
       "Compañero añadido. El jugador ya puede gestionarlo y controlarlo en combate.",
     );
   }
@@ -392,7 +412,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
         migas={gm ? "Kuroi · Preparar a los jugadores" : "Reencarnado · Compañeros de viaje"}
         titulo={gm ? "Parties de jugadores" : "Mi party"}
         subtitulo={gm
-          ? "Asigna NPC a una cuenta y gestiona su equipo. Los compañeros activos entran juntos al añadir al personaje al combate."
+          ? "Entrega cuerpos principales o compañeros NPC a una cuenta. Los compañeros activos entran juntos al añadir al personaje al combate."
           : "Gestiona a tus personajes y compañeros: equipamiento, inventario, habilidades y árbol. Cuando el GM añada a tu personaje al combate, sus compañeros activos entrarán con él."}
       />
       {error && (
@@ -483,11 +503,10 @@ export default function Party({ gm = false }: { gm?: boolean }) {
             <section className="pj-panel party-editor">
               <h2>
                 <Plus size={22} />
-                Añadir un compañero
+                Entregar un personaje
               </h2>
               <p>
-                Se creará una ficha independiente con su equipo y habilidades.
-                Puedes añadir varios NPC sin ocupar los cuerpos del jugador.
+                Cada ficha conserva su equipo y habilidades. Los NPC se añaden a la party sin ocupar un cupo de cuerpo.
               </p>
               <form onSubmit={agregar}>
                 <label>
@@ -512,7 +531,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
                     <input
                       value={buscar}
                       onChange={(e) => setBuscar(e.target.value)}
-                      placeholder="Nombre del NPC…"
+                      placeholder="Nombre del personaje…"
                     />
                   </label>
                 )}
@@ -554,7 +573,18 @@ export default function Party({ gm = false }: { gm?: boolean }) {
                 {origen === "forja" && (
                   <>
                     <label>
-                      Nombre del compañero (opcional)
+                      Entregar como
+                      <select
+                        disabled={ocupado}
+                        value={destino}
+                        onChange={(e) => setDestino(e.target.value as DestinoPersonaje)}
+                      >
+                        <option value="npc">{destinosPersonaje.npc}</option>
+                        <option value="cuerpo">{destinosPersonaje.cuerpo}</option>
+                      </select>
+                    </label>
+                    <label>
+                      Nombre del personaje (opcional)
                       <input
                         maxLength={100}
                         value={nombre}
@@ -580,7 +610,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
                     {plantilla && (
                       <p className="party-source-description">
                         {plantilla.descripcion ||
-                          "El compañero conservará las habilidades y el equipamiento de esta creación."}
+                          "El personaje conservará las habilidades y el equipamiento de esta creación."}
                       </p>
                     )}
                     <p>
@@ -593,7 +623,7 @@ export default function Party({ gm = false }: { gm?: boolean }) {
                 <button className="pj-button" disabled={ocupado || !fuente}>
                   <Plus size={16} />
                   {origen === "forja"
-                    ? "Crear y añadir a la party"
+                    ? "Entregar personaje"
                     : "Asignar a esta party"}
                 </button>
               </form>
