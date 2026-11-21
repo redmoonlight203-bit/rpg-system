@@ -57,11 +57,15 @@ El IPE ofensivo agregado fue 2,886 y 1,374 respectivamente, con apertura B en am
 | Fase del plan | Estado y criterio para avanzar |
 |---|---|
 | 0 y 1 | Mapa local, contrato inicial y auditoría SQL listos. Verificar inventario, unidades, reglas y snapshots efectivos de RealYugen con acceso de lectura |
-| 2 | Banco de cinco rondas y comparación inicial reproducible. Faltan duelos raciales, equipos de referencia por nivel, anclas adicionales por nivel y dispersión estadística |
+| 2 | Banco de cinco rondas y comparación inicial reproducible. Comparación racial reproducible en seis niveles, dos modalidades y dos tamaños de encuentro. Faltan anclas específicas de campaña, pruebas de estados y de jefes |
 | 3 | Migración de los nueve valores base por origen, regeneración gigante, precisión compartida de Sangre Mutada con Versatilidad e Instinto Salvaje. Los demás prototipos raciales requieren resolución por mecánica |
 | 4 | Carga experimental y verificadores. Para activar consecuencias reales, confirmar unidad y bandas. Diseñar ubicación física y cantidades de las copias, recomputar al cambiar posesión o forma y verificar combate, botín y cementerio con IDs de instancia reales |
-| 5 | Clasificación IPE compartida con el servidor e invocaciones. Faltan anclas adicionales por nivel, preparación estratégica, sacrificios permanentes, presupuesto de encuentros, valoración de efectos no comparables |
+| 5 | Clasificación IPE compartida con el servidor e invocaciones. Faltan anclas adicionales por nivel, preparación estratégica, sacrificios permanentes y valoración de efectos no comparables |
 | 6 | Pendiente de autorización. Probar el catálogo versionado y la reconciliación de datos legacy en una copia aislada. Preservar snapshots, guardar origen de cada unidad y separar clase estimada de clase confirmada. El rollback debe poder volver al motor anterior sin reescribir fichas históricas |
 | 7 | Verificación de repositorio y base aislada. Resta una prueba autenticada con perfiles y datos de prueba, revisión de concurrencia al activar la mecánica y verificación del despliegue autorizado |
 
 La medición actual usa enemigos de referencia y una estrategia determinista simple. Una acción negada solo cuenta cuando el motor deja al rival con su acción consumida en su turno. Los controles o sacrificios que el motor no ejecuta y las ventajas narrativas requieren valoración aparte. El informe no tiene autoridad sobre las reglas ni permisos. La etiqueta KUROI conserva su posición final.
+
+En la preparación del encuentro, el GM ve la suma de IPE de catálogo por bando y la cobertura de medición. Cada combatiente cuenta una vez. Un participante con ficha propia o sin IPE queda fuera de la suma. El presupuesto sirve para comparar composiciones y no incorpora modificaciones situacionales de las copias.
+
+[Resultados raciales](./duelos-raciales.md) · [Publicación y reversión](./operacion-balance.md)
