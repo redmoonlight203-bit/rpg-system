@@ -4,12 +4,19 @@ import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujet
 import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion } from "./creacion";
 import { type ReglaPasiva } from "./pasivas";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
-export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean};
+export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
+ /** Clanes (cualquiera de la lista). Se comprueban al heredar: el servidor entrega y retira la copia. */
+ clanes?:string[];
+ /** Se entrega sola a quien cumpla el linaje (razas) y/o pertenezca a uno de los clanes. */
+ herencia?:boolean};
 export function validarRequisitos(r:RequisitosUso|undefined):string|null{
  if(r===undefined)return null;
  if(!r||typeof r!=='object'||Array.isArray(r))return 'Requisitos inválidos.';
  if(r.habilidades!==undefined&&(!Array.isArray(r.habilidades)||r.habilidades.length>20||r.habilidades.some(x=>typeof x!=='string'||! /^[0-9a-f-]{36}$/i.test(x))))return 'Selecciona habilidades previas válidas.';
  if(r.desbloqueo_automatico!==undefined&&typeof r.desbloqueo_automatico!=='boolean')return 'Desbloqueo automático inválido.';
+ if(r.clanes!==undefined&&(!Array.isArray(r.clanes)||r.clanes.length>20||r.clanes.some(x=>typeof x!=='string'||! /^[0-9a-f-]{36}$/i.test(x))))return 'Selecciona clanes válidos.';
+ if(r.herencia!==undefined&&typeof r.herencia!=='boolean')return 'Herencia inválida.';
+ if(r.herencia&&!r.razas?.length&&!r.clanes?.length)return 'Para heredarla, elige al menos un linaje (raza) o un clan.';
  if(r.nivel_minimo!==undefined&&(!Number.isInteger(r.nivel_minimo)||r.nivel_minimo<1||r.nivel_minimo>100))return 'El nivel requerido debe estar entre 1 y 100.';
  if(r.razas!==undefined&&(!Array.isArray(r.razas)||r.razas.length>50||r.razas.some(x=>typeof x!=='string'||!x.trim()||x.length>100)))return 'Selecciona razas válidas.';
  if(r.minimos!==undefined&&(!r.minimos||typeof r.minimos!=='object'||Array.isArray(r.minimos)||Object.keys(r.minimos).length>50||Object.entries(r.minimos).some(([k,v])=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k)||typeof v!=='number'||!Number.isFinite(v)||v<0||v>1000000)))return 'Los mínimos deben ser atributos válidos y números de 0 a 1000000.';
@@ -2040,6 +2047,12 @@ export function visionesActivas(m: Combatiente): VisionActiva[] {
   const lista: VisionActiva[] = m.estados.filter(e => e.vision).map(e => ({ clave: e.id, vision: e.vision!, restantes: e.vision!.duracion && e.vision!.modo !== 'permanente' ? e.restantes : null }));
   const fuentes = [...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length), ...Object.values(piezas(m))];
   const efectos = [...fuentes.flatMap(f => f.efectos || []), ...(m.configuracion.efectos || [])];
+  // Ojo de la fase actual de una transformación: va primero para que la interfaz muestre ese ojo.
+  if (m.transformacion) {
+    const d = efectos.find(e => e.transformacion?.id === m.transformacion!.definicion_id)?.transformacion;
+    const etapa = d?.etapas.find(x => x.id === m.transformacion!.etapa_id);
+    if (d && etapa?.vision) lista.unshift({ clave: `vision:fase:${d.id}:${etapa.id}`, vision: etapa.vision, restantes: null });
+  }
   for (const e of efectos) if (e.vision?.modo === 'permanente' && !lista.some(x => x.clave === 'vision:' + e.id)) lista.push({ clave: 'vision:' + e.id, vision: e.vision, restantes: null });
   return lista;
 }
@@ -2069,7 +2082,7 @@ function abrirOjo(n: Combate, a: Combatiente, act: Accion): Combate {
 }
 /** Inicio de turno: los ojos permanentes se abren solos y los demás cobran su mantenimiento. */
 function mantenerVisiones(c: Combate, m: Combatiente) {
-  for (const x of visionesActivas(m)) if (x.vision.modo === 'permanente' && !m.estados.some(e => e.id === x.clave)) {
+  for (const x of visionesActivas(m)) if (x.vision.modo === 'permanente' && !x.clave.startsWith('vision:fase:') && !m.estados.some(e => e.id === x.clave)) {
     const id = x.clave.slice(7);
     activarVision(c, m, { ...basico(), id, vision: x.vision });
   }

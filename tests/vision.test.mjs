@@ -117,3 +117,22 @@ test('plantillas oculares del Yunque son válidas',()=>{
  assert.ok(ojos.length>=3);
  for(const p of ojos)assert.equal(cr.validarEfectos(p.fragmentos.map(f=>f.datos)),null,p.nombre);
 });
+test('ojo por fases: cada etapa trae su ojo y el poder personal exige la fase 2',()=>{
+ const pl=cargarDependencia('./yunque-plantillas'),cr=cargarDependencia('./creacion');
+ const p=pl.PLANTILLAS.find(x=>x.id==='ojo-clan-fases'),[despertar,poder]=p.fragmentos.map(f=>f.datos);
+ assert.equal(cr.validarEfectos([despertar,poder]),null);
+ let x=campo(null,{a:{habilidades:[{id:'h',nombre:'Ojo del clan',stats:{},efectos:[despertar,poder]}]}});
+ assert.equal(c.vistaOcular(x,'a'),null,'cerrado antes de despertar');
+ assert.ok(!c.acciones(yo(x)).some(a=>a.efecto.id===poder.id),'el poder pleno no está en fase 0');
+ x=c.actuar(x,'a','hab:h:'+despertar.id,'a',()=>10);
+ assert.equal(c.vistaOcular(x,'a').visiones[0].nombre,'Ojo despierto');
+ assert.ok(!c.acciones(yo(x)).some(a=>a.efecto.id===poder.id),'fase 1 aún no da el poder propio');
+ x=c.siguiente(c.siguiente(c.siguiente(x,()=>10),()=>10),()=>10);
+ const avanzar=c.acciones(yo(x)).find(a=>a.efecto.id===despertar.id);
+ x=c.actuar(x,'a',avanzar.id,'a',()=>10);
+ const vista=c.vistaOcular(x,'a');
+ assert.equal(vista.visiones[0].nombre,'Ojo pleno');assert.equal(vista.visiones.length,1,'el ojo de la fase 1 se cierra');
+ assert.equal(vista.objetivos.b.puntos.length,2);
+ assert.ok(c.acciones(yo(x)).some(a=>a.efecto.id===poder.id),'la fase 2 desbloquea el poder propio');
+ assert.ok(!yo(x).estados.some(e=>e.id.startsWith('vision:fase:')),'el ojo de fase no deja estados sueltos');
+});

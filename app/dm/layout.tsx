@@ -16,6 +16,7 @@ const principales = [
   { path: "/dm/forja", label: "La Forja", detail: "Crear y dar forma al mundo", icon: Hammer },
   { path: "/dm/personajes", label: "Jugadores y personajes", icon: Users },
   { path: "/dm/party", label: "Parties de jugadores", icon: Users },
+  { path: "/dm/clanes", label: "Clanes y linajes", detail: "Herencias de habilidades", icon: Users },
   { path: "/dm/combate", label: "Combate", detail: "Probar tus creaciones", icon: Swords },
   { path: "/dm/recompensas", label: "Botín, logros y títulos", icon: TrendingUp },
   { path: "/dm/experiencia", label: "Experiencia", detail: "Personajes de jugador y su party", icon: TrendingUp },

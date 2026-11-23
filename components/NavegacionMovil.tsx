@@ -28,6 +28,7 @@ export default function NavegacionMovil({ gm = false }: { gm?: boolean }) {
   const extras = gm ? [
     { href: "/dm/forja", label: "La Forja", icon: Hammer },
     { href: "/dm/party", label: "Parties de jugadores", icon: Users },
+    { href: "/dm/clanes", label: "Clanes y linajes", icon: Users },
     { href: "/dm/recompensas", label: "Botín, logros y títulos", icon: Sparkles },
     { href: "/dm/experiencia", label: "Experiencia", icon: TrendingUp },
     { href: "/dm/reglas", label: "Estadísticas y reglas", icon: Sliders },

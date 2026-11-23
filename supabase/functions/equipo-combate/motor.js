@@ -278,6 +278,12 @@ export function validarRequisitos(r) {
         return 'Selecciona habilidades previas válidas.';
     if (r.desbloqueo_automatico !== undefined && typeof r.desbloqueo_automatico !== 'boolean')
         return 'Desbloqueo automático inválido.';
+    if (r.clanes !== undefined && (!Array.isArray(r.clanes) || r.clanes.length > 20 || r.clanes.some(x => typeof x !== 'string' || !/^[0-9a-f-]{36}$/i.test(x))))
+        return 'Selecciona clanes válidos.';
+    if (r.herencia !== undefined && typeof r.herencia !== 'boolean')
+        return 'Herencia inválida.';
+    if (r.herencia && !r.razas?.length && !r.clanes?.length)
+        return 'Para heredarla, elige al menos un linaje (raza) o un clan.';
     if (r.nivel_minimo !== undefined && (!Number.isInteger(r.nivel_minimo) || r.nivel_minimo < 1 || r.nivel_minimo > 100))
         return 'El nivel requerido debe estar entre 1 y 100.';
     if (r.razas !== undefined && (!Array.isArray(r.razas) || r.razas.length > 50 || r.razas.some(x => typeof x !== 'string' || !x.trim() || x.length > 100)))
@@ -2500,6 +2506,13 @@ export function visionesActivas(m) {
     const lista = m.estados.filter(e => e.vision).map(e => ({ clave: e.id, vision: e.vision, restantes: e.vision.duracion && e.vision.modo !== 'permanente' ? e.restantes : null }));
     const fuentes = [...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length), ...Object.values(piezas(m))];
     const efectos = [...fuentes.flatMap(f => f.efectos || []), ...(m.configuracion.efectos || [])];
+    // Ojo de la fase actual de una transformación: va primero para que la interfaz muestre ese ojo.
+    if (m.transformacion) {
+        const d = efectos.find(e => e.transformacion?.id === m.transformacion.definicion_id)?.transformacion;
+        const etapa = d?.etapas.find(x => x.id === m.transformacion.etapa_id);
+        if (d && etapa?.vision)
+            lista.unshift({ clave: `vision:fase:${d.id}:${etapa.id}`, vision: etapa.vision, restantes: null });
+    }
     for (const e of efectos)
         if (e.vision?.modo === 'permanente' && !lista.some(x => x.clave === 'vision:' + e.id))
             lista.push({ clave: 'vision:' + e.id, vision: e.vision, restantes: null });
@@ -2549,7 +2562,7 @@ function abrirOjo(n, a, act) {
 /** Inicio de turno: los ojos permanentes se abren solos y los demás cobran su mantenimiento. */
 function mantenerVisiones(c, m) {
     for (const x of visionesActivas(m))
-        if (x.vision.modo === 'permanente' && !m.estados.some(e => e.id === x.clave)) {
+        if (x.vision.modo === 'permanente' && !x.clave.startsWith('vision:fase:') && !m.estados.some(e => e.id === x.clave)) {
             const id = x.clave.slice(7);
             activarVision(c, m, { ...basico(), id, vision: x.vision });
         }
