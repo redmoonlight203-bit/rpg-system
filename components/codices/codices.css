@@ -189,3 +189,677 @@
   padding: 7px 10px;
 }
 
+.cx-libro {
+  min-width: 0;
+  position: relative;
+  padding: clamp(.5rem, 2vw, 1.35rem);
+  border: 1px solid var(--color-gold);
+  border-radius: .8rem;
+  background: var(--cx-cuero, linear-gradient(110deg, var(--color-ink), var(--color-raised)));
+  touch-action: pan-y;
+}
+
+.cx-pliego {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  position: relative;
+  perspective: 1400px;
+}
+
+.cx-libro-2 .cx-pliego {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cx-pagina {
+  min-width: 0;
+  padding: clamp(.9rem, 4vw, 2rem);
+  border: 1px solid var(--color-gold);
+  border-radius: .2rem;
+  background-color: var(--color-parchment);
+  background-image: var(--cx-papel, none);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.cx-pagina :is(h2, h3, h4) {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+}
+
+.cx-pagina .cx-cabecera {
+  color: var(--color-ink);
+}
+
+.cx-pagina :is(.cx-cabecera p, .cx-cabecera small, .cx-no-disponible) {
+  color: var(--color-ink);
+}
+
+.cx-pagina :is(.cx-seccion, .cg-section) {
+  min-width: 0;
+}
+
+.cx-libro-2 .cx-pagina:first-child {
+  box-shadow: inset -12px 0 16px -16px var(--color-ink);
+}
+
+.cx-libro-2 .cx-pagina:nth-child(2) {
+  box-shadow: inset 12px 0 16px -16px var(--color-ink);
+}
+
+.cx-bestiario-ilustracion {
+  width: min(100%, 23rem);
+  margin: .8rem auto;
+  border: 3px double var(--color-gold);
+  border-radius: .35rem;
+  overflow: hidden;
+  background: var(--color-ink);
+}
+
+.cx-bestiario-ilustracion > .cg-art {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  height: auto;
+}
+
+.cx-marcapaginas,
+.cx-libro-pie {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+}
+
+.cx-marcapaginas {
+  justify-content: flex-end;
+  overflow-x: auto;
+  padding: .25rem .2rem .55rem;
+  scrollbar-width: thin;
+}
+
+.cx-libro-2 .cx-marcapaginas {
+  margin-inline-start: auto;
+  width: max-content;
+  max-width: 100%;
+}
+
+.cx-libro-pie {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: .65rem .2rem .1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-libro :is(.cx-marcapaginas, .cx-libro-pie) button {
+  flex: 0 0 auto;
+  padding: .35rem .55rem;
+  border: 1px solid var(--color-gold);
+  border-radius: .25rem;
+  background: var(--color-raised);
+  color: var(--color-gold-bright);
+}
+
+.cx-marcapaginas button[aria-current] {
+  background: var(--color-gold-bright);
+  color: var(--color-ink);
+}
+
+.cx-libro :is(.cx-marcapaginas, .cx-libro-pie) button:disabled {
+  opacity: .6;
+}
+
+.cx-hoja {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  animation: cx-pasar 650ms ease-in-out both;
+}
+
+.cx-hoja.is-atras {
+  animation-direction: reverse;
+}
+
+.cx-libro-2 .cx-hoja.is-adelante {
+  left: 50%;
+}
+
+.cx-libro-2 .cx-hoja.is-atras {
+  right: 50%;
+  transform-origin: right center;
+  animation-name: cx-pasar-atras;
+  animation-direction: normal;
+}
+
+.cx-cara-hoja {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+
+.cx-cara-hoja-detras {
+  transform: rotateY(180deg);
+}
+
+@keyframes cx-pasar {
+  from { transform: rotateY(0); }
+  to { transform: rotateY(-180deg); }
+}
+
+@keyframes cx-pasar-atras {
+  from { transform: rotateY(0); }
+  to { transform: rotateY(180deg); }
+}
+
+@media (max-width: 899px) {
+  .cx-marcapaginas {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-hoja {
+    animation: none;
+  }
+}
+
+.cx-libro-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: .5rem;
+}
+
+.cx-libro-2 .cx-pliego {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.cx-libro-2 .cx-marcapaginas {
+  grid-row: 1;
+  grid-column: 2;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: visible;
+}
+
+.cx-libro-2 .cx-libro-pie {
+  grid-column: 1;
+}
+
+.cx-libro .cx-pagina :is(.cg-detail-heading > p, .cg-eyebrow, .cg-detail-tags > span, .cg-danger-zone p) {
+  color: var(--color-ink);
+}
+
+.cx-libro .cx-pagina :is(h2, h3, h4) {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+}
+
+/* Tarot, reliquia, sello, edicto y pergamino */
+.cx-vista-doble {
+  display: grid;
+  grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
+  gap: clamp(1rem, 4vw, 2.5rem);
+  align-items: start;
+}
+
+.cx-vista-doble > *, .cx-lectura, .cx-pergamino {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cx-pergamino {
+  display: grid;
+  gap: 1rem;
+}
+
+.cx-tarot-escena {
+  perspective: 1200px;
+  width: min(100%, 17rem);
+  margin: 0 auto 1rem;
+}
+
+.cx-tarot-inclinacion {
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+}
+
+.cx-tarot {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 2 / 3.5;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: center;
+  transform-style: preserve-3d;
+  transition: transform 600ms;
+  cursor: pointer;
+}
+
+.cx-tarot[aria-pressed="true"] {
+  transform: rotateY(180deg);
+}
+
+.cx-tarot-cara {
+  grid-area: 1 / 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  justify-content: center;
+  gap: .6rem;
+  border: .35rem double var(--marco, var(--color-gold));
+  border-radius: 1.1rem;
+  padding: .8rem;
+  box-shadow: inset 0 0 1rem var(--color-well);
+  backface-visibility: hidden;
+  overflow-wrap: anywhere;
+  color: var(--tinta, var(--color-text));
+  background: var(--cx-dorso, none), radial-gradient(ellipse at top, var(--tinte, var(--color-ember)), var(--color-well));
+}
+
+.cx-tarot-cara.is-reverso {
+  transform: rotateY(180deg);
+  text-align: start;
+  justify-content: flex-start;
+}
+
+.cx-tarot-cara[aria-hidden="true"] {
+  pointer-events: none;
+}
+
+.cx-tarot-numero, .cx-tarot-nombre, .cx-estandarte > span:last-child, .cx-sello-lacre text {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.cx-tarot-numero {
+  font-size: 1.45rem;
+  text-align: center;
+}
+
+.cx-tarot-arte {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--marco, var(--color-gold));
+  border-radius: 48%;
+}
+
+.cx-tarot-arte .cg-art {
+  aspect-ratio: 3 / 4;
+}
+
+.cx-tarot-nombre {
+  display: block;
+  background: var(--tinte, var(--color-ember));
+  border-block: 1px solid var(--marco, var(--color-gold));
+  padding: .5rem .25rem;
+}
+
+.cx-tarot-rango, .cx-tarot-accion, .cx-tirada p {
+  font-size: .8125rem;
+}
+
+.cx-tarot-accion {
+  display: grid;
+  gap: .12rem;
+  border-top: 1px solid var(--color-line-strong);
+  padding-top: .42rem;
+}
+
+.cx-tirada-controles, .cx-reliquia-marcas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+
+.cx-tirada select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cx-tirada output {
+  display: block;
+  margin-top: .4rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.cx-vitrina {
+  position: relative;
+  isolation: isolate;
+  padding: 1.35rem 1.35rem 2.75rem;
+  border: .3rem double var(--marco, var(--color-gold));
+  border-radius: 1rem 1rem .35rem .35rem;
+  background: radial-gradient(ellipse at 50% 76%, color-mix(in srgb, var(--marco) 28%, var(--color-well)), var(--color-well) 70%);
+}
+
+.cx-vitrina-arte {
+  position: relative;
+  z-index: 1;
+  border-radius: .6rem;
+  overflow: hidden;
+  border: 1px solid var(--color-line-strong);
+}
+
+.cx-vitrina::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 32%, color-mix(in srgb, var(--color-text) 9%, transparent) 48%, transparent 65%);
+}
+
+@supports (backdrop-filter: saturate(1.1)) {
+  .cx-vitrina::after { backdrop-filter: saturate(1.1); }
+}
+
+.cx-pedestal {
+  inset: auto 12% .65rem;
+  position: absolute;
+  height: 2.6rem;
+  border-radius: 50% 50% .25rem .25rem;
+  background: linear-gradient(180deg, var(--marco), var(--tinte) 28%, var(--color-well));
+  box-shadow: 0 -.25rem 1.35rem color-mix(in srgb, var(--marco) 33%, transparent);
+}
+
+.cx-reliquia-marcas span {
+  border: 1px solid var(--color-line-strong);
+  border-radius: 2rem;
+  padding: .2rem .6rem;
+  background: var(--color-raised);
+  color: var(--color-text);
+}
+
+.cx-reliquia-marcas { margin: .7rem 0; }
+
+.cx-ascenso, .cx-ritual {
+  position: relative;
+  display: grid;
+  gap: .65rem;
+  margin: .65rem 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.cx-ascenso::before, .cx-ritual::before {
+  position: absolute;
+  inset: .75rem auto .75rem .85rem;
+  width: 1px;
+  background: var(--color-gold);
+  content: "";
+}
+
+.cx-ascenso > li, .cx-ritual > li {
+  display: grid;
+  align-items: start;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: .65rem;
+  position: relative;
+}
+
+.cx-nivel, .cx-ritual svg {
+  color: var(--color-gold-bright);
+  background: var(--color-raised);
+  border: 1px solid var(--color-gold);
+  border-radius: 50%;
+}
+
+.cx-nivel {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-ritual svg { width: 1.75rem; height: 1.75rem; padding: .3rem; }
+.cx-ritual li { align-items: center; }
+
+.cx-sello-lacre {
+  position: relative;
+  width: min(100%, 16rem);
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 39% 28%, var(--tinte, var(--color-ember)), var(--color-well));
+  animation: cx-sellar 400ms both;
+}
+
+.cx-sello-lacre > svg { display: block; width: 100%; }
+.cx-sello-exterior, .cx-sello-interior { fill: none; stroke: var(--marco, var(--color-gold)); }
+.cx-sello-exterior { stroke-width: 5; stroke-dasharray: 3 3; }
+.cx-sello-interior { stroke-width: 1; }
+.cx-sello-lacre text { fill: var(--tinta, var(--color-text)); font-size: 13px; }
+.cx-sello-icono { position: absolute; inset: 0; display: grid; place-items: center; color: var(--marco, var(--color-gold)); }
+
+@keyframes cx-sellar {
+  from { transform: scale(.92); }
+  to { transform: scale(1); }
+}
+
+.cx-estandarte {
+  display: grid;
+  justify-items: center;
+  width: min(100%, 160px);
+  margin: 0 auto 1rem;
+  gap: .75rem;
+  padding: .7rem .7rem 2.5rem;
+  border: 2px solid var(--marco, var(--color-gold));
+  background: var(--tinte, var(--color-ember));
+  color: var(--tinta, var(--color-text));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 88%, 0 100%);
+}
+
+.cx-estandarte .cg-art {
+  width: min(100%, 7rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--marco, var(--color-gold));
+}
+
+.cx-estandarte .cg-placeholder { gap: 0; }
+.cx-estandarte .cg-placeholder > span { display: none; }
+.cx-estandarte > span:last-child { text-align: center; }
+
+@media (min-width: 900px) {
+  .cx-estandarte > span:last-child { writing-mode: vertical-rl; }
+}
+
+.cx-proclama, .cx-rollo {
+  position: relative;
+  isolation: isolate;
+  padding: clamp(.9rem, 3vw, 1.6rem);
+  color: var(--color-ink);
+  background: var(--cx-papel, none), radial-gradient(ellipse at center, var(--color-parchment) 60%, var(--color-gold-soft));
+  border: 1px solid var(--color-gold);
+  border-radius: .35rem;
+}
+
+.cx-proclama :is(h2, h3, .cg-eyebrow, .cg-prose, p),
+.cx-rollo :is(h2, h3, dt, dd, .cg-eyebrow, .cg-prose, p) {
+  color: var(--color-ink);
+}
+
+.cx-proclama .cg-detail-tags span, .cx-rollo .cg-detail-tags span {
+  background: var(--color-ink);
+  color: var(--color-parchment);
+}
+
+.cx-proclama :is(.cg-detail-heading > p, .cg-prose)::first-letter {
+  float: left;
+  font: 700 2.5em / .95 var(--font-display);
+  padding: .04em .12em 0 0;
+}
+
+.cx-rollo { padding-block: 1.75rem; }
+
+.cx-rollo::before, .cx-rollo::after {
+  position: absolute;
+  inset-inline: 0;
+  height: .9rem;
+  border-radius: 2rem;
+  background: linear-gradient(180deg, var(--color-ink), var(--color-gold), var(--color-ember));
+  content: "";
+  pointer-events: none;
+}
+.cx-rollo::before { top: 0; }
+.cx-rollo::after { bottom: 0; }
+.cx-rollo-ilustracion { max-width: 24rem; margin: 0 auto .9rem; }
+.cx-rollo .cg-attribute-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 125px), 1fr)); }
+.cx-rollo .cg-attribute-grid > div { background: var(--color-parchment); }
+
+@media (max-width: 899px) {
+  .cx-vista-doble { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-tarot { transition: none; }
+  .cx-tarot-inclinacion { transform: none; }
+  .cx-sello-lacre { animation: none; }
+}
+
+.cx-atributos-placa {
+  padding: .8rem;
+  border: .25rem double var(--marco, var(--color-gold));
+  border-radius: .4rem;
+  background: linear-gradient(135deg, var(--color-well), var(--tinte, var(--color-raised)));
+}
+
+.cx-atributos-heraldica .cg-attribute-grid > div {
+  background: var(--tinte, var(--color-ember));
+  border: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 73%, 50% 100%, 0 73%);
+  padding-bottom: 1.55rem;
+  text-align: center;
+}
+
+.cx-atributos-placa dt, .cx-atributos-heraldica dt { color: var(--color-text); }
+.cx-atributos-placa dd, .cx-atributos-heraldica dd { color: var(--tinta, var(--color-gold-bright)); }
+/* Expediente: retrato y archivo, con un arsenal que conserva cada ranura. */
+.cx-expediente {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) minmax(0, 2fr);
+  gap: clamp(16px, 4vw, 42px);
+  align-items: start;
+  min-width: 0;
+}
+.cx-expediente-visual,
+.cx-expediente-cuerpo {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.cx-expediente-visual {
+  position: sticky;
+  top: 76px;
+}
+.cx-expediente-marco {
+  padding: 10px;
+  border-color: var(--marco, var(--color-line-strong));
+}
+.cx-expediente-marco .cg-art {
+  aspect-ratio: 3 / 4;
+}
+.cx-expediente-visual .y3-sello {
+  justify-self: center;
+}
+.cx-grimorio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 14px 12px 22px;
+}
+.cx-grimorio > li .cx-mini-tarot {
+  transform: rotate(var(--k, 0deg));
+}
+.cx-grimorio > li:focus-within .cx-mini-tarot,
+.cx-grimorio > li:hover .cx-mini-tarot {
+  z-index: 1;
+  transform: translateY(-3px) rotate(0deg);
+}
+.cx-arsenal-figura {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    ". casco capa"
+    "mano_der pechera mano_izq"
+    ". pantalones ."
+    ". zapatos .";
+}
+.cx-arsenal-casco { grid-area: casco; }
+.cx-arsenal-capa { grid-area: capa; }
+.cx-arsenal-mano_der { grid-area: mano_der; }
+.cx-arsenal-pechera { grid-area: pechera; }
+.cx-arsenal-mano_izq { grid-area: mano_izq; }
+.cx-arsenal-pantalones { grid-area: pantalones; }
+.cx-arsenal-zapatos { grid-area: zapatos; }
+.cx-arsenal-accesorios {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(88px, 100%), 1fr));
+  margin-top: 7px;
+}
+.cx-arsenal-figura,
+.cx-arsenal-accesorios { gap: 6px; }
+.cx-arsenal-slot {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  justify-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: var(--color-well);
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.cx-arsenal-slot.is-doble {
+  border-color: var(--color-line-strong);
+  background: var(--color-overlay);
+}
+.cx-arsenal-vacio { color: var(--color-text-muted); }
+.cx-arsenal-doble { color: var(--color-gold-bright); }
+.cx-expediente-lista {
+  display: grid;
+  gap: 6px;
+}
+.cx-expediente-lista > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.cx-expediente-lista dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 899px) {
+  .cx-expediente {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cx-expediente-visual { position: static; }
+  .cx-expediente-marco { width: min(100%, 310px); justify-self: center; }
+  .cx-grimorio {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-inline: 4px;
+    gap: 7px;
+  }
+  .cx-grimorio > li { flex: none; }
+  .cx-grimorio > li .cx-mini-tarot { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-mini:is(:hover,:focus-visible),
+  .cx-grimorio > li .cx-mini-tarot,
+  .cx-grimorio > li:focus-within .cx-mini-tarot,
+  .cx-grimorio > li:hover .cx-mini-tarot { transform: none; }
+}

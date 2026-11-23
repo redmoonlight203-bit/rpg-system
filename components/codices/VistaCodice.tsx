@@ -7,17 +7,22 @@ import { codiceDe } from "../../lib/codices";
 import { imagenCreacion } from "../../lib/arte-creacion";
 import type { PiezaGaleria, PropsGaleria } from "../GaleriaCreacion";
 import { useDialogo } from "../Dialogo";
-import { AccionesCreacion, ZonaPeligro } from "./Comunes";
+import { AccionesCreacion, Rastro, ZonaPeligro } from "./Comunes";
 import { EditorPresentacion, EstadoPresentacion, usePresentacion } from "./EditorPresentacion";
-import { AtributosCodice, CabeceraCodice, EnlaceCreacion, HistoriaCodice } from "./Comunes";
-import { AccionesEfectos, PasivasLista, ReglasCreacion } from "./ReglasCodice";
-import { Portada } from "../GaleriaCreacion";
-import { vinculosDe } from "../../lib/codices";
+import Bestiario from "./Bestiario";
+import Edicto from "./Edicto";
+import Expediente from "./Expediente";
+import Pergamino from "./Pergamino";
+import Reliquia from "./Reliquia";
+import Sello from "./Sello";
+import Tarot from "./Tarot";
 import type { ContextoCodice } from "./tipos";
 import "./codices.css";
 
-export default function VistaCodice<T extends PiezaGaleria>({ item, props, volver, abrir }: {
-  item: T; props: PropsGaleria<T>; volver: () => void; abrir: (id: string) => void;
+const vistas = { bestiario: Bestiario, edicto: Edicto, expediente: Expediente, pergamino: Pergamino, reliquia: Reliquia, sello: Sello, tarot: Tarot };
+
+export default function VistaCodice<T extends PiezaGaleria>({ item, props, volver, abrir, rastro, irA }: {
+  item: T; props: PropsGaleria<T>; volver: () => void; abrir: (id: string) => void; rastro?: string[]; irA?: (i: number) => void;
 }) {
   const { confirmar } = useDialogo();
   const [indiceForma, cambiarForma] = useState(0);
@@ -52,15 +57,14 @@ export default function VistaCodice<T extends PiezaGaleria>({ item, props, volve
     }).then(si => { if (si) fn(); });
   }
 
-  const ctx: ContextoCodice<T> = {
+  const contenido: ContextoCodice<T> = {
     item, props, tipo, monstruo, codice, forma, titulo, navegar, ocupado: estado.ocupado,
     abrir: id => navegar(() => abrir(id)),
     imagenVisible: imagenCreacion(item.id, estado.editando ? estado.imagen : forma?.imagen || estado.imagen),
     iconoVisible: props.iconoDe({ ...item, icono: estado.icono }),
     ranuras: { acciones: null, presentacion: null, peligro: null, formas: null, estado: null }
   };
-  const contenido = { ...ctx };
-  ctx.ranuras = {
+  const ranuras: ContextoCodice<T>["ranuras"] = {
     acciones: <AccionesCreacion ctx={contenido} dirty={estado.dirty} />,
     presentacion: <EditorPresentacion ctx={contenido} estado={estado} />,
     peligro: <ZonaPeligro ctx={contenido} onError={estado.setError} setGuardando={estado.setGuardando} />,
@@ -72,39 +76,12 @@ export default function VistaCodice<T extends PiezaGaleria>({ item, props, volve
     estado: <EstadoPresentacion estado={estado} />
   };
 
-  return <section ref={raiz} className={`cg-detail ${rango.css}`} aria-label={`Detalles de ${item.nombre}`}>
+  const Vista = vistas[codice];
+  return <section ref={raiz} className={`cx-codice cg-rango-${rango.clave.toLowerCase()}`} aria-label={`Detalles de ${item.nombre}`}>
     <button type="button" className="cg-back" disabled={estado.ocupado} onClick={() => navegar(volver)}>
       <ArrowLeft size={17} />Volver a la colección
     </button>
-    <Clasica ctx={ctx} />
+    {rastro?.length && irA ? <Rastro rastro={rastro} items={props.items} volver={() => navegar(volver)} irA={i => navegar(() => irA(i))} /> : null}
+    <Vista ctx={{ ...contenido, ranuras }} />
   </section>;
-}
-
-
-function Clasica<T extends PiezaGaleria>({ ctx }: { ctx: ContextoCodice<T> }) {
-  const vinculos = vinculosDe(ctx.item, ctx.props.items);
-  return <div className="cg-detail-grid">
-    <aside className="cg-detail-visual">
-      {ctx.ranuras.formas}
-      <div className="cg-detail-cover">
-        <Portada src={ctx.imagenVisible} tipo={ctx.tipo} icono={ctx.iconoVisible} />
-        <span className="cg-rank">{ctx.item.clase || "D"}</span>
-      </div>
-      {ctx.ranuras.presentacion}{ctx.ranuras.estado}
-    </aside>
-    <div className="cg-detail-content">
-      <CabeceraCodice ctx={ctx} />
-      {ctx.ranuras.acciones}
-      <AtributosCodice ctx={ctx} />
-      <AccionesEfectos ctx={ctx} />
-      <PasivasLista ctx={ctx} />
-      <ReglasCreacion ctx={ctx} />
-      {!!vinculos.length && <section className="cg-detail-section">
-        <h3>Habilidades, pasivas y equipo</h3>
-        <div className="cg-related">{vinculos.map(x => <EnlaceCreacion key={x.id} ctx={ctx} id={x.id} />)}</div>
-      </section>}
-      <HistoriaCodice ctx={ctx} />
-      {ctx.ranuras.peligro}
-    </div>
-  </div>;
 }

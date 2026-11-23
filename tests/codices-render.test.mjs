@@ -60,3 +60,87 @@ test('enlace roto no expone un botón', () => {
   assert.match(html, /<span class="cx-no-disponible">Creación no disponible<\/span>/);
   assert.doesNotMatch(html, /aria-label="Abrir Creación no disponible"/);
 });
+
+const efecto = {id:'tajo', nombre:'Tajo', efecto:'dano', cantidad:2, caras:6, modificador:1, coste_ph:3};
+
+test('tarot: anverso y reverso accesibles, acciones y portadores', () => {
+  const item = fixture('habilidad', {id:'tajo', configuracion_dados:[efecto]});
+  const portador = fixture('personaje', {nombre:'Portadora de prueba', habilidades:[item.id]});
+  const html = ver(item, [item, portador]);
+  assert.match(html, /cx-tarot/);
+  assert.match(html, /aria-pressed="false"/);
+  assert.match(html, /is-reverso[^>]*aria-hidden="true"[^>]*inert=""/);
+  for (const texto of ['Lectura', 'Tajo', '2d6', '3 PH', 'Lanzar', 'La portan', portador.nombre]) {
+    assert.ok(html.includes(texto), texto);
+  }
+});
+
+test('bestiario: portada y navegación, sin láminas vacías ni controles fantasma', () => {
+  const item = fixture('personaje', {
+    tipo:'bestia', stats:{vida:10}, historia:'La crónica de prueba',
+    configuracion_monstruo:{variantes:[{id:'v1', nombre:'Primera', peso:1},{id:'v2', nombre:'Segunda', peso:3}]}
+  });
+  const html = ver(item);
+  for (const texto of ['aria-roledescription="libro"', 'Ficha de campo', 'Página 1', 'de 5', 'Lámina', 'Variantes']) {
+    assert.ok(html.includes(texto), texto);
+  }
+  assert.match(html, /<button[^>]*disabled=""[^>]*>[^<]*(?:<svg[\s\S]*?<\/svg>)?Anterior/);
+  const vacio = ver(fixture('personaje', {tipo:'bestia'}));
+  assert.ok(vacio.includes('de 2'));
+  assert.doesNotMatch(vacio, /Anatomía|Variantes/);
+});
+
+test('reliquia: placa, consumible y ascenso', () => {
+  const html = ver(fixture('objeto', {
+    slot_tipo:'casco', consumible:true,
+    configuracion_artefacto:{niveles:[
+      {nivel:1,nombre:'Despertar',condicion_subida:null,cambios:{}},
+      {nivel:2,nombre:'Hambre',condicion_subida:{tipo:'contador',contador:'armas devoradas',meta:4},cambios:{stats:{dano:2}}},
+    ]},
+  }));
+  for (const texto of ['Cabeza', 'Consumible', 'Despertar del artefacto', 'Inicial', '4 armas devoradas', 'dano +2']) {
+    assert.ok(html.includes(texto), texto);
+  }
+});
+
+test('sello: anillo SVG y cadena ritual', () => {
+  const html = ver(fixture('pasiva', {reglas_pasivas:[{
+    id:'r1', nombre:'Protección', evento:'recibir_dano', condicion:'vida_mitad', reduccion_pct:20,
+  }]}));
+  for (const texto of ['role="img"', '<textPath', 'Ritual', 'Al recibir daño', 'Vida a la mitad', 'Reduce 20% de daño']) {
+    assert.ok(html.includes(texto), texto);
+  }
+});
+
+test('edicto heráldico y pergamino de reserva', () => {
+  const edicto = ver(fixture('titulo', {stats:{fuerza:2}}));
+  for (const texto of ['Por decreto de Kuroi', '+2']) assert.ok(edicto.includes(texto), texto);
+  const pergamino = ver(fixture('otro', {tipo_creacion:'desconocido'}));
+  assert.match(pergamino, /cx-rollo/);
+  assert.match(pergamino, /<h2[^>]*>Creación otro<\/h2>/);
+});
+
+test('expediente: grimorio, arsenal y tres clases de miniatura enlazada', () => {
+  const h = fixture('habilidad',{id:'h'});
+  const p = fixture('pasiva',{id:'p'});
+  const o = fixture('objeto',{id:'o',slot_tipo:'casco'});
+  const item = fixture('personaje',{habilidades:['h'],pasivas:['p'],equipamiento:{casco:'o'},stats:{vida:12,fuerza:2,armadura:3}});
+  const html = ver(item,[item,h,p,o]);
+  for (const texto of ['Grimorio','Arsenal','Cabeza','Mano derecha: vacío','cx-mini-tarot','cx-mini-sello','cx-mini-reliquia','Preparar batalla','Editar ficha']) {
+    assert.ok(html.includes(texto), texto);
+  }
+  for (const x of [h,p,o]) assert.ok(html.includes(`aria-label="Abrir ${x.nombre}"`));
+  const armaDos = {...o,slot_tipo:'dos_manos'};
+  const conArma = ver({...item,equipamiento:{mano_izq:'o'}},[h,p,armaDos]);
+  assert.doesNotMatch(conArma, /Mano derecha: vacío/);
+  assert.equal(conArma.split('aria-label="Abrir Creación objeto"').length, 2);
+});
+
+test('rastro: retorno accionable y miga actual', () => {
+  const a = fixture('personaje',{id:'a',nombre:'Bestia Alfa'});
+  const b = fixture('habilidad',{id:'b',nombre:'Arcano Beta'});
+  const html = ver(b,[a,b],{rastro:['a','b'],irA:nada});
+  assert.match(html,/aria-label="Rastro de creaciones"/);
+  assert.match(html,/<button[^>]*>Bestia Alfa<\/button>/);
+  assert.match(html,/<span aria-current="page">Arcano Beta<\/span>/);
+});
