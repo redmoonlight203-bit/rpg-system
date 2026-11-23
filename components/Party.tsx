@@ -31,6 +31,7 @@ import IconoYugen from "./IconoYugen";
 import { destinosPersonaje, type DestinoPersonaje, type Personaje } from "../lib/personajes";
 import "./personajes.css";
 import "./party.css";
+import {useDialogo} from "../components/Dialogo";
 type Cuenta = { id: string; email: string };
 type Fuente = {
   id: string;
@@ -42,6 +43,7 @@ type Fuente = {
   es_grupo: boolean;
 };
 export default function Party({ gm = false }: { gm?: boolean }) {
+  const {confirmar}=useDialogo();
   const router = useRouter(),
     bloqueo = useRef(false),
     vigente = useRef("");
@@ -308,18 +310,16 @@ export default function Party({ gm = false }: { gm?: boolean }) {
                 <button
                   className="pj-button"
                   disabled={ocupado}
-                  onClick={() => {
+                  onClick={() => void (async () => {
                     if (
-                      window.confirm(
-                        `¿Retirar a ${p.nombre} de esta party? Volverá al control del GM y las pertenencias del alma regresarán al baúl de su dueño.`,
-                      )
+                      await confirmar({titulo:"Retirar de la party",mensaje:`¿Retirar a ${p.nombre} de esta party? Volverá al control del GM y las pertenencias del alma regresarán al baúl de su dueño.`,aceptar:"Retirar",peligro:true})
                     )
                       void operar(
                         "party_retirar",
                         { p_personaje: p.id },
                         "NPC retirado. Conserva su ficha y progreso bajo control del GM.",
                       );
-                  }}
+                  })()}
                 >
                   <UserMinus size={15} />
                   Retirar de la party

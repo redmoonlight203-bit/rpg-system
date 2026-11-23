@@ -11,10 +11,11 @@ import IconoYugen from '../IconoYugen';
 import LogoYugen from '../LogoYugen';
 import {TableroCombate,BarraCombate,type FichaTablero} from '../TableroCombate';
 import type {TiradaVisual} from '../AnimacionDados';
-import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,
- type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
+import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,
+ type PausaArena,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
 import {vistaOcular,acciones,deshacer,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
- type Accion,type Combate,type Posicion,type RNG} from '../../lib/combate';
+ type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
+import {useDialogo} from '../Dialogo';
 import type {Efecto} from '../../lib/creacion';
 import type {ProcedenciaMapa,SuperficieMapa} from '../../lib/mapas-procedurales';
 import {atlasYugen} from '../../lib/tileset-yugen';
@@ -77,6 +78,8 @@ const kuroi=(e:unknown,respaldo:string)=>mensajeError(e,respaldo).replace(/\.?$/
 const seguro=<T,>(f:()=>T,respaldo:T):T=>{try{return f();}catch{return respaldo;}};
 
 function ArenaDolls({b,ctx,grafo,onEncender}:Props){
+ const {confirmar}=useDialogo();
+ const decidirReaccion=(o:OfertaReaccion)=>confirmar({titulo:o.reaccion,mensaje:o.nombre+' puede usar '+o.reaccion+' por '+o.coste+' PH. ¿Usarla?',aceptar:'Usar',cancelar:'No usar'});
  const [doll,setDoll]=useState<Ajustes>(SIN_AJUSTES);
  const [saco,setSaco]=useState<Ajustes>(SIN_AJUSTES);
  // Dónde puso el GM los sacos: se conserva al reiniciar y al reconstruir la prueba con cambios del borrador.
@@ -180,13 +183,14 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const reaccionSinEfecto=b.tipo!=='habilidad'&&b.tipo!=='personaje'&&b.efectos.some(e=>e.reaccion||e.defensa);
 
  /** Un paso de la prueba: aplica, recoge los dados para la barra y enciende los nodos que actuaron. */
- function paso(f:(c:Combate,rng:RNG)=>Combate,respaldo:string,despues?:(n:Combate)=>void){
+ function paso(f:(c:Combate,rng:RNG)=>Combate,respaldo:string,despues?:(n:Combate)=>void,previa?:PausaArena,respuesta?:boolean){
   if(!c)return;
-  const dados:TiradaVisual[]=[];
-  const rng:RNG=caras=>{const v=dadoSeguro(caras);if(dados.length<8)dados.push({caras,valor:v});return v;};
-  let n:Combate;
-  rng.consultarReaccion=o=>window.confirm(o.nombre+' puede usar '+o.reaccion+' por '+o.coste+' PH. ¿Usarla?');
-  try{n=f(c,rng);}catch(e){setVoz(kuroi(e,respaldo));return;}
+  let r:ReturnType<typeof pasoConReacciones>;
+  try{r=pasoConReacciones(f,c,dadoSeguro,previa,respuesta);}catch(e){setVoz(kuroi(e,respaldo));return;}
+  // Una reacción ofrecida espera la decisión en pantalla; el golpe se repite con las mismas tiradas.
+  if('pausa' in r){const pausa=r.pausa;void decidirReaccion(pausa.oferta).then(si=>paso(f,respaldo,despues,pausa,si));return;}
+  const dados:TiradaVisual[]=r.tiradas.slice(0,8);
+  let n=r.combate;
   if(n.evento_visual&&!n.evento_visual.dados?.length&&dados.length)n={...n,evento_visual:{...n.evento_visual,dados}};
   setEstado(s=>({...s,combate:n}));setVoz('');
   let ids:string[]=[];try{ids=activados(c,n,grafo);}catch{/* encender es solo visual */}
