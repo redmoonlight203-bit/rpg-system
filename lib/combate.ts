@@ -2,6 +2,7 @@ import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion } from "./creacion";
+import {PLANTILLAS_REACCION} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
@@ -502,17 +503,6 @@ function activarReglas(
     }
   }
 }
-/**
- * Defensas de Kion expresadas como datos de la primitiva «Reacción» (plan del Yunque general, fase 2).
- * Las creaciones antiguas con `defensa` usan estas plantillas; las nuevas configuran `reaccion` en la Forja.
- */
-export const PLANTILLAS_REACCION:Record<NonNullable<Efecto["defensa"]>,Reaccion>={
-  inercia:{prioridad:10,principal:{salvacion:{cd:14,atributo:'salvacion'},reducir:{modo:'mitad'},animacion:'axioma-defensa',permite_seguimiento:true}},
-  absorcion:{naturaleza:'magica',principal:{reducir:{modo:'fijo',valor:6},reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10},animacion:'axioma-conservacion'},seguimiento:{reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10}}},
-  reflejo:{naturaleza:'fisica',forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},devolver:{},animacion:'axioma-reaccion'},seguimiento:{devolver:{maximo:10}}},
-  reciproco:{naturaleza:'fisica',sin_forma:'limitless',seguimiento:{devolver:{maximo:6}}},
-  ancla:{naturaleza:'fisica',sin_forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},animacion:'axioma-reaccion'}},
-};
 export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion||(e.defensa?PLANTILLAS_REACCION[e.defensa]:undefined);}
 function recibir(
   c: Combate,

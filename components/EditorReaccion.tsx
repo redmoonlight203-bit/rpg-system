@@ -1,7 +1,7 @@
 'use client';
 import type {Reaccion,ResultadoReaccion} from '../lib/creacion';
 import {describirReaccion} from '../lib/descripciones';
-import {PLANTILLAS_REACCION} from '../lib/combate';
+import {PLANTILLAS_REACCION} from '../lib/reacciones';
 
 const NOMBRES_PLANTILLA:Record<string,string>={inercia:'Inercia (Kion)',absorcion:'Absorción (Kion)',reflejo:'Reflejo (Kion)',reciproco:'Recíproco (Kion)',ancla:'Ancla (Kion)'};
 

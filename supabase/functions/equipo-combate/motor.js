@@ -97,6 +97,48 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
+const { PLANTILLAS_REACCION } = (() => {
+const DISPARADORES = ['antes_ser_atacado', 'despues_ser_atacado', 'tras_fallar_ataque', 'tras_fallar_prueba', 'aliado_atacado', 'aliado_ataca', 'aliado_cae', 'apuntado_por_area', 'fin_de_turno'];
+const NOMBRE_DISPARADOR = {
+    antes_ser_atacado: 'Antes de que me ataquen',
+    despues_ser_atacado: 'Al recibir un golpe',
+    tras_fallar_ataque: 'Tras fallar un ataque',
+    tras_fallar_prueba: 'Tras fallar una salvación',
+    aliado_atacado: 'Cuando atacan a un aliado cercano',
+    aliado_ataca: 'Cuando un aliado golpea',
+    aliado_cae: 'Cuando cae un aliado',
+    apuntado_por_area: 'Al quedar dentro de un área',
+    fin_de_turno: 'Al terminar el turno de un enemigo cercano',
+};
+const RESULTADOS_POR_DISPARADOR = {
+    antes_ser_atacado: ['reducir', 'contraatacar', 'salvacion', 'animacion'],
+    despues_ser_atacado: ['reducir', 'devolver', 'reservar', 'salvacion', 'animacion', 'contraatacar', 'esquiva_opuesta', 'seguimiento'],
+    tras_fallar_ataque: ['repetir_tirada'],
+    tras_fallar_prueba: ['repetir_tirada'],
+    aliado_atacado: ['interponerse', 'reducir', 'salvacion', 'animacion'],
+    aliado_ataca: ['contraatacar', 'animacion'],
+    aliado_cae: ['contraatacar', 'animacion'],
+    apuntado_por_area: ['reducir', 'salvacion', 'animacion'],
+    fin_de_turno: ['contraatacar', 'animacion'],
+};
+const ACOMPANANTES = ['salvacion', 'animacion'];
+/** Los disparadores que miran a otro combatiente usan un alcance (casillas); por defecto, adyacente. */
+const CON_ALCANCE = ['aliado_atacado', 'aliado_ataca', 'aliado_cae', 'fin_de_turno'];
+const disparadorDe = (r) => r.disparador || 'despues_ser_atacado';
+/**
+ * Plantillas de reacción: datos listos para rellenar el editor. Las cinco primeras reproducen las defensas de Kion;
+ * el motor no las conoce por su nombre: una creación antigua con `defensa` se normaliza al cargarla.
+ */
+const PLANTILLAS_REACCION = {
+    inercia: { prioridad: 10, principal: { salvacion: { cd: 14, atributo: 'salvacion' }, reducir: { modo: 'mitad' }, animacion: 'axioma-defensa', permite_seguimiento: true } },
+    absorcion: { naturaleza: 'magica', principal: { reducir: { modo: 'fijo', valor: 6 }, reservar: { recurso: 'Energía absorbida', proporcion: 0.5, maximo: 10 }, animacion: 'axioma-conservacion' }, seguimiento: { reservar: { recurso: 'Energía absorbida', proporcion: 0.5, maximo: 10 } } },
+    reflejo: { naturaleza: 'fisica', forma: 'limitless', principal: { reducir: { modo: 'fijo', valor: 4 }, devolver: {}, animacion: 'axioma-reaccion' }, seguimiento: { devolver: { maximo: 10 } } },
+    reciproco: { naturaleza: 'fisica', sin_forma: 'limitless', seguimiento: { devolver: { maximo: 6 } } },
+    ancla: { naturaleza: 'fisica', sin_forma: 'limitless', principal: { reducir: { modo: 'fijo', valor: 4 }, animacion: 'axioma-reaccion' } },
+};
+
+return { PLANTILLAS_REACCION };
+})();
 const { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION } = (() => {
 const PATRONES_OJO = [
     { valor: 'anillos', nombre: 'Anillos' },
@@ -608,17 +650,6 @@ function activarReglas(c, a, t, rs, rng) {
         }
     }
 }
-/**
- * Defensas de Kion expresadas como datos de la primitiva «Reacción» (plan del Yunque general, fase 2).
- * Las creaciones antiguas con `defensa` usan estas plantillas; las nuevas configuran `reaccion` en la Forja.
- */
-export const PLANTILLAS_REACCION = {
-    inercia: { prioridad: 10, principal: { salvacion: { cd: 14, atributo: 'salvacion' }, reducir: { modo: 'mitad' }, animacion: 'axioma-defensa', permite_seguimiento: true } },
-    absorcion: { naturaleza: 'magica', principal: { reducir: { modo: 'fijo', valor: 6 }, reservar: { recurso: 'Energía absorbida', proporcion: 0.5, maximo: 10 }, animacion: 'axioma-conservacion' }, seguimiento: { reservar: { recurso: 'Energía absorbida', proporcion: 0.5, maximo: 10 } } },
-    reflejo: { naturaleza: 'fisica', forma: 'limitless', principal: { reducir: { modo: 'fijo', valor: 4 }, devolver: {}, animacion: 'axioma-reaccion' }, seguimiento: { devolver: { maximo: 10 } } },
-    reciproco: { naturaleza: 'fisica', sin_forma: 'limitless', seguimiento: { devolver: { maximo: 6 } } },
-    ancla: { naturaleza: 'fisica', sin_forma: 'limitless', principal: { reducir: { modo: 'fijo', valor: 4 }, animacion: 'axioma-reaccion' } },
-};
 export function reaccionDe(e) { return e.reaccion || (e.defensa ? PLANTILLAS_REACCION[e.defensa] : undefined); }
 function recibir(c, a, t, e, total, rs, rng) {
     const alDano = reactivas(t, e, "recibir_dano");
@@ -656,13 +687,13 @@ function recibir(c, a, t, e, total, rs, rng) {
                 Object.assign(a, danarTransformado(a, res.devolver.maximo === undefined ? cantidad : Math.min(cantidad, res.devolver.maximo)).actor);
         };
         // Principales por prioridad (estable): la primera que se paga resuelve el golpe, aunque falle su salvación.
-        const principales = reacciones.map((x, i) => ({ ...x, i })).filter(x => x.r.principal && !x.r.esquiva_opuesta && aplica(x.r)).sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i);
+        const principales = reacciones.map((x, i) => ({ ...x, i })).filter(x => x.r.principal?.reducir && !x.r.esquiva_opuesta && aplica(x.r)).sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i);
         for (const x of principales) {
-            const pr = x.r.principal;
+            const pr = x.r.principal, reducir = pr.reducir;
             if (!pagar(x.p))
                 continue;
             if (!pr.salvacion || salvacion(c, t, pr.salvacion.cd, pr.salvacion.atributo, rng)) {
-                const detenido = pr.reducir.modo === 'todo' ? total : pr.reducir.modo === 'mitad' ? total - Math.floor(total / 2) : Math.min(total, pr.reducir.valor || 0);
+                const detenido = reducir.modo === 'todo' ? total : reducir.modo === 'mitad' ? total - Math.floor(total / 2) : Math.min(total, reducir.valor || 0);
                 total -= detenido;
                 resolver(pr, detenido);
                 if (pr.permite_seguimiento) {

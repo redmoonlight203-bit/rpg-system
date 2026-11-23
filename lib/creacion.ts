@@ -124,7 +124,8 @@ export type Efecto = {
   portal?:boolean;
   vuelo?:boolean;
   aterrizar?:boolean;
-  defensa?:'inercia'|'absorcion'|'reciproco'|'ancla'|'reflejo';
+  /** Clave de plantilla de las creaciones antiguas; al cargar se convierte en `reaccion` (normalizarReaccion). */
+  defensa?:string;
   recurso?: {nombre:string; inicial:number; cambio:number; descargar?:boolean};
   aprendizaje?:{bono:number;cd:number};
   companero_magico?:string;

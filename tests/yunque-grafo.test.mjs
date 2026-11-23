@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {cargarDependencia} from './helpers/cargar-ts.mjs';
 const {aGrafo,estabilizar}=cargarDependencia('yunque-grafo');
 const {describirEfecto,describirReaccion}=cargarDependencia('descripciones');
-const {PLANTILLAS_REACCION}=cargarDependencia('combate');
+const {PLANTILLAS_REACCION}=cargarDependencia('yunque-plantillas');
 const F=JSON.parse(readFileSync(new URL('./fixtures/yunque-borradores.json',import.meta.url),'utf8'));
 const clon=x=>JSON.parse(JSON.stringify(x));
 const json=x=>JSON.parse(JSON.stringify(x));

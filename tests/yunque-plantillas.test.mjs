@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {cargarDependencia} from './helpers/cargar-ts.mjs';
-const {PLANTILLAS}=cargarDependencia('yunque-plantillas');
+const {PLANTILLAS,PLANTILLAS_REACCION}=cargarDependencia('yunque-plantillas');
 const {aplicar}=cargarDependencia('yunque-operaciones');
 const {aGrafo}=cargarDependencia('yunque-grafo');
 const {vacio}=cargarDependencia('yunque-borrador');
 const {validarEfectos}=cargarDependencia('creacion');
 const {validarReglas}=cargarDependencia('reglas');
 const {validarPasivas}=cargarDependencia('pasivas');
-const {validarTactica,PLANTILLAS_REACCION}=cargarDependencia('combate');
+const {validarTactica}=cargarDependencia('combate');
 const {crearArena}=cargarDependencia('yunque-arena');
 const json=x=>JSON.parse(JSON.stringify(x));
 const ctx={creaciones:[]};
@@ -75,4 +76,10 @@ test('en la arena: el golpe quema, el teletransporte golpea y el Escudo Astral g
  assert.equal(40-m(escudo,'doll').vida,6,'detiene la mitad de 12');
  assert.equal(m(escudo,'doll').recursos_especiales['Energía astral'],6,'guarda lo detenido');
  assert.equal(m(escudo,'saco').vida,60-6,'devuelve lo detenido al saco');
+});
+
+test('el motor no conoce los nombres de Kion: son solo plantillas',()=>{
+ const motor=readFileSync(new URL('../lib/combate.ts',import.meta.url),'utf8');
+ for(const n of ['inercia','absorcion','reflejo','reciproco','ancla'])assert.ok(!new RegExp(n,'i').test(motor),n);
+ assert.equal(cargarDependencia('combate').PLANTILLAS_REACCION,undefined,'combate.ts no exporta las plantillas');
 });

@@ -34,3 +34,15 @@ export const ACOMPANANTES:ClaveResultado[]=['salvacion','animacion'];
 /** Los disparadores que miran a otro combatiente usan un alcance (casillas); por defecto, adyacente. */
 export const CON_ALCANCE:DisparadorReaccion[]=['aliado_atacado','aliado_ataca','aliado_cae','fin_de_turno'];
 export const disparadorDe=(r:Reaccion):DisparadorReaccion=>r.disparador||'despues_ser_atacado';
+/**
+ * Plantillas de reacción: datos listos para rellenar el editor. Las cinco primeras reproducen las defensas de Kion;
+ * el motor no las conoce por su nombre: una creación antigua con `defensa` se normaliza al cargarla.
+ */
+export const PLANTILLAS_REACCION:Record<string,Reaccion>={
+
+  inercia:{prioridad:10,principal:{salvacion:{cd:14,atributo:'salvacion'},reducir:{modo:'mitad'},animacion:'axioma-defensa',permite_seguimiento:true}},
+  absorcion:{naturaleza:'magica',principal:{reducir:{modo:'fijo',valor:6},reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10},animacion:'axioma-conservacion'},seguimiento:{reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10}}},
+  reflejo:{naturaleza:'fisica',forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},devolver:{},animacion:'axioma-reaccion'},seguimiento:{devolver:{maximo:10}}},
+  reciproco:{naturaleza:'fisica',sin_forma:'limitless',seguimiento:{devolver:{maximo:6}}},
+  ancla:{naturaleza:'fisica',sin_forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},animacion:'axioma-reaccion'}},
+};
