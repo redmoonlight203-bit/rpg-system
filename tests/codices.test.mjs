@@ -175,3 +175,37 @@ test('seccionesVisibles respeta orden y visibilidad',()=>{
  base.codices.sello.secciones=[{clave:'historia',visible:true,titulo:'H'},{clave:'ritual',visible:false,titulo:'R'},{clave:'reglas',visible:true,titulo:'G'}];
  assert.deepEqual(plano(c.seccionesVisibles(base,'sello')).map(s=>s.clave),['historia','reglas']);
 });
+
+// ---- Ampliación A: persistencia ----
+const memoria=(inicial=null)=>{let v=inicial;return {leer:()=>v,escribir:s=>{v=s;},get valor(){return v;}};};
+
+test('leerConfiguracion: el servidor manda y se normaliza',async()=>{
+ const local=memoria(JSON.stringify({rastro:{max:3}}));
+ const r=await c.leerConfiguracion(async()=>({data:{config:{rastro:{max:5}}},error:null}),local);
+ assert.equal(r.origen,'servidor');assert.equal(r.config.rastro.max,5);assert.equal(r.error,undefined);
+});
+
+test('leerConfiguracion: sin fila en el servidor usa la copia local o la base',async()=>{
+ const conLocal=await c.leerConfiguracion(async()=>({data:null,error:null}),memoria(JSON.stringify({rastro:{max:3}})));
+ assert.equal(conLocal.origen,'local');assert.equal(conLocal.config.rastro.max,3);
+ const sinNada=await c.leerConfiguracion(async()=>({data:null,error:null}),memoria());
+ assert.equal(sinNada.origen,'base');assert.equal(sinNada.config.rastro.max,8);
+});
+
+test('leerConfiguracion: un fallo del servidor no rompe la vista',async()=>{
+ const tablaFalta=await c.leerConfiguracion(async()=>({data:null,error:{code:'PGRST205',message:'not found'}}),memoria());
+ assert.equal(tablaFalta.origen,'base');assert.match(tablaFalta.error,/aún no está preparada/);
+ const lanza=await c.leerConfiguracion(async()=>{throw Error('red');},memoria('no es json'));
+ assert.equal(lanza.origen,'base');assert.match(lanza.error,/No se pudo leer/);
+ const localRoto=await c.leerConfiguracion(async()=>({data:null,error:null}),{leer(){throw Error('bloqueado');},escribir(){}});
+ assert.equal(localRoto.origen,'base');
+});
+
+test('escribirConfiguracion guarda en el servidor y en la copia local',async()=>{
+ const local=memoria(),enviado=[];
+ const base=c.configuracionBase();
+ const ok=await c.escribirConfiguracion(base,async cfg=>{enviado.push(cfg);return {error:null};},local);
+ assert.equal(ok.origen,'servidor');assert.equal(enviado.length,1);assert.equal(JSON.parse(local.valor).version,1);
+ const falla=await c.escribirConfiguracion(base,async()=>({error:{code:'42501',message:'Solo el GM puede configurar los códices.'}}),local);
+ assert.equal(falla.origen,'local');assert.match(falla.error,/Solo el GM/);
+});

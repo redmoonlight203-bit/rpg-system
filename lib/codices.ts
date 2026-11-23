@@ -288,3 +288,41 @@ export function tirarPrueba(e:Pick<Efecto,'cantidad'|'caras'|'modificador'>,rng:
   const dados=Array.from({length:cantidad},()=>Math.min(caras,Math.max(1,1+Math.floor(rng()*caras))));
   return {dados,total:dados.reduce((n,d)=>n+d,0)+(Number(e.modificador)||0)};
 }
+
+// ---- Persistencia: servidor (tabla forja_codices) con copia local de respaldo ----
+export type AlmacenLocal={leer:()=>string|null;escribir:(texto:string)=>void};
+export type OrigenConfiguracion='servidor'|'local'|'base';
+type RespuestaServidor={data:unknown;error:{code?:string;message?:string}|null};
+
+function mensajeServidor(error:{code?:string;message?:string}|null|undefined,accion:string):string{
+  if(error?.code==='PGRST205'||error?.code==='42P01')return 'La configuración de códices aún no está preparada en el servidor; se usa la copia de este navegador.';
+  return error?.message?`${accion}: ${error.message}`:`${accion}.`;
+}
+function leerLocal(local:AlmacenLocal):unknown{
+  try{const texto=local.leer();return texto?JSON.parse(texto):null;}catch{return null;}
+}
+
+/** Lee la configuración: servidor → copia local → valores por defecto. Nunca lanza. */
+export async function leerConfiguracion(servidor:()=>Promise<RespuestaServidor>,local:AlmacenLocal):Promise<{config:ConfiguracionCodices;origen:OrigenConfiguracion;avisos:string[];error?:string}>{
+  let error:string|undefined,remota:unknown=null;
+  try{
+    const r=await servidor();
+    if(r.error)error=mensajeServidor(r.error,'No se pudo leer la configuración de códices');
+    else remota=(r.data as {config?:unknown}|null)?.config??null;
+  }catch(e){error=`No se pudo leer la configuración de códices: ${e instanceof Error?e.message:String(e)}`;}
+  if(remota){const n=normalizarConfiguracion(remota);return {...n,origen:'servidor'};}
+  const copia=leerLocal(local);
+  if(copia){const n=normalizarConfiguracion(copia);return error?{...n,origen:'local',error}:{...n,origen:'local'};}
+  const base={config:configuracionBase(),avisos:[] as string[],origen:'base' as const};
+  return error?{...base,error}:base;
+}
+
+/** Guarda en el servidor y siempre deja copia local; si el servidor falla, informa y conserva la copia. */
+export async function escribirConfiguracion(config:ConfiguracionCodices,servidor:(c:ConfiguracionCodices)=>Promise<{error:{code?:string;message?:string}|null}>,local:AlmacenLocal):Promise<{origen:'servidor'|'local';error?:string}>{
+  try{local.escribir(JSON.stringify(config));}catch{/* sin almacenamiento local: solo servidor */}
+  try{
+    const r=await servidor(config);
+    if(r.error)return {origen:'local',error:mensajeServidor(r.error,'No se pudo guardar en el servidor')};
+    return {origen:'servidor'};
+  }catch(e){return {origen:'local',error:`No se pudo guardar en el servidor: ${e instanceof Error?e.message:String(e)}`};}
+}

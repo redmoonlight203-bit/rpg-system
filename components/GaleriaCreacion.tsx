@@ -18,6 +18,7 @@ import {describirEfecto,describirRegla,type AyudaClara} from "../lib/descripcion
 import ContenidoAyuda from "./ContenidoAyuda";
 import "./galeria-creacion.css";
 import VistaCodice from "./codices/VistaCodice";
+import {useConfigCodices} from "./codices/useConfigCodices";
 import {useDialogo} from "./Dialogo";
 import {useRouter} from "next/navigation";
 import type {ConfiguracionMonstruo} from "../lib/monstruos";
@@ -83,6 +84,7 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGale
   const duenos = duenosConPersonales(props.items);
   const dueno = (i: T) => duenoDe(i, props.items);
   const [seleccion, setSeleccion] = useState<string | null>(null);
+  const codices = useConfigCodices();
   const volverRef = useRef<HTMLButtonElement>(null);
   const seleccionada = props.items.find((i) => i.id === seleccion);
   const abrir = (id: string) => { setSeleccion(id); };
@@ -94,7 +96,7 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGale
   // Vista de baraja: el filtro de ámbito es el id de un personaje con creaciones personales.
   const baraja = duenos.find((d) => d.id === ambito) || null;
   const personalesOcultas = ambito === "generales" && busqueda.trim() ? props.items.filter((i) => i.personal_de && coincide(i)).length : 0;
-  if (seleccionada) return <VistaCodice key={seleccionada.id} item={seleccionada} props={props} volver={volver} abrir={abrir} />;
+  if (seleccionada) return <VistaCodice key={seleccionada.id} item={seleccionada} props={props} volver={volver} abrir={abrir} config={codices.config} onVerComo={(id, codice) => { void codices.verComo(id, codice); }} />;
   return <section className="cg-gallery" aria-label="Galería de La creación">
     <header className="cg-gallery-head"><div><span className="cg-eyebrow">TU COLECCIÓN</span><h2>La creación</h2><p>Personajes, objetos y todo lo que da vida a tu mundo.</p></div><button className="cg-button cg-primary" onClick={props.onNueva}><ImagePlus size={17} />Nueva creación</button></header>
     <div className="cg-search"><Search size={19} /><input aria-label="Buscar creaciones" placeholder="Busca una creación por nombre o descripción…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
