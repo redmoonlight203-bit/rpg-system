@@ -2,7 +2,7 @@ import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion, type ContraataqueReaccion } from "./creacion";
-import {proyectarVista,desproyectar,type OpcionesEspejo} from "./espejo-mental";
+import {proyectarVista,desproyectar,proyectarRespuesta,type OpcionesEspejo} from "./espejo-mental";
 import {activarVoz,avanzarVoz,vozNiega,type ConfigVoces,type EstadoVoz} from "./artefactos-voces";
 import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type DisparadorReaccion} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
@@ -573,9 +573,11 @@ function conMiembro(c:Combate,id:string,fn:(n:Combate,m:Combatiente)=>void){
   return registrar(c,()=>{const n=copia(c),m=n.miembros.find(x=>x.id===id);if(!m)throw Error('Combatiente no encontrado.');fn(n,m);return n;});
 }
 /** Tomar el artefacto: salvación; si falla, la voz queda pendiente hasta que el GM la elija. */
+/** Sin nadie a quien preguntar, las reacciones del jugador no se gastan solas: se rechazan. */
+const sinPreguntar=(rng:RNG):RNG=>rng.consultarReaccion?rng:Object.assign((caras:number)=>rng(caras),{consultarReaccion:()=>false});
 export function tomarArtefacto(c:Combate,id:string,config:ConfigVoces,rng:RNG=dadoSeguro){
   return conMiembro(c,id,(n,m)=>{
-    if(salvacion(n,m,config.cd,config.atributo,rng)){log(n,`${m.nombre} empuña el artefacto y acalla su voz.`);return;}
+    if(salvacion(n,m,config.cd,config.atributo,sinPreguntar(rng))){log(n,`${m.nombre} empuña el artefacto y acalla su voz.`);return;}
     m.voz_artefacto={estado:'pendiente'};m.voz_config=copia(config);
     log(n,`${m.nombre} empuña el artefacto: una voz se abre paso en su mente.`);
   });
@@ -593,7 +595,7 @@ export function responderVoz(c:Combate,id:string,respuesta:string){
     if(v?.estado!=='activa'||v.tipo!=='pregunta')throw Error('No hay ninguna pregunta que responder.');
     if(v.respuesta)throw Error('Ya respondiste a la voz.');
     const r=String(respuesta||'').trim();
-    if(v.opciones?.length?!v.opciones.includes(r):!r||r.length>200)throw Error('Elige una de las opciones de la voz.');
+    if(v.opciones?.length?!v.opciones.some(o=>o.trim()===r):!r||r.length>200)throw Error('Elige una de las opciones de la voz.');
     m.voz_artefacto={...v,respuesta:r};
     log(n,`${m.nombre} responde a la voz: «${r}».`);
   });
@@ -606,7 +608,7 @@ export function resistirVoz(c:Combate,id:string,rng:RNG=dadoSeguro){
     if(m.voz_resistida)throw Error('Ya repetiste la prueba: solo una vez por encuentro.');
     m.voz_resistida=true;
     const cfg=m.voz_config;
-    if(salvacion(n,m,cfg?.cd??14,cfg?.atributo??'voluntad',rng)){delete m.voz_artefacto;log(n,`${m.nombre} se impone a la voz.`);}
+    if(salvacion(n,m,cfg?.cd??14,cfg?.atributo??'voluntad',sinPreguntar(rng))){delete m.voz_artefacto;log(n,`${m.nombre} se impone a la voz.`);}
     else log(n,`La voz sigue negándole a ${m.nombre} su habilidad.`);
   });
 }
@@ -626,6 +628,8 @@ export function quitarEspejo(c:Combate,id:string){
   return conMiembro(c,id,(n,m)=>{delete m.espejo_mental;log(n,`${m.nombre}: el GM disipa el espejo mental.`);});
 }
 export const estaDominado=(m:Combatiente)=>m.estados.some(e=>e.tipo==='dominado');
+/** El GM decide las reacciones de enemigos, NPC sin jugador, dominados y poseídos. */
+export const reaccionLaDecideGM=(m:Pick<Combatiente,'bando'|'personaje_id'|'estados'|'transformacion'>)=>m.bando==='enemigo'||!m.personaje_id||m.estados.some(e=>e.tipo==='dominado')||!!m.transformacion?.descontrolada;
 /** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
 export function reaccionesDe(c:Combate,m:Combatiente):{id:string;nombre:string;disparador:DisparadorReaccion;linea:string;lista:boolean}[]{
   return efectosConReaccion(m).filter((p):p is Efecto&{reaccion:Reaccion}=>!!p.reaccion).map(p=>{
@@ -652,9 +656,11 @@ function resolverPrincipal(c:Combate,dueno:Combatiente,d:ReaccionDisponible,rng:
 }
 /** Ofrece el disparador a cada candidato y resuelve las que acepta. */
 function dispararReacciones(c:Combate,candidatos:Combatiente[],disparador:DisparadorReaccion,rng:RNG,ctx:{efecto?:Efecto;cerca?:Combatiente;victima?:Combatiente;protegido?:(dueno:Combatiente)=>Combatiente|undefined;hasta?:()=>boolean}){
-  for(const dueno of candidatos)for(const d of evaluarReacciones(c,dueno,disparador,ctx)){
+  for(const dueno of candidatos)for(const previa of evaluarReacciones(c,dueno,disparador,ctx)){
     if(ctx.hasta?.())return;
-    if(ofrecer(c,dueno,d,rng,disparador))resolverPrincipal(c,dueno,d,rng,{victima:ctx.victima,protegido:ctx.protegido?.(dueno)});
+    // Otra reacción aceptada antes pudo gastar los PH o los usos: se vuelve a comprobar.
+    const d=disponibilidad(c,dueno,previa.p,previa.r);
+    if(d&&ofrecer(c,dueno,d,rng,disparador))resolverPrincipal(c,dueno,d,rng,{victima:ctx.victima,protegido:ctx.protegido?.(dueno)});
   }
 }
 function recibir(
@@ -1077,6 +1083,8 @@ export function acciones(m: Combatiente) {
 /** IA simple y determinista para la criatura poseída. Nunca cambia su bando:
  * puede atacar aliados y enemigos indistintamente sin regalar la victoria al
  * bando original. El servidor ejecuta la acción, no el cliente del jugador. */
+/** Una pausa de reacción (motor o arena) nunca se trata como un intento fallido. */
+function esPausaReaccion(e:unknown){return !(e instanceof Error)||(e as {pausa_reaccion?:boolean}).pausa_reaccion===true;}
 function resolverTurnoDescontrolado(c:Combate,actorId:string,rng:RNG){
  let actor=c.miembros.find(m=>m.id===actorId);
  if(!actor||!actor.transformacion?.descontrolada||!combatienteActivo(actor)||actor.accion_usada)return;
@@ -1096,7 +1104,7 @@ function resolverTurnoDescontrolado(c:Combate,actorId:string,rng:RNG){
     Object.assign(c,n);
     log(c,`${actor!.nombre} poseído ataca sin distinguir aliados de enemigos: ${t.nombre}.`);
     return true;
-   }catch{continue;}
+   }catch(e){if(esPausaReaccion(e))throw e;continue;}
   }
   return false;
  };
@@ -1502,8 +1510,9 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
       const objetivo = t;
       for (const w of n.miembros.filter(w=>w.id!==objetivo.id&&w.id!==a.id&&w.bando===objetivo.bando)) {
         let interpuesto = false;
-        for (const d of evaluarReacciones(n, w, "aliado_atacado", {efecto:e, cerca:objetivo})) {
-          if (!ofrecer(n, w, d, rng, "aliado_atacado")) continue;
+        for (const previa of evaluarReacciones(n, w, "aliado_atacado", {efecto:e, cerca:objetivo})) {
+          const d = disponibilidad(n, w, previa.p, previa.r);
+          if (!d || !ofrecer(n, w, d, rng, "aliado_atacado")) continue;
           const seInterpone = !!d.r.principal?.interponerse;
           if (!resolverPrincipal(n, w, d, rng, {protegido: seInterpone ? w : objetivo})) continue;
           if (seInterpone) { log(n, `${w.nombre} se interpone y recibe el ataque dirigido a ${objetivo.nombre}.`); interpuesto = true; break; }
@@ -1754,7 +1763,7 @@ function resolverGolpe(c:Combate,orden:OrdenGolpe,tiradas:SolicitudReaccion['tir
   if(previo){if(previo.caras!==caras)throw Error('El ataque cambió durante la reacción.');return previo.valor;}
   const valor=azar(caras);tiradas.push({caras,valor});return valor;
  };
- class Pausa extends Error{constructor(readonly oferta:OfertaReaccion){super();}}
+ class Pausa extends Error{readonly pausa_reaccion=true;constructor(readonly oferta:OfertaReaccion){super();}}
  rng.consultarReaccion=oferta=>{
   if(pregunta===respuestas.length)throw new Pausa(oferta);
   return respuestas[pregunta++];
@@ -2390,4 +2399,4 @@ export function vistaOcular(c: Combate, id: string): VistaOcular | null {
 }
 
 /** Proyección del espejo mental para la vista de un jugador (la Edge Function la aplica a su respuesta). */
-export {proyectarVista,desproyectar};
+export {proyectarVista,desproyectar,proyectarRespuesta};

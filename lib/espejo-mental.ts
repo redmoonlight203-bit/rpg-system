@@ -34,3 +34,25 @@ export function proyectarVista<V extends {tablero?:Dims;objetivos?:{id:string;no
 /** Casilla real de un clic hecho sobre la vista reflejada (mover, centro de un área). */
 export function desproyectar(p:Pos,o:OpcionesEspejo,d:Dims):Pos{return o.espejar?reflejar(p,d):{...p};}
 export const AVISO_ESPEJO='Tu mente se confunde';
+const ESPEJO_DIRECCION:Record<string,string>={e:'o',o:'e',ne:'no',no:'ne',se:'so',so:'se',n:'n',s:'s'};
+type Ocular={objetivos?:Record<string,{puntos?:string[]}>;amenaza?:string[]}|null|undefined;
+/**
+ * Respuesta completa para el jugador afectado: proyecta la vista, la vista ocular y todo lo que lleve nombres o
+ * bandos reales (registro, turno, quién decide una reacción). Sin espejo devuelve la respuesta tal cual.
+ */
+export function proyectarRespuesta<V extends Parameters<typeof proyectarVista>[0]&{ocular?:Ocular;registro?:string[];actual?:string;actual_id?:string|null;reaccion_esperando?:string}>(real:V,propio:string,e:(OpcionesEspejo&{aviso?:boolean})|null|undefined):V&{espejo?:{aviso?:string;confirmar:boolean}}{
+  if(!e)return real;
+  const v=proyectarVista(real,propio,e);
+  const d=v.tablero||{columnas:10,filas:10};
+  if(v.ocular){
+    const o=v.ocular;
+    if(e.espejar){
+      if(o.amenaza)o.amenaza=o.amenaza.map(k=>clave(k,d));
+      for(const x of Object.values(o.objetivos||{}))if(x.puntos)x.puntos=x.puntos.map(p=>ESPEJO_DIRECCION[p]||p);
+    }
+    if(e.intercambiar)o.objetivos={};
+  }
+  const confunde=e.ocultar||e.intercambiar;
+  return {...v,...(confunde?{registro:['Tu mente se confunde: no distingues lo que ocurre.'],actual:real.actual_id===propio?real.actual:'???',...(real.reaccion_esperando!==undefined?{reaccion_esperando:'???'}:{})}:{}),
+    espejo:{aviso:e.aviso?AVISO_ESPEJO:undefined,confirmar:!!e.confirmar}};
+}

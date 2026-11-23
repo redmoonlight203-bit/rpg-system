@@ -97,7 +97,7 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
-const { proyectarVista, desproyectar } = (() => {
+const { proyectarVista, desproyectar, proyectarRespuesta } = (() => {
 const reflejar = (p, d) => ({ x: d.columnas - 1 - p.x, y: p.y });
 const clave = (k, d) => { const [x, y] = k.split(',').map(Number); return `${d.columnas - 1 - x},${y}`; };
 const OTRO = { jugador: 'enemigo', enemigo: 'jugador' };
@@ -140,8 +140,34 @@ function proyectarVista(vista, propio, o) {
 /** Casilla real de un clic hecho sobre la vista reflejada (mover, centro de un área). */
 function desproyectar(p, o, d) { return o.espejar ? reflejar(p, d) : { ...p }; }
 const AVISO_ESPEJO = 'Tu mente se confunde';
+const ESPEJO_DIRECCION = { e: 'o', o: 'e', ne: 'no', no: 'ne', se: 'so', so: 'se', n: 'n', s: 's' };
+/**
+ * Respuesta completa para el jugador afectado: proyecta la vista, la vista ocular y todo lo que lleve nombres o
+ * bandos reales (registro, turno, quién decide una reacción). Sin espejo devuelve la respuesta tal cual.
+ */
+function proyectarRespuesta(real, propio, e) {
+    if (!e)
+        return real;
+    const v = proyectarVista(real, propio, e);
+    const d = v.tablero || { columnas: 10, filas: 10 };
+    if (v.ocular) {
+        const o = v.ocular;
+        if (e.espejar) {
+            if (o.amenaza)
+                o.amenaza = o.amenaza.map(k => clave(k, d));
+            for (const x of Object.values(o.objetivos || {}))
+                if (x.puntos)
+                    x.puntos = x.puntos.map(p => ESPEJO_DIRECCION[p] || p);
+        }
+        if (e.intercambiar)
+            o.objetivos = {};
+    }
+    const confunde = e.ocultar || e.intercambiar;
+    return { ...v, ...(confunde ? { registro: ['Tu mente se confunde: no distingues lo que ocurre.'], actual: real.actual_id === propio ? real.actual : '???', ...(real.reaccion_esperando !== undefined ? { reaccion_esperando: '???' } : {}) } : {}),
+        espejo: { aviso: e.aviso ? AVISO_ESPEJO : undefined, confirmar: !!e.confirmar } };
+}
 
-return { proyectarVista, desproyectar };
+return { proyectarVista, desproyectar, proyectarRespuesta };
 })();
 const { activarVoz, avanzarVoz, vozNiega } = (() => {
 const NOMBRE_VOZ = { pregunta: 'Pregunta', comentario: 'Comentario', negativa: 'Negativa' };
@@ -847,9 +873,11 @@ function conMiembro(c, id, fn) {
         throw Error('Combatiente no encontrado.'); fn(n, m); return n; });
 }
 /** Tomar el artefacto: salvación; si falla, la voz queda pendiente hasta que el GM la elija. */
+/** Sin nadie a quien preguntar, las reacciones del jugador no se gastan solas: se rechazan. */
+const sinPreguntar = (rng) => rng.consultarReaccion ? rng : Object.assign((caras) => rng(caras), { consultarReaccion: () => false });
 export function tomarArtefacto(c, id, config, rng = dadoSeguro) {
     return conMiembro(c, id, (n, m) => {
-        if (salvacion(n, m, config.cd, config.atributo, rng)) {
+        if (salvacion(n, m, config.cd, config.atributo, sinPreguntar(rng))) {
             log(n, `${m.nombre} empuña el artefacto y acalla su voz.`);
             return;
         }
@@ -874,7 +902,7 @@ export function responderVoz(c, id, respuesta) {
         if (v.respuesta)
             throw Error('Ya respondiste a la voz.');
         const r = String(respuesta || '').trim();
-        if (v.opciones?.length ? !v.opciones.includes(r) : !r || r.length > 200)
+        if (v.opciones?.length ? !v.opciones.some(o => o.trim() === r) : !r || r.length > 200)
             throw Error('Elige una de las opciones de la voz.');
         m.voz_artefacto = { ...v, respuesta: r };
         log(n, `${m.nombre} responde a la voz: «${r}».`);
@@ -890,7 +918,7 @@ export function resistirVoz(c, id, rng = dadoSeguro) {
             throw Error('Ya repetiste la prueba: solo una vez por encuentro.');
         m.voz_resistida = true;
         const cfg = m.voz_config;
-        if (salvacion(n, m, cfg?.cd ?? 14, cfg?.atributo ?? 'voluntad', rng)) {
+        if (salvacion(n, m, cfg?.cd ?? 14, cfg?.atributo ?? 'voluntad', sinPreguntar(rng))) {
             delete m.voz_artefacto;
             log(n, `${m.nombre} se impone a la voz.`);
         }
@@ -915,6 +943,8 @@ export function quitarEspejo(c, id) {
     return conMiembro(c, id, (n, m) => { delete m.espejo_mental; log(n, `${m.nombre}: el GM disipa el espejo mental.`); });
 }
 export const estaDominado = (m) => m.estados.some(e => e.tipo === 'dominado');
+/** El GM decide las reacciones de enemigos, NPC sin jugador, dominados y poseídos. */
+export const reaccionLaDecideGM = (m) => m.bando === 'enemigo' || !m.personaje_id || m.estados.some(e => e.tipo === 'dominado') || !!m.transformacion?.descontrolada;
 /** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
 export function reaccionesDe(c, m) {
     return efectosConReaccion(m).filter((p) => !!p.reaccion).map(p => {
@@ -947,10 +977,12 @@ function resolverPrincipal(c, dueno, d, rng, ctx) {
 /** Ofrece el disparador a cada candidato y resuelve las que acepta. */
 function dispararReacciones(c, candidatos, disparador, rng, ctx) {
     for (const dueno of candidatos)
-        for (const d of evaluarReacciones(c, dueno, disparador, ctx)) {
+        for (const previa of evaluarReacciones(c, dueno, disparador, ctx)) {
             if (ctx.hasta?.())
                 return;
-            if (ofrecer(c, dueno, d, rng, disparador))
+            // Otra reacción aceptada antes pudo gastar los PH o los usos: se vuelve a comprobar.
+            const d = disponibilidad(c, dueno, previa.p, previa.r);
+            if (d && ofrecer(c, dueno, d, rng, disparador))
                 resolverPrincipal(c, dueno, d, rng, { victima: ctx.victima, protegido: ctx.protegido?.(dueno) });
         }
 }
@@ -1440,6 +1472,8 @@ export function acciones(m) {
 /** IA simple y determinista para la criatura poseída. Nunca cambia su bando:
  * puede atacar aliados y enemigos indistintamente sin regalar la victoria al
  * bando original. El servidor ejecuta la acción, no el cliente del jugador. */
+/** Una pausa de reacción (motor o arena) nunca se trata como un intento fallido. */
+function esPausaReaccion(e) { return !(e instanceof Error) || e.pausa_reaccion === true; }
 function resolverTurnoDescontrolado(c, actorId, rng) {
     let actor = c.miembros.find(m => m.id === actorId);
     if (!actor || !actor.transformacion?.descontrolada || !combatienteActivo(actor) || actor.accion_usada)
@@ -1464,7 +1498,9 @@ function resolverTurnoDescontrolado(c, actorId, rng) {
                     log(c, `${actor.nombre} poseído ataca sin distinguir aliados de enemigos: ${t.nombre}.`);
                     return true;
                 }
-                catch {
+                catch (e) {
+                    if (esPausaReaccion(e))
+                        throw e;
                     continue;
                 }
             }
@@ -1986,8 +2022,9 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
             const objetivo = t;
             for (const w of n.miembros.filter(w => w.id !== objetivo.id && w.id !== a.id && w.bando === objetivo.bando)) {
                 let interpuesto = false;
-                for (const d of evaluarReacciones(n, w, "aliado_atacado", { efecto: e, cerca: objetivo })) {
-                    if (!ofrecer(n, w, d, rng, "aliado_atacado"))
+                for (const previa of evaluarReacciones(n, w, "aliado_atacado", { efecto: e, cerca: objetivo })) {
+                    const d = disponibilidad(n, w, previa.p, previa.r);
+                    if (!d || !ofrecer(n, w, d, rng, "aliado_atacado"))
                         continue;
                     const seInterpone = !!d.r.principal?.interponerse;
                     if (!resolverPrincipal(n, w, d, rng, { protegido: seInterpone ? w : objetivo }))
@@ -2232,6 +2269,7 @@ function resolverGolpe(c, orden, tiradas, respuestas, azar) {
     };
     class Pausa extends Error {
         oferta;
+        pausa_reaccion = true;
         constructor(oferta) {
             super();
             this.oferta = oferta;
@@ -3136,4 +3174,4 @@ export function vistaOcular(c, id) {
     };
 }
 /** Proyección del espejo mental para la vista de un jugador (la Edge Function la aplica a su respuesta). */
-export { proyectarVista, desproyectar };
+export { proyectarVista, desproyectar, proyectarRespuesta };

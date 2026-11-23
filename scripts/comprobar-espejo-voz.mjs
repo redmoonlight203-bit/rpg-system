@@ -29,8 +29,7 @@ function vista(){
   actor:{id:'p',personaje_id:'7',nombre:m.nombre,vida:m.vida,max_vida:motor.maxVida(m),ph:motor.phDisponibles(m),fatiga:m.fatiga,stats:motor.estadisticas(m),accion_usada:m.accion_usada,estados:m.estados.map(e=>e.nombre),reacciones:motor.reaccionesDe(c,m),dominado:motor.estaDominado(m),voz:m.voz_artefacto?.estado==='activa'?{...m.voz_artefacto,puede_resistir:!m.voz_resistida}:undefined},
   acciones:motor.acciones(m).map(a=>({...a,enfriamiento:m.cooldowns[a.id]||0})),
   objetivos:c.miembros.map(x=>({id:x.id,nombre:x.nombre,bando:x.bando,caido:x.vida<=0,vida:x.vida,max_vida:motor.maxVida(x),estados:x.estados.map(e=>e.nombre),posicion:pos[x.id]}))};
- const e=m.espejo_mental;
- return e?{...motor.proyectarVista(real,'p',e),...(e.ocultar||e.intercambiar?{registro:['Tu mente se confunde: no distingues lo que ocurre.'],actual:real.actual_id==='p'?real.actual:'???'}:{}),espejo:{aviso:e.aviso?'Tu mente se confunde':undefined,confirmar:!!e.confirmar}}:real;
+ return motor.proyectarRespuesta(real,'p',m.espejo_mental);
 }
 const cors={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'*'};
 const interceptar=async route=>{const req=route.request(),p=new URL(req.url()).pathname;

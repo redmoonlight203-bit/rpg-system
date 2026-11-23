@@ -45,7 +45,7 @@ import {
   retirar,
   iniciar,
   siguiente,
-  actuarConReacciones,responderReaccion,turnoConReacciones,
+  actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,
   acciones,
   estadisticas,
   maxVida,
@@ -151,7 +151,7 @@ export default function CampoCombate() {
   });
   const oferta=c.reaccion_pendiente?.oferta;
   const defensor=c.miembros.find(m=>m.id===oferta?.defensor);
-  const decideGM=defensor&&(defensor.bando==='enemigo'||!defensor.personaje_id);
+  const decideGM=!!defensor&&reaccionLaDecideGM(defensor);
   const bloqueado=ocupado||segura.pendiente||!!oferta;
 
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
