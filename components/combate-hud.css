@@ -157,3 +157,25 @@
  .tactical-hud{position:static;margin-top:16px}
  .tactical-field .tactical-scroll{height:calc(100dvh - 110px)}
 }
+/* Recursos del catálogo (plan maestro, Apéndice C) y estados con icono, duración y frase (Apéndice B · paso 11). */
+.heroe-recursos{display:grid;gap:4px;margin-top:4px}
+.recurso-barra{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;font:600 11px var(--font-sans);color:var(--color-text-muted)}
+.recurso-nombre{letter-spacing:.06em;text-transform:uppercase;color:color-mix(in srgb,var(--recurso) 70%,var(--color-text))}
+.recurso-barra b{font:700 13px var(--font-display);color:var(--recurso)}
+.recurso-gemas{display:flex;gap:3px;flex-wrap:wrap}
+.recurso-gemas i{width:10px;height:10px;transform:rotate(45deg);border:1px solid color-mix(in srgb,var(--recurso) 70%,transparent);background:var(--color-well);transition:background-color .3s ease,box-shadow .3s ease}
+.recurso-gemas i.llena{background:var(--recurso);box-shadow:0 0 8px var(--recurso);animation:recurso-chispa .5s ease-out}
+.recurso-linea{height:6px;border-radius:3px;background:var(--color-well);overflow:hidden}
+.recurso-linea i{display:block;height:100%;background:var(--recurso);box-shadow:0 0 8px var(--recurso);transition:width .4s ease}
+.heroe-estados--detalle{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 0;padding:0;list-style:none}
+.estado-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid var(--color-line);border-radius:999px;background:var(--color-well);font:600 11.5px var(--font-sans);color:var(--color-text);cursor:help;animation:estado-entra .35s ease-out}
+.estado-chip b{min-width:16px;padding:0 4px;border-radius:999px;background:color-mix(in srgb,var(--color-text) 14%,transparent);text-align:center}
+.estado-chip.estado-mental{border-color:color-mix(in srgb,#b583ff 60%,transparent);color:#d8c1ff}
+.estado-chip.estado-elemental{border-color:color-mix(in srgb,#6cc8ff 55%,transparent)}
+.estado-chip.estado-fisico{border-color:color-mix(in srgb,#e0485b 55%,transparent)}
+.estado-chip:focus-visible{outline:2px solid var(--color-gold);outline-offset:2px}
+@keyframes recurso-chispa{from{transform:rotate(45deg) scale(1.6)}}
+@keyframes estado-entra{from{transform:scale(.7);opacity:0}}
+@media (prefers-reduced-motion:reduce){.recurso-gemas i.llena,.estado-chip{animation:none}.recurso-linea i{transition:none}}
+.heroe-estados.heroe-estados--detalle{height:auto;overflow:visible}
+.battle-recurso{border-color:var(--recurso)!important;color:var(--recurso)}

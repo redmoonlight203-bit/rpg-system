@@ -404,7 +404,7 @@ function describirInmunidades(lista) {
 
 return { comprobarInmunidad, norm };
 })();
-const { definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
+const { describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
 const { validarInmunidades } = (() => {
 const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
 const MODOS_INMUNIDAD = ['bloquear_dano', 'bloquear_aplicacion', 'bloquear_todo', 'resistir'];
@@ -661,7 +661,7 @@ function describirEstado(d) {
 /** Nueva definición vacía para el editor. */
 const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', icono: 'fuego', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
 
-return { definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
+return { describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
 })();
 const { potenciar, potenciadoresPara, etiquetasDe } = (() => {
 const { validarRecurso } = (() => {
@@ -3244,6 +3244,10 @@ export function recursosDe(m) {
     return [...vistos.values()];
 }
 export const saldoRecurso = (m, d) => m.recursos_especiales?.[d.id] ?? d.inicial;
+/** Estados para la tarjeta del combatiente: icono, duración y la misma frase que el editor del Yunque. */
+export function estadosVisibles(m) {
+    return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d?.icono || 'yugen', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
+}
 /** Barra de recursos para la tarjeta y la ficha, con su nombre configurado. */
 export function recursosVisibles(m, gm = false) {
     return recursosDe(m).filter(d => gm || d.visible !== "gm").map(d => ({ id: d.id, nombre: d.nombre, saldo: saldoRecurso(m, d), tope: topeRecurso(d, estadisticas(m)), color: d.color, visible: d.visible || "todos" }));

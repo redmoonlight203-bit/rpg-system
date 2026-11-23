@@ -7,7 +7,7 @@ import {activarVoz,avanzarVoz,vozNiega,type ConfigVoces,type EstadoVoz} from "./
 import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type DisparadorReaccion} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
 import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./inmunidades";
-import {definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
+import {describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
 import {potenciar,potenciadoresPara,etiquetasDe,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
@@ -1966,6 +1966,10 @@ export function recursosDe(m: Combatiente): DefinicionRecurso[] {
   return [...vistos.values()];
 }
 export const saldoRecurso = (m: Combatiente, d: DefinicionRecurso) => m.recursos_especiales?.[d.id] ?? d.inicial;
+/** Estados para la tarjeta del combatiente: icono, duración y la misma frase que el editor del Yunque. */
+export function estadosVisibles(m: Pick<Combatiente, 'estados'>) {
+  return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d?.icono || 'yugen', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
+}
 /** Barra de recursos para la tarjeta y la ficha, con su nombre configurado. */
 export function recursosVisibles(m: Combatiente, gm = false) {
   return recursosDe(m).filter(d => gm || d.visible !== "gm").map(d => ({ id: d.id, nombre: d.nombre, saldo: saldoRecurso(m, d), tope: topeRecurso(d, estadisticas(m)), color: d.color, visible: d.visible || "todos" }));

@@ -9,6 +9,8 @@ import {CATALOGO_ESTADOS,estadoVacio,definicionBase} from '../../../lib/estados'
 import {Interruptor} from '../Controles';
 import EditorDefensas from './EditorDefensas';
 import EditorEstados from './EditorEstados';
+import EditorRasgo,{rasgoVacio} from './EditorRasgo';
+import {ETIQUETAS,NOMBRE_ETIQUETA,etiquetasDe} from '../../../lib/rasgos';
 import type {Borrador} from '../../../lib/yunque-borrador';
 import type {Nodo} from '../../../lib/yunque-grafo';
 import type {Operacion} from '../../../lib/yunque-operaciones';
@@ -72,6 +74,8 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
   {pasivo&&<>
    <h4 className="yq-ficha-titulo">Defensas e inmunidades</h4>
    <EditorDefensas valor={e.inmunidades||[]} onChange={inmunidades=>patch({inmunidades:inmunidades.length?inmunidades:undefined})} objeto={b.tipo==='objeto'} porTurnos={false}/>
+   <Interruptor etiqueta="Concede un rasgo combinable (recursos y potenciadores)" valor={!!e.rasgo} onChange={v=>patch({rasgo:v?e.rasgo||rasgoVacio():undefined})}/>
+   {e.rasgo&&<EditorRasgo valor={e.rasgo} onChange={rasgo=>patch({rasgo})}/>}
   </>}
   {!pasivo&&<>
   <Fichas etiqueta="Qué hace" opciones={EFECTOS} valor={e.efecto} onChange={cambiarEfecto}/>
@@ -100,6 +104,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
    <label><span>Fatiga</span><Rueda nombre="coste_fatiga" etiqueta="Fatiga que genera" valor={e.coste_fatiga||0} min={0} max={999} onChange={coste_fatiga=>patch({coste_fatiga})} compacta/></label>
    {dura&&<label><span>Turnos</span><Rueda nombre="duracion" etiqueta="Cuántos turnos dura" valor={e.duracion} min={e.efecto==='crear_arma'?1:0} max={999} onChange={duracion=>patch({duracion})} compacta/></label>}
   </div>
+  {e.efecto==='dano'&&<fieldset className="yq-fichas yq-etiquetas"><legend>Etiquetas de técnica (potenciadores compatibles)</legend><div>{ETIQUETAS.map(t=>{const derivada=etiquetasDe({...e,etiquetas:[]}).includes(t),on=derivada||!!e.etiquetas?.includes(t);return <button key={t} type="button" aria-pressed={on} disabled={derivada} title={derivada?'Se deduce de la acción':undefined} onClick={()=>{const l=on?(e.etiquetas||[]).filter(x=>x!==t):[...(e.etiquetas||[]),t];patch({etiquetas:l.length?l:undefined});}}><span>{NOMBRE_ETIQUETA[t]}</span></button>;})}</div></fieldset>}
   {(e.efecto==='dano'||e.efecto==='estado')&&<details className="yq-mente">
    <summary>Mente e inmunidades{e.categoria==='mental'?' · mental':''}{e.ignora?.length?` · atraviesa ${e.ignora.length}`:''}</summary>
    <Interruptor etiqueta="Es un efecto mental" valor={e.categoria==='mental'} onChange={v=>patch({categoria:v?'mental':undefined,subcategoria:v?e.subcategoria||'control':undefined})}/>

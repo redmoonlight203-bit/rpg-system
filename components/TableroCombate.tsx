@@ -1,6 +1,7 @@
 "use client";
 import FondoMapaProcedural from './FondoMapaProcedural';
 import {useEffect,useMemo,useRef,useState} from 'react';
+import IconoYugen from './IconoYugen';
 import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight, FlaskConical, X} from 'lucide-react';
 import EfectosCombate,{AuraTransformacion} from './EfectosCombate';
 import AnimacionesArmas from './AnimacionesArmas';
@@ -205,7 +206,13 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
   <span className="sr-only" role="status">{cambios.map(c=>`${fichas.find(f=>f.id===c.id)?.nombre||'Participante'}: ${c.delta>0?'+':'−'}${Math.abs(c.delta)} de vida`).join('. ')}</span>
  </section>;
 }
-export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[]};
+export type RecursoBarra={id:string;nombre:string;saldo:number;tope:number;color?:string};
+export type EstadoBarra={id:string;nombre:string;icono:string;restantes:number;frase:string;categoria?:string};
+export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[];
+ /** Estados con icono, duración y la frase del Yunque (tooltip). */
+ estados_detalle?:EstadoBarra[];
+ /** Recursos del catálogo (Carga Bioeléctrica, Furia…) con su nombre configurado. */
+ recursos?:RecursoBarra[]};
 /** Consumible en la barra: pociones y pergaminos con su cantidad y enfriamiento. */
 export type ConsumibleBarra={id:string;nombre:string;cantidad:number;detalle?:string;enfriamiento?:number;bloqueada?:string;imagen_url?:string};
 
@@ -219,11 +226,23 @@ export function PanelHeroe({actor,phReal,puede}:{actor:ActorBarra;phReal:number;
    <strong className="heroe-nombre">{actor.nombre}{capa!=='suelo'&&<small className={`heroe-capa capa-${capa}`}>{CAPAS[capa].nombre}</small>}</strong>
    <BarraVital etiqueta="Vida" valor={Number(actor.vida.toFixed(1))} max={actor.max_vida} tipo="vida"/>
    <div className="heroe-reservas"><BarraVital etiqueta="PH" valor={phReal} max={maxPh} tipo="ph"/>{maxFatiga>0&&<BarraVital etiqueta="Fatiga" valor={actor.fatiga} max={maxFatiga} tipo="fatiga"/>}</div>
-   <div className="heroe-estados">{estados.length?<>{estados.slice(0,3).map(e=><span key={e}>{e}</span>)}{estados.length>3&&<span title={estados.slice(3).join(', ')}>+{estados.length-3}</span>}</>:<small>{actor.accion_usada?'Acción utilizada':'Acción disponible'}</small>}</div>
+   {!!actor.recursos?.length&&<div className="heroe-recursos">{actor.recursos.map(r=><RecursoGemas key={r.id} r={r}/>)}</div>}
+   {actor.estados_detalle?.length?<ul className="heroe-estados heroe-estados--detalle" aria-label="Estados">{actor.estados_detalle.map(e=><li key={e.id} className={`estado-chip estado-${e.categoria||'narrativo'}`} title={e.frase} aria-label={e.frase} tabIndex={0}><IconoYugen id={e.icono} size={14}/><span>{e.nombre.split(':')[0]}</span>{e.restantes>0&&<b>{e.restantes}</b>}</li>)}</ul>:
+   <div className="heroe-estados">{estados.length?<>{estados.slice(0,3).map(e=><span key={e}>{e}</span>)}{estados.length>3&&<span title={estados.slice(3).join(', ')}>+{estados.length-3}</span>}</>:<small>{actor.accion_usada?'Acción utilizada':'Acción disponible'}</small>}</div>}
   </div>
  </div>;
 }
 
+/** Recurso del catálogo como gemas que se encienden (o barra si el tope es grande). */
+function RecursoGemas({r}:{r:RecursoBarra}){
+ const color={['--recurso' as string]:r.color||'var(--color-gold)'};
+ return <div className="recurso-barra" style={color} role="meter" aria-label={r.nombre} aria-valuemin={0} aria-valuemax={r.tope} aria-valuenow={r.saldo} title={`${r.nombre}: ${r.saldo} / ${r.tope}`}>
+  <span className="recurso-nombre">{r.nombre}</span>
+  {r.tope<=10?<span className="recurso-gemas">{Array.from({length:r.tope},(_,i)=><i key={i} className={i<r.saldo?'llena':undefined}/>)}</span>
+   :<span className="recurso-linea"><i style={{width:`${Math.round(100*r.saldo/Math.max(1,r.tope))}%`}}/></span>}
+  <b>{r.saldo}</b>
+ </div>;
+}
 function ArteRanura({src,respaldo}:{src?:string;respaldo:React.ReactNode}){
  return src ? <span className="tactical-slot-arte" aria-hidden="true"><FotoEncuadrada src={src} fallback={respaldo}/></span> : respaldo;
 }

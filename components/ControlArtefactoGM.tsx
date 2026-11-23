@@ -3,7 +3,7 @@
 // desde el paso 3.5, el espejo mental. El GM decide; las tiradas solo abren la puerta.
 import {useState} from "react";
 import {Brain,Crown,FlipHorizontal2,Skull} from "lucide-react";
-import {tomarArtefacto,asignarVoz,dominar,estaDominado,lanzarEspejo,quitarEspejo,type Combate,type Combatiente} from "../lib/combate";
+import {tomarArtefacto,asignarVoz,dominar,estaDominado,lanzarEspejo,quitarEspejo,controlDe,cortarControl,type Combate,type Combatiente} from "../lib/combate";
 import {NOMBRE_VOZ} from "../lib/artefactos-voces";
 import type {ConfiguracionArtefacto} from "../lib/artefactos";
 import "./control-artefacto.css";
@@ -26,7 +26,9 @@ export default function ControlArtefactoGM({c,m,artefactos,ocupado,aplicar,extra
    {m.voz_config?.voces.map(z=><button key={z.id} type="button" disabled={ocupado} className={`is-${z.tipo}`} onClick={()=>aplicar(x=>asignarVoz(x,m.id,z.id))}><small>{NOMBRE_VOZ[z.tipo]}</small>{z.texto}</button>)}</div>}
   {voz?.estado==="activa"&&<p className={`gm-mente-activa is-${voz.tipo}`}>«{voz.texto}» · {voz.restantes} {voz.restantes===1?"turno":"turnos"}{voz.respuesta?` · responde: ${voz.respuesta}`:""}</p>}
   <div className="gm-mente-fila">
-   <button type="button" disabled={ocupado} aria-pressed={dominado} className={dominado?"is-activo":undefined} onClick={()=>aplicar(x=>dominar(x,m.id,!dominado))}><Crown size={14} aria-hidden="true"/>{dominado?"Liberar":"Dominar"}</button>
+   {controlDe(m)?.controlador==="fuente"
+    ?<button type="button" disabled={ocupado} className="is-activo" onClick={()=>aplicar(x=>cortarControl(x,m.id))}><Crown size={14} aria-hidden="true"/>Cortar control mental</button>
+    :<button type="button" disabled={ocupado} aria-pressed={dominado} className={dominado?"is-activo":undefined} onClick={()=>aplicar(x=>dominar(x,m.id,!dominado))}><Crown size={14} aria-hidden="true"/>{dominado?"Liberar":"Dominar"}</button>}
    {extra}
   </div>
   {m.espejo_mental?<div className="gm-mente-fila"><p className="gm-mente-activa">Espejo mental: {[m.espejo_mental.espejar&&"tablero reflejado",m.espejo_mental.intercambiar&&"bandos cambiados",m.espejo_mental.ocultar&&"nombres ocultos"].filter(Boolean).join(", ")} · CD {m.espejo_mental.cd??14}</p>

@@ -23,3 +23,8 @@
 .yq-mente>summary{cursor:pointer;font:600 12px var(--font-display);letter-spacing:.14em;text-transform:uppercase;color:var(--color-arcane)}
 .yq-mente[open]{display:grid;gap:10px;padding-bottom:10px}
 .yq-primitivas{display:grid;gap:8px}
+.yq-recurso{border-color:color-mix(in srgb,var(--recurso) 55%,var(--color-line))}
+.yq-recurso-gema{width:10px;height:10px;transform:rotate(45deg);background:var(--recurso);box-shadow:0 0 8px var(--recurso)}
+.yq-componente{display:grid;gap:6px;padding:8px;border-left:2px solid var(--color-arcane);background:color-mix(in srgb,var(--color-arcane) 6%,transparent)}
+.yq-fila input[type=color]{width:42px;height:30px;padding:0;border:1px solid var(--color-line);background:none}
+.yq-fila input:not([type]),.yq-fila input[type=text]{padding:6px 8px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px var(--font-sans)}
