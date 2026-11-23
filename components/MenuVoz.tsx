@@ -1,7 +1,7 @@
 "use client";
 // La voz del artefacto en la pantalla del portador: una pregunta con respuestas, un comentario o una negativa
 // (con «Resistir», una vez por encuentro). Llega susurrada: letras que tiemblan sobre un velo carmesí.
-import {useEffect,useState} from "react";
+import {useState,useSyncExternalStore} from "react";
 import {createPortal} from "react-dom";
 import {Skull} from "lucide-react";
 import type {EstadoVoz} from "../lib/artefactos-voces";
@@ -25,9 +25,8 @@ export default function MenuVoz({voz,ocupado=false,onResponder,onResistir}:{voz:
 }
 /** Las capas del juego se pintan sobre el HUD fijo: se montan en <body>. */
 function Capa({children}:{children:React.ReactNode}){
- const [raiz,setRaiz]=useState<HTMLElement|null>(null);
- useEffect(()=>setRaiz(document.body),[]);
- return raiz?createPortal(children,raiz):null;
+ const enCliente=useSyncExternalStore(()=>()=>{},()=>true,()=>false);
+ return enCliente?createPortal(children,document.body):null;
 }
 /** Aviso en primera persona del espejo mental, flotando sobre todo. */
 export function AvisoEspejo({texto}:{texto:string}){
