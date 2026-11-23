@@ -6,7 +6,17 @@ export type CondicionSubida={tipo:'contador';contador:string;meta:number}|{tipo:
 export type NivelArtefacto={nivel:number;nombre:string;condicion_subida:CondicionSubida|null;cambios:{stats?:Record<string,number>;descripcion?:string}};
 export type ConfiguracionArtefacto={niveles:NivelArtefacto[];
   /** Tabla d100: la fila `tirada-1` es la forma que toma el artefacto con un portador. Vacía = «Forma N». */
-  formas?:string[]};
+  formas?:string[];
+  /** Tramos de la tirada d100 al devorar un arma. Sin tramos se usan TRAMOS_BASE. */
+  tramos?:TramoAbsorcion[]};
+export type TramoAbsorcion={desde:number;hasta:number;nombre:string;
+  /** Cuántas estadísticas del arma se quedan, o todas. */
+  estadisticas:{min:number;max:number}|'todas';
+  habilidades:number|'todas';
+  pasivas:boolean};
+export type ArmaDevorable={nombre:string;stats:Record<string,number>;habilidades:{id:string;nombre:string}[];pasivas:{id:string;nombre:string}[]};
+export type Absorcion={arma:string;tirada:number;tramo:string;stats:Record<string,number>;habilidades:{id:string;nombre:string}[];pasivas:{id:string;nombre:string}[]};
+export type EstadoPortador={nivel:number;absorbidas:Absorcion[];eventos?:string[]};
 export type ProgresoArtefacto={contadores:Record<string,number>;eventos:string[]};
 
 const texto=(v:unknown,max=120)=>typeof v==='string'&&!!v.trim()&&v.length<=max;
@@ -29,6 +39,7 @@ export function validarArtefacto(a:unknown):string|null{
     if(st&&(typeof st!=='object'||Object.entries(st).some(([k,v])=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k)||!entero(v,-1000,1000))))return `Nivel ${n.nivel}: estadísticas inválidas.`;
     if(n.cambios?.descripcion!==undefined&&(typeof n.cambios.descripcion!=='string'||n.cambios.descripcion.length>2000))return `Nivel ${n.nivel}: descripción demasiado larga.`;
   }
+  if(x.tramos!==undefined){const f=validarTramos(x.tramos);if(f)return f;}
   if(x.formas!==undefined){
     if(!Array.isArray(x.formas)||x.formas.length!==100)return 'La tabla de formas tiene exactamente 100 filas.';
     const mala=x.formas.findIndex(f=>typeof f!=='string'||f.length>120);
@@ -61,3 +72,62 @@ export function statsDeNivel(a:ConfiguracionArtefacto,nivel:number):Record<strin
 }
 export const nivelVacio=(nivel:number):NivelArtefacto=>({nivel,nombre:nivel===1?'Despertar':`Nivel ${nivel}`,condicion_subida:nivel===1?null:{tipo:'contador',contador:'armas devoradas',meta:nivel*2},cambios:{}});
 export const artefactoVacio=():ConfiguracionArtefacto=>({niveles:[nivelVacio(1)]});
+
+const NADA={min:0,max:0};
+export const TRAMOS_BASE:TramoAbsorcion[]=[
+  {desde:1,hasta:30,nombre:'Una estadística',estadisticas:{min:1,max:1},habilidades:0,pasivas:false},
+  {desde:31,hasta:45,nombre:'Dos o tres estadísticas',estadisticas:{min:2,max:3},habilidades:0,pasivas:false},
+  {desde:46,hasta:60,nombre:'Una habilidad',estadisticas:NADA,habilidades:1,pasivas:false},
+  {desde:61,hasta:75,nombre:'Una habilidad y una estadística',estadisticas:{min:1,max:1},habilidades:1,pasivas:false},
+  {desde:76,hasta:90,nombre:'Una habilidad y varias estadísticas',estadisticas:{min:2,max:4},habilidades:1,pasivas:false},
+  {desde:91,hasta:100,nombre:'Set completo',estadisticas:'todas',habilidades:'todas',pasivas:true},
+];
+/** Los tramos cubren 1–100 en orden, sin huecos ni rangos que crucen otro tramo. */
+export function validarTramos(t:unknown):string|null{
+  if(!Array.isArray(t)||!t.length||t.length>20)return 'Configura entre 1 y 20 tramos.';
+  let esperado=1;
+  for(const [i,x] of (t as TramoAbsorcion[]).entries()){
+    if(!x||!entero(x.desde,1,100)||!entero(x.hasta,1,100)||x.hasta<x.desde)return `Tramo ${i+1}: rango inválido.`;
+    if(x.desde<esperado)return `El tramo ${i+1} (${x.desde}–${x.hasta}) cruza el tramo anterior.`;
+    if(x.desde>esperado)return `Hay un hueco: falta ${esperado}–${x.desde-1} antes del tramo ${i+1}.`;
+    if(!texto(x.nombre))return `Pon nombre al tramo ${i+1}.`;
+    const e=x.estadisticas;
+    if(e!=='todas'&&(!e||!entero(e.min,0,50)||!entero(e.max,0,50)||e.min>e.max))return `Tramo ${i+1}: el mínimo de estadísticas no puede superar el máximo.`;
+    if(x.habilidades!=='todas'&&!entero(x.habilidades,0,20))return `Tramo ${i+1}: habilidades de 0 a 20 o todas.`;
+    if(typeof x.pasivas!=='boolean')return `Tramo ${i+1}: indica si absorbe pasivas.`;
+    esperado=x.hasta+1;
+  }
+  return esperado===101?null:`Los tramos deben llegar hasta 100 (terminan en ${esperado-1}).`;
+}
+export const tramoDe=(t:TramoAbsorcion[],tirada:number)=>t.find(x=>tirada>=x.desde&&tirada<=x.hasta)!;
+type Dado=(caras:number)=>number;
+/** Elige `n` elementos distintos con el dado (sin tirar cuando no hay elección). */
+function elegir<T>(lista:T[],n:number,rng:Dado):T[]{
+  const libres=[...lista],r:T[]=[];
+  while(r.length<n&&libres.length){const i=libres.length===1?0:rng(libres.length)-1;r.push(libres.splice(i,1)[0]);}
+  return r;
+}
+/** Tira 1d100, elige el tramo y toma del arma lo que ese tramo permite. */
+export function absorber(arma:ArmaDevorable,tramos:TramoAbsorcion[],rng:Dado):Absorcion{
+  const tirada=rng(100),t=tramoDe(tramos,tirada);
+  const claves=Object.keys(arma.stats||{});
+  const e=t.estadisticas;
+  const n=e==='todas'?claves.length:e.min===e.max?e.min:e.min+rng(e.max-e.min+1)-1;
+  const stats=Object.fromEntries(elegir(claves,n,rng).map(k=>[k,arma.stats[k]]));
+  const habilidades=elegir(arma.habilidades||[],t.habilidades==='todas'?(arma.habilidades||[]).length:t.habilidades,rng);
+  const pasivas=t.pasivas?[...(arma.pasivas||[])]:[];
+  return {arma:arma.nombre,tirada,tramo:t.nombre,stats,habilidades,pasivas};
+}
+export const CONTADOR_DEVORADAS='armas devoradas';
+/** El artefacto devora un arma: guarda la absorción, suma el contador y recalcula el nivel. */
+export function devorar(a:ConfiguracionArtefacto,p:EstadoPortador,arma:ArmaDevorable,rng:Dado):EstadoPortador{
+  const absorbidas=[...p.absorbidas,absorber(arma,a.tramos||TRAMOS_BASE,rng)];
+  const nivel=Math.max(p.nivel,nivelAlcanzado(a,{contadores:{[CONTADOR_DEVORADAS]:absorbidas.length},eventos:p.eventos||[]}));
+  return {...p,absorbidas,nivel};
+}
+/** Todo lo absorbido sumado: estadísticas acumuladas y habilidades/pasivas sin repetir. */
+export function bonosAbsorbidos(p:EstadoPortador){
+  const stats:Record<string,number>={},hab=new Map<string,string>(),pas=new Map<string,string>();
+  for(const x of p.absorbidas){for(const [k,v] of Object.entries(x.stats))stats[k]=(stats[k]||0)+v;for(const h of x.habilidades)hab.set(h.id,h.nombre);for(const q of x.pasivas)pas.set(q.id,q.nombre);}
+  return {stats,habilidades:[...hab].map(([id,nombre])=>({id,nombre})),pasivas:[...pas].map(([id,nombre])=>({id,nombre}))};
+}

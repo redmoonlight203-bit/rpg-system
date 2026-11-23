@@ -1,11 +1,13 @@
 'use client';
 // Pestañas del artefacto además de «Niveles». Cada paso del plan añade la suya aquí.
 import FormasArtefacto from './FormasArtefacto';
+import AbsorcionArtefacto from './AbsorcionArtefacto';
 import type {PestanaArtefacto} from './EditorArtefacto';
 
 export function pestanasArtefacto(artefactoId?:string):PestanaArtefacto[]{
  const id=artefactoId&&artefactoId!=='nueva'?artefactoId:undefined;
  return [
-  {id:'formas',nombre:'Formas d100',contenido:(a,set)=><FormasArtefacto a={a} set={set} artefactoId={id}/>},
+  {id:'formas',nombre:'Formas y portadores',contenido:(a,set)=><FormasArtefacto a={a} set={set} artefactoId={id}/>},
+  {id:'absorcion',nombre:'Absorción',contenido:(a,set)=><AbsorcionArtefacto a={a} set={set}/>},
  ];
 }
