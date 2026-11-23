@@ -140,3 +140,11 @@ test('expediente: retrato, medallones, grimorio, arsenal y talismanes',()=>{
  assert.match(html,/cx-mini-tarot[ "]/);assert.match(html,/cx-mini-sello[ "]/);assert.match(html,/cx-mini-reliquia[ "]/);
  assert.match(html,/Preparar batalla/);
 });
+
+test('rastro: migas con la creación actual marcada',()=>{
+ const a=fixture('personaje',{id:'a',nombre:'Axel'}),b=fixture('habilidad',{id:'b',nombre:'Tajo'});
+ const html=vista(b,[a,b],{rastro:['a','b'],irA:()=>{}});
+ assert.match(html,/aria-label="Rastro de creaciones"/);
+ assert.match(html,/<button type="button">Axel<\/button>/);
+ assert.match(html,/<span aria-current="page">Tajo<\/span>/);
+});

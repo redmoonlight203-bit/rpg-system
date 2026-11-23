@@ -19,6 +19,7 @@ import ContenidoAyuda from "./ContenidoAyuda";
 import "./galeria-creacion.css";
 import VistaCodice from "./codices/VistaCodice";
 import {useConfigCodices} from "./codices/useConfigCodices";
+import {avanzarRastro} from "../lib/codices";
 import {useDialogo} from "./Dialogo";
 import {useRouter} from "next/navigation";
 import type {ConfiguracionMonstruo} from "../lib/monstruos";
@@ -83,12 +84,21 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGale
   const [ambito, setAmbito] = useState<FiltroAmbito>("generales");
   const duenos = duenosConPersonales(props.items);
   const dueno = (i: T) => duenoDe(i, props.items);
-  const [seleccion, setSeleccion] = useState<string | null>(null);
+  // Rastro de creaciones abiertas: la última es la que se lee; las anteriores son las migas.
+  const [rastro, setRastro] = useState<string[]>([]);
+  const seleccion = rastro[rastro.length - 1] ?? null;
   const codices = useConfigCodices();
   const volverRef = useRef<HTMLButtonElement>(null);
   const seleccionada = props.items.find((i) => i.id === seleccion);
-  const abrir = (id: string) => { setSeleccion(id); };
-  const volver = () => { setSeleccion(null); requestAnimationFrame(() => volverRef.current?.focus()); };
+  const abrir = (id: string) => {
+    setRastro((r) => avanzarRastro(r, id, codices.config.rastro.max));
+    requestAnimationFrame(() => {
+      const reducido = matchMedia("(prefers-reduced-motion: reduce)").matches || !codices.config.movimiento.activo;
+      document.querySelector(".cx-codice")?.scrollIntoView({ block: "start", behavior: reducido ? "auto" : "smooth" });
+    });
+  };
+  const volver = () => { setRastro([]); requestAnimationFrame(() => volverRef.current?.focus()); };
+  const irA = (i: number) => setRastro((r) => r.slice(0, i + 1));
   const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const coincide = (i: T) => (tipo === "todos" || (tipo === "monstruo" ? props.esMonstruo?.(i) : props.tipoDe(i) === tipo && (tipo!=="personaje"||!props.esMonstruo?.(i)))) && (clasificacion === "todos" || i.tipo === clasificacion) && norm(`${i.nombre} ${i.descripcion || ""} ${props.clasificacion(i.tipo)} ${dueno(i) || ""}`).includes(norm(busqueda));
   const enAmbito = filtrarAmbito(props.items, ambito);
@@ -96,7 +106,7 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGale
   // Vista de baraja: el filtro de ámbito es el id de un personaje con creaciones personales.
   const baraja = duenos.find((d) => d.id === ambito) || null;
   const personalesOcultas = ambito === "generales" && busqueda.trim() ? props.items.filter((i) => i.personal_de && coincide(i)).length : 0;
-  if (seleccionada) return <VistaCodice key={seleccionada.id} item={seleccionada} props={props} volver={volver} abrir={abrir} config={codices.config} onVerComo={(id, codice) => { void codices.verComo(id, codice); }} />;
+  if (seleccionada) return <VistaCodice key={seleccionada.id} item={seleccionada} props={props} volver={volver} abrir={abrir} rastro={rastro} irA={irA} config={codices.config} onVerComo={(id, codice) => { void codices.verComo(id, codice); }} />;
   return <section className="cg-gallery" aria-label="Galería de La creación">
     <header className="cg-gallery-head"><div><span className="cg-eyebrow">TU COLECCIÓN</span><h2>La creación</h2><p>Personajes, objetos y todo lo que da vida a tu mundo.</p></div><button className="cg-button cg-primary" onClick={props.onNueva}><ImagePlus size={17} />Nueva creación</button></header>
     <div className="cg-search"><Search size={19} /><input aria-label="Buscar creaciones" placeholder="Busca una creación por nombre o descripción…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
