@@ -1,7 +1,7 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 import {supabase} from "../../lib/supabase";
-import {configuracionBase,escribirConfiguracion,leerConfiguracion,type AlmacenLocal,type Codice,type ConfiguracionCodices,type OrigenConfiguracion} from "../../lib/codices";
+import {configuracionBase,configuracionLocal,escribirConfiguracion,leerConfiguracion,type AlmacenLocal,type Codice,type ConfiguracionCodices,type OrigenConfiguracion} from "../../lib/codices";
 
 const CLAVE_LOCAL="yugen.codices.v1";
 const local:AlmacenLocal={
@@ -23,8 +23,9 @@ export type EstadoConfigCodices={
 
 /** Configuración de los códices compartida por todo el GM (tabla forja_codices) con copia local. */
 export function useConfigCodices():EstadoConfigCodices{
-  const [config,setConfig]=useState<ConfiguracionCodices>(()=>configuracionBase());
-  const [origen,setOrigen]=useState<OrigenConfiguracion>("base");
+  // La copia local se aplica al instante; el servidor la sustituye cuando responde.
+  const [config,setConfig]=useState<ConfiguracionCodices>(()=>(typeof window!=="undefined"&&configuracionLocal(local))||configuracionBase());
+  const [origen,setOrigen]=useState<OrigenConfiguracion>(()=>typeof window!=="undefined"&&configuracionLocal(local)?"local":"base");
   const [cargando,setCargando]=useState(true);
   const [guardando,setGuardando]=useState(false);
   const [error,setError]=useState("");

@@ -209,3 +209,43 @@ test('escribirConfiguracion guarda en el servidor y en la copia local',async()=>
  const falla=await c.escribirConfiguracion(base,async()=>({error:{code:'42501',message:'Solo el GM puede configurar los códices.'}}),local);
  assert.equal(falla.origen,'local');assert.match(falla.error,/Solo el GM/);
 });
+
+// ---- Ampliación A: Taller de códices ----
+test('exportar e importar conservan la configuración',()=>{
+ const base=c.configuracionBase();base.rastro.max=12;base.codices.tarot.secciones.reverse();
+ const texto=c.exportarConfiguracion(base);
+ assert.match(texto,/"version": 1/);
+ const r=c.importarConfiguracion(texto);
+ assert.equal(r.error,undefined);assert.deepEqual(plano(r.config),plano(base));assert.deepEqual(plano(r.avisos),[]);
+});
+
+test('importar rechaza lo que no es JSON y avisa de lo que corrige',()=>{
+ assert.match(c.importarConfiguracion('{roto').error,/no es un archivo JSON/);
+ assert.match(c.importarConfiguracion('').error,/vacío/);
+ const r=c.importarConfiguracion(JSON.stringify({rastro:{max:99}}));
+ assert.equal(r.config.rastro.max,20);assert.ok(r.avisos.length===1);
+});
+
+test('seccionesDisponibles lista las del catálogo que aún no están',()=>{
+ const disp=plano(c.seccionesDisponibles({nombre:'x',eyebrow:'',secciones:[{clave:'historia',visible:true,titulo:'H'}]}));
+ assert.ok(!disp.includes('historia'));assert.equal(disp.length,c.CLAVES_SECCION.length-1);
+});
+
+test('nuevaAsignacion crea una regla válida con id único',()=>{
+ const a=c.nuevaAsignacion([{id:'regla-1'}]);
+ assert.equal(a.id,'regla-2');assert.equal(a.tipo,'*');assert.equal(a.monstruo,'*');assert.equal(a.codice,'pergamino');
+ const n=c.normalizarConfiguracion({asignaciones:[a]});assert.deepEqual(plano(n.avisos),[]);
+});
+
+test('configuracionLocal da la copia de este navegador al instante (o null)',()=>{
+ assert.equal(c.configuracionLocal(memoria()),null);
+ assert.equal(c.configuracionLocal(memoria('{roto')),null);
+ assert.equal(c.configuracionLocal({leer(){throw Error('bloqueado');},escribir(){}}),null);
+ assert.deepEqual(plano(c.configuracionLocal(memoria(JSON.stringify({porCreacion:{axel:'tarot'}}))).porCreacion),{axel:'tarot'});
+});
+
+test('leerConfiguracion: el servidor que no responde a tiempo no bloquea',async()=>{
+ const lento=()=>new Promise(()=>{});
+ const r=await c.leerConfiguracion(lento,memoria(JSON.stringify({rastro:{max:4}})),20);
+ assert.equal(r.origen,'local');assert.equal(r.config.rastro.max,4);assert.match(r.error,/no respondió/);
+});

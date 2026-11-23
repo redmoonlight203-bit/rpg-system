@@ -302,11 +302,20 @@ function leerLocal(local:AlmacenLocal):unknown{
   try{const texto=local.leer();return texto?JSON.parse(texto):null;}catch{return null;}
 }
 
-/** Lee la configuración: servidor → copia local → valores por defecto. Nunca lanza. */
-export async function leerConfiguracion(servidor:()=>Promise<RespuestaServidor>,local:AlmacenLocal):Promise<{config:ConfiguracionCodices;origen:OrigenConfiguracion;avisos:string[];error?:string}>{
+/** Copia de este navegador ya normalizada, para mostrarla al instante mientras responde el servidor. */
+export function configuracionLocal(local:AlmacenLocal):ConfiguracionCodices|null{
+  const copia=leerLocal(local);
+  return copia?normalizarConfiguracion(copia).config:null;
+}
+
+/** Lee la configuración: servidor → copia local → valores por defecto. Nunca lanza ni espera más de `limiteMs`. */
+export async function leerConfiguracion(servidor:()=>Promise<RespuestaServidor>,local:AlmacenLocal,limiteMs=8000):Promise<{config:ConfiguracionCodices;origen:OrigenConfiguracion;avisos:string[];error?:string}>{
   let error:string|undefined,remota:unknown=null;
   try{
-    const r=await servidor();
+    let reloj:ReturnType<typeof setTimeout>|undefined;
+    const agotado=new Promise<RespuestaServidor>(fin=>{reloj=setTimeout(()=>fin({data:null,error:{code:'tiempo',message:'el servidor no respondió a tiempo'}}),limiteMs);});
+    const r=await Promise.race([servidor(),agotado]);
+    clearTimeout(reloj);
     if(r.error)error=mensajeServidor(r.error,'No se pudo leer la configuración de códices');
     else remota=(r.data as {config?:unknown}|null)?.config??null;
   }catch(e){error=`No se pudo leer la configuración de códices: ${e instanceof Error?e.message:String(e)}`;}
@@ -325,4 +334,29 @@ export async function escribirConfiguracion(config:ConfiguracionCodices,servidor
     if(r.error)return {origen:'local',error:mensajeServidor(r.error,'No se pudo guardar en el servidor')};
     return {origen:'servidor'};
   }catch(e){return {origen:'local',error:`No se pudo guardar en el servidor: ${e instanceof Error?e.message:String(e)}`};}
+}
+
+// ---- Taller de códices: archivo y edición ----
+export function exportarConfiguracion(c:ConfiguracionCodices):string{
+  return JSON.stringify(c,null,2);
+}
+
+/** Lee un archivo exportado. Un JSON válido siempre produce una configuración (con avisos de lo corregido). */
+export function importarConfiguracion(texto:string):{config:ConfiguracionCodices;avisos:string[];error?:undefined}|{error:string;config?:undefined;avisos?:undefined}{
+  if(!texto.trim())return {error:'El archivo está vacío.'};
+  let datos:unknown;
+  try{datos=JSON.parse(texto);}catch{return {error:'El archivo no es un archivo JSON de códices válido.'};}
+  return normalizarConfiguracion(datos);
+}
+
+export function seccionesDisponibles(ajustes:AjustesCodice):ClaveSeccion[]{
+  const usadas=new Set(ajustes.secciones.map(s=>s.clave));
+  return CLAVES_SECCION.filter(k=>!usadas.has(k));
+}
+
+export function nuevaAsignacion(existentes:{id:string}[]):ReglaAsignacion{
+  const ids=new Set(existentes.map(a=>a.id));
+  let n=existentes.length+1;
+  while(ids.has(`regla-${n}`))n++;
+  return {id:`regla-${n}`,tipo:'*',monstruo:'*',clasificacion:'',codice:'pergamino'};
 }

@@ -1,27 +1,22 @@
 "use client";
 import {marcoDe,rangoDe} from "../lib/cartas";
 import {duenoDe,duenosConPersonales,filtrarAmbito,type FiltroAmbito} from "../lib/creaciones-personales";
-import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Search, ImagePlus, Upload, Link2, Save, ImageOff, X, Swords, Shield, Users, Sparkles, Package, Crown, Shapes, Pencil, Trash2 } from "lucide-react";
-import { TIPOS, EFECTOS_NOMBRE, efectosDe, formula, type TipoCreacion, type Efecto } from "../lib/creacion";
-import { EVENTOS, EFECTOS_REGLA, DESTINOS, type CondicionRegla, type EfectoRegla, type ValorRegla, type Regla } from "../lib/reglas";
+import { ArrowLeft, Search, ImagePlus, X, Swords, Shield, Users, Package, Crown, Shapes, Settings2 } from "lucide-react";
+import { TIPOS, efectosDe, type TipoCreacion, type Efecto } from "../lib/creacion";
+import { type Regla } from "../lib/reglas";
 import { type ReglaPasiva } from "../lib/pasivas";
 import { validarPortada } from "../lib/imagenes-creacion";
 import { imagenCreacion } from "../lib/arte-creacion";
-import { publicarArchivoImagen } from "../lib/imagenes-storage";
 import FotoEncuadrada from "./FotoEncuadrada";
 import IconoYugen from "./IconoYugen";
-import SelectorIconoYugen from "./SelectorIconoYugen";
 import {describirEfecto,describirRegla,type AyudaClara} from "../lib/descripciones";
 import ContenidoAyuda from "./ContenidoAyuda";
 import "./galeria-creacion.css";
 import VistaCodice from "./codices/VistaCodice";
 import {useConfigCodices} from "./codices/useConfigCodices";
-import {avanzarRastro} from "../lib/codices";
-import {useDialogo} from "./Dialogo";
-import {useRouter} from "next/navigation";
+import {avanzarRastro, type Codice} from "../lib/codices";
+import TallerCodices from "./codices/TallerCodices";
 import type {ConfiguracionMonstruo} from "../lib/monstruos";
 import type {ConfiguracionArtefacto} from "../lib/artefactos";
 import type {RequisitosUso} from "../lib/combate";
@@ -88,6 +83,8 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGale
   const [rastro, setRastro] = useState<string[]>([]);
   const seleccion = rastro[rastro.length - 1] ?? null;
   const codices = useConfigCodices();
+  // Taller de códices abierto (opcionalmente en un códice concreto).
+  const [taller, setTaller] = useState<{ codice?: Codice } | null>(null);
   const volverRef = useRef<HTMLButtonElement>(null);
   const seleccionada = props.items.find((i) => i.id === seleccion);
   const abrir = (id: string) => {
@@ -106,9 +103,10 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGale
   // Vista de baraja: el filtro de ámbito es el id de un personaje con creaciones personales.
   const baraja = duenos.find((d) => d.id === ambito) || null;
   const personalesOcultas = ambito === "generales" && busqueda.trim() ? props.items.filter((i) => i.personal_de && coincide(i)).length : 0;
-  if (seleccionada) return <VistaCodice key={seleccionada.id} item={seleccionada} props={props} volver={volver} abrir={abrir} rastro={rastro} irA={irA} config={codices.config} onVerComo={(id, codice) => { void codices.verComo(id, codice); }} />;
+  if (taller) return <TallerCodices config={codices.config} origen={codices.origen} error={codices.error} guardando={codices.guardando} props={props} codiceInicial={taller.codice} onGuardar={codices.guardar} onCerrar={() => setTaller(null)} />;
+  if (seleccionada) return <VistaCodice key={seleccionada.id} item={seleccionada} props={props} volver={volver} abrir={abrir} rastro={rastro} irA={irA} config={codices.config} onVerComo={(id, codice) => { void codices.verComo(id, codice); }} onConfigurar={(codice) => setTaller({ codice })} />;
   return <section className="cg-gallery" aria-label="Galería de La creación">
-    <header className="cg-gallery-head"><div><span className="cg-eyebrow">TU COLECCIÓN</span><h2>La creación</h2><p>Personajes, objetos y todo lo que da vida a tu mundo.</p></div><button className="cg-button cg-primary" onClick={props.onNueva}><ImagePlus size={17} />Nueva creación</button></header>
+    <header className="cg-gallery-head"><div><span className="cg-eyebrow">TU COLECCIÓN</span><h2>La creación</h2><p>Personajes, objetos y todo lo que da vida a tu mundo.</p></div><div className="cg-gallery-acciones"><button type="button" className="cg-button" onClick={() => setTaller({})}><Settings2 size={16} />Configurar códices</button><button className="cg-button cg-primary" onClick={props.onNueva}><ImagePlus size={17} />Nueva creación</button></div></header>
     <div className="cg-search"><Search size={19} /><input aria-label="Buscar creaciones" placeholder="Busca una creación por nombre o descripción…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
     <div className="cg-types" role="group" aria-label="Filtrar por tipo"><button ref={volverRef} onClick={() => setTipo("todos")} aria-pressed={tipo === "todos"}>Todo <span>{enAmbito.length}</span></button>{TIPOS.map((t) => { const Icono = iconos[t.valor] || Shapes; return <button key={t.valor} aria-pressed={tipo === t.valor} onClick={() => setTipo(t.valor)}><Icono size={15} />{t.nombre}<span>{enAmbito.filter((i) => props.tipoDe(i) === t.valor && (t.valor!=="personaje"||!props.esMonstruo?.(i))).length}</span></button>; })}{props.esMonstruo&&<button aria-pressed={tipo==="monstruo"} onClick={()=>setTipo("monstruo")}>Monstruos <span>{enAmbito.filter(i=>props.esMonstruo?.(i)).length}</span></button>}</div>
     <div className="cg-filter-row"><label>Ámbito<select aria-label="Ámbito" value={ambito} onChange={(e) => setAmbito(e.target.value)}><option value="generales">Generales</option><option value="personales">Personales ({props.items.filter((i) => i.personal_de).length})</option>{duenos.map((d) => <option key={d.id} value={d.id}>Personales de {d.nombre} ({d.cantidad})</option>)}<option value="todas">Todas</option></select></label><label>Clasificación<select value={clasificacion} onChange={(e) => setClasificacion(e.target.value)}><option value="todos">Todas</option>{props.clasificaciones.map((c) => <option key={c.clave} value={c.clave}>{c.nombre}</option>)}</select></label><label>Ordenar<select value={orden} onChange={(e) => setOrden(e.target.value)}><option value="recientes">Más recientes</option><option value="nombre">Nombre A–Z</option></select></label><span aria-live="polite">{visibles.length} creaciones</span></div>

@@ -148,3 +148,20 @@ test('rastro: migas con la creación actual marcada',()=>{
  assert.match(html,/<button type="button">Axel<\/button>/);
  assert.match(html,/<span aria-current="page">Tajo<\/span>/);
 });
+
+test('taller de códices: pestañas, reglas editables, vista previa y guardado',async()=>{
+ const {cargarDependencia}=await import('./helpers/cargar-ts.mjs');
+ const {configuracionBase}=cargarDependencia('codices');
+ const h=fixture('habilidad',{id:'h',nombre:'Tajo'});
+ const html=renderizar('components/codices/TallerCodices.tsx','default',{
+  config:configuracionBase(),origen:'local',error:'',guardando:false,
+  props:propsBase([h],{clasificaciones:[{clave:'fuego',nombre:'Fuego'}]}),
+  onGuardar:async()=>true,onCerrar:()=>{},
+ });
+ for(const t of ['Taller de códices','Asignación','Códices','Movimiento','Archivo','Añadir regla','Vista previa','Guardar configuración','Solo en este navegador'])assert.ok(html.includes(t),t);
+ assert.match(html,/role="tablist"/);
+ assert.match(html,/<option value="fuego">Fuego<\/option>/);
+ assert.match(html,/Arrastrar reglas de asignación/);
+ assert.match(html,/cx-codice--tarot/,'la vista previa usa el borrador');
+ assert.doesNotMatch(html,/Eliminar creación/,'la vista previa no ofrece acciones reales');
+});
