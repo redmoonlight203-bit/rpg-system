@@ -5,6 +5,7 @@ import "./mobile.css";
 import "./yugen-design.css";
 import "./yugen-juego.css";
 import "./yugen-botin.css";
+import {DialogoProvider} from "../components/Dialogo";
 
 const sansKr = localFont({
   src: "../public/fonts/NotoSansKR-latin.ttf",
@@ -40,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`dark ${sansKr.variable} ${serifKr.variable} ${kanji.variable} ${cinzel.variable}`}>
       <body className="bg-canvas text-text antialiased min-h-screen">
-        {children}
+        <DialogoProvider>{children}</DialogoProvider>
       </body>
     </html>
   );
