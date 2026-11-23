@@ -10,8 +10,10 @@ import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./
 import {describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
 import {potenciar,potenciadoresPara,etiquetasDe,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
-import {DESARMADO_BASE,GUARDIA_BASE,type ConceptoDesarmado,type ConceptoGuardia} from "./conceptos-basicos";
+import {DESARMADO_BASE,GUARDIA_BASE,describirConcepto,type ConceptoDesarmado,type ConceptoGuardia} from "./conceptos-basicos";
+export {describirConcepto};
 import {tipoAnimacionArma} from "./animaciones-armas";
+import {esqueletoBase,type Esqueleto} from "./esqueletos";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
  /** Clanes (cualquiera de la lista). Se comprueban al heredar: el servidor entrega y retira la copia. */
@@ -1152,6 +1154,13 @@ function desarmadoDe(m: Combatiente): Efecto {
     coste_fatiga: c.coste.fatiga || undefined, esqueleto: c.animacion, ...(c.estado_impacto ? { estado_impacto: c.estado_impacto } : {}),
     tablero: { alcance: c.alcance, forma: 'individual', tamano: 0, afecta: 'todos' } };
 }
+/** Definición visual del esqueleto (propio del GM o base) con los ajustes de longitud y color del arma. */
+export function esqueletoVisual(e: Efecto | undefined): Esqueleto | undefined {
+  if (!e || (!e.esqueleto_def && !e.esqueleto_ajustes)) return undefined;
+  const base = e.esqueleto_def || esqueletoBase(e.esqueleto);
+  if (!base) return undefined;
+  return { ...base, longitud_relativa: e.esqueleto_ajustes?.longitud ?? base.longitud_relativa, color: e.esqueleto_ajustes?.color ?? base.color };
+}
 /** Esqueleto de la animación de un ataque: el asignado al arma o al concepto; el nombre solo para datos antiguos. */
 export function esqueletoDeAccion(m: Combatiente, accion: Pick<Accion, 'nombre' | 'efecto'> | undefined, accionId: string): string | undefined {
   const e = accion?.efecto;
@@ -2044,8 +2053,11 @@ export function actuar(
   potenciadores: EleccionPotenciador[] = [],
 ) {
   const n=registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, false, potenciadores),rng);
-  const actor=c.miembros.find(m=>m.id===actorId),efecto=actor?acciones(actor).find(a=>a.id===accionId)?.efecto:undefined;
-  return animarAccion(c,n,actorId,efecto,accionId,objetivoId,centro);
+  const actor=c.miembros.find(m=>m.id===actorId),accion=actor?acciones(actor).find(a=>a.id===accionId):undefined,efecto=accion?.efecto;
+  const animado=animarAccion(c,n,actorId,efecto,accionId,objetivoId,centro);
+  // El gesto del arma sale de su esqueleto (o del concepto desarmado); el nombre solo para datos antiguos.
+  if(actor&&efecto?.efecto==='dano'&&animado.evento_visual&&!animado.evento_visual.arma_visual){const v=esqueletoDeAccion(actor,accion,accionId);if(v)animado.evento_visual={...animado.evento_visual,arma_visual:v,...(esqueletoVisual(efecto)?{esqueleto:esqueletoVisual(efecto)}:{})};}
+  return animado;
 }
 // Al suspender se conserva el estado previo. Se reutilizan las tiradas y respuestas ya decididas.
 function resolverGolpe(c:Combate,orden:OrdenGolpe,tiradas:SolicitudReaccion['tiradas'],respuestas:boolean[],azar:RNG):Combate{

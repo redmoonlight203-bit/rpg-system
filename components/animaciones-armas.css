@@ -4,18 +4,26 @@
 .weapon-actor,.weapon-flying-arrow,.weapon-contact{position:absolute;pointer-events:none;display:grid;place-items:center}
 .weapon-actor{transform:translate(-50%,-50%);z-index:2;filter:drop-shadow(0 2px 2px #000)}
 .weapon-held-svg{width:180%;height:180%;overflow:visible;image-rendering:pixelated}
-.weapon-sword-swing,.weapon-bow-pull,.weapon-fist-first,.weapon-fist-second{transform-box:view-box;transform-origin:48px 48px}
-.weapon-sword-swing{animation:weapon-sword .48s cubic-bezier(.18,.8,.2,1) both}
-.weapon-bow-pull{animation:weapon-bow .45s ease-out both}
+.weapon-gesto,.weapon-sword-swing,.weapon-bow-pull,.weapon-fist-first,.weapon-fist-second{transform-box:view-box;transform-origin:30px 48px}
+/* El esqueleto decide el gesto (familia) y su duración (suma de fases). Solo transform y opacity. */
+.weapon-held-svg{transition:none}
+.gesto-corte .weapon-gesto{animation:weapon-sword var(--gesto-duracion,.48s) cubic-bezier(.18,.8,.2,1) both}
+.gesto-golpe_pesado .weapon-gesto{animation:weapon-pesado var(--gesto-duracion,.55s) cubic-bezier(.5,0,.2,1) both}
+.gesto-estocada .weapon-gesto{animation:weapon-estocada var(--gesto-duracion,.45s) cubic-bezier(.3,1.4,.4,1) both}
+.gesto-barrido .weapon-gesto{animation:weapon-barrido var(--gesto-duracion,.5s) ease-in-out both}
+.gesto-tiro .weapon-gesto,.weapon-bow-pull{animation:weapon-bow var(--gesto-duracion,.45s) ease-out both}
+.weapon-estela{opacity:0;transform-box:view-box;transform-origin:30px 48px;filter:drop-shadow(0 0 4px var(--estela));animation:weapon-estela var(--gesto-duracion,.48s) ease-out both}
+.gesto-estocada .weapon-estela{display:none}
 .weapon-bow-string{animation:weapon-bow-string .4s ease-out both;transform-box:view-box;transform-origin:46px 48px}
-.weapon-fist-first{animation:weapon-punch .42s ease-out both}
-.weapon-fist-second{animation:weapon-punch .42s .16s ease-out both}
+.weapon-fist-first{animation:weapon-punch var(--gesto-duracion,.42s) ease-out both}
+.weapon-fist-second{animation:weapon-punch var(--gesto-duracion,.42s) .16s ease-out both}
 .weapon-flying-arrow{z-index:3;opacity:0;filter:drop-shadow(0 2px 2px #000a)}
 .weapon-flying-arrow svg{width:100%;height:100%;overflow:visible;image-rendering:pixelated}
 .weapon-contact{transform:translate(-50%,-50%);z-index:4;opacity:0}
 .weapon-contact:before,.weapon-contact:after{content:"";position:absolute;display:block;inset:34%;border:2px solid #f1e4bd;box-shadow:0 0 8px #fff8;transform:rotate(45deg)}
 .weapon-contact:after{transform:rotate(-45deg);border-color:#d5ab6f}
 .weapon-contact{animation:weapon-contact .26s ease-out both}
+.weapon-contact:before{border-color:var(--estela,#f1e4bd)}
 @keyframes weapon-sword{
   0%{transform:rotate(-110deg) scale(.7);opacity:0}
   16%{opacity:1}
@@ -40,6 +48,34 @@
   16%{opacity:1}
   48%{transform:translateX(18px) scale(1.15);opacity:1}
   100%{transform:translateX(-8px) scale(.84);opacity:0}
+}
+@keyframes weapon-pesado{
+  0%{transform:rotate(-40deg) scale(.8);opacity:0}
+  12%{opacity:1}
+  40%{transform:rotate(-150deg) scale(1.05)}
+  58%{transform:rotate(25deg) scale(1.2)}
+  70%{transform:rotate(18deg) scale(1.05) translateY(2px)}
+  100%{transform:rotate(30deg) scale(.9);opacity:0}
+}
+@keyframes weapon-estocada{
+  0%{transform:translateX(-4px) scale(.9);opacity:0}
+  15%{opacity:1}
+  35%{transform:translateX(-16px)}
+  55%{transform:translateX(26px) scale(1.08)}
+  78%{transform:translateX(18px);opacity:1}
+  100%{transform:translateX(0) scale(.9);opacity:0}
+}
+@keyframes weapon-barrido{
+  0%{transform:rotate(-95deg) scale(.85);opacity:0}
+  15%{opacity:1}
+  55%{transform:rotate(75deg) scale(1.1)}
+  80%{transform:rotate(95deg) scale(1);opacity:1}
+  100%{transform:rotate(110deg) scale(.9);opacity:0}
+}
+@keyframes weapon-estela{
+  0%,30%{opacity:0;transform:rotate(-60deg)}
+  50%{opacity:.85;transform:rotate(0)}
+  100%{opacity:0;transform:rotate(25deg)}
 }
 @keyframes weapon-contact{
   0%{transform:translate(-50%,-50%) scale(.4);opacity:0}

@@ -949,7 +949,7 @@ const recursoVacio = (id = 'recurso_nuevo') => ({ id, nombre: 'Nuevo recurso', t
 
 return { generarRecurso, gastarRecurso, topeRecurso };
 })();
-const { DESARMADO_BASE, GUARDIA_BASE } = (() => {
+const { DESARMADO_BASE, GUARDIA_BASE, describirConcepto } = (() => {
 const { validarDefinicionEstado } = (() => {
 const { validarInmunidades } = (() => {
 const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
@@ -1261,8 +1261,9 @@ function describirConcepto(c) {
     return `${c.nombre}: ${bonos} ${dura}${extra.length ? '; ' + extra.join('; ') : ''}.`;
 }
 
-return { DESARMADO_BASE, GUARDIA_BASE };
+return { DESARMADO_BASE, GUARDIA_BASE, describirConcepto };
 })();
+export { describirConcepto };
 const { tipoAnimacionArma } = (() => {
 const normalizar = (texto) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 function tipoAnimacionArma(accion) {
@@ -1303,6 +1304,72 @@ function geometriaAtaque(desde, hasta) {
 }
 
 return { tipoAnimacionArma };
+})();
+const { esqueletoBase } = (() => {
+const FAMILIAS = { corte: 'Corte', estocada: 'Estocada', golpe_pesado: 'Golpe pesado', barrido: 'Barrido', tiro: 'Tiro', impacto_corto: 'Impacto corto' };
+const ESQUELETOS_BASE = [
+    { id: 'espada', nombre: 'Espada', familia_gesto: 'corte', longitud_relativa: 1, fases: { preparacion: 120, impacto: 110, recuperacion: 250 }, anclas: [{ id: 'mango', x: 28, y: 48 }, { id: 'centro', x: 62, y: 48 }, { id: 'punta', x: 92, y: 48 }], color: '#f1e4bd' },
+    { id: 'hacha', nombre: 'Hacha', familia_gesto: 'golpe_pesado', longitud_relativa: 1, fases: { preparacion: 200, impacto: 90, recuperacion: 260 }, anclas: [{ id: 'mango', x: 26, y: 50 }, { id: 'centro', x: 60, y: 48 }, { id: 'punta', x: 82, y: 38 }], color: '#ffb37a' },
+    { id: 'lanza', nombre: 'Lanza', familia_gesto: 'estocada', longitud_relativa: 1.6, fases: { preparacion: 140, impacto: 90, recuperacion: 220 }, anclas: [{ id: 'mango', x: 10, y: 48 }, { id: 'centro', x: 50, y: 48 }, { id: 'punta', x: 94, y: 48 }], color: '#cfe8ff' },
+    { id: 'arco', nombre: 'Arco', familia_gesto: 'tiro', longitud_relativa: 1, fases: { preparacion: 170, impacto: 60, recuperacion: 220 }, anclas: [{ id: 'mango', x: 40, y: 48 }, { id: 'centro', x: 32, y: 48 }, { id: 'punta', x: 82, y: 48 }], color: '#f6eee1', proyectil: true },
+    { id: 'baston', nombre: 'Bastón', familia_gesto: 'barrido', longitud_relativa: 1.4, fases: { preparacion: 130, impacto: 120, recuperacion: 240 }, anclas: [{ id: 'mango', x: 20, y: 52 }, { id: 'centro', x: 52, y: 48 }, { id: 'punta', x: 90, y: 44 }], color: '#b9f5c5' },
+    { id: 'punos', nombre: 'Puños', familia_gesto: 'impacto_corto', longitud_relativa: .6, fases: { preparacion: 60, impacto: 90, recuperacion: 150 }, anclas: [{ id: 'mango', x: 40, y: 48 }, { id: 'centro', x: 56, y: 46 }, { id: 'punta', x: 68, y: 44 }, { id: 'objeto', x: 64, y: 44 }], color: '#ffd9a8' },
+];
+const POR_ID = new Map(ESQUELETOS_BASE.map(e => [e.id, e]));
+const esqueletoBase = (id) => id ? POR_ID.get(id) : undefined;
+const duracionGesto = (e) => e.fases.preparacion + e.fases.impacto + e.fases.recuperacion;
+const entero = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+function validarEsqueleto(e) {
+    if (!e || typeof e !== 'object')
+        return 'Esqueleto sin definir.';
+    if (!/^[a-z_][a-z0-9_]{0,40}$/.test(e.id || ''))
+        return 'El esqueleto necesita un identificador.';
+    if (typeof e.nombre !== 'string' || !e.nombre.trim() || e.nombre.length > 60)
+        return 'El esqueleto necesita un nombre.';
+    if (!(e.familia_gesto in FAMILIAS))
+        return 'Elige la familia de gesto.';
+    if (!Array.isArray(e.anclas) || e.anclas.length < 3 || e.anclas.length > 4)
+        return 'Un esqueleto tiene mango, centro, punta y, opcionalmente, objeto.';
+    const ids = e.anclas.map(a => a?.id);
+    if (!['mango', 'centro', 'punta'].every(x => ids.includes(x)) || new Set(ids).size !== ids.length || ids.some(x => !['mango', 'centro', 'punta', 'objeto'].includes(x)))
+        return 'Faltan anclas o hay repetidas (mango, centro, punta).';
+    if (e.anclas.some(a => !entero(a.x, 0, 96) || !entero(a.y, 0, 96)))
+        return 'Las anclas van de 0 a 96.';
+    if (ids.includes('objeto') && e.familia_gesto !== 'impacto_corto')
+        return 'Solo los gestos de impacto corto (puños) sostienen un objeto.';
+    if (!(typeof e.longitud_relativa === 'number' && e.longitud_relativa >= .3 && e.longitud_relativa <= 3))
+        return 'La longitud va de 0,3 a 3 casillas.';
+    const f = e.fases;
+    if (!f || !entero(f.preparacion, 0, 1500) || !entero(f.impacto, 30, 1500) || !entero(f.recuperacion, 0, 1500))
+        return 'Fases de 0 a 1500 ms (impacto al menos 30 ms).';
+    if (duracionGesto(e) > 2400)
+        return 'El gesto completo no puede durar más de 2,4 s.';
+    if (e.color !== undefined && !/^#[0-9a-f]{6}$/i.test(e.color))
+        return 'Color inválido.';
+    return null;
+}
+/** Copia un esqueleto para crear uno nuevo (solo el GM los crea). */
+function copiarEsqueleto(base, id, nombre) { return { ...structuredClone(base), id, nombre, base: base.base || base.id }; }
+const normalizar = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+/** Respaldo para creaciones antiguas sin esqueleto: el nombre decide, pero hacha y martillo ya no caen en espada. */
+function esqueletoPorNombre(texto) {
+    const t = normalizar(texto);
+    if (/desarmado|punos?\b|punetaz|patada|guantelete|nudillos|combate cuerpo a cuerpo/.test(t))
+        return 'punos';
+    if (/arco|ballesta|flecha|saeta/.test(t))
+        return 'arco';
+    if (/hacha|martillo|maza|mazo|guadana/.test(t))
+        return 'hacha';
+    if (/lanza|alabarda|pica\b|tridente|venablo/.test(t))
+        return 'lanza';
+    if (/baston|cayado|vara\b|bo\b/.test(t))
+        return 'baston';
+    if (/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hachazo|espadazo/.test(t))
+        return 'espada';
+    return undefined;
+}
+
+return { esqueletoBase };
 })();
 const { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION } = (() => {
 const PATRONES_OJO = [
@@ -2598,6 +2665,15 @@ function desarmadoDe(m) {
         coste_fatiga: c.coste.fatiga || undefined, esqueleto: c.animacion, ...(c.estado_impacto ? { estado_impacto: c.estado_impacto } : {}),
         tablero: { alcance: c.alcance, forma: 'individual', tamano: 0, afecta: 'todos' } };
 }
+/** Definición visual del esqueleto (propio del GM o base) con los ajustes de longitud y color del arma. */
+export function esqueletoVisual(e) {
+    if (!e || (!e.esqueleto_def && !e.esqueleto_ajustes))
+        return undefined;
+    const base = e.esqueleto_def || esqueletoBase(e.esqueleto);
+    if (!base)
+        return undefined;
+    return { ...base, longitud_relativa: e.esqueleto_ajustes?.longitud ?? base.longitud_relativa, color: e.esqueleto_ajustes?.color ?? base.color };
+}
 /** Esqueleto de la animación de un ataque: el asignado al arma o al concepto; el nombre solo para datos antiguos. */
 export function esqueletoDeAccion(m, accion, accionId) {
     const e = accion?.efecto;
@@ -3686,8 +3762,15 @@ function potenciadoresDisponibles(m, e, rasgos) {
 }
 export function actuar(c, actorId, accionId, objetivoId, rng = dadoSeguro, forzar = false, centro, potenciadores = []) {
     const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, false, potenciadores), rng);
-    const actor = c.miembros.find(m => m.id === actorId), efecto = actor ? acciones(actor).find(a => a.id === accionId)?.efecto : undefined;
-    return animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro);
+    const actor = c.miembros.find(m => m.id === actorId), accion = actor ? acciones(actor).find(a => a.id === accionId) : undefined, efecto = accion?.efecto;
+    const animado = animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro);
+    // El gesto del arma sale de su esqueleto (o del concepto desarmado); el nombre solo para datos antiguos.
+    if (actor && efecto?.efecto === 'dano' && animado.evento_visual && !animado.evento_visual.arma_visual) {
+        const v = esqueletoDeAccion(actor, accion, accionId);
+        if (v)
+            animado.evento_visual = { ...animado.evento_visual, arma_visual: v, ...(esqueletoVisual(efecto) ? { esqueleto: esqueletoVisual(efecto) } : {}) };
+    }
+    return animado;
 }
 // Al suspender se conserva el estado previo. Se reutilizan las tiradas y respuestas ya decididas.
 function resolverGolpe(c, orden, tiradas, respuestas, azar) {
