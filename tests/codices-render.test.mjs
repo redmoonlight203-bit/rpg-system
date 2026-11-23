@@ -77,3 +77,8 @@ test('tarot: La portan',()=>{
  const html=vista(h,[h,fixture('personaje',{id:'pj',nombre:'Axel Kuro',habilidades:['h']})]);
  assert.match(html,/La portan/);assert.match(html,/Abrir Axel Kuro/);
 });
+
+test('la raíz del códice usa un modificador que no choca con las piezas',()=>{
+ const html=vista(fixture('habilidad'));
+ assert.match(html,/class="cg-detail cx-codice cx-codice--tarot /);
+});

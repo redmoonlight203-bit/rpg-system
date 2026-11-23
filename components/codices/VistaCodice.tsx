@@ -78,7 +78,7 @@ export default function VistaCodice<T extends PiezaGaleria>({item,props,volver,a
   const Vista=(VISTAS[codice]||Pergamino) as ComponentType<VistaProps<T>>;
   const estilo={"--cx-pagina-ms":`${config.movimiento.pagina_ms}ms`,"--cx-volteo-ms":`${config.movimiento.volteo_ms}ms`} as CSSProperties;
   const nombreDe=(id:string)=>props.items.find(i=>i.id===id)?.nombre||"Creación no disponible";
-  return <section className={`cg-detail cx-codice cx-${codice} ${rango.css}`} data-movimiento={config.movimiento.activo?"si":"no"} style={estilo} aria-label={`Detalles de ${item.nombre}`}>
+  return <section className={`cg-detail cx-codice cx-codice--${codice} ${rango.css}`} data-movimiento={config.movimiento.activo?"si":"no"} style={estilo} aria-label={`Detalles de ${item.nombre}`}>
     <div className="cx-barra">
       <button type="button" className="cg-back" disabled={ocupado} onClick={()=>navegar(volver)}><ArrowLeft size={17}/>Volver a la colección</button>
       {irA&&<Rastro rastro={rastro} nombreDe={nombreDe} irA={i=>navegar(()=>irA(i))} volver={()=>navegar(volver)}/>}
