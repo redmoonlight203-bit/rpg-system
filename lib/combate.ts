@@ -10,6 +10,8 @@ import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./
 import {describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
 import {potenciar,potenciadoresPara,etiquetasDe,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
+import {DESARMADO_BASE,GUARDIA_BASE,type ConceptoDesarmado,type ConceptoGuardia} from "./conceptos-basicos";
+import {tipoAnimacionArma} from "./animaciones-armas";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
  /** Clanes (cualquiera de la lista). Se comprueban al heredar: el servidor entrega y retira la copia. */
@@ -82,6 +84,8 @@ export type Config = {
   reglas_pasivas?: ReglaPasiva[];
   reserva?: Fuente[];
   consumidos?: string[];
+  /** Conceptos básicos propios (desarmado, guardia) que sustituyen a los de por defecto. */
+  conceptos?: (ConceptoDesarmado|ConceptoGuardia)[];
   /** Inmunidades propias de la creación (además de las de habilidades, pasivas, estados y equipo). */
   inmunidades?: Inmunidad[];
 };
@@ -171,7 +175,7 @@ export type Combatiente = {
 export type CambioVida = {id:string;delta:number};
 export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"carrera"|"forzado"};
 export type AparicionVisual = {id:string;animacion:string;posicion:Posicion;escala?:number};
-export type EventoVisual = {action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;desde?:Posicion;hasta?:Posicion};
+export type EventoVisual = {action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;esqueleto?:import('./esqueletos').Esqueleto;desde?:Posicion;hasta?:Posicion};
 export type Combate = {
   reaccion_pendiente?:SolicitudReaccion;
   pasos_deshacer?:number;
@@ -1131,6 +1135,32 @@ export function conAlcance(e:Efecto, contexto=''):Efecto {
   else if(!/desarmado|puno|punetazo|patada|mordisco|golpe|filo|espada|daga|martillo|hacha|mazo|corte/.test(texto) && (e.naturaleza==='magica'||(e.coste_ph||0)>0||/fuego|hielo|frio|plasma|energia|electri|arcano|magico/.test((e.tipo_dano||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||/proyectil|rayo|bola de|llamas|cadenas/.test(texto)))alcance=6;
   return {...e,tablero:{alcance,forma:'individual',tamano:0,afecta:'todos'}};
 }
+/** Conceptos básicos vigentes. Sustitución por id: personaje > objeto equipado > habilidad (incluidas las heredadas). */
+export function conceptosDe(m: Combatiente): { desarmado: ConceptoDesarmado; guardia: ConceptoGuardia } {
+  const r: { desarmado: ConceptoDesarmado; guardia: ConceptoGuardia } = { desarmado: DESARMADO_BASE, guardia: GUARDIA_BASE };
+  const fuentes = [...(m.configuracion.conceptos || []), ...Object.values(piezas(m)).flatMap(p => (p.efectos || []).flatMap(e => e.concepto ? [e.concepto] : [])),
+    ...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length).flatMap(h => (h.efectos || []).flatMap(e => e.concepto ? [e.concepto] : []))];
+  for (const id of ['desarmado', 'guardia'] as const) { const c = fuentes.find(x => x.id === id); if (c) (r as Record<string, unknown>)[id] = c; }
+  return r;
+}
+/** Efecto del desarmado del combatiente. El concepto por defecto devuelve exactamente el ataque antiguo. */
+function desarmadoDe(m: Combatiente): Efecto {
+  const c = conceptosDe(m).desarmado;
+  if (c === DESARMADO_BASE) return basico();
+  return { ...basico(), nombre: c.nombre, cantidad: c.dano.cantidad, caras: c.dano.caras, modificador: c.dano.modificador, tipo_dano: c.dano.tipo_dano,
+    ...(c.dano.elemento && c.dano.elemento !== 'ninguno' ? { elemento: c.dano.elemento } : {}), ...(c.dano.naturaleza ? { naturaleza: c.dano.naturaleza } : {}),
+    coste_fatiga: c.coste.fatiga || undefined, esqueleto: c.animacion, ...(c.estado_impacto ? { estado_impacto: c.estado_impacto } : {}),
+    tablero: { alcance: c.alcance, forma: 'individual', tamano: 0, afecta: 'todos' } };
+}
+/** Esqueleto de la animación de un ataque: el asignado al arma o al concepto; el nombre solo para datos antiguos. */
+export function esqueletoDeAccion(m: Combatiente, accion: Pick<Accion, 'nombre' | 'efecto'> | undefined, accionId: string): string | undefined {
+  const e = accion?.efecto;
+  if (e?.efecto !== 'dano') return undefined;
+  if (e.esqueleto_def) return e.esqueleto_def.id;
+  if (e.esqueleto) return e.esqueleto;
+  if (accionId === 'ataque' && m.arma?.efecto.esqueleto) return m.arma.efecto.esqueleto;
+  return tipoAnimacionArma({ accionId, nombreAccion: accion?.nombre, nombreEfecto: e.nombre, nombreArma: m.arma?.nombre, nombreArmaEfecto: e.arma_nombre, naturaleza: e.naturaleza, costePh: e.coste_ph });
+}
 function basico(): Efecto {
   return {
     id: "basico",
@@ -1164,10 +1194,10 @@ export function acciones(m: Combatiente) {
   else {
     const p = ['mano_der','mano_izq'].map(slot=>piezas(m)[slot]).find(p=>p?.efectos?.some(e=>e.efecto==='dano'));
     if (p) lista.push({id:'ataque',nombre:`Atacar con ${p.nombre}`,efecto:p.efectos!.find(e=>e.efecto==='dano')!,enfriamiento:0,ilustracion:ilustracionFuente(p)});
-    else if (manosLibres(m)>0) lista.push({id:'ataque',nombre:'Ataque desarmado',efecto:basico(),enfriamiento:0});
+    else if (manosLibres(m)>0||conceptosDe(m).desarmado.requiere_mano===false) lista.push({id:'ataque',nombre:conceptosDe(m).desarmado.nombre,efecto:desarmadoDe(m),enfriamiento:0});
   }
-  if ((m.arma || lista.some(a=>a.id==='ataque'&&a.efecto.id!=='basico')) && manosLibres(m)>0)
-    lista.push({id:'desarmado',nombre:'Ataque desarmado · mano libre',efecto:basico(),enfriamiento:0});
+  if ((m.arma || lista.some(a=>a.id==='ataque'&&a.efecto.id!=='basico')) && (manosLibres(m)>0||conceptosDe(m).desarmado.requiere_mano===false))
+    lista.push({id:'desarmado',nombre:`${conceptosDe(m).desarmado.nombre} · ${conceptosDe(m).desarmado.requiere_mano===false?'arma natural':'mano libre'}`,efecto:desarmadoDe(m),enfriamiento:0});
   for (const h of (m.configuracion.habilidades || []).filter(h=>!requisitosFuente(m,h).length))
     for (const e of h.efectos || [])
       lista.push({
@@ -1398,7 +1428,18 @@ function actuarInterno(
   }
   if(accionId==='volver_forma'){if(!a.transformacion)throw Error('No hay transformación activa.');Object.assign(a,terminarTransformacion(a));normalizar(a);a.accion_usada=true;log(n,`${a.nombre} vuelve a su cuerpo original.`);return n;}
   if (accionId === "guardia") {
-    estado(a, "guardia", "Guardia", 1, { armadura: 2 }, { inicio: true });
+    // Concepto básico «Guardia» (Apéndice D · B): por defecto +2 ARM hasta su siguiente turno, como siempre.
+    const g = conceptosDe(a).guardia, manos = Object.values(piezas(a));
+    if (g.condiciones.requiere_escudo && !manos.some(p => ['mano', 'dos_manos'].includes(p.slot_tipo || '') && (/escudo|broquel|rodela/i.test(p.nombre) || (p.stats.bloqueo || 0) > 0))) throw Error(`${g.nombre} requiere un escudo.`);
+    if (g.condiciones.sin_dos_manos && (manos.some(p => p.slot_tipo === 'dos_manos') || a.arma?.efecto.arma_slot === 'dos_manos')) throw Error(`${g.nombre} no admite un arma a dos manos.`);
+    if (phDisponibles(a) < g.coste.ph) throw Error('PH insuficientes.');
+    const sf = estadisticas(a).fatiga || 0;
+    if (g.coste.fatiga && (a.agotado || a.fatiga + g.coste.fatiga > sf)) throw Error('Fatiga insuficiente.');
+    a.ph = phDisponibles(a) - g.coste.ph; a.fatiga += g.coste.fatiga; if (g.coste.fatiga) a.uso_fatiga = true;
+    const turnos = g.duracion.tipo === 'turnos' ? g.duracion.turnos : 1;
+    const def: DefinicionEstado | undefined = g.condiciones.inmovil ? { id: 'guardia', nombre: g.nombre, icono: 'escudo', categoria: 'fisico', duracion: g.duracion.tipo === 'turnos' ? { tipo: 'turnos', turnos } : { tipo: 'hasta_su_turno' }, efectos: [{ tipo: 'bonos', bonos: g.bonos }, { tipo: 'modificador_movimiento', modo: 'cero' }] } : undefined;
+    estado(a, "guardia", g.nombre, turnos, { ...g.bonos }, { ...(g.duracion.tipo === 'hasta_su_turno' ? { inicio: true } : {}), ...(def ? { def } : {}) });
+    if (g !== GUARDIA_BASE) log(n, `${a.nombre} se pone en guardia: ${g.nombre}.`);
     a.accion_usada = true;
     return n;
   }
@@ -1856,6 +1897,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   }
   // Estados que añade un potenciador (se aplican si el golpe permite estados).
   if (permiteEstados) for (const id of e.estados_potenciador || []) { const d = definicionBase(id); if (d) aplicarDefinicion(n, t, d, a.id, undefined, {}, e); }
+  if (permiteEstados && e.estado_impacto && t.vida > 0) aplicarDefinicion(n, t, e.estado_impacto, a.id, undefined, {}, e);
   // Elemental saves affect secondary states, never repeat the attack roll. Cada componente aplica los suyos.
   for (const elemento of elementosGolpe) {
   const eElemento: Efecto = e.componentes?.length ? { ...e, componentes: undefined, elemento: elemento as Elemento } : e;

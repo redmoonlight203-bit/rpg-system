@@ -1,5 +1,6 @@
-/** El gesto del arma se deduce de la acción confirmada, nunca del clic en el mapa. */
-export type TipoAnimacionArma = 'arco' | 'espada' | 'punos';
+/** El gesto sale del ESQUELETO del arma (lib/esqueletos.ts). Esta deducción por nombre solo es el respaldo para
+ * creaciones antiguas sin esqueleto; hacha, martillo, lanza y bastón ya tienen el suyo y no caen en «espada». */
+export type TipoAnimacionArma = 'arco' | 'espada' | 'punos' | 'hacha' | 'lanza' | 'baston' | (string & {});
 export type AtaqueParaAnimar = {
   accionId: string;
   nombreAccion?: string;
@@ -18,7 +19,10 @@ export function tipoAnimacionArma(accion: AtaqueParaAnimar): TipoAnimacionArma |
   const arma = normalizar([accion.nombreArma, accion.nombreArmaEfecto, ataqueBase ? accion.nombreAccion : ''].filter(Boolean).join(' '));
   const usaMagia = accion.naturaleza === 'magica' || (!ataqueBase && (accion.costePh || 0) > 0);
   if (/arco|ballesta|flecha|saeta|tiro con arco/.test(arma) || (!usaMagia && /arco|ballesta|flecha|saeta/.test(nombre))) return 'arco';
-  if (/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hacha|martillo|maza|mazo/.test(arma)
+  if (/hacha|martillo|maza|mazo|guadana/.test(arma) || (!usaMagia && /hachazo|martillazo|mazazo/.test(nombre))) return 'hacha';
+  if (/lanza|alabarda|pica\b|tridente|venablo/.test(arma) || (!usaMagia && /lanzazo|estocada de lanza/.test(nombre))) return 'lanza';
+  if (/baston|cayado|vara\b/.test(arma) || (!usaMagia && /bastonazo/.test(nombre))) return 'baston';
+  if (/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque/.test(arma)
     || (!usaMagia && /espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hachazo|espadazo/.test(nombre))) return 'espada';
   // Las armas con nombre propio (p. ej. Mao) también empuñan una hoja en el ataque básico.
   if (ataqueBase && !usaMagia && (accion.nombreArma || accion.nombreArmaEfecto || /atacar con/.test(nombre))) return 'espada';
