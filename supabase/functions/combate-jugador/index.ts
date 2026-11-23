@@ -46,8 +46,8 @@ Deno.serve(async req=>{
    if(!responde&&oferta)throw Error('Espera la respuesta del defensor.');
    // Control mental: el jugador cuya criatura lo lanzó actúa con el afectado en su turno (el bando real no cambia).
    const dirigido=controlado?c.miembros.find(x=>x.id===controlado):undefined;
-   if(controlado&&(body.operacion!=='actuar'||!dirigido||controlDe(dirigido)?.controlador!=='fuente'||controlDe(dirigido)?.fuente!==m.id))throw Error('No controlas a ese combatiente.');
-   if(!responde&&!mente&&!dirigido&&estaDominado(m))throw Error('Tu personaje está controlado: no decides sus actos.');
+   if(controlado&&(!['actuar','mover','pasar'].includes(body.operacion)||!dirigido||controlDe(dirigido)?.controlador!=='fuente'||controlDe(dirigido)?.fuente!==m.id))throw Error('No controlas a ese combatiente.');
+   if(!responde&&!mente&&(estaDominado(m)||dirigido&&m.transformacion?.descontrolada))throw Error('Tu personaje está controlado: no decides sus actos.');
    if(c.fase!=='en_curso'||!responde&&!mente&&c.actual!==(dirigido||m).id||m.vida<=0)throw Error('Espera al turno de tu personaje.');
    if(!responde&&m.transformacion?.descontrolada)throw Error('Tu personaje está poseído y no puedes controlarlo.');
    if(!Number.isInteger(body.version)||body.version!==ctx.version)throw Error('El combate cambió. Recarga antes de actuar.');
@@ -60,7 +60,7 @@ Deno.serve(async req=>{
    else if(body.operacion==='resistir_voz')next=resistirVoz(c,m.id,rng);
    else if(body.operacion==='pasar')next=turnoConReacciones(c,'siguiente',rng);
    else if(body.operacion==='levantarse')next=levantarse(c,m.id);
-   else if(body.operacion==='mover')next=desplazar(c,m.id,body.destino);
+   else if(body.operacion==='mover')next=desplazar(c,(dirigido||m).id,body.destino);
    else if(body.operacion==='actuar'){
     if(typeof body.accion_id!=='string'||body.accion_id.length>300||typeof body.objetivo_id!=='string'||(!body.centro&&!c.miembros.some(x=>x.id===body.objetivo_id)))throw Error('Acción u objetivo inválidos.');
     next=actuarConReacciones(c,(dirigido||m).id,body.accion_id,body.objetivo_id,rng,body.forzar===true,body.centro,potenciadores);resultado=next.resultado;

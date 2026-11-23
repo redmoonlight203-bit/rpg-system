@@ -7,8 +7,8 @@ Rama: `claude/sweet-volta-djx6me` (base `main`, PR #56).
 
 | Comprobación | Resultado |
 |---|---|
-| `npm test` (motor, Yunque, Kion, reacciones, Edge) | 643/643 (566 antes del plan; 77 pruebas nuevas) |
-| `npm run test:database` (PGlite, incluye `esqueletos` y `portadores-unicos`) | 43/43 archivos |
+| `npm test` (motor, Yunque, Kion, reacciones, Edge) | 647/647 (566 antes del plan; 81 pruebas nuevas) |
+| `npm run test:database` (PGlite, incluye `esqueletos` y `portadores-unicos`) | 44/44 archivos (incluye `control-mental`) |
 | `npm run build` | sin errores de TypeScript |
 | `node scripts/comprobar-conceptos.mjs todo` (Playwright, 1440 px y 390 px) | 58/58 |
 | Batería de Kion y pruebas de reacciones | sin cambios en sus archivos y en verde |
@@ -51,3 +51,12 @@ Capturas (`deviceScaleFactor` 2 a 390 px): `capturas/conceptos-*`, `capturas/ges
 Los gestos usan solo `transform` y `opacity`; la estela tiene un `drop-shadow` fijo (no animado). Con
 `prefers-reduced-motion` la capa no se muestra. Arreglo de paso: el SVG del arma se centraba mal (se alineaba arriba
 al desbordar la casilla); ahora se centra con `translate`, también en el tablero de combate.
+
+## Revisión final
+
+Revisor independiente con un fuzz diferencial (300 combates sembrados, motor anterior frente al nuevo, tres reglas
+de combate): **0 diferencias** en tiradas, registro, vida, PH, Fatiga y estados. Corregidos tras la revisión:
+el guardado en base rechazaba las acciones del jugador que controla a una criatura (migración
+`20261123140000_confirmar_control_mental.sql`); una inmunidad física bloqueaba veneno, quemadura y terreno; la
+duración de la acción pisaba la del estado creado en el Yunque; un rasgo oculto seguía activo; un jugador controlado
+podía dirigir a su marioneta y el controlador no podía pasar su turno.

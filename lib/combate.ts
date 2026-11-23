@@ -496,7 +496,9 @@ const NATURALEZA_DANO: Record<string, string[]> = { magica: ['magica', 'magico']
 /** Tipos de daño que una inmunidad puede reconocer: elemento, tipo de daño y naturaleza. */
 export function candidatoDano(e: Efecto, elemento?: string): CandidatoInmunidad {
   const nat = e.naturaleza && e.naturaleza !== 'automatica' ? e.naturaleza : (e.coste_ph || 0) > 0 ? 'magica' : 'fisica';
-  const tipos = [elemento || elementoDe(e), norm(e.tipo_dano || ''), ...(NATURALEZA_DANO[nat] || [])].filter(t => t && t !== 'ninguno');
+  // El daño periódico y el del terreno solo tienen su tipo: no son golpes físicos ni mágicos.
+  const sinNaturaleza = e.id === 'periodico' || e.id === 'terreno';
+  const tipos = [elemento || elementoDe(e), norm(e.tipo_dano || ''), ...(sinNaturaleza ? [] : NATURALEZA_DANO[nat] || [])].filter(t => t && t !== 'ninguno');
   return { clase: 'dano', tipos, categoria: e.categoria, subcategoria: e.subcategoria };
 }
 /** Comprueba la inmunidad a un estado ANTES de la salvación (inmunidad completa: no hay tirada). */
@@ -902,7 +904,7 @@ function periodicos(c: Combate, m: Combatiente, momento: 'inicio' | 'fin', rng: 
       // La instancia puede traer sus propios dados (acción que la aplicó); si no, los de la definición.
       const v = dados(c, e.cantidad ?? p.cantidad, e.caras ?? p.caras, rng, `${m.nombre}: ${e.nombre}`);
       if (p.tipo === 'curacion_periodica') curarCombatiente(m, v);
-      else recibir(c, m, m, { ...basico(), efecto: 'dano', tipo_dano: p.tipo_dano }, v, [], rng);
+      else recibir(c, m, m, { ...basico(), id: 'periodico', efecto: 'dano', tipo_dano: p.tipo_dano }, v, [], rng);
       log(c, `${m.nombre}: ${e.nombre}, vida ${m.vida}.`);
       if (p.tipo === 'dano_periodico' && p.salvacion_termina && m.estados.includes(e) && salvacion(c, m, e.cd || p.salvacion_termina.cd, e.atributo || p.salvacion_termina.atributo, rng)) {
         quitarEstado(m, e.tipo || e.id);
@@ -1140,8 +1142,8 @@ export function conAlcance(e:Efecto, contexto=''):Efecto {
 /** Conceptos básicos vigentes. Sustitución por id: personaje > objeto equipado > habilidad (incluidas las heredadas). */
 export function conceptosDe(m: Combatiente): { desarmado: ConceptoDesarmado; guardia: ConceptoGuardia } {
   const r: { desarmado: ConceptoDesarmado; guardia: ConceptoGuardia } = { desarmado: DESARMADO_BASE, guardia: GUARDIA_BASE };
-  const fuentes = [...(m.configuracion.conceptos || []), ...Object.values(piezas(m)).flatMap(p => (p.efectos || []).flatMap(e => e.concepto ? [e.concepto] : [])),
-    ...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length).flatMap(h => (h.efectos || []).flatMap(e => e.concepto ? [e.concepto] : []))];
+  const fuentes = [...(m.configuracion.conceptos || []), ...Object.values(piezas(m)).flatMap(p => (p.efectos || []).flatMap(e => e.solo_pasivo && e.concepto ? [e.concepto] : [])),
+    ...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length).flatMap(h => (h.efectos || []).flatMap(e => e.solo_pasivo && e.concepto ? [e.concepto] : []))];
   for (const id of ['desarmado', 'guardia'] as const) { const c = fuentes.find(x => x.id === id); if (c) (r as Record<string, unknown>)[id] = c; }
   return r;
 }
@@ -1683,7 +1685,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
       }
       const tipo = e.estado_tipo || "narrativo";
       const legado = !e.estado_def && ["narrativo", "veneno", "regeneracion", "aturdido", "quemadura"].includes(tipo);
-      let turnos = legado || !defEstado ? Math.max(1, e.duracion) : turnosIniciales(defEstado, e.duracion);
+      let turnos = legado || !defEstado ? Math.max(1, e.duracion) : turnosIniciales(defEstado, e.estado_def ? undefined : e.duracion);
       if (permiso === 'resiste' && turnos > 1) { turnos = Math.max(1, Math.floor(turnos / 2)); log(n, `${t.nombre} resiste el estado: dura ${turnos} turno(s).`); }
       estado(
         t,
@@ -2009,8 +2011,8 @@ function danoPorComponentes(n: Combate, a: Combatiente, t: Combatiente, e: Efect
 /** Rasgos del combatiente (habilidades —incluidas las heredadas— y objetos equipados), sin duplicar por id. */
 export function rasgosDe(m: Combatiente): Rasgo[] {
   const vistos = new Map<string, Rasgo>();
-  for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length)) for (const e of h.efectos || []) if (e.rasgo && !vistos.has(e.rasgo.id)) vistos.set(e.rasgo.id, e.rasgo);
-  for (const p of Object.values(piezas(m))) for (const e of p.efectos || []) if (e.rasgo && !vistos.has(e.rasgo.id)) vistos.set(e.rasgo.id, e.rasgo);
+  for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length)) for (const e of h.efectos || []) if (e.solo_pasivo && e.rasgo && !vistos.has(e.rasgo.id)) vistos.set(e.rasgo.id, e.rasgo);
+  for (const p of Object.values(piezas(m))) for (const e of p.efectos || []) if (e.solo_pasivo && e.rasgo && !vistos.has(e.rasgo.id)) vistos.set(e.rasgo.id, e.rasgo);
   return [...vistos.values()];
 }
 export function recursosDe(m: Combatiente): DefinicionRecurso[] {
@@ -2560,7 +2562,7 @@ export function lineaVisible(a:Posicion,b:Posicion,mapa?:MapaCombate):boolean{
  for(let i=1;i<=pasos;i++){const x=Math.round(a.x+(b.x-a.x)*i/pasos),y=Math.round(a.y+(b.y-a.y)*i/pasos);if(mapa.celdas[`${x},${y}`]==='muro')return false;}return true;
 }
 function aplicarTerreno(c:Combate,m:Combatiente,rng:RNG=dadoSeguro){
- const p=posicionesTablero(c)[m.id];if(!tiene(m,'vuelo')&&p&&c.mapa?.celdas[`${p.x},${p.y}`]==='peligro'&&m.vida>0){recibir(c,m,m,{...basico(),efecto:'dano'},2,[],rng);log(c,`${m.nombre}: terreno peligroso, 2 de daño.`);}
+ const p=posicionesTablero(c)[m.id];if(!tiene(m,'vuelo')&&p&&c.mapa?.celdas[`${p.x},${p.y}`]==='peligro'&&m.vida>0){recibir(c,m,m,{...basico(),id:'terreno',efecto:'dano',tipo_dano:'terreno'},2,[],rng);log(c,`${m.nombre}: terreno peligroso, 2 de daño.`);}
 }
 
 // ---- Primitiva «Visión»: habilidades oculares (lib/vision.ts) ----

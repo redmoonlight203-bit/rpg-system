@@ -18,3 +18,12 @@ test('un estado creado en el Yunque combina perder turno y daño periódico al f
  const fin=m.siguiente(n,dados([5]));
  assert.equal(de(fin,'k').vida,40,'2d6 = 10 al final de su turno');
 });
+test('inmune al daño físico no es inmune al veneno ni a la quemadura (revisión I1)',()=>{
+ const n=turno({id:'k',bando:'jugador',x:2,efectos:[ef('golpe'),defensas({tipo:'dano',valor:'fisico',modo:'bloquear_dano'})]});
+ assert.equal(de(n,'k').vida,47,'1d4 de veneno pasa');
+});
+test('un estado del Yunque dura lo que dice su definición, no los turnos de la acción (revisión I2)',()=>{
+ const def={id:'lento',nombre:'Lento',categoria:'fisico',duracion:{tipo:'turnos',turnos:5},efectos:[{tipo:'modificador_movimiento',modo:'mitad'}]};
+ const n=m.actuar(turnoDe(campoE([{id:'a',bando:'enemigo',x:1,efectos:[aplica('lentitud',{estado_def:def,duracion:1})]},{id:'k',bando:'jugador',x:2}]),'a'),'a','hab:ha:lentitud','k',dados([1]));
+ assert.equal(de(n,'k').estados[0].restantes,5);
+});

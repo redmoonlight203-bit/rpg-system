@@ -69,11 +69,11 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
  }
  const dados=e.efecto!=='desplazamiento'&&e.efecto!=='estado'&&e.efecto!=='transformacion'&&!e.tabla_armas;
  const elemental=['dano','crear_arma'].includes(e.efecto)&&!e.tabla_armas;
- const dura=e.efecto==='estado'||e.efecto==='crear_arma'||e.efecto==='transformacion';
+ const dura=(e.efecto==='estado'&&!e.estado_def)||e.efecto==='crear_arma'||e.efecto==='transformacion';
  const pasivo=!!e.solo_pasivo;
  return <div className="yq-editor">
   <label className="yq-campo"><span>Nombre de la acción</span><input maxLength={120} value={e.nombre} placeholder="Tajo, Bola de fuego…" onChange={v=>patch({nombre:v.target.value})}/></label>
-  <Fichas etiqueta="Uso" opciones={[{valor:'accion',nombre:'Acción en combate',icono:'espada'},{valor:'pasivo',nombre:'Rasgo siempre activo',icono:'escudo',ayuda:'No ocupa el turno: concede defensas, rasgos o conceptos básicos.'}]} valor={pasivo?'pasivo':'accion'} onChange={v=>patch(v==='pasivo'?{solo_pasivo:true,efecto:'estado',estado:e.estado||e.nombre,estado_tipo:'narrativo',cantidad:0,coste_ph:0,coste_fatiga:0,naturaleza:undefined,tablero:undefined,estado_def:undefined}:{solo_pasivo:undefined,inmunidades:undefined})} grandes/>
+  <Fichas etiqueta="Uso" opciones={[{valor:'accion',nombre:'Acción en combate',icono:'espada'},{valor:'pasivo',nombre:'Rasgo siempre activo',icono:'escudo',ayuda:'No ocupa el turno: concede defensas, rasgos o conceptos básicos.'}]} valor={pasivo?'pasivo':'accion'} onChange={v=>patch(v==='pasivo'?{solo_pasivo:true,efecto:'estado',estado:e.estado||e.nombre,estado_tipo:'narrativo',cantidad:0,coste_ph:0,coste_fatiga:0,naturaleza:undefined,tablero:undefined,estado_def:undefined}:{solo_pasivo:undefined,inmunidades:undefined,rasgo:undefined,concepto:undefined})} grandes/>
   {pasivo&&<>
    <h4 className="yq-ficha-titulo">Defensas e inmunidades</h4>
    <EditorDefensas valor={e.inmunidades||[]} onChange={inmunidades=>patch({inmunidades:inmunidades.length?inmunidades:undefined})} objeto={b.tipo==='objeto'} porTurnos={false}/>

@@ -12,3 +12,9 @@ test('sin cumplir el linaje, el rasgo heredado no aplica',()=>{
  c=m.agregar(c,{id:'h',nombre:'Humano',stats:{vida:30},configuracion:{tipo_creacion:'personaje',raza:'humano',habilidades:[{id:'bio',nombre:'Bioelectricidad',stats:{},requisitos_uso:{razas:['kuro'],herencia:true},efectos:[rasgoEf(BIO)]}]}},'jugador',()=>1);
  assert.equal(m.rasgosDe(de(c,'h')).length,0);
 });
+test('rasgo o concepto en una acción normal (no «siempre activa») no se aplica (revisión I3)',()=>{
+ let c=m.nuevoCombate();
+ const oculto={...rasgoEf(BIO),solo_pasivo:undefined,concepto:{id:'guardia',nombre:'Fantasma',bonos:{armadura:9},duracion:{tipo:'hasta_su_turno'},coste:{ph:0,fatiga:0},condiciones:{}}};
+ c=m.agregar(c,{id:'k',nombre:'k',stats:{vida:30},configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre:'H',stats:{},efectos:[oculto]}]}},'jugador',()=>1);
+ assert.equal(m.rasgosDe(de(c,'k')).length,0);assert.equal(m.conceptosDe(de(c,'k')).guardia.nombre,'Guardia');
+});

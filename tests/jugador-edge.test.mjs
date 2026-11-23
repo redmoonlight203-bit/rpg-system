@@ -4,11 +4,12 @@ import {readFileSync} from 'node:fs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
 const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import (\{[^}]+\}) from '\.\.\/equipo-combate\/motor.js';/m,'const $1=motor;');
 const jugador='00000000-0000-0000-0000-000000000001', combate='00000000-0000-0000-0000-000000000002';
-function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false,ojo=null}={}){
+function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false,ojo=null,prep=null}={}){
  let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);if(ojo)c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'ojo',nombre:'Ojo',efecto:'estado',estado:'Ojo',cantidad:0,caras:4,modificador:0,tipo_dano:'',duracion:0,coste_ph:0,vision:ojo}]}];c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
  if(area){c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Azul',stats:{},efectos:[{id:'azul',nombre:'Azul',efecto:'dano',cantidad:2,caras:6,modificador:0,tipo_dano:'energia',estado:'',duracion:0,coste_ph:2,salvacion:{cd:12,atributo:'salvacion',exito:'mitad'},tablero:{alcance:6,forma:'circulo',tamano:2,afecta:'enemigos',desplazamiento:{tipo:'atraer',casillas:2,cuando:'siempre'},derribo:'fallo_salvacion'}}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:6,y:1};}
 
  if(sinPH){c.miembros[0].stats.ph=0;c.miembros[0].ph=99;}
+ if(prep)prep(c);
  const mock=async(url,options)=>{if(url.endsWith('/jugador_accion_estado_servidor')){const q=JSON.parse(options.body);return Response.json(recibos.get(q.p_action_id)||{confirmada:false});}
  if(url.endsWith('/jugador_preparar_accion_servidor')){const q=JSON.parse(options.body);lecturas.push(q);return Response.json({id:combate,nombre:'Prueba',version:versionActual,combate:c,actor:c.miembros[0],recibo:recibos.get(q.p_action_id)||{confirmada:false}});}
  if(url.endsWith('/jugador_confirmar_accion_servidor')){if(timeoutCommit)return Response.json({message:'canceling statement due to statement timeout',code:'57014'},{status:500});const q=JSON.parse(options.body);if(!recibos.has(q.p_action_id)){escrituras.push(q);c=q.p_datos;versionActual++;recibos.set(q.p_action_id,{confirmada:true,repetida:true,action_id:q.p_action_id,version_aplicada:versionActual,evento:c.evento_visual});}return Response.json({id:combate,nombre:'Prueba',version:versionActual,combate:c,actor:c.miembros[0],recibo:recibos.get(q.p_action_id)});}
@@ -51,4 +52,11 @@ test('la visión ocular solo viaja al jugador con el ojo abierto y con lo que ve
  const visto=data.ocular.objetivos.b;assert.equal(visto.detalle.vida.max,100);assert.ok(visto.detalle.acciones.length>0);assert.equal(visto.puntos.length,1);
  assert.equal(data.ocular.objetivos.a,undefined,'no se analiza a sí mismo');
  assert.equal(visto.detalle.atributos,undefined,'solo revela lo configurado');
+});
+test('control mental: el controlador pasa el turno de su marioneta; un jugador controlado no la dirige',async()=>{
+ const controla=c=>{c.actual='b';c.miembros[1].estados=[{id:'control_mental',tipo:'control_mental',nombre:'Control mental',restantes:2,creado:0,bonos:{},fuente:'a'}];};
+ const s=servidor({prep:controla});assert.equal((await s.handler(req({operacion:'pasar',version:3,controlado_id:'b'}))).status,200);assert.equal(s.escrituras.length,1);
+ const dominado=servidor({prep:c=>{controla(c);c.miembros[0].estados=[{id:'dominado',tipo:'dominado',nombre:'Dominado',restantes:0,creado:0,bonos:{}}];}});
+ assert.equal((await dominado.handler(req({operacion:'pasar',version:3,controlado_id:'b'}))).status,400);assert.equal(dominado.escrituras.length,0);
+ const ajeno=servidor({prep:c=>{c.actual='b';}});assert.equal((await ajeno.handler(req({operacion:'pasar',version:3,controlado_id:'b'}))).status,400);
 });
