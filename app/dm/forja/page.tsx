@@ -28,11 +28,13 @@ import {validarPortada} from "../../../lib/imagenes-creacion";
 import {esMonstruo} from "../../../lib/progresion";
 import {vacio,vinculoVacio,type Borrador,type Creacion,type Peticion} from "../../../lib/yunque-borrador";
 import type {AtributoForja,ContextoTaller,NaturalezaCatalogo} from "../../../components/yunque/contexto";
+import {useDialogo} from "../../../components/Dialogo";
 
 type Atributo=AtributoForja;
 const boton="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-orange-600 disabled:cursor-not-allowed disabled:opacity-40";
 const panel="forja-panel space-y-5 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6";
 export default function Forja(){
+  const {confirmar}=useDialogo();
  const [naturalezasCatalogo,setNaturalezasCatalogo]=useState<NaturalezaCatalogo[]>([]);
  const [categorias,setCategorias]=useState<CategoriaBase[]>([]),[atributos,setAtributos]=useState<Atributo[]>([]),[creaciones,setCreaciones]=useState<Creacion[]>([]),[peticiones,setPeticiones]=useState<Peticion[]>([]);
  const [pestana,setPestana]=useState<"creacion"|"yunque">("creacion"),[b,setB]=useState<Borrador>(vacio),[cargando,setCargando]=useState(true),[guardando,setGuardando]=useState(false),[error,setError]=useState(""),[aviso,setAviso]=useState("");
@@ -161,11 +163,11 @@ export default function Forja(){
   }finally{bloqueo.current=false;}
  }
  async function restablecer(f:Creacion){
-  if(bloqueo.current||!window.confirm(`¿Restablecer «${f.nombre}»? Se retirará de los baúles y personajes y quedará únicamente en La creación, lista para una nueva entrega. Los recuerdos del cementerio se conservan. Si está en un encuentro activo, debes terminarlo primero.`))return;
+  if(bloqueo.current||!(await confirmar({titulo:'Restablecer creación',aceptar:'Restablecer',peligro:true,mensaje:`¿Restablecer «${f.nombre}»? Se retirará de los baúles y personajes y quedará únicamente en La creación, lista para una nueva entrega. Los recuerdos del cementerio se conservan. Si está en un encuentro activo, debes terminarlo primero.`})))return;
   bloqueo.current=true;
   try{const r=await supabase.rpc('forja_restablecer_alma',{p_forja:f.id});if(r.error)throw Error(r.error.message);setAviso('Creación restablecida. Ya no está vinculada a ninguna cuenta.');setRevision(v=>v+1);await cargar(false);}catch(e){setError(mensajeError(e,'No se pudo restablecer.'));}finally{bloqueo.current=false;}
  }
- async function eliminar(f:Creacion){if(!window.confirm(`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(mensajeError(r.error,'No se pudo eliminar.'));else await cargar();}
+ async function eliminar(f:Creacion){if(!(await confirmar({titulo:'Eliminar creación',mensaje:`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`,aceptar:'Eliminar',peligro:true})))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(mensajeError(r.error,'No se pudo eliminar.'));else await cargar();}
 
  const etiquetaClasificacion=(c:CategoriaBase)=>categorias.filter(v=>v.parent_id&&v.nombre===c.nombre).length>1?`${c.nombre} (${categorias.find(p=>p.id===c.parent_id)?.nombre||""})`:c.nombre;
  const nombreClasificacion=(clave:string)=>categorias.find(c=>c.clave===clave)?.nombre||`Sin clasificación (${clave})`;

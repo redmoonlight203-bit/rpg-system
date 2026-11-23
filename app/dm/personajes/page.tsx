@@ -22,6 +22,7 @@ import BaulAlma from "../../../components/BaulAlma";
 import NaturalezasYugen from "../../../components/NaturalezasYugen";
 import FichaVital from "../../../components/FichaVital";
 import "../../../components/personajes.css";
+import {useDialogo} from "../../../components/Dialogo";
 type Cuenta = {
   id: string;
   email: string;
@@ -56,6 +57,7 @@ type Item = {
   configuracion?: Record<string, unknown>;
 };
 export default function GestionPersonajes() {
+  const {confirmar}=useDialogo();
   const [tab, setTab] = useState("vivos"),
     [personajes, setPersonajes] = useState<Personaje[]>([]),
     [cuentas, setCuentas] = useState<Cuenta[]>([]),
@@ -185,9 +187,7 @@ export default function GestionPersonajes() {
   }
   async function borrar(p: Personaje) {
     if (
-      !window.confirm(
-        `¿Borrar definitivamente a «${p.nombre}» de esta cuenta? Se eliminarán su ficha, árbol, naturalezas y pertenencias exclusivas. Todo lo ligado al alma volverá al baúl de la cuenta.`,
-      )
+      !(await confirmar({titulo:'Borrar personaje',mensaje:`¿Borrar definitivamente a «${p.nombre}» de esta cuenta? Se eliminarán su ficha, árbol, naturalezas y pertenencias exclusivas. Todo lo ligado al alma volverá al baúl de la cuenta.`,aceptar:'Borrar',peligro:true}))
     )
       return;
     await ejecutar(async () => {

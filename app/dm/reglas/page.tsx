@@ -17,6 +17,7 @@ import SelectorIconoYugen from "../../../components/SelectorIconoYugen";
 import {iconoCategoria} from "../../../lib/iconos-yugen";
 import "./estadisticas.css";
 import { ArrowRight, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import {useDialogo} from "../../../components/Dialogo";
 
 type Categoria = { rangos_criatura?:Record<string,{min:number;max:number}>; id: string; clave: string; nombre: string; descripcion: string | null; parent_id?: string | null; icono?: string | null; imagen_url?: string | null; pasiva_racial?: import("../../../components/PasivaRacial").DefinicionRacial | null };
 type Stat = { id: string; categoria: string; clave: string; etiqueta: string; descripcion: string | null; valor_defecto: number };
@@ -26,6 +27,7 @@ const campo = "w-full rounded-lg border border-neutral-800 bg-well px-3 py-2.5 t
 const boton = "inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed";
 
 export default function Estadisticas() {
+  const {confirmar}=useDialogo();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
   const [seleccion, setSeleccion] = useState("");
@@ -135,7 +137,7 @@ export default function Estadisticas() {
     const detalle = heredado
       ? "Al quitar esta definición propia volverá a mostrarse el atributo heredado de su categoría superior."
       : "Dejará de estar disponible en esta categoría y en las que lo hereden de ella.";
-    if (!window.confirm(`¿Quitar «${stat.etiqueta}» de «${actual.nombre}»?\n\n${detalle}\nLos valores ya guardados en personajes y objetos no se borrarán.`)) return;
+    if (!(await confirmar({titulo:'Quitar atributo',mensaje:`¿Quitar «${stat.etiqueta}» de «${actual.nombre}»?\n\n${detalle}\nLos valores ya guardados en personajes y objetos no se borrarán.`,aceptar:'Quitar',peligro:true}))) return;
     bloqueoQuitar.current = true; setQuitando(stat.id); setError(""); setAviso("");
     try {
       const resultado = await supabase.from("config_estadisticas").delete()

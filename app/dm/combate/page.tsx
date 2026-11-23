@@ -80,6 +80,7 @@ import {describirEfecto,describirRegla,ayudaGuardia} from "../../../lib/descripc
 import ContenidoAyuda from "../../../components/ContenidoAyuda";
 import "./combate.css";
 import "./diseno.css";
+import {useDialogo} from "../../../components/Dialogo";
 type Personaje = {
   balance_ipe?:number|null;
   imagen_url?:string;
@@ -110,6 +111,7 @@ type Preparado = {
 type RespuestaAccion={id:string;version:number;datos?:Combate;pasos_deshacer?:number;repetida?:boolean;sql_ms?:number};
 type Guardado = { id: string; nombre: string; version: number };
 export default function CampoCombate() {
+  const {confirmar}=useDialogo();
   const [centro,setCentro]=useState<import("../../../lib/combate").Posicion|null>(null);
   const [modoMovimiento,setModoMovimiento]=useState(false);
   const [invocar,setInvocar]=useState<Fuente|null>(null);
@@ -297,9 +299,7 @@ export default function CampoCombate() {
   }
   async function quitar(m: Combatiente) {
     if (
-      !window.confirm(
-        `¿Retirar a ${m.nombre} del combate? Su ficha e inventario se conservan.`,
-      )
+      !(await confirmar({titulo:'Retirar combatiente',mensaje:`¿Retirar a ${m.nombre} del combate? Su ficha e inventario se conservan.`,aceptar:'Retirar',peligro:true}))
     )
       return;
     await ejecutar(() => guardar(retirar(c, m.id)));
@@ -345,7 +345,7 @@ export default function CampoCombate() {
   async function borrarEncuentro() {
     if (
       !version ||
-      !window.confirm(`¿Eliminar definitivamente el encuentro «${nombre}»?`)
+      !(await confirmar({titulo:'Eliminar encuentro',mensaje:`¿Eliminar definitivamente el encuentro «${nombre}»?`,aceptar:'Eliminar',peligro:true}))
     )
       return;
     await ejecutar(async () => {
@@ -963,10 +963,10 @@ export default function CampoCombate() {
           <button
             className="battle-button"
             disabled={bloqueado}
-            onClick={() => {
-              if (window.confirm("¿Terminar este combate?"))
+            onClick={() => void (async () => {
+              if (await confirmar({titulo:"Terminar combate",mensaje:"¿Terminar este combate?",aceptar:"Terminar"}))
                 void ejecutar(() => guardar(finalizar(c)));
-            }}
+            })()}
           >
             Terminar combate
           </button>

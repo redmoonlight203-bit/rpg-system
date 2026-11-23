@@ -9,6 +9,7 @@ import "./gm.css";
 import Riel, {indiceRuta} from "../../components/layout/Riel";
 import MarcoRuta from "../../components/layout/MarcoRuta";
 import NavegacionMovil from "../../components/NavegacionMovil";
+import {useDialogo} from "../../components/Dialogo";
 
 // Orden del recorrido del GM (docs/ciclo-juego.md): preparar → sesión → recompensas; después mundo y ajustes.
 const principales = [
@@ -31,10 +32,11 @@ const gestion = [
 ];
 
 export default function DMLayout({ children }: { children: React.ReactNode }) {
+  const {avisar}=useDialogo();
   const router = useRouter();
   async function cerrarSesion() {
     const { error } = await supabase.auth.signOut();
-    if (error) { window.alert("No se pudo cerrar la sesión. Inténtalo otra vez."); return; }
+    if (error) { await avisar({titulo:"Sesión abierta",mensaje:"No se pudo cerrar la sesión. Inténtalo otra vez."}); return; }
     router.replace("/login");
   }
   return <div className="gm-shell">
