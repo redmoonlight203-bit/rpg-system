@@ -71,6 +71,8 @@ Se permiten estas animaciones; todas en CSS con `transform` u `opacity`, y desac
 
 - **Ambiente del Yunque:** el taller de nodos de la Forja puede tener dos bucles continuos, y solo estos dos: las brasas que suben por el fondo del lienzo y el brillo que corre por los cables. Ambos se detienen con movimiento reducido (decisión R6 del Yunque).
 
+- **Códices de La creación** (ficha de cada creación en la Forja). Duraciones por defecto, editables por el GM en el Taller de códices (0–2000 ms) y apagables con un interruptor: pasar página del bestiario 650 ms (`rotateY` desde el lomo), voltear la carta de tarot 600 ms, inclinación de la carta según el puntero hasta 6° (máx. 15°, solo ratón), aparición del sello 400 ms y del estandarte 600 ms, una sola vez. Sin bucles.
+
 Prohibido: librerías de animación nuevas, animaciones infinitas fuera del halo y del ambiente del Yunque, mover el diseño (`width`, `top`…) para animar.
 
 ## 6. Patrones
@@ -85,7 +87,7 @@ Prohibido: librerías de animación nuevas, animaciones infinitas fuera del halo
 ## 7. Pantallas (orden de trabajo)
 
 1. Ficha del jugador: hub de lugares (`/ficha`), carta de héroe (`/ficha/personaje`, `FichaVital`), habilidades, experiencia.
-2. GM: mesa de Kuroi, Forja (hecha: «El yunque» es un lienzo de nodos con grimorio, arena de dolls y vista de lista por debajo de 1024 px; el formulario por pasos se retiró), galería de personajes.
+2. GM: mesa de Kuroi, Forja (hecha: cada creación se lee en su códice —bestiario, tarot, reliquia, sello, edicto, expediente o pergamino— configurable en el Taller de códices; «El yunque» es un lienzo de nodos con grimorio, arena de dolls y vista de lista por debajo de 1024 px; el formulario por pasos se retiró), galería de personajes.
 3. Login como escena de entrada.
 4. Combate (solo estilo), inventario, tiendas y resto.
 
