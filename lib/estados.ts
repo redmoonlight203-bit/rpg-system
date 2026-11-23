@@ -52,7 +52,7 @@ export type DefinicionEstado={id:string;nombre:string;icono?:string;categoria:Ca
  despertar?:{recibir_dano?:boolean;salvacion?:TiradaSalvacion};
  descripcion?:string};
 export const NOMBRE_PRIMITIVA:Record<TipoPrimitiva,string>={perder_turno:'Perder turno',movimiento_forzado:'Movimiento forzado',cesion_control:'Cesión de control',percepcion_alterada:'Percepción alterada',dano_periodico:'Daño periódico',curacion_periodica:'Curación periódica',modificador_movimiento:'Modificador de movimiento',vulnerabilidad_elemental:'Vulnerabilidad elemental',bonos:'Bonos y penalizaciones',inmunidad:'Inmunidad temporal'};
-export const ICONO_PRIMITIVA:Record<TipoPrimitiva,string>={perder_turno:'reloj',movimiento_forzado:'ojo',cesion_control:'alma',percepcion_alterada:'ojo',dano_periodico:'fuego',curacion_periodica:'vida',modificador_movimiento:'reloj',vulnerabilidad_elemental:'agua',bonos:'escudo',inmunidad:'escudo'};
+export const ICONO_PRIMITIVA:Record<TipoPrimitiva,string>={perder_turno:'alma',movimiento_forzado:'ojo',cesion_control:'alma',percepcion_alterada:'ojo',dano_periodico:'fuego',curacion_periodica:'vida',modificador_movimiento:'escudo',vulnerabilidad_elemental:'agua',bonos:'escudo',inmunidad:'escudo'};
 export const CATEGORIAS_ESTADO:CategoriaEstado[]=['mental','fisico','elemental','narrativo'];
 const SALV:TiradaSalvacion={cd:12,atributo:'salvacion'};
 /** Catálogo base. Los estados del motor antiguo son ahora definiciones; sus resultados no cambian. */
@@ -71,7 +71,7 @@ export const CATALOGO_ESTADOS:DefinicionEstado[]=[
  {id:'control_mental',nombre:'Control mental',icono:'alma',categoria:'mental',subcategoria:'control',duracion:{tipo:'turnos',turnos:2},efectos:[{tipo:'cesion_control',controlador:'fuente'}],descripcion:'Quien lo controla decide sus actos; el GM puede cortarlo.'},
  {id:'asustado',nombre:'Asustado',icono:'ojo',categoria:'mental',subcategoria:'miedo',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'movimiento_forzado',sentido:'alejar',min:1,max:2,no_ataca_fuente:true}]},
  {id:'hipnotizado',nombre:'Hipnotizado',icono:'ojo',categoria:'mental',subcategoria:'ilusion',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'percepcion_alterada',probabilidad:50}]},
- {id:'dormido',nombre:'Dormido',icono:'reloj',categoria:'mental',subcategoria:'control',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'perder_turno',permite_reacciones:false},{tipo:'modificador_movimiento',modo:'cero'}],despertar:{recibir_dano:true}},
+ {id:'dormido',nombre:'Dormido',icono:'alma',categoria:'mental',subcategoria:'control',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'perder_turno',permite_reacciones:false},{tipo:'modificador_movimiento',modo:'cero'}],despertar:{recibir_dano:true}},
  {id:'paralizado',nombre:'Paralizado',icono:'rayo',categoria:'fisico',duracion:{tipo:'salvacion',salvacion:SALV},efectos:[{tipo:'perder_turno',primer_turno:true,permite_reacciones:true},{tipo:'modificador_movimiento',modo:'cero'}],despertar:{salvacion:SALV}},
  {id:'en_trance',nombre:'En trance',icono:'alma',categoria:'mental',subcategoria:'confusion',duracion:{tipo:'turnos',turnos:2},efectos:[{tipo:'perder_turno',permite_reacciones:false},{tipo:'modificador_movimiento',modo:'cero'}]},
  {id:'guardia',nombre:'Guardia',icono:'escudo',categoria:'fisico',duracion:{tipo:'hasta_su_turno'},efectos:[{tipo:'bonos',bonos:{armadura:2}}]},
