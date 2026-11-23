@@ -97,7 +97,7 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
-const { normalizarReaccion, disparadorDe, CON_ALCANCE } = (() => {
+const { normalizarReaccion, disparadorDe, lineaCosteReaccion, CON_ALCANCE } = (() => {
 const DISPARADORES = ['antes_ser_atacado', 'despues_ser_atacado', 'tras_fallar_ataque', 'tras_fallar_prueba', 'aliado_atacado', 'aliado_ataca', 'aliado_cae', 'apuntado_por_area', 'fin_de_turno'];
 const NOMBRE_DISPARADOR = {
     antes_ser_atacado: 'Antes de que me ataquen',
@@ -147,8 +147,26 @@ function normalizarReaccion(e) {
     const plantilla = PLANTILLAS_REACCION[defensa];
     return { ...resto, reaccion: e.reaccion ?? (plantilla ? JSON.parse(JSON.stringify(plantilla)) : undefined) };
 }
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+/**
+ * Línea de coste siempre visible (tarjeta del Yunque, menú de decisión y ficha): PH, usos y enfriamiento.
+ * `costeAccion` es el coste de PH de la acción cuando la reacción no tiene uno propio; `restantes`, los usos que quedan.
+ */
+function lineaCosteReaccion(r, costeAccion = 0, restantes) {
+    const coste = r.coste ?? costeAccion ?? 0;
+    const limites = [];
+    if (r.usos && r.usos.tipo !== 'ilimitado')
+        limites.push(`${plural(r.usos.maximo || 1, 'uso', 'usos')} por ${r.usos.tipo === 'encuentro' ? 'encuentro' : 'ronda'}${restantes != null ? ` (quedan ${restantes})` : ''}`);
+    else if (r.una_por_ronda)
+        limites.push('1 uso por ronda');
+    if (r.enfriamiento)
+        limites.push(`enfriamiento ${plural(r.enfriamiento, 'ronda', 'rondas')}`);
+    if (!coste && !limites.length)
+        return 'Sin coste';
+    return [coste ? `${coste} PH` : 'Sin coste de PH', ...limites].join(' · ');
+}
 
-return { normalizarReaccion, disparadorDe, CON_ALCANCE };
+return { normalizarReaccion, disparadorDe, lineaCosteReaccion, CON_ALCANCE };
 })();
 const { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION } = (() => {
 const PATRONES_OJO = [
@@ -693,7 +711,7 @@ function disponibilidad(c, t, p, r) {
 }
 /** Pregunta al dueño (rng.consultarReaccion) y, si la usa, paga PH y anota el uso. */
 function ofrecer(c, t, d, rng, disparador, anotar = true) {
-    if (rng.consultarReaccion && !rng.consultarReaccion({ defensor: t.id, nombre: t.nombre, reaccion: d.p.nombre, efecto: d.p.id, coste: d.coste, disparador, usos_restantes: d.restantes, enfriamiento: d.r.enfriamiento || 0 }))
+    if (rng.consultarReaccion && !rng.consultarReaccion({ defensor: t.id, nombre: t.nombre, reaccion: d.p.nombre, efecto: d.p.id, coste: d.coste, disparador, usos_restantes: d.restantes, enfriamiento: d.r.enfriamiento || 0, linea: lineaCosteReaccion({ ...d.r, coste: d.coste }, 0, d.restantes) }))
         return false;
     if (d.r.una_por_ronda)
         t.rondas_reacciones = { ...t.rondas_reacciones, [d.p.id]: c.ronda };
@@ -719,6 +737,15 @@ export function evaluarReacciones(c, dueno, disparador, contexto = {}) {
         .filter(({ r }) => !pos || !contexto.cerca || (!!pos[dueno.id] && !!pos[contexto.cerca.id] && distanciaCasillas(pos[dueno.id], pos[contexto.cerca.id]) <= (r.alcance || 1)))
         .sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i)
         .map(x => disponibilidad(c, dueno, x.p, x.r)).filter((d) => !!d);
+}
+/** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
+export function reaccionesDe(c, m) {
+    return efectosConReaccion(m).filter((p) => !!p.reaccion).map(p => {
+        const r = p.reaccion, u = m.usos_reaccion?.[p.id];
+        const restantes = r.usos && r.usos.tipo !== 'ilimitado' ? Math.max(0, (r.usos.maximo || 1) - (r.usos.tipo === 'encuentro' ? (u?.encuentro || 0) : (u && u.ronda === c.ronda ? u.en_ronda : 0))) : null;
+        const coste = m.transformacion?.definicion_id === 'limitless' && p.ley_limitless ? 0 : (r.coste ?? p.coste_ph ?? 0);
+        return { id: p.id, nombre: p.nombre, disparador: disparadorDe(r), linea: lineaCosteReaccion({ ...r, coste }, 0, restantes), lista: !!disponibilidad(c, m, p, r) };
+    });
 }
 function contraatacar(c, dueno, victima, ca, rng, nombre) {
     const v = Math.max(0, dados(c, ca.cantidad, ca.caras, rng, nombre) + (ca.modificador || 0));

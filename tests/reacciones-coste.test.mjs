@@ -35,3 +35,14 @@ test('la oferta informa de usos restantes y enfriamiento',()=>{
  const {rng}=golpe(conReaccion({coste:1,usos:{tipo:'encuentro',maximo:2},enfriamiento:1}));
  const o=rng.ofertas[0];assert.equal(o.usos_restantes,2);assert.equal(o.enfriamiento,1);assert.equal(o.coste,1);
 });
+test('la oferta trae la misma línea de coste que la tarjeta y la ficha',()=>{
+ const {rng}=golpe(conReaccion({coste:2,usos:{tipo:'encuentro',maximo:2},enfriamiento:1}));
+ assert.equal(rng.ofertas[0].linea,'2 PH · 2 usos por encuentro (quedan 2) · enfriamiento 1 ronda');
+});
+test('reaccionesDe lista las reacciones del combatiente con su línea y si están listas',()=>{
+ const c=conReaccion({coste:2,usos:{tipo:'encuentro',maximo:1}});
+ const antes=m.reaccionesDe(c,de(c,'k'));
+ assert.deepEqual(antes.map(r=>[r.nombre,r.disparador,r.linea,r.lista]),[['escudo','despues_ser_atacado','2 PH · 1 uso por encuentro (quedan 1)',true]]);
+ const {n}=golpe(c);const despues=m.reaccionesDe(n,de(n,'k'))[0];
+ assert.equal(despues.lista,false);assert.equal(despues.linea,'2 PH · 1 uso por encuentro (quedan 0)');
+});

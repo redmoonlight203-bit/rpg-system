@@ -2,7 +2,7 @@ import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion, type ContraataqueReaccion } from "./creacion";
-import {normalizarReaccion,disparadorDe,CON_ALCANCE,type DisparadorReaccion} from "./reacciones";
+import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type DisparadorReaccion} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
@@ -182,7 +182,9 @@ function ilustracionFuente(fuente: Pick<Fuente, "id" | "forja_id" | "imagen_url"
   const forja_id = fuente.forja_id || fuente.id;
   return forja_id || fuente.imagen_url ? { forja_id, imagen_url: fuente.imagen_url } : undefined;
 }
-export type OfertaReaccion={defensor:string;nombre:string;reaccion:string;coste:number;efecto:string;disparador?:DisparadorReaccion;usos_restantes?:number|null;enfriamiento?:number};
+export type OfertaReaccion={defensor:string;nombre:string;reaccion:string;coste:number;efecto:string;disparador?:DisparadorReaccion;usos_restantes?:number|null;enfriamiento?:number;
+ /** Línea de coste, usos y enfriamiento (lineaCosteReaccion), la misma que en el Yunque y la ficha. */
+ linea?:string};
 type OrdenAtaque={actor:string;accion:string;objetivo:string;forzar:boolean;centro?:Posicion};
 type OrdenGolpe=OrdenAtaque|{turno:'siguiente'|'iniciar'}|{objeto:string;actor:string;efecto:string;objetivo:string};
 type SolicitudReaccion={oferta:OfertaReaccion;orden:OrdenGolpe;tiradas:{caras:number;valor:number}[];respuestas:boolean[]};
@@ -535,7 +537,7 @@ function disponibilidad(c:Combate,t:Combatiente,p:Efecto,r:Reaccion):ReaccionDis
 }
 /** Pregunta al dueño (rng.consultarReaccion) y, si la usa, paga PH y anota el uso. */
 function ofrecer(c:Combate,t:Combatiente,d:ReaccionDisponible,rng:RNG,disparador:DisparadorReaccion,anotar=true):boolean{
-  if(rng.consultarReaccion&&!rng.consultarReaccion({defensor:t.id,nombre:t.nombre,reaccion:d.p.nombre,efecto:d.p.id,coste:d.coste,disparador,usos_restantes:d.restantes,enfriamiento:d.r.enfriamiento||0}))return false;
+  if(rng.consultarReaccion&&!rng.consultarReaccion({defensor:t.id,nombre:t.nombre,reaccion:d.p.nombre,efecto:d.p.id,coste:d.coste,disparador,usos_restantes:d.restantes,enfriamiento:d.r.enfriamiento||0,linea:lineaCosteReaccion({...d.r,coste:d.coste},0,d.restantes)}))return false;
   if(d.r.una_por_ronda)t.rondas_reacciones={...t.rondas_reacciones,[d.p.id]:c.ronda};
   if(d.r.usos||d.r.enfriamiento){
     const u=t.usos_reaccion?.[d.p.id];
@@ -557,6 +559,15 @@ export function evaluarReacciones(c:Combate,dueno:Combatiente,disparador:Dispara
     .filter(({r})=>!pos||!contexto.cerca||(!!pos[dueno.id]&&!!pos[contexto.cerca.id]&&distanciaCasillas(pos[dueno.id],pos[contexto.cerca.id])<=(r.alcance||1)))
     .sort((x,y)=>(y.r.prioridad||0)-(x.r.prioridad||0)||x.i-y.i)
     .map(x=>disponibilidad(c,dueno,x.p,x.r)).filter((d):d is ReaccionDisponible=>!!d);
+}
+/** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
+export function reaccionesDe(c:Combate,m:Combatiente):{id:string;nombre:string;disparador:DisparadorReaccion;linea:string;lista:boolean}[]{
+  return efectosConReaccion(m).filter((p):p is Efecto&{reaccion:Reaccion}=>!!p.reaccion).map(p=>{
+    const r=p.reaccion,u=m.usos_reaccion?.[p.id];
+    const restantes=r.usos&&r.usos.tipo!=='ilimitado'?Math.max(0,(r.usos.maximo||1)-(r.usos.tipo==='encuentro'?(u?.encuentro||0):(u&&u.ronda===c.ronda?u.en_ronda:0))):null;
+    const coste=m.transformacion?.definicion_id==='limitless'&&p.ley_limitless?0:(r.coste??p.coste_ph??0);
+    return {id:p.id,nombre:p.nombre,disparador:disparadorDe(r),linea:lineaCosteReaccion({...r,coste},0,restantes),lista:!!disponibilidad(c,m,p,r)};
+  });
 }
 function contraatacar(c:Combate,dueno:Combatiente,victima:Combatiente,ca:ContraataqueReaccion,rng:RNG,nombre:string){
   const v=Math.max(0,dados(c,ca.cantidad,ca.caras,rng,nombre)+(ca.modificador||0));

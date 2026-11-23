@@ -81,6 +81,7 @@ import ContenidoAyuda from "../../../components/ContenidoAyuda";
 import "./combate.css";
 import "./diseno.css";
 import {useDialogo} from "../../../components/Dialogo";
+import MenuReaccion,{EsperandoReaccion} from "../../../components/MenuReaccion";
 type Personaje = {
   balance_ipe?:number|null;
   imagen_url?:string;
@@ -806,10 +807,9 @@ export default function CampoCombate() {
   }
   return (
     <main className="battle-theme">
-      {oferta&&<section aria-live="polite" className="rounded border border-amber-600 bg-neutral-950 p-4">
-       <strong>{oferta.nombre} puede usar {oferta.reaccion} · {oferta.coste} PH</strong>
-       {decideGM?<div>{[true,false].map(si=><button type="button" key={String(si)} className="m-2 rounded border p-2" disabled={ocupado||segura.pendiente} onClick={()=>void ejecutar(()=>guardar(responderReaccion(c,oferta.defensor,si)))}>{si?'Usar reacción':'Dejar pasar'}</button>)}</div>:<p>Esperando la decisión del jugador.</p>}
-      </section>}
+      {oferta&&(decideGM
+       ?<MenuReaccion oferta={oferta} ocupado={ocupado||segura.pendiente} onDecidir={si=>void ejecutar(()=>guardar(responderReaccion(c,oferta.defensor,si)))}/>
+       :<EsperandoReaccion nombre={oferta.nombre}/>)}
       {roll && c.fase !== "en_curso" && (
         <AnimacionDados
           key={JSON.stringify(roll)}
