@@ -16,3 +16,12 @@
 .aviso-espejo{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;z-index:105;width:min(calc(100% - 32px),460px);translate:-50% 0;pointer-events:none;box-shadow:0 12px 40px -12px #000;display:flex;align-items:center;justify-content:center;gap:10px;margin:0;padding:14px;font:700 clamp(18px,5vw,24px) var(--font-display);letter-spacing:.06em;color:var(--color-gold-bright);border:1px solid var(--color-arcane);background:radial-gradient(ellipse at center,color-mix(in srgb,var(--color-arcane) 30%,transparent),var(--color-well) 75%);animation:aviso-espejo 2.4s ease-in-out infinite}
 @keyframes aviso-espejo{0%,100%{filter:none;transform:none}25%{filter:blur(1.5px);transform:skewX(-4deg)}50%{transform:scaleX(-1)}75%{filter:blur(.5px);transform:skewX(3deg)}}
 @media (prefers-reduced-motion:reduce){.aviso-espejo{animation:none}}
+/* Control mental (plan maestro, Apéndice B · paso 5): panel del jugador que dirige a un combatiente ajeno. */
+.control-mental{display:grid;gap:8px;margin:10px 0;padding:12px 14px;border:1px solid color-mix(in srgb,#b583ff 60%,transparent);border-radius:4px;background:radial-gradient(ellipse at 0 0,color-mix(in srgb,#b583ff 22%,transparent),transparent 70%),var(--color-well);animation:control-pulso 2.4s ease-in-out infinite}
+.control-mental h2{margin:0;font:600 16px var(--font-display);letter-spacing:.06em;color:#d8c1ff}
+.control-mental p{margin:0;font:13px var(--font-sans);color:var(--color-text-muted)}
+.control-mental div{display:flex;flex-wrap:wrap;gap:6px}
+.control-mental button{min-height:44px;padding:6px 12px;border:1px solid #b583ff;border-radius:3px;background:color-mix(in srgb,#b583ff 16%,var(--color-well));color:var(--color-text);font:600 14px var(--font-sans);cursor:pointer}
+.control-mental button:disabled{opacity:.5;cursor:not-allowed}
+@keyframes control-pulso{50%{box-shadow:0 0 22px -6px #b583ff}}
+@media (prefers-reduced-motion:reduce){.control-mental{animation:none}}

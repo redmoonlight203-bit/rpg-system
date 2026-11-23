@@ -5,6 +5,7 @@ import {useEffect,useRef} from "react";
 import {Hourglass,Shield,Sparkles} from "lucide-react";
 import type {OfertaReaccion} from "../lib/combate";
 import {NOMBRE_DISPARADOR,lineaCosteReaccion} from "../lib/reacciones";
+import {atraparFoco} from "./Dialogo";
 import "./menu-reaccion.css";
 
 export function lineaOferta(o:OfertaReaccion){
@@ -13,11 +14,13 @@ export function lineaOferta(o:OfertaReaccion){
 
 export default function MenuReaccion({oferta,ocupado=false,onDecidir}:{oferta:OfertaReaccion;ocupado?:boolean;onDecidir:(usar:boolean)=>void}){
   const usar=useRef<HTMLButtonElement>(null);
-  useEffect(()=>{usar.current?.focus();},[oferta.efecto,oferta.defensor]);
+  const carta=useRef<HTMLElement>(null);
+  // Al abrir, el foco va a «Usar»; al cerrar, vuelve a donde estaba.
+  useEffect(()=>{const previo=document.activeElement as HTMLElement|null;usar.current?.focus();return ()=>{previo?.focus?.();};},[oferta.efecto,oferta.defensor]);
   const disparador=oferta.disparador?NOMBRE_DISPARADOR[oferta.disparador]:NOMBRE_DISPARADOR.despues_ser_atacado;
   const usos=oferta.usos_restantes==null?"∞":String(oferta.usos_restantes);
-  return <div className="mr-velo" onKeyDown={e=>{if(e.key==="Escape"&&!ocupado){e.preventDefault();onDecidir(false);}}}>
-    <section className="mr-carta" role="alertdialog" aria-modal="true" aria-labelledby="mr-titulo" aria-describedby="mr-linea">
+  return <div className="mr-velo" onKeyDown={e=>{if(e.key==="Escape"&&!ocupado){e.preventDefault();onDecidir(false);return;}atraparFoco(e,carta.current);}}>
+    <section ref={carta} className="mr-carta" role="alertdialog" aria-modal="true" aria-labelledby="mr-titulo" aria-describedby="mr-linea">
       <div className="mr-halo" aria-hidden="true"/>
       <p className="mr-eyebrow"><Sparkles size={14} aria-hidden="true"/>¡Reacción! · {disparador}</p>
       <div className="mr-emblema" aria-hidden="true"><Shield size={30}/></div>

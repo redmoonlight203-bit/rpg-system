@@ -92,7 +92,20 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
    </div>
    {!atributos.length&&<p className="yq-nota">Esta familia no tiene atributos. Defínelos en Estadísticas.</p>}
   </section>}
+  {b.tipo==='objeto'&&b.slot!=='ninguno'&&<section className="yq-atributos yq-bonos-portador" aria-label="Bonos al portador">
+   <header><span>Mientras esté equipado</span></header>
+   <div className="yq-medallones">
+    {BONOS_PORTADOR.filter(x=>!atributos.some(a=>a.clave===x.clave)).map(x=><Medallon key={x.clave} etiqueta={x.etiqueta} detalle="máximo del portador" valor={<CifraMedallon etiqueta={x.etiqueta} valor={b.stats[x.clave]??0} onChange={n=>{const stats={...b.stats};if(n)stats[x.clave]=n;else delete stats[x.clave];fijar({stats});}}/>}/>)}
+   </div>
+   <p className="yq-nota">{frasePortador(b)}</p>
+  </section>}
  </div>;
+}
+/** Atributos de supervivencia que cualquier pieza equipable puede sumar al portador (plan maestro 4.5). */
+const BONOS_PORTADOR=[{clave:'vida',etiqueta:'Vida máxima'},{clave:'ph',etiqueta:'PH máximo'},{clave:'fatiga',etiqueta:'Fatiga máxima'}];
+function frasePortador(b:{nombre:string;slot:string;stats:Record<string,number>}){
+ const partes=BONOS_PORTADOR.filter(x=>b.stats[x.clave]).map(x=>`${b.stats[x.clave]>0?'+':''}${b.stats[x.clave]} ${x.etiqueta}`);
+ return partes.length?`${b.nombre.trim()||'Este objeto'} · ${partes.join(', ')} mientras esté equipado.`:'Sin bonos de Vida, PH ni Fatiga.';
 }
 const IconoCarta=({id}:{id:string})=><IconoYugen id={id} size={34}/>;
 /** Cifra editable dentro de un medallón: se escribe o se gira con la rueda del ratón. */

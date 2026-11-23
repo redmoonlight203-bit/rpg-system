@@ -152,8 +152,8 @@ function unPaso(antes:Combate,despues:Combate,visual:Combate):Combate{
  * movimientos del lanzador). Como en el combate, el turno sigue: el doll puede moverse con lo que le quede y el
  * turno termina con «Terminar turno» (`turno`). Solo si el motor ya pasó el turno a un saco, los sacos pasan solos.
  */
-export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dadoSeguro,forzar=false,centro?:Posicion):Combate{
- const hecho=actuar(c,DOLL,accionId,objetivo,rng,forzar,centro);
+export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dadoSeguro,forzar=false,centro?:Posicion,potenciadores?:Parameters<typeof actuar>[7]):Combate{
+ const hecho=actuar(c,DOLL,accionId,objetivo,rng,forzar,centro,potenciadores);
  recomponer(hecho);
  const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng):hecho;
  return unPaso(c,n,hecho);

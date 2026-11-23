@@ -33,6 +33,7 @@ function Portadores({a,artefactoId}:{a:ConfiguracionArtefacto;artefactoId?:strin
  const [elegido,setElegido]=useState('');
  const [revelando,setRevelando]=useState<{nombre:string;tirada:number;nueva:boolean}|null>(null);
  const [cifra,setCifra]=useState(0);
+ const [devorando,setDevorando]=useState(false);
  const [error,setError]=useState('');
  const [armas,setArmas]=useState<Arma[]>([]);
  const [devora,setDevora]=useState({portador:'',arma:''});
@@ -53,12 +54,20 @@ function Portadores({a,artefactoId}:{a:ConfiguracionArtefacto;artefactoId?:strin
   setPortadores(v=>v.some(x=>x.personaje_id===pj.id)?v:[...v,{personaje_id:pj.id,forma_tirada:r.data.forma_tirada,nivel:r.data.nivel,absorbidas:[]}]);
  }
  async function devorarArma(){
+  if(devorando)return;
   setError('');const p=portadores.find(x=>String(x.personaje_id)===devora.portador),w=armas.find(x=>x.id===devora.arma);if(!p||!w)return;
-  const nuevo=devorar(a,{nivel:p.nivel,absorbidas:p.absorbidas||[]},{nombre:w.nombre,stats:w.stats||{},habilidades:(w.configuracion_dados||[]).map(e=>({id:e.id,nombre:e.nombre})),pasivas:(w.reglas_pasivas||[]).map(r=>({id:r.id,nombre:r.nombre}))},dadoSeguro);
-  const r=await supabase.from('portadores_artefacto').update({nivel:nuevo.nivel,absorbidas:nuevo.absorbidas}).eq('artefacto_id',artefactoId!).eq('personaje_id',p.personaje_id).select('personaje_id').single();
-  if(r.error){setError(mensajeError(r.error,'No se pudo guardar la absorción.'));return;}
-  setFestin({absorcion:nuevo.absorbidas.at(-1)!,sube:nuevo.nivel>p.nivel?nuevo.nivel:null});
-  setPortadores(v=>v.map(x=>x.personaje_id===p.personaje_id?{...x,...nuevo}:x));
+  setDevorando(true);
+  try{
+   // Se usa la configuración GUARDADA del artefacto, no el borrador sin guardar.
+   const guardada=await supabase.from('forja_maestra').select('configuracion_artefacto').eq('id',artefactoId!).single();
+   if(guardada.error||!guardada.data?.configuracion_artefacto)throw Error('Guarda el artefacto antes de devorar.');
+   const nuevo=devorar(guardada.data.configuracion_artefacto as typeof a,{nivel:p.nivel,absorbidas:p.absorbidas||[]},{nombre:w.nombre,stats:w.stats||{},habilidades:(w.configuracion_dados||[]).map(e=>({id:e.id,nombre:e.nombre})),pasivas:(w.reglas_pasivas||[]).map(r=>({id:r.id,nombre:r.nombre}))},dadoSeguro);
+   const r=await supabase.from('portadores_artefacto').update({nivel:nuevo.nivel,absorbidas:nuevo.absorbidas}).eq('artefacto_id',artefactoId!).eq('personaje_id',p.personaje_id).select('personaje_id').single();
+   if(r.error){setError(mensajeError(r.error,'No se pudo guardar la absorción.'));return;}
+   setFestin({absorcion:nuevo.absorbidas.at(-1)!,sube:nuevo.nivel>p.nivel?nuevo.nivel:null});
+   setPortadores(v=>v.map(x=>x.personaje_id===p.personaje_id?{...x,...nuevo}:x));
+  }catch(e){setError(mensajeError(e,'No se pudo devorar el arma.'));}
+  finally{setDevorando(false);}
  }
  const listo=revelando&&cifra===revelando.tirada;
  return <section className="ya-portadores" aria-label="Portadores">
@@ -74,7 +83,7 @@ function Portadores({a,artefactoId}:{a:ConfiguracionArtefacto;artefactoId?:strin
    <h4 className="yq-ficha-titulo">Devorar un arma</h4>
    <div className="ya-empunar"><select aria-label="Portador que devora" value={devora.portador} onChange={e=>setDevora({...devora,portador:e.target.value})}><option value="">Portador…</option>{portadores.map(p=><option key={p.personaje_id} value={p.personaje_id}>{personajes.find(x=>x.id===p.personaje_id)?.nombre||'#'+p.personaje_id}</option>)}</select>
     <select aria-label="Arma devorada" value={devora.arma} onChange={e=>setDevora({...devora,arma:e.target.value})}><option value="">Arma…</option>{armas.map(w=><option key={w.id} value={w.id}>{w.nombre}</option>)}</select>
-    <button type="button" className="ya-despertar" disabled={!devora.portador||!devora.arma} onClick={()=>void devorarArma()}>Devorar · d100</button></div>
+    <button type="button" className="ya-despertar" disabled={devorando||!devora.portador||!devora.arma} aria-busy={devorando} onClick={()=>void devorarArma()}>{devorando?'Devorando…':'Devorar · d100'}</button></div>
    {festin&&<div className="ya-resultado" role="status" aria-live="polite" key={festin.absorcion.arma+festin.absorcion.tirada}>
     <strong>d100 {festin.absorcion.tirada} · {festin.absorcion.tramo}</strong>
     <span>De «{festin.absorcion.arma}»: {[...Object.entries(festin.absorcion.stats).map(([k,v])=>`${k} ${v>0?'+':''}${v}`),...festin.absorcion.habilidades.map(h=>h.nombre),...festin.absorcion.pasivas.map(q=>q.nombre)].join(', ')||'nada que absorber'}.</span>

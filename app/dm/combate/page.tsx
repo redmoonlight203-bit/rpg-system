@@ -1,4 +1,5 @@
 "use client";
+import IconoYugen from "../../../components/IconoYugen";
 import {Cabecera} from "../../../components/layout/Cabecera";
 import {mensajeError} from '../../../lib/errores';
 import {presupuestoEncuentro} from "../../../lib/presupuesto-encuentro";
@@ -45,7 +46,7 @@ import {
   retirar,
   iniciar,
   siguiente,
-  actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,
+  actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,estadosVisibles,recursosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto,
   acciones,
   estadisticas,
   maxVida,
@@ -72,7 +73,6 @@ import AnimacionDados, {
 import {TableroCombate,BarraCombate} from "../../../components/TableroCombate";
 import VentanaInventario from "../../../components/VentanaInventario";
 import {consumiblesBarra,guardarFijados,leerFijados} from "../../../lib/combate-interfaz";
-import {tipoAnimacionArma} from "../../../lib/animaciones-armas";
 import {Hanko} from "../../../components/ui/Signature";
 import RetratoCombate from "../../../components/RetratoCombate";
 import { retratosCombate } from "../../../lib/retratos-combate";
@@ -330,7 +330,8 @@ export default function CampoCombate() {
         opciones?.centro||(objetivoId?posicionesTablero(c)[objetivoId]:centro)||undefined,
       );
       next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado,
-        arma_visual:efecto?.efecto==='dano'?tipoAnimacionArma({accionId:elegida,nombreAccion:lista.find(a=>a.id===elegida)?.nombre,nombreEfecto:efecto.nombre,nombreArma:actor.arma?.nombre,nombreArmaEfecto:efecto.arma_nombre,naturaleza:efecto.naturaleza,costePh:efecto.coste_ph}):undefined};
+        // La animación sale del esqueleto del arma o del concepto (el nombre solo para datos antiguos).
+        arma_visual:esqueletoDeAccion(actor,lista.find(a=>a.id===elegida),elegida),esqueleto:esqueletoVisual(lista.find(a=>a.id===elegida)?.efecto)};
       await guardar(next);
       if (dados.length)
         setRoll({ id: crypto.randomUUID(), nombre: actor.nombre, dados });
@@ -705,7 +706,8 @@ export default function CampoCombate() {
         <div className="battle-states" aria-label="Estados activos">
           {m.vida <= 0 && <span className="battle-state">Fuera de combate</span>}
           {m.agotado && <span className="battle-state">Agotado</span>}
-          {m.estados.map((e) => <span className="battle-state" key={e.id} title={e.restantes > 0 ? `${e.restantes} turnos` : "Hasta resolver su condición"}>{e.nombre}{e.restantes > 0 ? ` · ${e.restantes}` : ""}</span>)}
+          {estadosVisibles(m).map((e) => <span className={`battle-state estado-${e.categoria||'narrativo'}`} key={e.id} title={e.frase} tabIndex={0}><IconoYugen id={e.icono} size={12}/> {e.nombre.split(':')[0]}{e.restantes > 0 ? ` · ${e.restantes}` : ""}</span>)}
+          {recursosVisibles(m,true).map(r=><span className="battle-state battle-recurso" key={r.id} style={{['--recurso' as string]:r.color||'var(--color-gold)'}} title={`${r.nombre}: ${r.saldo} / ${r.tope}`}>◆ {r.nombre} {r.saldo}/{r.tope}</span>)}
           {!m.estados.length && !m.agotado && m.vida > 0 && <span className="battle-no-state">Sin estados</span>}
         </div>
         <details>
@@ -1143,7 +1145,7 @@ export default function CampoCombate() {
             ))}
           </div>
           </details>
-          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:fotoDe(actor)}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
+          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(actor),recursos:recursosVisibles(actor,true),guardia:{nombre:conceptosDe(actor).guardia.nombre,frase:describirConcepto(conceptosDe(actor).guardia)},ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:fotoDe(actor)}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
           {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select

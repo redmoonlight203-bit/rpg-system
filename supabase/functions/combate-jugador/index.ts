@@ -1,18 +1,6 @@
 // @ts-nocheck -- Runtime Deno de Supabase.
-import {actuarConReacciones,turnoConReacciones,responderReaccion,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles,vistaOcular,reaccionesDe,responderVoz,resistirVoz,estaDominado,proyectarRespuesta,desproyectar,reaccionLaDecideGM} from '../equipo-combate/motor.js';
-/** Animación visual sin modificar el daño ni la duración de la acción. */
-function tipoArmaVisual(accion,accionId,actor){
- const e=accion?.efecto;
- if(e?.efecto!=='dano')return undefined;
- const normalizar=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- const nombre=normalizar([accion?.nombre,e?.nombre,actor?.arma?.nombre,e?.arma_nombre].join(' '));
- const arma=normalizar([actor?.arma?.nombre,e?.arma_nombre,accionId==='ataque'?accion?.nombre:''].join(' '));
- if(accionId==='desarmado'||/desarmado|punos?|punetaz|patada/.test(nombre))return 'punos';
- if(/arco|ballesta|flecha|saeta/.test(arma)||(!e?.coste_ph&&/arco|ballesta|flecha|saeta/.test(nombre)))return 'arco';
- if(/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hacha|martillo|maza|mazo/.test(arma)||(!e?.coste_ph&&/espada|espadon|sable|katana|daga|cimitarra|mandoble|rapier|estoque|hachazo|espadazo/.test(nombre)))return 'espada';
- if(accionId==='ataque'&&!e?.coste_ph&&(actor?.arma?.nombre||e?.arma_nombre||/atacar con/.test(nombre)))return 'espada';
- return undefined;
-}
+import {actuarConReacciones,turnoConReacciones,responderReaccion,acciones,estadisticas,maxVida,dadoSeguro,desplazar,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,levantarse,phDisponibles,vistaOcular,reaccionesDe,responderVoz,resistirVoz,estaDominado,proyectarRespuesta,desproyectar,reaccionLaDecideGM,controlDe,controladosPor,recursosVisibles,estadosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto} from '../equipo-combate/motor.js';
+/** La animación sale del esqueleto del arma (motor: esqueletoDeAccion), nunca del nombre. */
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'};
 const respuesta=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 Deno.serve(async req=>{
@@ -35,7 +23,10 @@ Deno.serve(async req=>{
    if(!body.action_id)throw Error('Selecciona una acción.');
    return respuesta(await rpc('jugador_accion_estado_servidor',{...args,p_action_id:body.action_id}));
   }
-  const comando={respuesta:typeof body.respuesta==='string'?body.respuesta.slice(0,200):undefined,version:body.version,operacion:body.operacion,accion_id:body.accion_id,objetivo_id:body.objetivo_id,forzar:body.forzar===true,destino:body.destino,centro:body.centro};
+  // Potenciadores (rasgos combinables) y control mental viajan en el comando: forman parte de la idempotencia.
+  const potenciadores=Array.isArray(body.potenciadores)?body.potenciadores.slice(0,4).map(p=>({rasgo:String(p?.rasgo||'').slice(0,60),potenciador:String(p?.potenciador||'').slice(0,60),unidades:Number.isInteger(p?.unidades)?p.unidades:undefined})):undefined;
+  const controlado=typeof body.controlado_id==='string'&&body.controlado_id.length<=100?body.controlado_id:undefined;
+  const comando={respuesta:typeof body.respuesta==='string'?body.respuesta.slice(0,200):undefined,version:body.version,operacion:body.operacion,accion_id:body.accion_id,objetivo_id:body.objetivo_id,forzar:body.forzar===true,destino:body.destino,centro:body.centro,potenciadores,controlado_id:controlado};
   const lectura=performance.now();
   let ctx=body.operacion&&body.action_id?
    await rpc('jugador_preparar_accion_servidor',{...args,p_action_id:body.action_id,p_comando:comando}):
@@ -53,8 +44,11 @@ Deno.serve(async req=>{
    const oferta=c.reaccion_pendiente?.oferta;
    if(responde&&(!oferta||oferta.defensor!==m.id||reaccionLaDecideGM(m)))throw Error('No tienes esa reacción pendiente.');
    if(!responde&&oferta)throw Error('Espera la respuesta del defensor.');
-   if(!responde&&!mente&&estaDominado(m))throw Error('Tu personaje está dominado: el GM decide sus actos.');
-   if(c.fase!=='en_curso'||!responde&&!mente&&c.actual!==m.id||m.vida<=0)throw Error('Espera al turno de tu personaje.');
+   // Control mental: el jugador cuya criatura lo lanzó actúa con el afectado en su turno (el bando real no cambia).
+   const dirigido=controlado?c.miembros.find(x=>x.id===controlado):undefined;
+   if(controlado&&(body.operacion!=='actuar'||!dirigido||controlDe(dirigido)?.controlador!=='fuente'||controlDe(dirigido)?.fuente!==m.id))throw Error('No controlas a ese combatiente.');
+   if(!responde&&!mente&&!dirigido&&estaDominado(m))throw Error('Tu personaje está controlado: no decides sus actos.');
+   if(c.fase!=='en_curso'||!responde&&!mente&&c.actual!==(dirigido||m).id||m.vida<=0)throw Error('Espera al turno de tu personaje.');
    if(!responde&&m.transformacion?.descontrolada)throw Error('Tu personaje está poseído y no puedes controlarlo.');
    if(!Number.isInteger(body.version)||body.version!==ctx.version)throw Error('El combate cambió. Recarga antes de actuar.');
    let next;
@@ -69,11 +63,11 @@ Deno.serve(async req=>{
    else if(body.operacion==='mover')next=desplazar(c,m.id,body.destino);
    else if(body.operacion==='actuar'){
     if(typeof body.accion_id!=='string'||body.accion_id.length>300||typeof body.objetivo_id!=='string'||(!body.centro&&!c.miembros.some(x=>x.id===body.objetivo_id)))throw Error('Acción u objetivo inválidos.');
-    next=actuarConReacciones(c,m.id,body.accion_id,body.objetivo_id,rng,body.forzar===true,body.centro);resultado=next.resultado;
+    next=actuarConReacciones(c,(dirigido||m).id,body.accion_id,body.objetivo_id,rng,body.forzar===true,body.centro,potenciadores);resultado=next.resultado;
    }else throw Error('Operación no permitida.');
    if(body.operacion!=='mover'){
-    const accion=body.operacion==='actuar'?acciones(m).find(a=>a.id===body.accion_id):undefined;
-    next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:m.nombre,dados,resultado,arma_visual:tipoArmaVisual(accion,body.accion_id,m)};
+    const quien=dirigido||m,accion=body.operacion==='actuar'?acciones(quien).find(a=>a.id===body.accion_id):undefined;
+    next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:quien.nombre,dados,resultado,arma_visual:esqueletoDeAccion(quien,accion,body.accion_id),esqueleto:esqueletoVisual(accion?.efecto)};
    }
    delete next.historial;
    mediciones.motor_ms=performance.now()-motorInicio;
@@ -85,8 +79,8 @@ Deno.serve(async req=>{
   }
   const c=ctx.combate,m=ctx.actor,posiciones=posicionesTablero(c);
   mediciones.total_ms=performance.now()-inicio;
-  const vistaReal={recibo:ctx.recibo,mediciones,propios:ctx.propios,id:ctx.id,nombre:ctx.nombre,version:ctx.version,fase:c.fase,ronda:c.ronda,actual:c.miembros.find(x=>x.id===c.actual)?.nombre||'',reaccion:c.reaccion_pendiente?.oferta.defensor===m.id&&!reaccionLaDecideGM(m)?c.reaccion_pendiente.oferta:undefined,reaccion_esperando:c.reaccion_pendiente&&c.reaccion_pendiente.oferta.defensor!==m.id?c.reaccion_pendiente.oferta.nombre:undefined,es_turno:!c.reaccion_pendiente&&c.fase==='en_curso'&&c.actual===m.id&&!m.transformacion?.descontrolada&&!estaDominado(m),mapa:c.mapa,cierre:c.cierre,modo:c.politica?.modo,evento_visual:c.evento_visual,actual_id:c.actual,tablero:dimensionesTablero(c),movimiento_restante:movimientoRestante(m),alcanzables:casillasAlcanzables(c,m.id),registro:c.registro.slice(0,12),actor:{control_perdido:!!m.transformacion?.descontrolada,derribado:m.estados.some(e=>e.tipo==='derribado'),agotado:m.agotado,imagen_url:m.transformacion?.imagen_etapa||m.configuracion.imagen_url,id:m.id,personaje_id:m.personaje_id,nombre:m.nombre,vida:m.vida,max_vida:maxVida(m),ph:phDisponibles(m),fatiga:m.fatiga,stats:estadisticas(m),accion_usada:m.accion_usada,estados:m.estados.map(e=>e.nombre),reacciones:reaccionesDe(c,m),dominado:estaDominado(m),voz:m.voz_artefacto?.estado==='activa'?{...m.voz_artefacto,puede_resistir:!m.voz_resistida}:undefined},acciones:acciones(m).map(a=>({...a,enfriamiento:a.regla?Math.max(0,(m.motor?.proximos[a.regla]||0)-m.turnos):m.cooldowns[a.id]||0})),objetivos:c.miembros.map(x=>({vfx:x.transformacion?.vfx,id:x.id,nombre:x.nombre,bando:x.bando,caido:x.vida<=0,vida:x.vida,max_vida:maxVida(x),imagen_url:x.transformacion?.imagen_etapa||x.configuracion.imagen_url,estados:x.estados.map(e=>e.nombre),posicion:posiciones[x.id]})),ocular:vistaOcular(c,m.id),dados:ctx.recibo?.repetida?ctx.recibo.evento?.dados||[]:dados,resultado:ctx.recibo?.repetida?ctx.recibo.evento?.resultado:resultado};
+  const vistaReal={recibo:ctx.recibo,mediciones,propios:ctx.propios,id:ctx.id,nombre:ctx.nombre,version:ctx.version,fase:c.fase,ronda:c.ronda,actual:c.miembros.find(x=>x.id===c.actual)?.nombre||'',reaccion:c.reaccion_pendiente?.oferta.defensor===m.id&&!reaccionLaDecideGM(m)?c.reaccion_pendiente.oferta:undefined,reaccion_esperando:c.reaccion_pendiente&&c.reaccion_pendiente.oferta.defensor!==m.id?c.reaccion_pendiente.oferta.nombre:undefined,es_turno:!c.reaccion_pendiente&&c.fase==='en_curso'&&c.actual===m.id&&!m.transformacion?.descontrolada&&!estaDominado(m),mapa:c.mapa,cierre:c.cierre,modo:c.politica?.modo,evento_visual:c.evento_visual,actual_id:c.actual,tablero:dimensionesTablero(c),movimiento_restante:movimientoRestante(m),alcanzables:casillasAlcanzables(c,m.id),registro:c.registro.slice(0,12),actor:{control_perdido:!!m.transformacion?.descontrolada,derribado:m.estados.some(e=>e.tipo==='derribado'),agotado:m.agotado,imagen_url:m.transformacion?.imagen_etapa||m.configuracion.imagen_url,id:m.id,personaje_id:m.personaje_id,nombre:m.nombre,vida:m.vida,max_vida:maxVida(m),ph:phDisponibles(m),fatiga:m.fatiga,stats:estadisticas(m),accion_usada:m.accion_usada,estados:m.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(m),recursos:recursosVisibles(m),guardia:{nombre:conceptosDe(m).guardia.nombre,frase:describirConcepto(conceptosDe(m).guardia)},controlado_por:controlDe(m)?.controlador||undefined,controlados:controladosPor(c,m.id).map(x=>({id:x.id,nombre:x.nombre,turno:c.actual===x.id,acciones:acciones(x).filter(a=>!a.bloqueada).map(a=>({id:a.id,nombre:a.nombre,efecto:a.efecto,potenciadores:a.potenciadores}))})),reacciones:reaccionesDe(c,m),dominado:estaDominado(m),voz:m.voz_artefacto?.estado==='activa'?{...m.voz_artefacto,puede_resistir:!m.voz_resistida}:undefined},acciones:acciones(m).map(a=>({...a,enfriamiento:a.regla?Math.max(0,(m.motor?.proximos[a.regla]||0)-m.turnos):m.cooldowns[a.id]||0})),objetivos:c.miembros.map(x=>({vfx:x.transformacion?.vfx,id:x.id,nombre:x.nombre,bando:x.bando,caido:x.vida<=0,vida:x.vida,max_vida:maxVida(x),imagen_url:x.transformacion?.imagen_etapa||x.configuracion.imagen_url,estados:x.estados.map(e=>e.nombre),posicion:posiciones[x.id]})),ocular:vistaOcular(c,m.id),dados:ctx.recibo?.repetida?ctx.recibo.evento?.dados||[]:dados,resultado:ctx.recibo?.repetida?ctx.recibo.evento?.resultado:resultado};
   // Espejo mental: solo la vista de este jugador cambia; el GM y el registro ven el tablero real.
-  return respuesta(proyectarRespuesta(vistaReal,m.id,m.espejo_mental));
+  return respuesta(proyectarRespuesta(vistaReal,m.id,m.espejo_mental||m.percepcion_alterada));
  }catch(e){return respuesta({error:e.message||'No se pudo completar la acción.',code:e.code,incierta:['57014','55P03','40P01','40001'].includes(e.code)||String(e.code||'').startsWith('HTTP_5')||e instanceof TypeError||e instanceof SyntaxError||e.name==='AbortError'},400);}
 });

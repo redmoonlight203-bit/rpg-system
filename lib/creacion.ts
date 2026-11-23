@@ -5,6 +5,11 @@ import {validarReglas} from "./reglas";
 import {validarVision,type Vision} from "./vision";
 import {DISPARADORES,RESULTADOS_POR_DISPARADOR,NOMBRE_DISPARADOR,ACOMPANANTES,CON_ALCANCE,disparadorDe,type ClaveResultado,type DisparadorReaccion} from "./reacciones";
 import { linaje, type CategoriaBase } from "./estadisticas";
+import {validarInmunidades,type Inmunidad} from "./inmunidades";
+import {validarDefinicionEstado,definicionBase,type DefinicionEstado} from "./estados";
+import {validarRasgo,ETIQUETAS,MAX_COMPONENTES,type Rasgo} from "./rasgos";
+import {validarConcepto,type ConceptoBasico} from "./conceptos-basicos";
+import {validarEsqueleto,esqueletoBase,type Esqueleto} from "./esqueletos";
 export type TipoCreacion =
   "personaje" | "habilidad" | "objeto" | "titulo" | "pasiva" | "otro";
 export const TIPOS: { valor: TipoCreacion; nombre: string }[] = [
@@ -113,7 +118,13 @@ export type Reaccion = {
   };
   seguimiento?: ResultadoReaccion;
 };
+/** Componente de daño (Apéndice C): una técnica combinada suma varios, cada uno con su elemento. */
+export type ComponenteDano = { id: string; elemento: Elemento; cantidad: number; caras: number; origen: "base" | "potenciador"; nombre?: string };
 export type Efecto = {
+  /** Varios componentes elementales en un mismo efecto (máx. 3). Sin esta lista se usa elemento + dados. */
+  componentes?: ComponenteDano[];
+  /** Etiquetas de técnica (lista cerrada): deciden qué potenciadores acepta. */
+  etiquetas?: string[];
   /** Primitiva «Reacción» configurada en la Forja. Tiene prioridad sobre `defensa`. */
   reaccion?: Reaccion;
   /** Primitiva «Visión»: habilidad ocular (puntos débiles, revelar, anticipar…). */
@@ -143,8 +154,34 @@ export type Efecto = {
     atributo: string;
     exito: "mitad" | "anula" | "solo_estado";
   };
+  /** Estado del catálogo (`lib/estados.ts`) o «narrativo». */
   estado_tipo?:
-    "narrativo" | "veneno" | "regeneracion" | "aturdido" | "quemadura";
+    "narrativo" | "veneno" | "regeneracion" | "aturdido" | "quemadura" | (string & {});
+  /** Estado creado en el Yunque con primitivas; tiene prioridad sobre `estado_tipo`. */
+  estado_def?: DefinicionEstado;
+  /** Categoría para las inmunidades (p. ej. un control mental). */
+  categoria?: "mental" | "fisico" | "elemental";
+  subcategoria?: string;
+  /** Inmunidades que este efecto atraviesa: `dano:fuego`, `estado:quemadura`, `categoria:mental`. */
+  ignora?: string[];
+  /** Inmunidades que concede al portador mientras tenga la habilidad o lleve el objeto equipado. */
+  inmunidades?: Inmunidad[];
+  /** No es una acción de combate: solo concede defensas, rasgos o conceptos básicos al portador. */
+  solo_pasivo?: boolean;
+  /** Rasgo combinable (recursos + potenciadores) que concede al portador. */
+  rasgo?: Rasgo;
+  /** Uso interno del motor: estados que añade un potenciador a la técnica potenciada. */
+  estados_potenciador?: string[];
+  /** Estado (creado con primitivas) que aplica el golpe al impactar: sangrado de unas garras, etc. */
+  estado_impacto?: DefinicionEstado;
+  /** Concepto básico que sustituye al de por defecto (desarmado o guardia) para el portador. */
+  concepto?: ConceptoBasico;
+  /** Esqueleto de la animación del arma (id de un esqueleto base o del catálogo del GM). */
+  esqueleto?: string;
+  /** Copia del esqueleto creado por el GM: el combate no necesita consultar la base para animarlo. */
+  esqueleto_def?: Esqueleto;
+  /** Ajustes visuales sobre el esqueleto: solo longitud y color. */
+  esqueleto_ajustes?: { longitud?: number; color?: string };
   id: string;
   nombre: string;
   descripcion?: string;
@@ -367,17 +404,21 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       !["automatica", "fisica", "magica", "natural"].includes(e.naturaleza)
     )
       return "Naturaleza inválida.";
-    if (
-      e.estado_tipo &&
-      ![
-        "narrativo",
-        "veneno",
-        "regeneracion",
-        "aturdido",
-        "quemadura",
-      ].includes(e.estado_tipo)
-    )
+    if (e.estado_tipo && !["narrativo","veneno","regeneracion","aturdido","quemadura"].includes(e.estado_tipo) && !definicionBase(e.estado_tipo))
       return "Estado inválido.";
+    if (e.estado_def !== undefined) { const fallo = validarDefinicionEstado(e.estado_def); if (fallo) return `${e.nombre||'Estado'}: ${fallo}`; }
+    if (e.concepto !== undefined) { const fallo = validarConcepto(e.concepto); if (fallo) return `${e.nombre||'Concepto'}: ${fallo}`; }
+    if (e.estado_impacto !== undefined) { const fallo = validarDefinicionEstado(e.estado_impacto); if (fallo) return `Estado al impactar: ${fallo}`; }
+    if (e.esqueleto_def !== undefined) { const fallo = validarEsqueleto(e.esqueleto_def); if (fallo) return `Esqueleto: ${fallo}`; }
+    if (e.esqueleto !== undefined && (typeof e.esqueleto !== "string" || !/^[a-z_][a-z0-9_]{0,40}$/.test(e.esqueleto) || (!esqueletoBase(e.esqueleto) && e.esqueleto_def?.id !== e.esqueleto))) return "Elige un esqueleto de la lista.";
+    if (e.esqueleto_ajustes !== undefined && ((e.esqueleto_ajustes.longitud !== undefined && !(e.esqueleto_ajustes.longitud >= .3 && e.esqueleto_ajustes.longitud <= 3)) || (e.esqueleto_ajustes.color !== undefined && !/^#[0-9a-f]{6}$/i.test(e.esqueleto_ajustes.color)))) return "Ajustes del esqueleto inválidos.";
+    if (e.rasgo !== undefined) { const fallo = validarRasgo(e.rasgo); if (fallo) return `${e.nombre||'Rasgo'}: ${fallo}`; }
+    if (e.etiquetas !== undefined && (!Array.isArray(e.etiquetas) || e.etiquetas.length > 12 || e.etiquetas.some(x => !(ETIQUETAS as readonly string[]).includes(x)))) return "Elige etiquetas de la lista.";
+    if (e.componentes !== undefined && (!Array.isArray(e.componentes) || e.componentes.length < 1 || e.componentes.length > MAX_COMPONENTES || e.componentes.some(c => !c || !ELEMENTOS.includes(c.elemento) || !Number.isInteger(c.cantidad) || c.cantidad < 0 || c.cantidad > 100 || !Number.isInteger(c.caras) || c.caras < 2 || c.caras > 1000))) return `Como máximo ${MAX_COMPONENTES} componentes de daño, cada uno con un elemento válido.`;
+    if (e.inmunidades !== undefined) { const fallo = validarInmunidades(e.inmunidades); if (fallo) return fallo; }
+    if (e.categoria !== undefined && !["mental","fisico","elemental"].includes(e.categoria)) return "Categoría inválida.";
+    if (e.subcategoria !== undefined && !/^[a-z_]{1,40}$/.test(e.subcategoria)) return "Subcategoría inválida.";
+    if (e.ignora !== undefined && (!Array.isArray(e.ignora) || e.ignora.length > 20 || e.ignora.some(x => typeof x !== "string" || !/^(dano|estado|categoria):[a-z_][a-z0-9_:]{0,63}$/.test(x)))) return "Lista de inmunidades ignoradas inválida.";
     if (
       e.salvacion &&
       (!Number.isInteger(e.salvacion.cd) ||
