@@ -19,8 +19,20 @@ import ContenidoAyuda from "./ContenidoAyuda";
 import "./galeria-creacion.css";
 import {useDialogo} from "./Dialogo";
 import {useRouter} from "next/navigation";
+import type { ConfiguracionMonstruo } from "../lib/monstruos";
+import type { ConfiguracionArtefacto } from "../lib/artefactos";
+import type { RequisitosUso } from "../lib/combate";
+import type { VinculoNaturaleza } from "../lib/yunque-borrador";
+import type { InvocacionEditor } from "./EditorInvocacion";
 
 export type PiezaGaleria = {
+  configuracion_monstruo?: ConfiguracionMonstruo | null;
+  configuracion_artefacto?: ConfiguracionArtefacto | null;
+  requisitos_uso?: RequisitosUso;
+  consumible?: boolean;
+  naturaleza_vinculo?: VinculoNaturaleza;
+  configuracion_invocacion?: InvocacionEditor | null;
+  nivel_maximo?: number;
   formas_historia?: import("./FormasHistoria").FormaHistoria[];
   personal_de?: string | null;
   alma_en_uso?:boolean;icono?: string | null; id: string; nombre: string; tipo: string; tipo_creacion?: TipoCreacion;
@@ -31,7 +43,7 @@ export type PiezaGaleria = {
   habilidades: string[]; pasivas: string[]; equipamiento: Record<string, string>;
   configuracion_dados: Efecto[]; reglas_pasivas: ReglaPasiva[]; reglas: Regla[];
 };
-type Props<T extends PiezaGaleria> = {
+export type PropsGaleria<T extends PiezaGaleria> = {
   esMonstruo?:(item:T)=>boolean;
   items: T[]; cargando: boolean; iconoDe: (item:T)=>string;
   tipoDe: (item: T) => TipoCreacion; clasificacion: (clave: string) => string;
@@ -43,13 +55,13 @@ type Props<T extends PiezaGaleria> = {
   onNueva: () => void; onImagen: (id: string, value: string, icono: string) => Promise<void>;
 };
 const iconos = { personaje: Users, habilidad: Swords, pasiva: Shield, objeto: Package, titulo: Crown, otro: Shapes };
-function Portada({ src, tipo, icono, circular }: { src?: string; tipo: TipoCreacion; icono: string; circular?: boolean }) {
+export function Portada({ src, tipo, icono, circular }: { src?: string; tipo: TipoCreacion; icono: string; circular?: boolean }) {
   return <span className={`cg-art cg-art-${tipo}`}>
     <FotoEncuadrada src={src && !validarPortada(src) ? src : undefined} circular={circular}
       fallback={<span className="cg-placeholder"><IconoYugen id={icono} size={62}/><span>{src ? "Imagen no disponible" : "Emblema de Yugen"}</span></span>} />
   </span>;
 }
-function atributos(item: PiezaGaleria) {
+export function atributos(item: PiezaGaleria) {
   return Object.entries(item.es_grupo ? item.stats_rango || {} : item.stats || {}).filter(([key]) => !["dados_dano", "caras_dano"].includes(key));
 }
 function ayudaCreacion(item:PiezaGaleria):AyudaClara {
@@ -58,9 +70,9 @@ function ayudaCreacion(item:PiezaGaleria):AyudaClara {
  const resumen=item.descripcion?.trim()||efectos[0]?.resumen||reglas[0]?.resumen||"Abre esta creación para consultar sus atributos, equipo y reglas.";
  return {resumen,detalles:[...efectos.map(e=>e.resumen),...reglas.map(r=>r.resumen)].filter(r=>r!==resumen).slice(0,3)};
 }
-function valor(value: number | { min: number; max: number }) { return typeof value === "object" && value !== null ? `${value.min}–${value.max}` : String(value); }
+export function valor(value: number | { min: number; max: number }) { return typeof value === "object" && value !== null ? `${value.min}–${value.max}` : String(value); }
 
-export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>) {
+export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGaleria<T>) {
   const [busqueda, setBusqueda] = useState("");
   const [tipo, setTipo] = useState("todos");
   const [clasificacion, setClasificacion] = useState("todos");
@@ -104,7 +116,7 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
  * Al pasar el ratón (o al pulsar «Baraja» en pantallas táctiles) se abre en abanico con las cartas boca arriba,
  * y cada una se puede abrir sin entrar en la baraja.
  */
-function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEntrar, children }: { dueno: T; mazo: T[]; props: Props<T>; onAbrirCarta: (id: string) => void; onEntrar: () => void; children: React.ReactNode }) {
+function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEntrar, children }: { dueno: T; mazo: T[]; props: PropsGaleria<T>; onAbrirCarta: (id: string) => void; onEntrar: () => void; children: React.ReactNode }) {
   const [abierta, setAbierta] = useState(false), [lado, setLado] = useState<"derecha" | "izquierda">("derecha");
   const caja = useRef<HTMLDivElement>(null), espera = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Grosor total de la baraja: 18 px como máximo, repartidos entre todas sus cartas (cabe en el hueco entre cartas).
@@ -141,7 +153,7 @@ function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEn
 }
 
 /** Carta de La creación: marco propio de su tipo, teñido según su rango. */
-function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir, mini }: { item: T; props: Props<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir?: () => void; mini?: boolean }) {
+export function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir, mini }: { item: T; props: PropsGaleria<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir?: () => void; mini?: boolean }) {
   const tipoItem = props.tipoDe(item), monstruo = !!props.esMonstruo?.(item), rango = rangoDe(item.clase);
   const tipoCarta = monstruo ? "monstruo" : tipoItem;
   const chips = atributos(item).slice(0, 2);
@@ -169,7 +181,7 @@ function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onA
   </Etiqueta>;
 }
 
-function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; props: Props<T>; volver: () => void }) {
+function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; props: PropsGaleria<T>; volver: () => void }) {
   const {confirmar}=useDialogo();
   const router=useRouter();
   const [indiceForma, cambiarForma] = useState(0);
