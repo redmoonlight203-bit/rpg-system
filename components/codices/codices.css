@@ -1,1 +1,191 @@
 /* Códices de La creación. */
+
+.cx-codice {
+  --cx-papel: none;
+  --cx-cuero: none;
+  --cx-dorso: none;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--color-text);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  animation: y3-entrada 300ms ease-out both;
+}
+
+.cx-codice :is(h2, h3, h4) {
+  font-family: var(--font-display), serif;
+}
+
+.cx-codice :is(output, dd, .cx-medallones) {
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-codice :is(button, a, select, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-gold-soft);
+  outline-offset: 3px;
+}
+
+.cx-codice :is(button, a, input, select) { min-width: 0; max-width: 100%; }
+.cx-codice img { max-width: 100%; }
+.cx-codice .cg-image-editor { min-width: 0; }
+.cx-codice .cg-prose { white-space: pre-wrap; }
+.cx-codice .cg-encuadres { min-width: 0; }
+.cx-codice .cg-encuadres > * { min-width: 0; }
+.cx-codice .cg-related button {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .4rem .65rem;
+  background: var(--color-raised);
+  border: 1px solid var(--color-line);
+  color: var(--color-text);
+}
+.cx-codice .cg-detail-section { font-size: 14px; }
+.cx-codice .cg-button { white-space: normal; }
+.cx-codice .cg-danger-zone { min-width: 0; }
+.cx-codice .cg-encuadres .cg-carta { max-width: 100%; }
+.cx-codice .cg-image-actions { flex-wrap: wrap; }
+.cx-codice .cg-detail-actions { padding-block: 1rem; }
+.cx-codice .cg-detail-heading { padding-bottom: 1rem; }
+.cx-codice .cg-detail-heading > p { color: inherit; }
+.cx-codice .cg-detail-tags > span { color: var(--color-gold-soft); border-color: var(--color-line); }
+.cx-codice .cg-image-toggle { margin-block: .6rem; }
+.cx-codice .cg-image-editor :is(small, p, label) { font-size: max(13px, 1em); }
+.cx-codice .cg-image-editor { background: var(--color-well); color: var(--color-text); }
+.cx-codice .cg-image-editor :is(input, select) { color: var(--color-text); }
+
+.cx-no-disponible { color: var(--color-text-muted); font-size: 13px; }
+.cx-seccion > h3 { margin-bottom: .75rem; color: var(--color-gold-soft); font-family: var(--font-display), serif; }
+.cx-seccion { min-width: 0; font-size: 14px; }
+.cx-forma { display: grid; gap: .35rem; margin-block: .75rem; }
+.cx-select {
+  width: 100%;
+  padding: .55rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: .35rem;
+  background: var(--color-well);
+  color: var(--color-text);
+  font-size: 15px;
+}
+.cx-medallones { display: flex; flex-wrap: wrap; gap: .65rem; }
+.cx-rastro { margin: 0 0 1rem; font-size: 13px; }
+.cx-rastro ol { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem; }
+.cx-rastro li + li::before { content: "›"; margin-inline-end: .35rem; color: var(--color-gold-soft); }
+.cx-rastro button { color: var(--color-gold-soft); text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-codice, .cx-codice *, .cx-codice *::before, .cx-codice *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* Miniaturas: tamaño estable aun cuando el nombre o el vínculo no caben. */
+.cx-mini-grupo,
+.cx-grimorio,
+.cx-arsenal-figura,
+.cx-arsenal-accesorios {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.cx-mini-grupo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.cx-mini {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px;
+  color: var(--color-text);
+  background: linear-gradient(155deg, var(--color-overlay), var(--color-well));
+  border: 1px solid var(--marco, var(--color-line-strong));
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.1;
+  text-align: center;
+}
+.cx-mini:is(:hover,:focus-visible) { transform: translateY(-3px); }
+.cx-mini-arte {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.cx-mini-arte .cg-art {
+  aspect-ratio: 1;
+  max-height: 63px;
+}
+.cx-mini-arte .cg-placeholder {
+  padding: 0;
+}
+.cx-mini-arte .cg-placeholder > span:not(:first-child) {
+  display: none;
+}
+.cx-mini-arte .cg-placeholder svg {
+  width: 29px;
+  height: 29px;
+}
+.cx-mini-nombre {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.cx-mini-arcano {
+  color: var(--color-gold-bright);
+  font-family: var(--font-display);
+}
+.cx-mini-espacio {
+  color: var(--color-text-muted);
+  font-size: inherit;
+}
+.cx-mini-tarot {
+  width: 72px;
+  height: 126px;
+}
+.cx-mini-sello {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle, var(--color-ember), var(--color-well));
+}
+.cx-mini-sello .cx-mini-arte {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: 50%;
+  opacity: .38;
+}
+.cx-mini-sello .cx-mini-nombre {
+  position: relative;
+  padding-inline: 2px;
+}
+.cx-mini-reliquia {
+  width: 88px;
+  height: 88px;
+}
+.cx-mini-reliquia .cx-mini-arte .cg-art {
+  aspect-ratio: 3 / 2;
+  max-height: 44px;
+}
+.cx-mini-chip {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+}
+
