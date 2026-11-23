@@ -97,7 +97,7 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
-const { normalizarReaccion } = (() => {
+const { normalizarReaccion, disparadorDe, CON_ALCANCE } = (() => {
 const DISPARADORES = ['antes_ser_atacado', 'despues_ser_atacado', 'tras_fallar_ataque', 'tras_fallar_prueba', 'aliado_atacado', 'aliado_ataca', 'aliado_cae', 'apuntado_por_area', 'fin_de_turno'];
 const NOMBRE_DISPARADOR = {
     antes_ser_atacado: 'Antes de que me ataquen',
@@ -148,7 +148,7 @@ function normalizarReaccion(e) {
     return { ...resto, reaccion: e.reaccion ?? (plantilla ? JSON.parse(JSON.stringify(plantilla)) : undefined) };
 }
 
-return { normalizarReaccion };
+return { normalizarReaccion, disparadorDe, CON_ALCANCE };
 })();
 const { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION } = (() => {
 const PATRONES_OJO = [
@@ -600,8 +600,18 @@ function dados(c, n, caras, rng, nombre) {
     return total;
 }
 export function salvacion(c, m, cd = 12, atributo = "salvacion", rng = dadoSeguro) {
-    const d = rng(20), bono = estadisticas(m)[atributo] || 0, exito = d + bono >= cd;
+    const d = rng(20), bono = estadisticas(m)[atributo] || 0;
+    let exito = d + bono >= cd;
     log(c, `${m.nombre}: salvación d20 (${d}) + ${atributo} (${bono}) = ${d + bono}, CD ${cd}: ${exito ? "superada" : "fallida"}.`);
+    if (!exito && c.fase === "en_curso")
+        for (const r of evaluarReacciones(c, m, "tras_fallar_prueba")) {
+            if (!ofrecer(c, m, r, rng, "tras_fallar_prueba"))
+                continue;
+            const d2 = rng(20);
+            exito = d2 + bono >= cd;
+            log(c, `${m.nombre} repite la salvación: d20 (${d2}) + ${atributo} (${bono}) = ${d2 + bono}, CD ${cd}: ${exito ? "superada" : "fallida"}.`);
+            break;
+        }
     return exito;
 }
 function tiene(m, tipo) {
@@ -664,6 +674,82 @@ function activarReglas(c, a, t, rs, rng) {
 export function reaccionDe(e) { return e.reaccion; }
 /** Efectos del combatiente con las defensas antiguas normalizadas a `reaccion` (sin escribir en el estado). */
 function efectosConReaccion(m) { return (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).map(normalizarReaccion); }
+/** Coste, usos y enfriamiento: null si ahora no se puede ofrecer. */
+function disponibilidad(c, t, p, r) {
+    const coste = t.transformacion?.definicion_id === 'limitless' && p.ley_limitless ? 0 : (r.coste ?? p.coste_ph ?? 0);
+    if (phDisponibles(t) < coste || (r.una_por_ronda && t.rondas_reacciones?.[p.id] === c.ronda))
+        return null;
+    const u = t.usos_reaccion?.[p.id];
+    if (r.enfriamiento && u && c.ronda <= u.ultima + r.enfriamiento)
+        return null;
+    let restantes = null;
+    if (r.usos && r.usos.tipo !== 'ilimitado') {
+        const usados = r.usos.tipo === 'encuentro' ? (u?.encuentro || 0) : (u && u.ronda === c.ronda ? u.en_ronda : 0);
+        restantes = (r.usos.maximo || 1) - usados;
+        if (restantes <= 0)
+            return null;
+    }
+    return { p, r, coste, restantes };
+}
+/** Pregunta al dueño (rng.consultarReaccion) y, si la usa, paga PH y anota el uso. */
+function ofrecer(c, t, d, rng, disparador, anotar = true) {
+    if (rng.consultarReaccion && !rng.consultarReaccion({ defensor: t.id, nombre: t.nombre, reaccion: d.p.nombre, efecto: d.p.id, coste: d.coste, disparador, usos_restantes: d.restantes, enfriamiento: d.r.enfriamiento || 0 }))
+        return false;
+    if (d.r.una_por_ronda)
+        t.rondas_reacciones = { ...t.rondas_reacciones, [d.p.id]: c.ronda };
+    if (d.r.usos || d.r.enfriamiento) {
+        const u = t.usos_reaccion?.[d.p.id];
+        t.usos_reaccion = { ...t.usos_reaccion, [d.p.id]: { encuentro: (u?.encuentro || 0) + 1, ronda: c.ronda, en_ronda: (u && u.ronda === c.ronda ? u.en_ronda : 0) + 1, ultima: c.ronda } };
+    }
+    t.ph = phDisponibles(t) - d.coste;
+    if (anotar)
+        log(c, t.nombre + ' activa ' + d.p.nombre + ' (' + d.coste + ' PH).');
+    return true;
+}
+/** Reacciones que el disparador ofrece ahora al dueño, por prioridad. `cerca`: a quién mide el alcance. */
+export function evaluarReacciones(c, dueno, disparador, contexto = {}) {
+    if (!combatienteActivo(dueno))
+        return [];
+    const forma = dueno.transformacion?.definicion_id, e = contexto.efecto;
+    const magico = !!e && (e.naturaleza === 'magica' || e.coste_ph > 0);
+    const pos = contexto.cerca && CON_ALCANCE.includes(disparador) ? posicionesTablero(c) : null;
+    return efectosConReaccion(dueno).map((p, i) => ({ p, r: p.reaccion, i }))
+        .filter((x) => !!x.r && disparadorDe(x.r) === disparador)
+        .filter(({ r }) => (!r.naturaleza || !e || (r.naturaleza === 'magica') === magico) && (!r.forma || forma === r.forma) && (!r.sin_forma || forma !== r.sin_forma))
+        .filter(({ r }) => !pos || !contexto.cerca || (!!pos[dueno.id] && !!pos[contexto.cerca.id] && distanciaCasillas(pos[dueno.id], pos[contexto.cerca.id]) <= (r.alcance || 1)))
+        .sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i)
+        .map(x => disponibilidad(c, dueno, x.p, x.r)).filter((d) => !!d);
+}
+function contraatacar(c, dueno, victima, ca, rng, nombre) {
+    const v = Math.max(0, dados(c, ca.cantidad, ca.caras, rng, nombre) + (ca.modificador || 0));
+    Object.assign(victima, danarTransformado(victima, v).actor);
+    log(c, `${victima.nombre} sufre ${v} por ${nombre} de ${dueno.nombre}, sin encadenar reacciones.`);
+}
+/** Resuelve la parte principal de una reacción ya pagada (disparadores distintos de recibir el golpe). */
+function resolverPrincipal(c, dueno, d, rng, ctx) {
+    const pr = d.r.principal;
+    if (!pr)
+        return false;
+    if (pr.salvacion && !salvacion(c, dueno, pr.salvacion.cd, pr.salvacion.atributo, rng))
+        return false;
+    if (pr.contraatacar && ctx.victima && ctx.victima.vida > 0)
+        contraatacar(c, dueno, ctx.victima, pr.contraatacar, rng, d.p.nombre);
+    if (pr.reducir && ctx.protegido)
+        (ctx.protegido.reduccion_reaccion ||= []).push({ ...pr.reducir });
+    if (pr.animacion)
+        dueno.ultima_defensa = { id: crypto.randomUUID(), animacion: pr.animacion };
+    return true;
+}
+/** Ofrece el disparador a cada candidato y resuelve las que acepta. */
+function dispararReacciones(c, candidatos, disparador, rng, ctx) {
+    for (const dueno of candidatos)
+        for (const d of evaluarReacciones(c, dueno, disparador, ctx)) {
+            if (ctx.hasta?.())
+                return;
+            if (ofrecer(c, dueno, d, rng, disparador))
+                resolverPrincipal(c, dueno, d, rng, { victima: ctx.victima, protegido: ctx.protegido?.(dueno) });
+        }
+}
 function recibir(c, a, t, e, total, rs, rng) {
     const alDano = reactivas(t, e, "recibir_dano");
     const reduccion = Math.max(0, ...[...rs, ...alDano].map((r) => r.reduccion_pct || 0));
@@ -672,26 +758,23 @@ function recibir(c, a, t, e, total, rs, rng) {
         total = Math.floor(total * (1 - reduccion / 100));
         log(c, `${t.nombre}: reducción ${reduccion}% (${antes} → ${total}); no se acumulan porcentajes.`);
     }
-    const reacciones = efectosConReaccion(t).map(p => ({ p, r: reaccionDe(p) })).filter((x) => !!x.r);
+    if (t.reduccion_reaccion?.length) {
+        for (const r of t.reduccion_reaccion) {
+            const antes = total;
+            total -= r.modo === 'todo' ? total : r.modo === 'mitad' ? total - Math.floor(total / 2) : Math.min(total, r.valor || 0);
+            log(c, `${t.nombre}: su reacción frena el golpe (${antes} → ${total}).`);
+        }
+        delete t.reduccion_reaccion;
+    }
+    const reacciones = efectosConReaccion(t).map(p => ({ p, r: reaccionDe(p) })).filter((x) => !!x.r && disparadorDe(x.r) === 'despues_ser_atacado');
     if (total > 0 && a.id !== t.id && reacciones.length) {
         const forma = t.transformacion?.definicion_id;
-        const despierto = forma === 'limitless';
         const magico = e.naturaleza === 'magica' || e.coste_ph > 0;
         const aplica = (r) => (!r.naturaleza || (r.naturaleza === 'magica') === magico) && (!r.forma || forma === r.forma) && (!r.sin_forma || forma !== r.sin_forma);
-        const pagar = (p) => {
-            const coste = despierto && p.ley_limitless ? 0 : p.coste_ph;
-            const r = reaccionDe(p);
-            if (phDisponibles(t) < coste || r?.una_por_ronda && t.rondas_reacciones?.[p.id] === c.ronda)
-                return false;
-            if (rng.consultarReaccion && !rng.consultarReaccion({ defensor: t.id, nombre: t.nombre, reaccion: p.nombre, efecto: p.id, coste }))
-                return false;
-            if (r?.una_por_ronda)
-                t.rondas_reacciones = { ...t.rondas_reacciones, [p.id]: c.ronda };
-            t.ph = phDisponibles(t) - coste;
-            log(c, t.nombre + ' activa ' + p.nombre + ' (' + coste + ' PH).');
-            return true;
-        };
-        const resolver = (res, cantidad) => {
+        const pagar = (p, r) => { const d = disponibilidad(c, t, p, r); return !!d && ofrecer(c, t, d, rng, 'despues_ser_atacado'); };
+        const resolver = (res, cantidad, nombre) => {
+            if (res.contraatacar && a.vida > 0)
+                contraatacar(c, t, a, res.contraatacar, rng, nombre);
             if (res.reservar) {
                 const { recurso, proporcion, maximo } = res.reservar, saldo = t.recursos_especiales?.[recurso] || 0;
                 t.recursos_especiales = { ...t.recursos_especiales, [recurso]: Math.min(maximo, saldo + Math.floor(cantidad * proporcion)) };
@@ -703,16 +786,16 @@ function recibir(c, a, t, e, total, rs, rng) {
         const principales = reacciones.map((x, i) => ({ ...x, i })).filter(x => x.r.principal?.reducir && !x.r.esquiva_opuesta && aplica(x.r)).sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i);
         for (const x of principales) {
             const pr = x.r.principal, reducir = pr.reducir;
-            if (!pagar(x.p))
+            if (!pagar(x.p, x.r))
                 continue;
             if (!pr.salvacion || salvacion(c, t, pr.salvacion.cd, pr.salvacion.atributo, rng)) {
                 const detenido = reducir.modo === 'todo' ? total : reducir.modo === 'mitad' ? total - Math.floor(total / 2) : Math.min(total, reducir.valor || 0);
                 total -= detenido;
-                resolver(pr, detenido);
+                resolver(pr, detenido, x.p.nombre);
                 if (pr.permite_seguimiento) {
                     const sig = reacciones.find(y => y !== x && y.r.seguimiento && aplica(y.r));
-                    if (sig && pagar(sig.p))
-                        resolver(sig.r.seguimiento, detenido);
+                    if (sig && pagar(sig.p, sig.r))
+                        resolver(sig.r.seguimiento, detenido, sig.p.nombre);
                 }
                 if (pr.animacion)
                     t.ultima_defensa = { id: crypto.randomUUID(), animacion: pr.animacion };
@@ -733,6 +816,8 @@ function recibir(c, a, t, e, total, rs, rng) {
         if (a.id !== t.id)
             emitirMotor(c, 'causar_dano', a, a, t, rng, e, perdido);
         if (cayo && t.vida <= 0) {
+            if (a.id !== t.id)
+                dispararReacciones(c, c.miembros.filter(w => w.id !== t.id && w.id !== a.id && w.bando === t.bando), "aliado_cae", rng, { cerca: t, victima: a, hasta: () => a.vida <= 0 });
             emitirMotor(c, 'morir', t, a, t, rng, e, perdido);
             if (a.id !== t.id && a.bando !== t.bando)
                 emitirMotor(c, 'matar', a, a, t, rng, e, perdido);
@@ -833,6 +918,8 @@ function siguienteInterno(c, rng) {
         throw Error("Inicia el combate.");
     const n = copia(c), a = n.miembros.find((m) => m.id === n.actual);
     delete n.resultado;
+    if (a && combatienteActivo(a))
+        dispararReacciones(n, n.miembros.filter(w => w.id !== a.id && w.bando !== a.bando), "fin_de_turno", rng, { cerca: a, victima: a, hasta: () => a.vida <= 0 });
     if (a) {
         if (a.transformacion && a.turnos > (a.transformacion.creado_turno ?? -1)) {
             const actualizado = avanzarTurnoTransformacion(a);
@@ -895,6 +982,8 @@ function registrar(c, fn, rng = dadoSeguro) {
     const { historial: _historial, ...sinHistorial } = c;
     const previo = copia(sinHistorial);
     let n = fn();
+    for (const m of n.miembros)
+        delete m.reduccion_reaccion;
     if (c.fase === 'en_curso') {
         for (const m of n.miembros) {
             const anterior = c.miembros.find(x => x.id === m.id);
@@ -1596,6 +1685,10 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         normalizar(a);
         return n;
     }
+    if (punto && tactica && tactica.forma !== 'individual')
+        for (const objetivo of objetivos)
+            if (objetivo.id !== a.id)
+                dispararReacciones(n, [objetivo], 'apuntado_por_area', rng, { efecto: e, protegido: () => objetivo });
     for (const objetivo of objetivos) {
         if (a.vida <= 0)
             break;
@@ -1661,6 +1754,36 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     emitirMotor(n, 'atacar', a, a, t, rng, e);
     if (a.vida <= 0)
         return n;
+    if (a.id !== t.id) {
+        // Un aliado cercano puede interponerse (solo ante ataques a un único objetivo) o proteger.
+        if (!e.tablero || e.tablero.forma === "individual") {
+            const objetivo = t;
+            for (const w of n.miembros.filter(w => w.id !== objetivo.id && w.id !== a.id && w.bando === objetivo.bando)) {
+                let interpuesto = false;
+                for (const d of evaluarReacciones(n, w, "aliado_atacado", { efecto: e, cerca: objetivo })) {
+                    if (!ofrecer(n, w, d, rng, "aliado_atacado"))
+                        continue;
+                    const seInterpone = !!d.r.principal?.interponerse;
+                    if (!resolverPrincipal(n, w, d, rng, { protegido: seInterpone ? w : objetivo }))
+                        continue;
+                    if (seInterpone) {
+                        log(n, `${w.nombre} se interpone y recibe el ataque dirigido a ${objetivo.nombre}.`);
+                        interpuesto = true;
+                        break;
+                    }
+                }
+                if (interpuesto) {
+                    t = w;
+                    break;
+                }
+            }
+        }
+        dispararReacciones(n, [t], "antes_ser_atacado", rng, { efecto: e, victima: a, protegido: () => t, hasta: () => a.vida <= 0 });
+        if (a.vida <= 0) {
+            log(n, `${a.nombre} cae por una reacción antes de impactar.`);
+            return n;
+        }
+    }
     const elemento = (estadisticas(t).transmutar || 0) > 0 && e.naturaleza === 'magica' ? 'hielo' : elementoDe(e), antes = reactivas(t, e, "recibir_ataque");
     activarReglas(n, a, t, antes, rng);
     if (a.vida <= 0) {
@@ -1721,6 +1844,18 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
                         ? "Impacto"
                         : "Fallo";
         log(n, `${n.resultado}: d20 ${d} + impacto ${s.bono_impacto || 0} = ${impacto}, ARM ${arm}.`);
+        if (!acierta && a.id !== t.id)
+            for (const r of evaluarReacciones(n, a, "tras_fallar_ataque", { efecto: e })) {
+                if (!ofrecer(n, a, r, rng, "tras_fallar_ataque"))
+                    continue;
+                const d2 = rng(20), impacto2 = d2 + (s.bono_impacto || 0) + (debil?.recompensa.impacto || 0);
+                totalAtaque = impacto2;
+                critico = d2 === 20 || (!!debil?.recompensa.critico && d2 !== 1);
+                acierta = critico || (d2 !== 1 && impacto2 >= arm);
+                n.resultado = d2 === 1 ? "Fallo critico" : critico ? "Critico" : acierta ? "Impacto" : "Fallo";
+                log(n, `${a.nombre} repite la tirada: d20 ${d2} + impacto ${s.bono_impacto || 0} = ${impacto2}, ARM ${arm}: ${n.resultado}.`);
+                break;
+            }
     }
     else
         n.resultado = "Impacto";
@@ -1738,14 +1873,10 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
             const r = p.reaccion, dadosEsquiva = r.esquiva_opuesta, forma = t.transformacion?.definicion_id;
             if ((r.forma && r.forma !== forma) || (r.sin_forma && r.sin_forma === forma) || (r.naturaleza && (r.naturaleza === 'magica') !== (e.naturaleza === 'magica' || e.coste_ph > 0)))
                 continue;
-            const coste = forma === 'limitless' && p.ley_limitless ? 0 : p.coste_ph;
-            if (phDisponibles(t) < coste || (r.una_por_ronda && t.rondas_reacciones?.[p.id] === n.ronda))
+            const disponible = disparadorDe(r) === 'despues_ser_atacado' ? disponibilidad(n, t, p, r) : null;
+            if (!disponible || !ofrecer(n, t, disponible, rng, 'despues_ser_atacado', false))
                 continue;
-            if (rng.consultarReaccion && !rng.consultarReaccion({ defensor: t.id, nombre: t.nombre, reaccion: p.nombre, efecto: p.id, coste }))
-                continue;
-            t.ph = phDisponibles(t) - coste;
-            if (r.una_por_ronda)
-                t.rondas_reacciones = { ...t.rondas_reacciones, [p.id]: n.ronda };
+            const coste = disponible.coste;
             const ataque = totalAtaque ?? (rng(20) + (s.bono_impacto || 0)), esquiva = rng(dadosEsquiva.caras);
             log(n, t.nombre + ' usa ' + p.nombre + ' (' + coste + ' PH): esquiva ' + esquiva + ' contra ataque ' + ataque + '.');
             if (esquiva >= ataque) {
@@ -1815,6 +1946,10 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         log(n, 'Esquiva parcial: ' + total + ' de daño antes de otras reducciones.');
     }
     recibir(n, a, t, e, total, [...antes, ...impacto], rng);
+    if (a.id !== t.id && t.vida > 0 && a.vida > 0) {
+        const blanco = t;
+        dispararReacciones(n, n.miembros.filter(w => w.id !== a.id && w.id !== blanco.id && w.bando === a.bando), "aliado_ataca", rng, { efecto: e, cerca: blanco, victima: blanco, hasta: () => blanco.vida <= 0 });
+    }
     // Elemental saves affect secondary states, never repeat the attack roll.
     if (permiteEstados && elemento === "agua")
         estado(t, "mojado", "Mojado");
