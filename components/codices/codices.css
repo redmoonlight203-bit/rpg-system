@@ -240,3 +240,46 @@
 .cx-pagina .y3-sello{color:var(--color-crimson)}
 .cx-codice .cx-cinta{background:linear-gradient(180deg,color-mix(in srgb,var(--color-crimson) 75%,var(--color-well)),var(--color-crimson))!important;color:var(--color-parchment)!important;border:0!important}
 .cx-codice .cx-cinta[aria-current]{background:linear-gradient(180deg,var(--color-gold-bright),var(--color-gold))!important;color:var(--color-ink)!important}
+
+/* ---- Reliquia ---- */
+.cx-vitrina{position:relative;display:grid;justify-items:center;padding:26px 22px 0;border:1px solid var(--color-line-strong);border-radius:120px 120px 6px 6px;background:radial-gradient(ellipse at 50% 78%,color-mix(in srgb,var(--marco,var(--color-gold)) 40%,transparent),transparent 60%),linear-gradient(180deg,var(--color-raised),var(--color-well));overflow:hidden}
+.cx-vitrina-cristal{position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 30%,color-mix(in srgb,var(--color-parchment) 14%,transparent) 38%,transparent 46%,transparent 60%,color-mix(in srgb,var(--color-parchment) 8%,transparent) 64%,transparent 70%);z-index:2}
+.cx-vitrina-pieza{width:min(100%,240px);aspect-ratio:1;border-radius:50%;overflow:hidden;box-shadow:0 0 40px var(--brillo,transparent),0 18px 30px color-mix(in srgb,var(--color-well) 80%,transparent);transition:transform .4s}
+.cx-vitrina:hover .cx-vitrina-pieza{transform:translateY(-4px)}
+.cx-vitrina-pieza .cg-art{aspect-ratio:1}
+.cx-pedestal{display:block;width:78%;height:26px;margin-top:-6px;border-radius:50%;background:radial-gradient(ellipse at 50% 30%,color-mix(in srgb,var(--marco,var(--color-gold)) 60%,var(--color-well)),var(--color-well) 70%)}
+.cx-placa{display:grid;gap:2px;width:calc(100% + 44px);margin-top:14px;padding:10px;text-align:center;border-top:1px solid var(--color-line-strong);background:linear-gradient(180deg,color-mix(in srgb,var(--color-gold) 30%,var(--color-raised)),var(--color-raised))}
+.cx-placa strong{font:600 16px var(--font-display);color:var(--color-gold-bright)}
+.cx-placa small{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted)}
+.cx-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.cx-chip{padding:4px 10px;border:1px solid var(--color-line-strong);border-radius:999px;font-size:13px;color:var(--color-gold-soft)}
+.cx-chip.is-consumible{border-color:var(--color-arcane);color:var(--color-arcane)}
+.cx-codice--reliquia .cx-atributos{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.cx-codice--reliquia .cx-atributos>div{background:linear-gradient(180deg,color-mix(in srgb,var(--color-gold) 16%,var(--color-raised)),var(--color-well));border-color:var(--color-line-strong)}
+
+/* ---- Sello ---- */
+.cx-sello{position:relative;width:min(100%,300px);margin:0 auto;aspect-ratio:1;animation:cx-sellar .4s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes cx-sellar{from{transform:scale(.92) rotate(-4deg);opacity:0}to{transform:none;opacity:1}}
+.cx-sello svg{display:block;width:100%;height:100%;filter:drop-shadow(0 12px 18px color-mix(in srgb,var(--color-well) 80%,transparent))}
+.cx-sello-borde{fill:color-mix(in srgb,var(--color-crimson) 70%,var(--color-well))}
+.cx-sello-cuerpo{fill:var(--color-crimson)}
+.cx-sello-linea{fill:none;stroke:color-mix(in srgb,var(--color-parchment) 45%,transparent);stroke-width:1.2}
+.cx-sello-texto{font:600 13px var(--font-display);letter-spacing:.1em;fill:var(--color-parchment)}
+.cx-sello-icono{position:absolute;inset:0;display:grid;place-items:center;color:var(--color-parchment);pointer-events:none}
+.cx-sello-icono svg{filter:drop-shadow(0 1px 0 color-mix(in srgb,var(--color-well) 60%,transparent))}
+
+/* ---- Edicto ---- */
+.cx-estandarte{position:relative;display:grid;justify-items:center;padding-top:16px}
+.cx-asta{position:absolute;top:8px;left:6%;right:6%;height:10px;border-radius:5px;background:linear-gradient(180deg,var(--color-gold-bright),var(--color-gold) 50%,color-mix(in srgb,var(--color-gold) 50%,var(--color-well)));z-index:1}
+.cx-estandarte-tela{display:grid;justify-items:center;align-content:start;gap:14px;width:min(100%,260px);min-height:420px;padding:36px 18px 90px;clip-path:polygon(0 0,100% 0,100% 100%,50% 86%,0 100%);background:linear-gradient(180deg,color-mix(in srgb,var(--tinte,var(--color-crimson)) 70%,var(--color-crimson)),var(--color-well));border-left:3px solid var(--marco,var(--color-gold));border-right:3px solid var(--marco,var(--color-gold));text-align:center;animation:cx-ondear .6s ease-out both}
+@keyframes cx-ondear{from{transform:scaleY(.94);transform-origin:top}to{transform:none}}
+.cx-estandarte-emblema{width:130px;height:130px;border-radius:50%;overflow:hidden;border:3px solid var(--marco,var(--color-gold))}
+.cx-estandarte-emblema .cg-art{aspect-ratio:1}
+.cx-estandarte-nombre{font:600 22px/1.2 var(--font-display);color:var(--color-gold-bright);overflow-wrap:anywhere}
+.cx-estandarte-rango{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-parchment)}
+.cx-proclama{min-height:0;margin:6px 0 10px;border-radius:4px;border:1px solid color-mix(in srgb,var(--color-ink) 25%,transparent)}
+.cx-proclama .cx-cabecera{text-align:center;border-bottom-color:color-mix(in srgb,var(--color-ink) 25%,transparent)}
+.cx-proclama .cg-detail-tags{justify-content:center}
+.cx-proclama .cx-seccion{padding-top:16px;border-top:1px solid color-mix(in srgb,var(--color-ink) 20%,transparent)!important}
+.cx-proclama .cx-seccion>h3{color:var(--color-crimson)!important}
+.cx-proclama .cx-heraldica li{color:var(--cx-tinta)}

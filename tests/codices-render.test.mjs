@@ -104,3 +104,29 @@ test('bestiario: un monstruo vacío solo tiene portada y ficha',()=>{
  assert.doesNotMatch(html,/>Variantes</);
  assert.doesNotMatch(html,/>Anatomía</);
 });
+
+test('reliquia: vitrina, espacio, consumible y despertar del artefacto',()=>{
+ const html=vista(fixture('objeto',{slot_tipo:'casco',consumible:true,configuracion_artefacto:{niveles:[
+  {nivel:1,nombre:'Despertar',condicion_subida:null,cambios:{}},
+  {nivel:2,nombre:'Hambre',condicion_subida:{tipo:'contador',contador:'armas devoradas',meta:4},cambios:{stats:{dano:2}}}]}}));
+ assert.match(html,/class="cx-vitrina/);
+ for(const t of ['Cabeza','Consumible','Despertar del artefacto','Inicial','4 armas devoradas','dano +2'])assert.ok(html.includes(t),t);
+});
+
+test('sello: lacre con nombre grabado y ritual',()=>{
+ const html=vista(fixture('pasiva',{reglas_pasivas:[{id:'r',nombre:'Piel',evento:'recibir_dano',condicion:'vida_mitad',reduccion_pct:20}]}));
+ assert.match(html,/role="img"/);assert.match(html,/<textPath/);assert.match(html,/aria-label="Sello de Pulmones de dragón"/);
+ for(const t of ['Ritual','Al recibir daño','Vida a la mitad','Reduce 20% de daño'])assert.ok(html.includes(t),t);
+});
+
+test('edicto: estandarte, proclama y heráldica',()=>{
+ const html=vista(fixture('titulo',{stats:{fuerza:2},descripcion:'Quien cobra el paso.'}));
+ assert.match(html,/class="cx-estandarte/);
+ assert.match(html,/Por decreto de Kuroi/);
+ assert.match(html,/cx-escudo">\+2</);
+});
+
+test('pergamino: rollo con el nombre como título',()=>{
+ const html=vista(fixture('otro'));
+ assert.match(html,/cx-rollo/);assert.match(html,/<h2[^>]*>Reliquia sin nombre<\/h2>/);
+});
