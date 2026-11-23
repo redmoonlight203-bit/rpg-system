@@ -20,3 +20,26 @@ test('el arnés renderiza una Carta de la galería',()=>{
  assert.match(html,/cg-carta/);
  assert.match(html,/Aliento de Dragón/);
 });
+
+const vista=(item,items=[item],extra={})=>renderizar('components/codices/VistaCodice.tsx','default',{item,props:propsBase(items),volver:()=>{},abrir:()=>{},...extra});
+
+test('la ficha conserva sus acciones y textos',()=>{
+ const html=vista(fixture('objeto'));
+ for(const t of ['Volver a la colección','Editar ficha','Entregar','Publicar en tienda','href="/dm/mercado?forja=id-objeto"','Eliminar creación','Las copias existentes conservan sus valores.','Elegir imagen o icono'])
+  assert.ok(html.includes(t),t);
+});
+
+test('personaje: preparar batalla y tienda de almas; alma única en uso',()=>{
+ const html=vista(fixture('personaje'));
+ assert.match(html,/Preparar batalla/);assert.match(html,/\/dm\/tienda-almas\?forja=/);
+ const alma=vista(fixture('personaje',{ligado_al_alma:true,alma_en_uso:true}));
+ assert.match(alma,/Ya entregada · Restablece para recuperar/);
+ assert.doesNotMatch(alma,/Preparar batalla/);
+ assert.match(alma,/Restablecer y devolver a La creación/);
+});
+
+test('un vínculo a una creación borrada no es un botón',()=>{
+ const html=vista(fixture('objeto',{habilidades:['no-existe']}));
+ assert.match(html,/Creación no disponible/);
+ assert.doesNotMatch(html,/<button[^>]*>[^<]*Creación no disponible/);
+});
