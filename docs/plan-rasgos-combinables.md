@@ -2,7 +2,7 @@
 
 Estado: plan. No hay cambios de código. Depende de **YUNQUE - UNA MÁS** (`docs/plan-yunque-una-mas.md`), sobre todo de la Parte 1 (menús en pantalla) y de la Parte 2 (reacciones generales).
 
-Usa la bioelectricidad Kuro (`docs/propuesta-bioelectricidad-kuro.md`, propuesta del 23-11, no aprobada) como caso de prueba.
+Usa la bioelectricidad Kuro como caso de prueba. Es la propuesta «YUGEN | Propuesta de integración: Bioelectricidad de los Kuro» (no aprobada, no está en el repositorio; se trabaja a partir de la copia que compartiste).
 
 ## Idea
 
@@ -50,7 +50,7 @@ El motor asume **un elemento por efecto**. Para combinar fuego y electricidad en
 
 ## Paso 3 · Definición de Rasgo y Potenciador
 
-- **Archivos nuevos:** `lib/rasgos.ts`, `lib/rasgos.test` (en `tests/rasgos.test.mjs`).
+- **Archivos nuevos:** `lib/rasgos.ts`, `tests/rasgos.test.mjs`.
 - **Qué hacer:**
   1. Tipo `Rasgo`: `{id, nombre, origen: 'clan' | 'linaje' | 'adquirido', recursos: [...], potenciadores: Potenciador[]}`.
   2. Tipo `Potenciador`: `{id, nombre, acepta: string[] (etiquetas), coste: {ph?, fatiga?, recurso?: {nombre, cantidad}}, componentes_anadidos: ComponenteDano[], efectos_extra?: [...], limite_por_uso: 1}`.
