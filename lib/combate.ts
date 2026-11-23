@@ -8,6 +8,8 @@ import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type Disp
 import { type ReglaPasiva } from "./pasivas";
 import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./inmunidades";
 import {definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
+import {potenciar,potenciadoresPara,etiquetasDe,type Rasgo,type EleccionPotenciador} from "./rasgos";
+import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
  /** Clanes (cualquiera de la lista). Se comprueban al heredar: el servidor entrega y retira la copia. */
@@ -200,7 +202,11 @@ export type Accion = {
   efecto: Efecto;
   enfriamiento: number;
   regla?: string;
+  /** Potenciadores de rasgos compatibles con la técnica (Apéndice C). */
+  potenciadores?: PotenciadorDisponible[];
 };
+export type PotenciadorDisponible={rasgo:string;rasgo_nombre:string;potenciador:string;nombre:string;ph:number;fatiga:number;
+  recurso?:{id:string;nombre:string;min:number;max:number;saldo:number};componentes:{elemento:string;cantidad:number;caras:number;por_unidad?:boolean}[]};
 function ilustracionFuente(fuente: Pick<Fuente, "id" | "forja_id" | "imagen_url">): Accion["ilustracion"] {
   const forja_id = fuente.forja_id || fuente.id;
   return forja_id || fuente.imagen_url ? { forja_id, imagen_url: fuente.imagen_url } : undefined;
@@ -208,7 +214,7 @@ function ilustracionFuente(fuente: Pick<Fuente, "id" | "forja_id" | "imagen_url"
 export type OfertaReaccion={defensor:string;nombre:string;reaccion:string;coste:number;efecto:string;disparador?:DisparadorReaccion;usos_restantes?:number|null;enfriamiento?:number;
  /** Línea de coste, usos y enfriamiento (lineaCosteReaccion), la misma que en el Yunque y la ficha. */
  linea?:string};
-type OrdenAtaque={actor:string;accion:string;objetivo:string;forzar:boolean;centro?:Posicion};
+type OrdenAtaque={actor:string;accion:string;objetivo:string;forzar:boolean;centro?:Posicion;potenciadores?:EleccionPotenciador[]};
 type OrdenGolpe=OrdenAtaque|{turno:'siguiente'|'iniciar'}|{objeto:string;actor:string;efecto:string;objetivo:string};
 type SolicitudReaccion={oferta:OfertaReaccion;orden:OrdenGolpe;tiradas:{caras:number;valor:number}[];respuestas:boolean[]};
 export type RNG = ((caras: number) => number)&{consultarReaccion?:(oferta:OfertaReaccion)=>boolean};
@@ -806,6 +812,8 @@ function recibir(
     activarReglas(c, a, t, alDano, rng);
     emitirMotor(c, 'recibir_dano', t, a, t, rng, e, perdido);
     if (a.id !== t.id) emitirMotor(c, 'causar_dano', a, a, t, rng, e, perdido);
+    eventoRecurso(c, t, 'recibir_dano');
+    if (a.id !== t.id) eventoRecurso(c, a, 'causar_dano');
     if (cayo && t.vida <= 0) {
       if (a.id !== t.id)
         dispararReacciones(c, c.miembros.filter(w=>w.id!==t.id&&w.id!==a.id&&w.bando===t.bando), "aliado_cae", rng, {cerca:t, victima:a, hasta:()=>a.vida<=0});
@@ -869,6 +877,7 @@ function entrar(c: Combate, m: Combatiente, rng: RNG) {
       log(c, `${m.nombre}: ${r.nombre} al iniciar turno.`);
     }
   emitirMotor(c, 'inicio_turno', m, m, m, rng);
+  eventoRecurso(c, m, 'inicio_turno');
   periodicos(c, m, 'inicio', rng);
   perderTurno(c, m, rng);
   for (const s of [...m.estados]) for (const p of primitivas(definicionDe(s), 'movimiento_forzado')) if (s.fuente && combatienteActivo(m)) moverForzado(c, m, p, s.fuente, rng);
@@ -946,6 +955,7 @@ function iniciarInterno(c: Combate, rng: RNG) {
   if (!primero) throw Error("Añade personajes en pie.");
   n.fase = "en_curso";
   for (const m of n.miembros) emitirMotor(n, 'inicio_combate', m, m, m, rng);
+  for (const m of n.miembros) eventoRecurso(n, m, 'inicio_combate');
   for (const m of n.miembros) if (combatienteActivo(m)) mantenerVisiones(n, m);
   const vivo = orden(n).find(combatienteActivo);
   if (!vivo) { cerrarEncuentro(n,'Sin combatientes activos',null); return n; }
@@ -964,6 +974,7 @@ function siguienteInterno(c: Combate, rng: RNG) {
     if(a.transformacion&&a.turnos>(a.transformacion.creado_turno??-1)){const actualizado=avanzarTurnoTransformacion(a);Object.assign(a,actualizado);if(!a.transformacion)log(n,`${a.nombre}: termina su transformación.`);}
     emitirMotor(n, 'fin_turno', a, a, a, rng);
     periodicos(n, a, 'fin', rng);
+    eventoRecurso(n, a, 'fin_turno');
     caducarMotor(n,a,rng);
     if (
       (estadisticas(a).fatiga || 0) > 0 &&
@@ -1075,7 +1086,7 @@ export function cambiarSituacion(c:Combate,id:string,situacion:Situacion){
  if(!['activo','inconsciente','muerto','retirado','rendido','capturado'].includes(situacion))throw Error('Situación inválida.');
  return registrar(c,()=>{const n=copia(c),m=n.miembros.find(m=>m.id===id);if(!m)throw Error('Participante no encontrado.');m.situacion=situacion;if(situacion==='muerto')m.vida=0;log(n,`${m.nombre}: ${situacion}.`);return n;});
 }
-function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){if(m.transformacion)Object.assign(m,terminarTransformacion(m));m.transformaciones_usadas=[];emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);m.estados=[];delete m.percepcion_alterada;if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
+function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){if(m.transformacion)Object.assign(m,terminarTransformacion(m));m.transformaciones_usadas=[];emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);for(const d of recursosDe(m)){if(d.recuperacion==='vaciar')m.recursos_especiales={...m.recursos_especiales,[d.id]:0};else if(d.recuperacion!=='conservar'&&m.recursos_especiales)delete m.recursos_especiales[d.id];}m.estados=[];delete m.percepcion_alterada;if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
 export function finalizar(c:Combate){if(c.fase==='finalizado')return copia(c);return registrar(c,()=>{const n=copia(c);cerrarEncuentro(n,'Finalización manual del GM',null);return n;});}
 export function descansar(c: Combate) {
   if (c.fase === "en_curso")
@@ -1180,6 +1191,7 @@ export function acciones(m: Combatiente) {
       });
   for (const h of m.motor?.habilidades || []) lista.push({id:`motor-hab:${h.id}`,nombre:h.accion.nombre,efecto:h.accion,enfriamiento:0});
   for (const {clave, regla, fuente} of reglasMotor(m)) if (regla.evento === 'usar') lista.push({id:`regla:${clave}`,nombre:regla.nombre,regla_detalle:regla,ilustracion:fuente&&ilustracionFuente(fuente),bloqueada:regla.usos>0&&(m.motor?.usos[clave]||0)>=regla.usos?'Sin usos restantes.':undefined,efecto:{...basico(),efecto:'estado',estado:regla.nombre,cantidad:0,coste_ph:regla.coste_ph,coste_fatiga:regla.coste_fatiga},enfriamiento:regla.enfriamiento,regla:clave});
+  const rasgos=rasgosDe(m);
   const definiciones=lista.flatMap(a=>a.efecto.transformacion?[a.efecto.transformacion]:[]);
   const exclusivos=new Set(definiciones.flatMap(d=>d.etapas.flatMap(e=>e.habilidades||[])));
   const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
@@ -1191,7 +1203,8 @@ export function acciones(m: Combatiente) {
    const efecto=m.transformacion?.definicion_id==='limitless' && a.efecto.ley_limitless
      ? {...a.efecto,coste_ph:0} : a.efecto;
    if(vozNiega(m.voz_artefacto,a))return {...a,efecto:conAlcance(efecto,a.nombre),bloqueada:'La voz del artefacto te lo niega.'};
-   return {...a,efecto:conAlcance(efecto,a.nombre)};
+   const conTablero=conAlcance(efecto,a.nombre),pots=rasgos.length&&efecto.efecto==='dano'?potenciadoresDisponibles(m,conTablero,rasgos):[];
+   return {...a,efecto:conTablero,...(pots.length?{potenciadores:pots}:{})};
   });
 }
 /** Encuentra una casilla libre desde la que un ataque con dash/salto/teletransporte alcance al blanco.
@@ -1359,6 +1372,7 @@ function actuarInterno(
   forzar: boolean,
   centro?: Posicion,
   autonomo = false,
+  potenciadores: EleccionPotenciador[] = [],
 ) {
   const n = copia(c),
     a = n.miembros.find((m) => m.id === actorId);
@@ -1405,10 +1419,19 @@ function actuarInterno(
     a.accion_usada=true;normalizar(a);return n;
   }
   let e = act.efecto;
+  // Potenciadores de rasgos (Apéndice C): el coste se paga una vez; los componentes se suman a la técnica.
+  let extra = {ph:0,fatiga:0,recursos:[] as {id:string;nombre:string;cantidad:number}[]};
+  if (potenciadores.length) {
+    if (e.efecto !== "dano") throw Error("Solo las técnicas de daño aceptan potenciadores.");
+    const r = potenciar(e, rasgosDe(a), potenciadores);
+    e = { ...r.efecto, ...(r.estados.length ? { estados_potenciador: r.estados } : {}) };
+    extra = r.coste;
+    for (const p of extra.recursos) { const d = recursosDe(a).find(x => x.id === p.id); if (!d || saldoRecurso(a, d) < p.cantidad) throw Error(`${p.nombre}: saldo insuficiente.`); }
+  }
   const
     s = estadisticas(a),
-    coste = e.coste_ph || 0,
-    fatiga = e.coste_fatiga || 0,
+    coste = (e.coste_ph || 0) + extra.ph,
+    fatiga = (e.coste_fatiga || 0) + extra.fatiga,
     t = n.miembros.find((m) => m.id === objetivoId);
   if(coste>0 && (s.silencio_ph||0)>0)throw Error('Silencio del Núcleo impide gastar PH.');
   const tactica=e.tablero;
@@ -1482,6 +1505,11 @@ function actuarInterno(
     a.recursos_especiales={...recursos,[nombre]:saldo};
     log(n,nombre+': '+saldo);
   }
+  for (const p of extra.recursos) {
+    const d = recursosDe(a).find(x => x.id === p.id)!;
+    a.recursos_especiales = { ...a.recursos_especiales, [d.id]: gastarRecurso(d, saldoRecurso(a, d), p.cantidad) };
+    log(n, `${a.nombre} gasta ${p.cantidad} ${d.nombre} (quedan ${a.recursos_especiales[d.id]}).`);
+  }
   a.ph -= coste;
   if(coste>0 && (s.retribucion||0)>0){
     const golpe=Math.min(6,coste);
@@ -1503,6 +1531,8 @@ function actuarInterno(
     }
   }
   log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+  if (potenciadores.length) log(n, `${act.nombre} potenciada: ${(e.componentes || []).map(x => `${x.cantidad}d${x.caras} ${x.elemento}`).join(" + ")}.`);
+  eventoRecurso(n, a, "usar_etiqueta", etiquetasDe(e));
   if(e.vision?.modo==='con_accion')activarVision(n,a,e);
   if(dash&&centro){
     for(const m of n.miembros)m.posicion=posiciones[m.id];
@@ -1687,7 +1717,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   arm = Math.max(
     0,
     arm -
-      (elemento === "electricidad" ? 3 : elemento === "luz_sagrada" ? 5 : 0),
+      Math.max(...(e.componentes?.length ? e.componentes.map(x => x.elemento) : [elemento]).map(x => x === "electricidad" ? 3 : x === "luz_sagrada" ? 5 : 0)),
   );
   if (antes.length)
     log(
@@ -1772,12 +1802,19 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   }
   emitirMotor(n, 'impactar', a, a, t, rng, e);
   const permiteEstados = !(supera && e.salvacion?.exito === "solo_estado");
+  let total = 0, combo = false, tipoVulnerable = "";
+  const elementosGolpe: string[] = e.componentes?.length ? [...new Set(e.componentes.map(x => x.elemento))] : [elemento];
+  if (e.componentes?.length) {
+    if (debil?.recompensa.critico && !critico && n.regla !== "impacto") critico = true;
+    ({ total, combo, tipoVulnerable } = danoPorComponentes(n, a, t, e, act, rng, { critico, permiteEstados, s, debil: debil?.recompensa }));
+  } else {
   let dadosTotal = dados(n, e.cantidad, e.caras, rng, act.nombre);
   if (elemento !== "ninguno")
     dadosTotal += dados(n, 1, 4, rng, "Daño elemental " + elemento);
   // Primitiva «Vulnerabilidad elemental» (Mojado y los estados creados en el Yunque).
   const vulnerable = t.estados.map(s => ({ s, r: primitivas(definicionDe(s), "vulnerabilidad_elemental").flatMap(p => p.reacciones.filter(x => x.elemento === elemento).map(x => ({ p, x })))[0] })).find(v => v.r);
-  const combo = !!vulnerable, reaccionElemental = vulnerable?.r.x, tipoVulnerable = vulnerable ? vulnerable.s.tipo || vulnerable.s.id : "";
+  combo = !!vulnerable; tipoVulnerable = vulnerable ? vulnerable.s.tipo || vulnerable.s.id : "";
+  const reaccionElemental = vulnerable?.r.x;
   if (vulnerable?.r.p.consume) {
     quitarEstado(t, tipoVulnerable);
     log(n, `${t.nombre}: ${vulnerable.s.nombre} se consume por ${elemento}.`);
@@ -1791,7 +1828,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   if (debil?.recompensa.dados && debil.recompensa.caras)
     dadosTotal += dados(n, debil.recompensa.dados, debil.recompensa.caras, rng, "Punto débil");
   if (debil?.recompensa.critico && !critico && n.regla !== "impacto") critico = true;
-  let total = Math.max(
+  total = Math.max(
     0,
     dadosTotal * (critico ? 2 : 1) + e.modificador + (s.dano || 0) + (debil?.recompensa.dano || 0),
   );
@@ -1802,6 +1839,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   if (reaccionElemental?.multiplicador && (!reaccionElemental.solo_corruptos || (t.corrupto ?? !!t.stats.corrupto))) {
     total *= reaccionElemental.multiplicador;
     log(n, reaccionElemental.mensaje || `${reaccionElemental.nombre}: daño × ${reaccionElemental.multiplicador}.`);
+  }
   }
   if (supera && e.salvacion?.exito === "mitad") total = Math.floor(total / 2);
   if (n.regla === "reduccion") {
@@ -1816,7 +1854,11 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
     const blanco = t;
     dispararReacciones(n, n.miembros.filter(w=>w.id!==a.id&&w.id!==blanco.id&&w.bando===a.bando), "aliado_ataca", rng, {efecto:e, cerca:blanco, victima:blanco, hasta:()=>blanco.vida<=0});
   }
-  // Elemental saves affect secondary states, never repeat the attack roll.
+  // Estados que añade un potenciador (se aplican si el golpe permite estados).
+  if (permiteEstados) for (const id of e.estados_potenciador || []) { const d = definicionBase(id); if (d) aplicarDefinicion(n, t, d, a.id, undefined, {}, e); }
+  // Elemental saves affect secondary states, never repeat the attack roll. Cada componente aplica los suyos.
+  for (const elemento of elementosGolpe) {
+  const eElemento: Efecto = e.componentes?.length ? { ...e, componentes: undefined, elemento: elemento as Elemento } : e;
   if (permiteEstados && elemento === "agua" && puedeAplicar(n, t, "mojado", undefined, e) !== 'no') estado(t, "mojado", "Mojado");
   if (
     permiteEstados &&
@@ -1855,19 +1897,95 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
         m.vida > 0 &&
         m.grupo_cercania === t.grupo_cercania,
     )) {
-      area(n, a, otro, e, 3, rng);
+      area(n, a, otro, eElemento, 3, rng);
       log(n, `${otro.nombre}: chispa de cercanía 3.`);
       if (combo && tiene(otro, tipoVulnerable)) {
         const v = dados(n, 1, 6, rng, "Superconducción cercana");
-        area(n, a, otro, e, v, rng);
+        area(n, a, otro, eElemento, v, rng);
         log(n, `${otro.nombre}: Superconducción ${v}; conserva Mojado.`);
       }
     }
+  }
   }
   secundariosTablero(n,a,t,e,centro,supera);
   normalizar(a);
   normalizar(t);
   return n;
+}
+const NOMBRE_COMPONENTE: Record<string, string> = { ninguno: "físico", fuego: "fuego", agua: "agua", electricidad: "electricidad", hielo: "hielo", luz_sagrada: "luz sagrada" };
+/** Daño de una técnica combinada: cada componente tira sus dados, su 1d4 elemental, su inmunidad y su combo.
+ * Los combos (Mojado → Superconducción) se evalúan sobre su componente, nunca sobre el total, y no se duplican. */
+function danoPorComponentes(n: Combate, a: Combatiente, t: Combatiente, e: Efecto, act: Accion, rng: RNG, o: { critico: boolean; permiteEstados: boolean; s: Record<string, number>; debil?: RecompensaPunto }) {
+  let total = 0, combo = false, tipoVulnerable = "";
+  const partes: string[] = [], inmunidades = inmunidadesDe(t);
+  // Si varios componentes reaccionan con el mismo estado, gana la reacción que aparece primero en su definición
+  // (el GM decide el orden en el Yunque). Solo reacciona un componente: el combo no se duplica.
+  const elementos = new Set((e.componentes || []).map(x => x.elemento as string));
+  const vul = t.estados.map(x => ({ x, r: primitivas(definicionDe(x), "vulnerabilidad_elemental").flatMap(p => p.reacciones.filter(r => elementos.has(r.elemento)).map(r => ({ p, r })))[0] })).find(v => v.r);
+  let usado = false;
+  for (const comp of e.componentes || []) {
+    let v = dados(n, comp.cantidad, comp.caras, rng, `${act.nombre} · ${comp.nombre || NOMBRE_COMPONENTE[comp.elemento] || comp.elemento}`);
+    if (comp.elemento !== "ninguno") v += dados(n, 1, 4, rng, "Daño elemental " + comp.elemento);
+    let mult = 1, nota = "";
+    if (!usado && vul?.r && vul.r.r.elemento === comp.elemento) {
+      {
+        usado = true; combo = true; tipoVulnerable = vul.x.tipo || vul.x.id;
+        if (vul.r!.p.consume) { quitarEstado(t, tipoVulnerable); log(n, `${t.nombre}: ${vul.x.nombre} se consume por ${comp.elemento}.`); }
+        const rx = vul.r!.r;
+        if (rx.dados) v += dados(n, rx.dados.cantidad, rx.dados.caras, rng, rx.nombre);
+        if (o.permiteEstados && rx.aplica_estado) { const d = definicionBase(rx.aplica_estado); if (d) aplicarDefinicion(n, t, d, a.id, undefined, {}, e); }
+        if (rx.multiplicador && (!rx.solo_corruptos || (t.corrupto ?? !!t.stats.corrupto))) { mult = rx.multiplicador; nota = ` (${rx.nombre} ×${mult})`; }
+      }
+    }
+    if (comp.origen === "base") {
+      if (tiene(t, "marca_luz")) { quitarEstado(t, "marca_luz"); v += dados(n, 1, 6, rng, "Estallido de Marca de Luz"); }
+      if (o.debil?.dados && o.debil.caras) v += dados(n, o.debil.dados, o.debil.caras, rng, "Punto débil");
+    }
+    v *= o.critico ? 2 : 1;
+    if (comp.origen === "base") v += e.modificador + (o.s.dano || 0) + (o.debil?.dano || 0);
+    v = Math.max(0, v) * mult;
+    const inm = comprobarInmunidad(inmunidades, candidatoDano({ ...e, componentes: undefined, elemento: comp.elemento }, comp.elemento), e.ignora);
+    if (inm.bloqueado) { log(n, `${t.nombre}: ${inm.motivo} (componente ${NOMBRE_COMPONENTE[comp.elemento]}).`); v = 0; }
+    else if (inm.resistido) v = Math.floor(v / 2);
+    total += v;
+    partes.push(`${NOMBRE_COMPONENTE[comp.elemento] || comp.elemento} ${v}${nota}`);
+  }
+  log(n, `Daño por componente${o.critico ? " (crítico)" : ""}: ${partes.join(" + ")} = ${total}.`);
+  return { total, combo, tipoVulnerable };
+}
+/** Rasgos del combatiente (habilidades —incluidas las heredadas— y objetos equipados), sin duplicar por id. */
+export function rasgosDe(m: Combatiente): Rasgo[] {
+  const vistos = new Map<string, Rasgo>();
+  for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length)) for (const e of h.efectos || []) if (e.rasgo && !vistos.has(e.rasgo.id)) vistos.set(e.rasgo.id, e.rasgo);
+  for (const p of Object.values(piezas(m))) for (const e of p.efectos || []) if (e.rasgo && !vistos.has(e.rasgo.id)) vistos.set(e.rasgo.id, e.rasgo);
+  return [...vistos.values()];
+}
+export function recursosDe(m: Combatiente): DefinicionRecurso[] {
+  const vistos = new Map<string, DefinicionRecurso>();
+  for (const r of rasgosDe(m)) for (const d of r.recursos) if (!vistos.has(d.id)) vistos.set(d.id, d);
+  return [...vistos.values()];
+}
+export const saldoRecurso = (m: Combatiente, d: DefinicionRecurso) => m.recursos_especiales?.[d.id] ?? d.inicial;
+/** Barra de recursos para la tarjeta y la ficha, con su nombre configurado. */
+export function recursosVisibles(m: Combatiente, gm = false) {
+  return recursosDe(m).filter(d => gm || d.visible !== "gm").map(d => ({ id: d.id, nombre: d.nombre, saldo: saldoRecurso(m, d), tope: topeRecurso(d, estadisticas(m)), color: d.color, visible: d.visible || "todos" }));
+}
+/** Genera recursos del catálogo ante un evento. Sin rasgos no hace nada (regresión). */
+function eventoRecurso(c: Combate, m: Combatiente, evento: EventoRecurso, etiquetas: string[] = []) {
+  const defs = recursosDe(m); if (!defs.length) return;
+  const s = estadisticas(m);
+  for (const d of defs) {
+    const antes = saldoRecurso(m, d), despues = generarRecurso(d, antes, evento, s, etiquetas);
+    if (despues !== antes || m.recursos_especiales?.[d.id] === undefined) m.recursos_especiales = { ...m.recursos_especiales, [d.id]: despues };
+    if (despues !== antes) log(c, `${m.nombre}: ${d.nombre} ${antes} → ${despues}.`);
+  }
+}
+function potenciadoresDisponibles(m: Combatiente, e: Efecto, rasgos: Rasgo[]): PotenciadorDisponible[] {
+  return potenciadoresPara(rasgos, e).map(({ rasgo, potenciador: p }) => {
+    const k = p.coste.recurso, d = k ? rasgo.recursos.find(x => x.id === k.id) : undefined;
+    return { rasgo: rasgo.id, rasgo_nombre: rasgo.nombre, potenciador: p.id, nombre: p.nombre, ph: p.coste.ph || 0, fatiga: p.coste.fatiga || 0,
+      ...(k && d ? { recurso: { id: k.id, nombre: d.nombre, min: k.min, max: k.max, saldo: saldoRecurso(m, d) } } : {}), componentes: p.componentes_anadidos };
+  });
 }
 export function actuar(
   c: Combate,
@@ -1877,8 +1995,9 @@ export function actuar(
   rng: RNG = dadoSeguro,
   forzar = false,
   centro?: Posicion,
+  potenciadores: EleccionPotenciador[] = [],
 ) {
-  const n=registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro),rng);
+  const n=registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, false, potenciadores),rng);
   const actor=c.miembros.find(m=>m.id===actorId),efecto=actor?acciones(actor).find(a=>a.id===accionId)?.efecto:undefined;
   return animarAccion(c,n,actorId,efecto,accionId,objetivoId,centro);
 }
@@ -1898,11 +2017,11 @@ function resolverGolpe(c:Combate,orden:OrdenGolpe,tiradas:SolicitudReaccion['tir
  try{
   if('turno' in orden)return orden.turno==='iniciar'?iniciar(c,rng):siguiente(c,rng);
   if('objeto' in orden)return usarObjeto(c,orden.actor,orden.objeto,orden.efecto,orden.objetivo,rng);
-  return actuar(c,orden.actor,orden.accion,orden.objetivo,rng,orden.forzar,orden.centro);}
+  return actuar(c,orden.actor,orden.accion,orden.objetivo,rng,orden.forzar,orden.centro,orden.potenciadores);}
  catch(e){if(!(e instanceof Pausa))throw e;return {...c,reaccion_pendiente:{oferta:e.oferta,orden,tiradas,respuestas}};}
 }
-export function actuarConReacciones(c:Combate,actor:string,accion:string,objetivo:string,rng:RNG=dadoSeguro,forzar=false,centro?:Posicion){
- return resolverGolpe(c,{actor,accion,objetivo,forzar,centro},[],[],rng);
+export function actuarConReacciones(c:Combate,actor:string,accion:string,objetivo:string,rng:RNG=dadoSeguro,forzar=false,centro?:Posicion,potenciadores?:EleccionPotenciador[]){
+ return resolverGolpe(c,{actor,accion,objetivo,forzar,centro,...(potenciadores?.length?{potenciadores}:{})},[],[],rng);
 }
 export function turnoConReacciones(c:Combate,turno:'iniciar'|'siguiente',rng:RNG=dadoSeguro){
  return resolverGolpe(c,{turno},[],[],rng);

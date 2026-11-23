@@ -60,10 +60,10 @@ export const CATALOGO_ESTADOS:DefinicionEstado[]=[
  {id:'congelado',nombre:'Congelado',icono:'hielo',categoria:'elemental',origen:'hielo',duracion:{tipo:'combate'},efectos:[{tipo:'perder_turno',consumir:true}],descripcion:'Pierde su siguiente turno.'},
  {id:'aturdido',nombre:'Aturdido',icono:'rayo',categoria:'fisico',duracion:{tipo:'turnos',turnos:1},efectos:[{tipo:'perder_turno',consumir:true}],descripcion:'Pierde su siguiente turno.'},
  {id:'mojado',nombre:'Mojado',icono:'agua',categoria:'elemental',origen:'agua',duracion:{tipo:'combate'},efectos:[{tipo:'vulnerabilidad_elemental',consume:true,reacciones:[
-  {elemento:'fuego',nombre:'Onda de vapor',dados:{cantidad:1,caras:4},aplica_estado:'ciego'},
-  {elemento:'hielo',nombre:'Congelación',aplica_estado:'congelado'},
+  {elemento:'electricidad',nombre:'Superconducción',multiplicador:2,mensaje:'Superconducción: daño principal × 2.'},
   {elemento:'luz_sagrada',nombre:'Agua bendita',dados:{cantidad:1,caras:6},multiplicador:2,solo_corruptos:true,mensaje:'Agua bendita contra oscuridad/corrupción: daño sagrado × 2.'},
-  {elemento:'electricidad',nombre:'Superconducción',multiplicador:2,mensaje:'Superconducción: daño principal × 2.'}]}],descripcion:'El agua amplifica el siguiente elemento que lo toque.'},
+  {elemento:'hielo',nombre:'Congelación',aplica_estado:'congelado'},
+  {elemento:'fuego',nombre:'Onda de vapor',dados:{cantidad:1,caras:4},aplica_estado:'ciego'}]}],descripcion:'El agua amplifica el siguiente elemento que lo toque.'},
  {id:'quemadura',nombre:'Quemadura',icono:'fuego',categoria:'elemental',origen:'fuego',duracion:{tipo:'combate'},efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'fuego',momento:'inicio',salvacion_termina:SALV}]},
  {id:'veneno',nombre:'Envenenado',icono:'pocion',categoria:'fisico',origen:'veneno',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'veneno',momento:'inicio'}]},
  {id:'regeneracion',nombre:'Regeneración',icono:'vida',categoria:'fisico',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'curacion_periodica',cantidad:1,caras:4,momento:'inicio'}]},

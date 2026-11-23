@@ -16,7 +16,7 @@ const incrustar=(texto,modulo)=>texto.replace(new RegExp(`^import \\{([^}]+)\\} 
  for(const [,interno] of fuente.matchAll(/^import \{[^}]+\} from ["']\.\/([\w-]+)["'];$/gm))fuente=incrustar(fuente,interno);
  return `const {${nombres}} = (() => {\n${fuente}\nreturn {${nombres}};\n})();`;
 });
-const motor=['vision','reacciones','artefactos-voces','espejo-mental','inmunidades','estados'].reduce(incrustar,motor0);
+const motor=['vision','reacciones','artefactos-voces','espejo-mental','inmunidades','estados','recursos','rasgos'].reduce(incrustar,motor0);
 if(/^import /m.test(motor))throw Error('Falta incorporar una dependencia del motor Edge.');
 const content='// GENERADO por scripts/preparar-motor-edge.mjs. No editar directamente.\n'+motor;
 if(process.argv.includes('--check')){if(readFileSync(salida,'utf8')!==content)throw Error('Regenera el motor compartido: node scripts/preparar-motor-edge.mjs');}else writeFileSync(salida,content);

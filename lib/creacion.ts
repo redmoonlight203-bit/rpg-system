@@ -7,6 +7,7 @@ import {DISPARADORES,RESULTADOS_POR_DISPARADOR,NOMBRE_DISPARADOR,ACOMPANANTES,CO
 import { linaje, type CategoriaBase } from "./estadisticas";
 import {validarInmunidades,type Inmunidad} from "./inmunidades";
 import {validarDefinicionEstado,definicionBase,type DefinicionEstado} from "./estados";
+import {validarRasgo,ETIQUETAS,MAX_COMPONENTES,type Rasgo} from "./rasgos";
 export type TipoCreacion =
   "personaje" | "habilidad" | "objeto" | "titulo" | "pasiva" | "otro";
 export const TIPOS: { valor: TipoCreacion; nombre: string }[] = [
@@ -165,6 +166,10 @@ export type Efecto = {
   inmunidades?: Inmunidad[];
   /** No es una acción de combate: solo concede defensas, rasgos o conceptos básicos al portador. */
   solo_pasivo?: boolean;
+  /** Rasgo combinable (recursos + potenciadores) que concede al portador. */
+  rasgo?: Rasgo;
+  /** Uso interno del motor: estados que añade un potenciador a la técnica potenciada. */
+  estados_potenciador?: string[];
   id: string;
   nombre: string;
   descripcion?: string;
@@ -390,6 +395,9 @@ export function validarEfectos(efectos: Efecto[]): string | null {
     if (e.estado_tipo && !["narrativo","veneno","regeneracion","aturdido","quemadura"].includes(e.estado_tipo) && !definicionBase(e.estado_tipo))
       return "Estado inválido.";
     if (e.estado_def !== undefined) { const fallo = validarDefinicionEstado(e.estado_def); if (fallo) return `${e.nombre||'Estado'}: ${fallo}`; }
+    if (e.rasgo !== undefined) { const fallo = validarRasgo(e.rasgo); if (fallo) return `${e.nombre||'Rasgo'}: ${fallo}`; }
+    if (e.etiquetas !== undefined && (!Array.isArray(e.etiquetas) || e.etiquetas.length > 12 || e.etiquetas.some(x => !(ETIQUETAS as readonly string[]).includes(x)))) return "Elige etiquetas de la lista.";
+    if (e.componentes !== undefined && (!Array.isArray(e.componentes) || e.componentes.length < 1 || e.componentes.length > MAX_COMPONENTES || e.componentes.some(c => !c || !ELEMENTOS.includes(c.elemento) || !Number.isInteger(c.cantidad) || c.cantidad < 0 || c.cantidad > 100 || !Number.isInteger(c.caras) || c.caras < 2 || c.caras > 1000))) return `Como máximo ${MAX_COMPONENTES} componentes de daño, cada uno con un elemento válido.`;
     if (e.inmunidades !== undefined) { const fallo = validarInmunidades(e.inmunidades); if (fallo) return fallo; }
     if (e.categoria !== undefined && !["mental","fisico","elemental"].includes(e.categoria)) return "Categoría inválida.";
     if (e.subcategoria !== undefined && !/^[a-z_]{1,40}$/.test(e.subcategoria)) return "Subcategoría inválida.";
