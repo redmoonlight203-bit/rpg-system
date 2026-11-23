@@ -273,6 +273,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       if(d.tipo==="forma"&&d.etapas.some(v=>!((v.stats.hp??v.stats.vida)>0)))return "Cada forma necesita HP propios.";
       for(const etapa of d.etapas){
         const errorVFX=validarAnimacion(etapa.vfx);if(errorVFX)return errorVFX;
+        const errorOjo=validarVision(etapa.vision);if(errorOjo)return `${etapa.nombre}: ${errorOjo}`;
         if(etapa.reglas!==undefined){if(!Array.isArray(etapa.reglas))return 'Las pasivas de etapa deben ser reglas válidas.';const error=validarReglas(etapa.reglas);if(error)return `${etapa.nombre}: ${error}`;}
         if(etapa.descontrolada!==undefined&&typeof etapa.descontrolada!=='boolean')return 'Control de etapa inválido.';
         if(etapa.curacion_entrada!==undefined&&(!Number.isInteger(etapa.curacion_entrada)||etapa.curacion_entrada<0||etapa.curacion_entrada>1000000))return 'Curación de posesión inválida.';

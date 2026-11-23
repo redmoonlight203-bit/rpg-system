@@ -17,6 +17,8 @@ export type EtapaTransformacion = {
   imagen_url?:string;
   /** Pasivas automáticas que solo están activas en esta etapa. */
   reglas?:Regla[];
+  /** Ojo de esta fase (primitiva «Visión»): abierto mientras dure la etapa. */
+  vision?:import('./vision').Vision;
   /** El personaje deja de obedecer a su jugador y actúa automáticamente. */
   descontrolada?:boolean;
   /** Curación única al entrar en una etapa de posesión. */

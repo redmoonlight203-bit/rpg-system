@@ -21,8 +21,8 @@ const REVELAR:[keyof RevelarOcular,string,string][]=[
 const CARAS=[2,3,4,6,8,10,12,20];
 const limpio=<T extends object>(o:T):T=>Object.fromEntries(Object.entries(o).filter(([,v])=>v!==undefined&&v!==false&&!(typeof v==='object'&&v!==null&&!Array.isArray(v)&&!Object.keys(v).length))) as T;
 
-export default function EditorVision({efecto,onChange}:{efecto:Efecto;onChange:(v:Vision)=>void}){
- const v=efecto.vision!;
+/** `fase`: ojo de una etapa de transformación (siempre abierto mientras dure la etapa; sus bonos van en la etapa). */
+export default function EditorVision({vision:v,onChange,efecto,fase=false}:{vision:Vision;onChange:(v:Vision)=>void;efecto?:Efecto;fase?:boolean}){
  const set=(p:Partial<Vision>)=>onChange(limpio({...v,...p}) as Vision);
  const ap=(p:Partial<Vision['apariencia']>)=>set({apariencia:limpio({...v.apariencia,...p})});
  const rev=(k:keyof RevelarOcular,x:boolean)=>set({revelar:limpio({...v.revelar,[k]:x||undefined})});
@@ -46,14 +46,16 @@ export default function EditorVision({efecto,onChange}:{efecto:Efecto;onChange:(
   <Fichas etiqueta="Velo sobre el tablero en tu turno" opciones={VELOS} valor={v.apariencia.velo} onChange={velo=>ap({velo})}/>
   <Texto etiqueta="Imagen propia del ojo (opcional)" valor={v.apariencia.imagen_url||''} max={2048} placeholder="https://…" ayuda="Si la pones, sustituye al dibujo generado." onChange={imagen_url=>ap({imagen_url:imagen_url.trim()||undefined})}/>
 
+  {fase?<p className="yq-nota">Este ojo se abre al entrar en la etapa y se cierra al salir de ella. Sus bonos de atributos se configuran en la propia etapa.</p>:<>
   <Fichas etiqueta="Cómo se activa" opciones={MODOS} valor={v.modo} onChange={modo=>set({modo,sin_accion:modo==='abrir'?v.sin_accion:undefined})} grandes tono="arcano"/>
   {v.modo==='abrir'&&<p className="yq-nota">Esta acción solo abre o cierra el ojo; su daño o efecto propio no se usa. Abrirlo cuesta los PH y la Fatiga de la acción. Cerrarlo es gratis.</p>}
-  {v.modo==='permanente'&&!(efecto.cantidad>0)&&<p className="yq-nota">Un ojo siempre abierto sin dados propios no aparece en la barra de acciones: funciona solo.</p>}
+  {v.modo==='permanente'&&!((efecto?.cantidad||0)>0)&&<p className="yq-nota">Un ojo siempre abierto sin dados propios no aparece en la barra de acciones: funciona solo.</p>}
   {v.modo==='abrir'&&<Interruptor etiqueta="Abrirlo no gasta la acción del turno" valor={!!v.sin_accion} onChange={x=>set({sin_accion:x||undefined})}/>}
   {v.modo!=='permanente'&&<div className="yq-costes">
    <label><span>Turnos abierto (0 = todo el combate)</span><Rueda nombre="duracion" etiqueta="Turnos que permanece abierto" valor={v.duracion} min={0} max={99} onChange={duracion=>set({duracion:Math.round(duracion)})} compacta/></label>
    <label><span>PH por turno para mantenerlo</span><Rueda nombre="mantenimiento" etiqueta="PH por turno de mantenimiento" valor={v.mantenimiento_ph||0} min={0} max={100} onChange={x=>set({mantenimiento_ph:Math.round(x)||undefined})} compacta/></label>
   </div>}
+  </>}
 
   <fieldset className="yq-vision-grupo"><legend>Mirada</legend>
    <div className="yq-costes"><label><span>Alcance en casillas (0 = todo el tablero)</span><Rueda nombre="alcance" etiqueta="Casillas que alcanza la mirada" valor={v.alcance} min={0} max={100} onChange={alcance=>set({alcance:Math.round(alcance)})} compacta/></label></div>
@@ -89,9 +91,9 @@ export default function EditorVision({efecto,onChange}:{efecto:Efecto;onChange:(
    <Interruptor etiqueta="Ver hasta dónde llegan los enemigos" valor={!!v.amenazas} onChange={x=>set({amenazas:x||undefined})}/>
   </fieldset>
 
-  <fieldset className="yq-bonos"><legend>Mientras está abierto</legend>
+  {!fase&&<fieldset className="yq-bonos"><legend>Mientras está abierto</legend>
    {ATRIBUTOS_BONO_OCULAR.map(([k,n])=><label key={k} className={v.bonos?.[k]?'is-activo':undefined}><span>{n}</span><Rueda nombre={'ojo_'+k} etiqueta={`${n} mientras el ojo está abierto`} valor={v.bonos?.[k]||0} min={-999} max={999} onChange={x=>{const b={...v.bonos};if(x)b[k]=Math.round(x);else delete b[k];set({bonos:Object.keys(b).length?b:undefined});}} compacta/></label>)}
-  </fieldset>
+  </fieldset>}
 
   {error?<p className="yq-error" role="alert">{error}</p>:ayuda&&<ul className="yq-vision-resumen" aria-label="Así funcionará el ojo">{ayuda.detalles.map((d,i)=><li key={i}>{d}</li>)}</ul>}
  </div>;

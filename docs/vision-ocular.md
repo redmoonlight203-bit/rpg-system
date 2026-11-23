@@ -41,3 +41,19 @@ El GM ve lo mismo al controlar a un combatiente con el ojo abierto, y la arena d
 - El servidor del jugador (`combate-jugador`) solo envía la información de enemigos dentro de la mirada y solo lo que el ojo revela.
 - Código: `lib/vision.ts` (vocabulario, validación, descripción, puntos débiles) y `lib/combate.ts` (`visionesActivas`, `golpeOcular`, `vistaOcular`, apertura y mantenimiento). Interfaz: `components/OjoVisual.tsx`, `components/CapaOcular.tsx`, `components/yunque/editores/EditorVision.tsx`.
 - Pruebas: `tests/vision.test.mjs` y `tests/jugador-edge.test.mjs`.
+
+## Ojos de clan, linajes y fases
+
+**Herencia.** En *Requisitos* de una habilidad o pasiva:
+- **Linaje:** marca una raza o subraza (por ejemplo, un clan de una sola raza creado como subraza en la Forja).
+- **Clan:** marca uno o varios clanes. Un clan reúne personajes de cualquier raza; el GM lo crea y gestiona sus miembros en **Clanes y linajes** (`/dm/clanes`).
+- Activa **«Se hereda»**: la habilidad se entrega sola a todo personaje vivo y aprobado que cumpla el linaje y/o pertenezca a uno de los clanes (y al nivel mínimo, si lo hay). Se retira sola si sale del clan, cambia de linaje o el GM quita la herencia. Lo que el GM entrega a mano no se toca.
+- Si el linaje y el clan están marcados a la vez, se exigen los dos.
+
+**Fases del ojo.** Un ojo puede ser una **transformación por etapas**: en cada etapa, «Ojo de esta fase» define un ojo distinto (apariencia, alcance, puntos débiles, revelación). Solo está abierto el de la fase actual. Avanzar de fase consume una acción.
+
+**Un poder distinto por miembro en la fase avanzada.** Da a cada etapa un atributo de fase (p. ej. `fase_ojo: 2`) y crea para cada miembro su propia acción con *requisito de forma* `fase_ojo ≥ 2`, entregada a ese personaje. Solo aparece en su barra cuando su ojo está en esa fase.
+
+La plantilla **«Ojo de clan con fases»** del Grimorio monta todo esto: fase 1 común (ventaja en puntos débiles), fase 2 con otro ojo más fuerte y un poder propio de ejemplo.
+
+Código: `supabase/migrations/20261122100000_herencia_linajes_clanes.sql` (clanes, herencia), `app/dm/clanes/page.tsx`, `components/RequisitosYunque.tsx`, `lib/transformaciones.ts` (`EtapaTransformacion.vision`). Pruebas: `tests/herencia-database.mjs` y `tests/vision.test.mjs`.

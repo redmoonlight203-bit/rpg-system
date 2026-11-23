@@ -102,7 +102,7 @@ test('eventos, módulos e invocación',()=>{
  assert.ok(b.invocacion);
 });
 test('plantillas y colección se suman al núcleo y respetan lo que lleva la creación',()=>{
- const plantilla=PIEZAS.find(p=>p.familia==='plantillas'&&p.fragmentos.length>1);
+ const plantilla=PIEZAS.find(p=>p.familia==='plantillas'&&p.fragmentos.length>1&&p.fragmentos.every(f=>f.tipo==='cuando'));
  const b=soltar(base(),plantilla,null);
  assert.equal(b.reglas.length,plantilla.fragmentos.length);
  assert.notEqual(b.reglas[0].id,plantilla.fragmentos[0].datos.id,'ids nuevos');

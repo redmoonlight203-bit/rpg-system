@@ -44,6 +44,24 @@ const OJOS:Plantilla[]=[
   fragmentos:[accion('ojo-verdad',{nombre:'Ojo de la verdad',efecto:'estado',estado:'Ojo de la verdad',estado_tipo:'narrativo',cantidad:0,caras:4,
    vision:{nombre:'Ojo de la verdad',modo:'permanente',duracion:0,alcance:0,atraviesa_muros:true,apariencia:{color:'#d8e6f0',secundario:'#1b2a38',patron:'estrella',marcas:6,velo:1},
     revelar:{vida:true,atributos:true,acciones:true,pasivas:true,estados:true,ocultos:true}}})]},
+ // Ojo de clan por fases: la herencia (Requisitos → clan o linaje + «Se hereda») lo da a todo el clan.
+ // La fase despertada sube «fase_ojo» a 2: los poderes personales de cada miembro exigen esa fase.
+ {id:'ojo-clan-fases',nombre:'Ojo de clan con fases',descripcion:'Hereditario: fase 1 común, fase 2 con poder propio de cada miembro',icono:'ojo',para:'habilidad',
+  fragmentos:[
+   accion('ojo-clan',{nombre:'Despertar el ojo del clan',efecto:'transformacion',cantidad:0,caras:4,coste_ph:2,naturaleza:'magica',
+    descripcion:'Fase 1: el ojo común del clan. Fase 2: el ojo pleno, distinto en cada miembro. Avanzar de fase consume una acción.',
+    transformacion:{id:'plantilla-ojo-clan',nombre:'Ojo del clan',tipo:'poder',etapas:[
+     {id:'fase-1',nombre:'Ojo despierto',stats:{fase_ojo:1,iniciativa:1},descripcion:'Los puntos débiles se vuelven visibles.',
+      vision:{nombre:'Ojo despierto',modo:'permanente',duracion:0,alcance:6,apariencia:{color:'#b3122e',secundario:'#12060a',patron:'aspas',marcas:2,velo:1},
+       revelar:{vida:true,estados:true},puntos_debiles:{cantidad:1,cambia:'ronda',recompensa:{ventaja:true}}}},
+     {id:'fase-2',nombre:'Ojo pleno',stats:{fase_ojo:2,iniciativa:2},descripcion:'El ojo cambia de forma y despierta el poder propio de quien lo porta.',
+      vision:{nombre:'Ojo pleno',modo:'permanente',duracion:0,alcance:9,atraviesa_muros:true,apariencia:{color:'#d4142f',secundario:'#050203',patron:'estrella',marcas:6,velo:3},
+       revelar:{vida:true,estados:true,acciones:true,pasivas:true},puntos_debiles:{cantidad:2,cambia:'ronda',recompensa:{ventaja:true,dados:1,caras:8}},anticipar:{armadura:3},amenazas:true}},
+    ]}}),
+   accion('ojo-clan-poder',{nombre:'Poder propio del ojo pleno',cantidad:3,caras:8,coste_ph:4,naturaleza:'magica',tipo_dano:'mirada',
+    descripcion:'Ejemplo de poder personal: duplica esta acción para cada miembro y cámbiala. Solo se puede usar en la fase 2.',
+    requisito_forma:{atributo:'fase_ojo',minimo:2},tablero:{alcance:6,forma:'individual',tamano:0,afecta:'enemigos'}}),
+  ]},
 ];
 export const PLANTILLAS:Plantilla[]=[
  ...OJOS,
