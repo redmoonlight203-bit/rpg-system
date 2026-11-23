@@ -3,6 +3,7 @@ import type { DefinicionTransformacion } from "./transformaciones";
 import {validarPortada} from "./imagenes-creacion";
 import {validarReglas} from "./reglas";
 import {validarVision,type Vision} from "./vision";
+import {DISPARADORES,RESULTADOS_POR_DISPARADOR,NOMBRE_DISPARADOR,ACOMPANANTES,CON_ALCANCE,disparadorDe,type ClaveResultado,type DisparadorReaccion} from "./reacciones";
 import { linaje, type CategoriaBase } from "./estadisticas";
 export type TipoCreacion =
   "personaje" | "habilidad" | "objeto" | "titulo" | "pasiva" | "otro";
@@ -71,8 +72,28 @@ export type AlcanceHabilidad = {
  * un seguimiento usa lo que detuvo la principal (devolverlo al atacante o guardarlo en una reserva).
  */
 export type ReservaReaccion = { recurso: string; proporcion: number; maximo: number };
-export type ResultadoReaccion = { devolver?: { maximo?: number }; reservar?: ReservaReaccion };
+export type ContraataqueReaccion = { cantidad: number; caras: number; modificador?: number };
+export type ResultadoReaccion = {
+  devolver?: { maximo?: number };
+  reservar?: ReservaReaccion;
+  /** Repite la tirada fallida (ataque o salvación) una vez; vale la segunda. */
+  repetir_tirada?: Record<string, never>;
+  /** Daño directo al atacante (o al objetivo, si un aliado golpea), sin encadenar reacciones. */
+  contraatacar?: ContraataqueReaccion;
+  /** El portador recibe el ataque dirigido al aliado. */
+  interponerse?: Record<string, never>;
+};
+export type UsosReaccion = { tipo: 'encuentro'|'turno'|'ilimitado'; maximo?: number };
 export type Reaccion = {
+  /** Cuándo se ofrece. Sin disparador: al recibir un golpe (comportamiento clásico). */
+  disparador?: DisparadorReaccion;
+  /** Casillas hasta el aliado o el enemigo que la dispara (disparadores de otros). Por defecto 1. */
+  alcance?: number;
+  /** PH al activarla. Sin coste propio se usa el coste de PH de la acción. */
+  coste?: number;
+  usos?: UsosReaccion;
+  /** Rondas de espera tras cada uso. */
+  enfriamiento?: number;
   /** Las principales se prueban de mayor a menor prioridad; la primera que se paga resuelve el golpe. */
   prioridad?: number;
   una_por_ronda?:boolean;
@@ -84,7 +105,8 @@ export type Reaccion = {
   sin_forma?: string;
   principal?: ResultadoReaccion & {
     salvacion?: { cd: number; atributo: string };
-    reducir: { modo: 'todo'|'mitad'|'fijo'; valor?: number };
+    /** Obligatorio al recibir un golpe; opcional en los demás disparadores. */
+    reducir?: { modo: 'todo'|'mitad'|'fijo'; valor?: number };
     animacion?: string;
     /** Tras una principal exitosa se ejecuta el primer seguimiento aplicable. */
     permite_seguimiento?: boolean;
@@ -235,9 +257,27 @@ export function validarReaccion(r: unknown): string | null {
   if (x.prioridad !== undefined && !entero(x.prioridad, -100, 100)) return 'Prioridad de reacción de -100 a 100.';
   if (x.naturaleza !== undefined && !['magica', 'fisica'].includes(x.naturaleza)) return 'La reacción responde a golpes mágicos o físicos.';
   for (const k of ['forma', 'sin_forma'] as const) if (x[k] !== undefined && !claveForma(x[k])) return 'Forma de la reacción inválida.';
+  if (x.disparador !== undefined && !(DISPARADORES as readonly string[]).includes(x.disparador)) return 'Disparador de reacción desconocido.';
+  const disparador = disparadorDe(x), permitidos = RESULTADOS_POR_DISPARADOR[disparador], nombre = NOMBRE_DISPARADOR[disparador].toLowerCase();
+  if (x.coste !== undefined && !entero(x.coste, 0, 1000)) return 'Coste de la reacción de 0 a 1000 PH.';
+  if (x.enfriamiento !== undefined && !entero(x.enfriamiento, 0, 100)) return 'Enfriamiento de 0 a 100 rondas.';
+  if (x.usos !== undefined && (!x.usos || !['encuentro','turno','ilimitado'].includes(x.usos.tipo) || (x.usos.tipo !== 'ilimitado' && !entero(x.usos.maximo, 1, 100)))) return 'Usos por encuentro o por turno: de 1 a 100.';
+  if (x.alcance !== undefined && (!CON_ALCANCE.includes(disparador) || !entero(x.alcance, 1, 30))) return 'Alcance de la reacción de 1 a 30 casillas (solo cuando la dispara otro combatiente).';
+  if (x.seguimiento && !permitidos.includes('seguimiento')) return `Una reacción «${nombre}» no tiene seguimiento.`;
+  if (x.esquiva_opuesta && !permitidos.includes('esquiva_opuesta')) return `La esquiva enfrentada solo responde al recibir un golpe.`;
+  if (x.principal) {
+    const claves = (Object.keys(x.principal) as (keyof NonNullable<Reaccion['principal']>)[]).filter(k => x.principal![k] !== undefined && k !== 'permite_seguimiento');
+    const ajena = claves.find(k => !permitidos.includes(k as ClaveResultado));
+    if (ajena) return `«${ajena.replace('_', ' ')}» no se puede usar en una reacción «${nombre}».`;
+    if (!claves.some(k => !ACOMPANANTES.includes(k as ClaveResultado)) && !x.esquiva_opuesta) return `Elige qué hace la reacción «${nombre}».`;
+    if (disparador === 'despues_ser_atacado' && !x.principal.reducir) return 'Elige cómo reduce el daño: a la mitad o una cantidad fija.';
+    if (x.principal.repetir_tirada !== undefined && (typeof x.principal.repetir_tirada !== 'object' || x.principal.repetir_tirada === null)) return 'Repetir tirada inválido.';
+    if (x.principal.interponerse !== undefined && (typeof x.principal.interponerse !== 'object' || x.principal.interponerse === null)) return 'Interponerse inválido.';
+  }
   if (!x.principal && !x.seguimiento) return 'Configura la reacción principal o un seguimiento.';
   const resultado = (res: ResultadoReaccion | undefined): string | null => {
     if (!res) return null;
+    if (res.contraatacar !== undefined && (!res.contraatacar || !entero(res.contraatacar.cantidad, 1, 20) || !entero(res.contraatacar.caras, 2, 100) || (res.contraatacar.modificador !== undefined && !entero(res.contraatacar.modificador, -100, 100)))) return 'Contraataque: de 1 a 20 dados de 2 a 100 caras.';
     if (res.devolver !== undefined && (typeof res.devolver !== 'object' || (res.devolver.maximo !== undefined && !entero(res.devolver.maximo, 1, 1000)))) return 'Máximo devuelto de 1 a 1000.';
     if (res.reservar !== undefined) {
       const v = res.reservar;
@@ -249,8 +289,8 @@ export function validarReaccion(r: unknown): string | null {
   };
   if (x.principal) {
     const p = x.principal;
-    if (!p.reducir || !['todo','mitad', 'fijo'].includes(p.reducir.modo)) return 'Elige cómo reduce el daño: a la mitad o una cantidad fija.';
-    if (p.reducir.modo === 'fijo' && !entero(p.reducir.valor, 1, 1000)) return 'Reducción fija de 1 a 1000.';
+    if (p.reducir && !['todo','mitad', 'fijo'].includes(p.reducir.modo)) return 'Elige cómo reduce el daño: a la mitad o una cantidad fija.';
+    if (p.reducir?.modo === 'fijo' && !entero(p.reducir.valor, 1, 1000)) return 'Reducción fija de 1 a 1000.';
     if (p.salvacion && (!entero(p.salvacion.cd, 1, 100) || !/^[a-z_][a-z0-9_]{0,63}$/.test(p.salvacion.atributo || ''))) return 'Salvación de la reacción inválida.';
     if (p.animacion !== undefined && (typeof p.animacion !== 'string' || p.animacion.length > 60)) return 'Animación de la reacción inválida.';
     if (p.permite_seguimiento !== undefined && typeof p.permite_seguimiento !== 'boolean') return 'Seguimiento inválido.';

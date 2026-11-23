@@ -97,7 +97,7 @@ export function describirReaccion(r:Reaccion):string{
  const res=(x:ResultadoReaccion|undefined,que:string)=>{const f:string[]=[];if(x?.devolver)f.push(`devuelve ${x.devolver.maximo?`hasta ${x.devolver.maximo} de `:''}${que} al atacante`);if(x?.reservar)f.push(`guarda ${Math.round(x.reservar.proporcion*100)} % de ${que} en «${x.reservar.recurso}» (máximo ${x.reservar.maximo})`);return f;};
  if(r.principal){
   const p=r.principal;
-  partes.push(`Al recibir ${ante}${forma}, ${p.salvacion?`tira salvación de ${p.salvacion.atributo} CD ${p.salvacion.cd} y, si la supera, `:''}${p.reducir.modo==='todo'?'detiene todo el daño':p.reducir.modo==='mitad'?'detiene la mitad del daño':`detiene hasta ${p.reducir.valor||0} de daño`}`);
+  partes.push(`Al recibir ${ante}${forma}, ${p.salvacion?`tira salvación de ${p.salvacion.atributo} CD ${p.salvacion.cd} y, si la supera, `:''}${!p.reducir?'responde':p.reducir.modo==='todo'?'detiene todo el daño':p.reducir.modo==='mitad'?'detiene la mitad del daño':`detiene hasta ${p.reducir.valor||0} de daño`}`);
   partes.push(...res(p,'lo detenido'));
   if(p.permite_seguimiento)partes.push('y da paso a una reacción de seguimiento');
  }else if(r.seguimiento){

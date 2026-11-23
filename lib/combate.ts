@@ -560,12 +560,12 @@ function recibir(
       if(res.devolver)Object.assign(a,danarTransformado(a,res.devolver.maximo===undefined?cantidad:Math.min(cantidad,res.devolver.maximo)).actor);
     };
     // Principales por prioridad (estable): la primera que se paga resuelve el golpe, aunque falle su salvación.
-    const principales=reacciones.map((x,i)=>({...x,i})).filter(x=>x.r.principal&&!x.r.esquiva_opuesta&&aplica(x.r)).sort((x,y)=>(y.r.prioridad||0)-(x.r.prioridad||0)||x.i-y.i);
+    const principales=reacciones.map((x,i)=>({...x,i})).filter(x=>x.r.principal?.reducir&&!x.r.esquiva_opuesta&&aplica(x.r)).sort((x,y)=>(y.r.prioridad||0)-(x.r.prioridad||0)||x.i-y.i);
     for(const x of principales){
-      const pr=x.r.principal!;
+      const pr=x.r.principal!,reducir=pr.reducir!;
       if(!pagar(x.p))continue;
       if(!pr.salvacion||salvacion(c,t,pr.salvacion.cd,pr.salvacion.atributo,rng)){
-        const detenido=pr.reducir.modo==='todo'?total:pr.reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,pr.reducir.valor||0);
+        const detenido=reducir.modo==='todo'?total:reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,reducir.valor||0);
         total-=detenido;
         resolver(pr,detenido);
         if(pr.permite_seguimiento){

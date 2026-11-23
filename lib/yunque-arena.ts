@@ -324,7 +324,7 @@ function detenidoPor(c:Combate,quien:string,nombre:string,total:number):number{
  const m=c.miembros.find(x=>x.id===quien);
  const e=(m?.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).find(x=>x.nombre===nombre);
  const r=e?reaccionDe(e)?.principal:undefined;
- if(!r)return 0;
+ if(!r?.reducir)return 0;
  return r.reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,r.reducir.valor||0);
 }
 /**
