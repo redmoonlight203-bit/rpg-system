@@ -2,9 +2,10 @@
 import {useLayoutEffect,useRef,useState} from 'react';
 import {Texto} from '../Controles';
 
-type Props = {valor:string; onChange:(url:string)=>void};
+type Ajuste = 'completa'|'iris';
+type Props = {valor:string; ajuste?:Ajuste; onChange:(url:string,ajuste:Ajuste|undefined)=>void};
 
-export default function ImagenOjo({valor,onChange}:Props) {
+export default function ImagenOjo({valor,ajuste,onChange}:Props) {
  const [estado,setEstado]=useState<'subiendo'|'lista'|null>(null);
  const [error,setError]=useState('');
  const vigente=useRef({valor,onChange});
@@ -13,11 +14,14 @@ export default function ImagenOjo({valor,onChange}:Props) {
  useLayoutEffect(()=>{ vigente.current={valor,onChange}; },[valor,onChange]);
  useLayoutEffect(()=>()=>{ intento.current++; },[]);
 
+ function ajusteParaEnlace():Ajuste { return ajuste ?? (valor ? 'iris' : 'completa'); }
+
  function cambiar(url:string) {
   intento.current++;
   setEstado(null);
   setError('');
-  onChange(url.trim());
+  const nueva=url.trim();
+  onChange(nueva,nueva?ajusteParaEnlace():undefined);
  }
 
  async function subir(file:File|undefined) {
@@ -31,7 +35,7 @@ export default function ImagenOjo({valor,onChange}:Props) {
    const url=await publicarArchivoImagen(file);
    if(n!==intento.current)return;
    if(vigente.current.valor===previo) {
-    vigente.current.onChange(url);
+    vigente.current.onChange(url,'completa');
     setEstado('lista');
    } else setEstado(null);
   } catch(e) {
@@ -52,6 +56,11 @@ export default function ImagenOjo({valor,onChange}:Props) {
   <Texto etiqueta="Enlace directo (opcional)" valor={valor} max={2048} placeholder="https://…"
    ayuda="Usa el enlace del archivo, no el de un álbum. PNG, JPG o WebP, hasta 10 MB. Al subir un archivo, su enlace será público."
    onChange={cambiar}/>
+  {valor&&<label className="yq-campo"><span>Ajuste de la imagen</span>
+    <select value={ajuste??'iris'} disabled={estado==='subiendo'} onChange={e=>onChange(valor,e.target.value==='iris'?'iris':'completa')}>
+     <option value="completa">Ojo completo (sin recorte)</option><option value="iris">Solo el iris (recortado)</option>
+    </select>
+  </label>}
   <p className="yq-nota">La imagen completa se centra y se ajusta sin estirar ni recortar. Para evitar un fondo visible, usa una imagen transparente.</p>
   {estado&&<p role="status">{estado==='subiendo'?'Subiendo imagen…':'Imagen lista. Guarda la creación para conservarla.'}</p>}
   {error&&<p className="yq-error" role="alert">{error}</p>}

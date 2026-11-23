@@ -43,14 +43,15 @@ function Marcas({a}: {a: AparienciaOjo}) {
   return null;
 }
 
-/** La imagen representa el ojo completo, no una textura para el iris. */
-function IlustracionOjo({url, respaldo}: {url: string; respaldo: React.ReactNode}) {
+/** La carga fallida conserva el dibujo de respaldo en ambos modos. */
+function IlustracionOjo({url, iris, respaldo, marco, recorteOjo}: {url: string; iris?: string; respaldo: React.ReactNode; marco: React.ReactNode; recorteOjo: string}) {
   const [estado, setEstado] = useState<'cargando' | 'lista' | 'error'>('cargando');
   return <>
-    {estado !== 'lista' && respaldo}
-    {estado !== 'error' && <image className="ojo-visual-propia" href={url} x={4} y={4} width={92} height={92}
-      preserveAspectRatio="xMidYMid meet" opacity={estado === 'lista' ? 1 : 0}
-      onLoad={() => setEstado('lista')} onError={() => setEstado('error')}/>}
+    {estado !== 'lista' ? respaldo : iris ? marco : null}
+    {estado !== 'error' && <g clipPath={iris ? recorteOjo : undefined}><image className="ojo-visual-propia" href={url} x={iris ? C - IRIS : 4} y={iris ? C - IRIS : 4}
+      width={iris ? IRIS * 2 : 92} height={iris ? IRIS * 2 : 92} clipPath={iris}
+      preserveAspectRatio={iris ? 'xMidYMid slice' : 'xMidYMid meet'} opacity={estado === 'lista' ? 1 : 0}
+      onLoad={() => setEstado('lista')} onError={() => setEstado('error')}/></g>}
   </>;
 }
 
@@ -61,9 +62,12 @@ function IlustracionOjo({url, respaldo}: {url: string; respaldo: React.ReactNode
 export default function OjoVisual({apariencia: a, nombre, size = 96, abriendo = false}: {apariencia: AparienciaOjo; nombre: string; size?: number; abriendo?: boolean}) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const rendija = a.patron === 'rendija';
+  const blanco = <rect x="0" y="0" width="100" height="100" fill="#efe9df"/>;
+  const parpado = <path className="ojo-visual-parpado" d="M4 50 Q50 6 96 50 Q50 94 4 50 Z" fill="none" stroke={a.secundario || '#111111'} strokeWidth={3}/>;
+  const marco = <g clipPath={`url(#ojo${id})`}>{blanco}{parpado}</g>;
   const dibujo = <>
     <g className="ojo-visual-globo" clipPath={`url(#ojo${id})`}>
-      <rect x="0" y="0" width="100" height="100" fill="#efe9df"/>
+      {blanco}
       <g className="ojo-visual-iris">
         <circle cx={C} cy={C} r={IRIS} fill={`url(#iris${id})`}/>
         <g clipPath={`url(#circulo${id})`}><Marcas a={a}/></g>
@@ -71,7 +75,7 @@ export default function OjoVisual({apariencia: a, nombre, size = 96, abriendo = 
         <circle cx={C - 8} cy={C - 9} r={3.5} fill="#ffffff" opacity={0.7}/>
       </g>
     </g>
-    <path className="ojo-visual-parpado" d="M4 50 Q50 6 96 50 Q50 94 4 50 Z" fill="none" stroke={a.secundario || '#111111'} strokeWidth={3}/>
+    {parpado}
   </>;
   return <svg className={`ojo-visual${abriendo ? ' is-abriendo' : ''}`} width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={`Ojo: ${nombre}`}>
     <defs>
@@ -84,7 +88,8 @@ export default function OjoVisual({apariencia: a, nombre, size = 96, abriendo = 
       <clipPath id={`circulo${id}`}><circle cx={C} cy={C} r={IRIS}/></clipPath>
     </defs>
     {a.imagen_url
-      ? <IlustracionOjo key={a.imagen_url} url={a.imagen_url} respaldo={dibujo}/>
+      ? <IlustracionOjo key={a.imagen_url} url={a.imagen_url} respaldo={dibujo} marco={marco}
+          iris={a.imagen_ajuste === 'completa' ? undefined : `url(#circulo${id})`} recorteOjo={`url(#ojo${id})`}/>
       : dibujo}
   </svg>;
 }

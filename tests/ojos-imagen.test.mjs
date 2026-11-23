@@ -41,10 +41,9 @@ const porTipo=(el,t)=>buscar(el,x=>x.type===t)[0];
 
 test('el ojo completo se centra conservando las proporciones; si el enlace falla, vuelve el dibujo',()=>{
  const dibujar=montar('../components/OjoVisual.tsx');
- const apariencia={...vision.nuevaVision().apariencia,imagen_url:'https://img.example/ojos.webp'};
+ const apariencia={...vision.nuevaVision().apariencia,imagen_url:'https://img.example/ojos.webp',imagen_ajuste:'completa'};
  const svg=dibujar({apariencia,nombre:'Rei-Gan'});
  const hijo=buscar(svg,x=>typeof x.type==='function')[0];
- const fuente=montar('../components/OjoVisual.tsx');
  // El render del hijo mantiene su propio estado, igual que en el editor y el tablero.
  const estados=[];
  const código=ts.transpileModule(readFileSync(new URL('../components/OjoVisual.tsx',import.meta.url),'utf8')+'\nexport {IlustracionOjo};',{
@@ -65,8 +64,12 @@ test('el ojo completo se centra conservando las proporciones; si el enlace falla
  porTipo(vista(),'image').props.onError();
  assert.equal(porTipo(vista(),'image'),undefined);
  assert.ok(porTipo(vista(),'circle'));
- const otro=buscar(fuente({nombre:'Rei-Gan',apariencia:{...apariencia,imagen_url:'/otro.webp'}}),x=>typeof x.type==='function')[0];
+ const otro=buscar(dibujar({nombre:'Rei-Gan',apariencia:{...apariencia,imagen_url:'/otro.webp',imagen_ajuste:undefined}}),x=>typeof x.type==='function')[0];
  assert.notEqual(hijo.key,otro.key);
+ estados.length=0;
+ const heredada=porTipo(exports.IlustracionOjo(otro.props),'image');
+ assert.equal(heredada.props.preserveAspectRatio,'xMidYMid slice');
+ assert.match(heredada.props.clipPath,/circulo/);
 });
 
 test('subir guarda una URL reutilizable, conserva la última edición y no pisa una URL manual',async()=>{
@@ -76,8 +79,8 @@ test('subir guarda una URL reutilizable, conserva la última edición y no pisa 
  const mostrar=montar('../components/yunque/editores/ImagenOjo.tsx',{
   '../Controles':{Texto}, '../../../lib/imagenes-storage':{publicarArchivoImagen},
  });
- let actual=''; const cambios=[];
- const vista=(nota='')=>mostrar({valor:actual,onChange:url=>{actual=url;cambios.push([url,nota]);}});
+ let actual='', ajuste; const cambios=[];
+ const vista=(nota='')=>mostrar({valor:actual,ajuste,onChange:(url,a)=>{actual=url;ajuste=a;cambios.push([url,nota,a]);}});
  const tick=()=>new Promise(r=>setImmediate(r));
  async function elegir(){
   const input=porTipo(vista(),'input');
@@ -92,7 +95,7 @@ test('subir guarda una URL reutilizable, conserva la última edición y no pisa 
  const url='https://img.example/ojos.webp';
  completar(url);
  await tick();
- assert.deepEqual(cambios,[[url,'edición posterior']]);
+ assert.deepEqual(cambios,[[url,'edición posterior','completa']]);
  assert.equal(vision.validarVision({...vision.nuevaVision(),apariencia:{...vision.nuevaVision().apariencia,imagen_url:actual}}),null);
  await elegir();
  porTipo(vista(),Texto).props.onChange(' https://img.example/manual.png ');

@@ -45,7 +45,8 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
   </section>
   <Fichas etiqueta="Patrón del iris" opciones={PATRONES_OJO.map(p=>({valor:p.valor,nombre:p.nombre}))} valor={v.apariencia.patron} onChange={patron=>ap({patron})} columnas={4}/>
   <Fichas etiqueta="Velo sobre el tablero en tu turno" opciones={VELOS} valor={v.apariencia.velo} onChange={velo=>ap({velo})}/>
-  <ImagenOjo valor={v.apariencia.imagen_url||''} onChange={imagen_url=>ap({imagen_url:imagen_url||undefined})}/>
+  <ImagenOjo valor={v.apariencia.imagen_url||''} ajuste={v.apariencia.imagen_ajuste}
+   onChange={(imagen_url,imagen_ajuste)=>ap({imagen_url:imagen_url||undefined,imagen_ajuste})}/>
 
   {fase?<p className="yq-nota">Este ojo se abre al entrar en la etapa y se cierra al salir de ella. Sus bonos de atributos se configuran en la propia etapa.</p>:<>
   <Fichas etiqueta="Cómo se activa" opciones={MODOS} valor={v.modo} onChange={modo=>set({modo,sin_accion:modo==='abrir'?v.sin_accion:undefined})} grandes tono="arcano"/>
