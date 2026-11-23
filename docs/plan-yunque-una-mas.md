@@ -6,7 +6,7 @@ Tres trabajos en un solo plan:
 - **Parte 2 · Reacciones generales:** cualquier creación configura reacciones; Kion pasa a ser solo plantillas.
 - **Parte 3 · Artefactos con nivel (Mao):** forma por portador, absorción por tramos, voces de demonio y espejo mental.
 
-Orden obligatorio: Parte 1 → Parte 2 → Parte 3. La Parte 2 necesita los menús de la Parte 1 para mostrar la oferta de reacción. La Parte 3 necesita las reacciones generales.
+Orden obligatorio: Parte 1 → Parte 2 → Parte 4 → Parte 3. La Parte 2 necesita los menús de la Parte 1 para mostrar la oferta de reacción. La Parte 3 necesita las reacciones generales.
 
 Cada paso indica: **archivos**, **qué hacer**, **prueba** y **criterio de salida**. No se pasa al siguiente paso hasta cumplir el criterio.
 
@@ -242,6 +242,89 @@ Migrar cada llamada a `await confirmar(...)` o `await avisar(...)`. Cada tanda e
 
 ---
 
+## PARTE 4 · Inmunidades, efectos mentales y equipamiento
+
+Origen: resumen técnico del 23-11 («Resumen de mejoras necesarias para la Forja y el Yunque»). Se ejecuta **antes de la Parte 3**: la Parte 3 necesita la clasificación mental de este bloque.
+
+Principio: un solo sistema reutilizable de inmunidades y resistencias. Nada de excepciones por criatura ni por estado.
+
+Orden interno: 4.1 → 4.2 → 4.3 → 4.4 → 4.5. El paso 4.2 es el de mayor riesgo, porque cambia cómo se aplican los estados.
+
+### Paso 4.1 · Sistema universal de inmunidades
+
+- **Archivos nuevos:** `lib/inmunidades.ts`, `tests/inmunidades.test.mjs`.
+- **Qué hacer:**
+  1. Definir una inmunidad como `{tipo, valor, origen, modo}` con `tipo` en: `dano` (tipo de daño o elemento), `estado` (nombre de estado), `categoria` (por ejemplo, `mental`) y `modo` en: `bloquear_dano`, `bloquear_aplicacion`, `bloquear_todo`.
+  2. Una inmunidad al fuego (`dano: fuego`) **no** implica inmunidad a Quemadura (`estado: quemadura`). Son entradas independientes; si el GM quiere ambas, las configura.
+  3. Función única `comprobarInmunidad(objetivo, candidato)` que devuelve `{bloqueado: boolean, motivo}`.
+  4. Las inmunidades se agregan de: personaje, raza, linaje, pasivas, estados activos y equipo equipado. Al desequipar, se retiran.
+- **Prueba:** cada combinación de `tipo` y `modo`; inmunidad al fuego sin inmunidad a Quemadura; inmunidad de equipo que desaparece al desequipar.
+- **Criterio de salida:** prueba de `lib/inmunidades.ts` pasa; el motor todavía no lo usa.
+
+### Paso 4.2 · Estados y daño periódico conservan su origen
+
+- **Archivos:** `lib/combate.ts` (aplicación de estados, daño de inicio de turno, Quemadura), `lib/creacion.ts`.
+- **Qué hacer:**
+  1. Cada estado registra el elemento de origen (`origen.elemento`), además de su nombre.
+  2. El daño periódico de Quemadura se procesa como daño de **fuego** (con su origen), así la inmunidad al fuego lo reconoce.
+  3. Antes de aplicar un estado o un daño periódico, se comprueba `comprobarInmunidad`. Si bloquea, se registra en el log el motivo.
+  4. Antes de este paso, un estado sin inmunidad **sigue aplicándose igual** (regresión).
+- **Prueba:** `tests/estados-origen.test.mjs`: Quemadura con inmunidad al fuego se bloquea solo si hay inmunidad a Quemadura; el daño periódico de fuego se reduce con inmunidad a fuego.
+- **Criterio de salida:** `tests/combate*.test.mjs` y las pruebas de Kion pasan sin cambios de resultado.
+
+### Paso 4.3 · Clasificación de efectos mentales
+
+- **Archivos:** `lib/creacion.ts` (tipo `Efecto` y estados), `lib/reglas.ts`, `components/yunque/editores/EditorAccion.tsx`.
+- **Qué hacer:**
+  1. Añadir `categoria?: 'mental'` (y subcategorías configurables: control, miedo, ilusión, confusión, memoria, posesión) a habilidades y estados.
+  2. Los estados existentes que sean mentales se etiquetan en la migración de datos, sin cambiar su efecto.
+  3. Distinguir tres resultados: **superar la salvación** (el efecto no ocurre), **resistir** (el efecto ocurre reducido o acortado) y **inmunidad completa** (el efecto se bloquea antes de la salvación).
+- **Prueba:** `tests/efectos-mentales.test.mjs`: tres resultados diferenciados; un efecto sin categoría no se ve afectado por inmunidades mentales.
+- **Criterio de salida:** los estados mentales existentes tienen categoría y su resultado no cambia.
+
+### Paso 4.4 · Pasivas de inmunidad mental y revisión de rutas especiales
+
+- **Archivos:** `lib/pasivas.ts`, `lib/combate.ts` (rutas de posesión y pérdida de control, como «Esclavitud» y «Dominado»).
+- **Qué hacer:**
+  1. Una pasiva puede otorgar inmunidad o resistencia a una categoría (por ejemplo, Mente Inquebrantable: inmunidad a `mental` de tipo `control`, sin tirada).
+  2. Revisar cada ruta especial de control o posesión y hacer que pase por `comprobarInmunidad` antes de aplicar el efecto. Listar las rutas en el informe de la fase.
+  3. **No** se decide todavía qué posesiones son bloqueables. Esa decisión queda como pregunta abierta del GM y de las reglas oficiales.
+- **Prueba:** `tests/mente-inquebrantable.test.mjs`: la pasiva bloquea un efecto de control sin tirar salvación; un efecto de daño físico no se bloquea.
+- **Criterio de salida:** el informe de rutas especiales está completo y cada ruta usa la comprobación.
+
+### Paso 4.5 · Equipamiento: Fatiga, Vida y PH en las familias donde corresponda
+
+- **Archivos:** `lib/creacion.ts` (`SLOTS`, familias de equipo), editor de atributos de la Forja (ubicar en `components/yunque/editores/`).
+- **Qué hacer:**
+  1. Confirmar en la base de datos qué atributos tiene cada familia (Accesorios sí tiene Fatiga; Armadura solo Defensa).
+  2. Habilitar Fatiga máxima, Vida máxima y PH máximo para las familias donde corresponda, **sin cambiar el cálculo de estadísticas**: el motor ya suma bonificaciones.
+  3. Los controles aparecen en el Yunque según la familia elegida.
+  4. Ejemplo de validación: «Capa del Viajero · Objeto · Ranura Capa · +2 Fatiga máxima mientras esté equipada».
+- **Prueba:** `tests/equipo-atributos.test.mjs`: la bonificación aparece al equipar y desaparece al desequipar; no altera otras familias.
+- **Criterio de salida:** una capa con +2 Fatiga máxima funciona en la ficha y en combate.
+
+### Paso 4.6 · Editor visual «Defensas e inmunidades» en el Yunque
+
+- **Archivos:** `components/yunque/editores/EditorDefensas.tsx` (nuevo), `components/yunque/TallerYunque.tsx`.
+- **Qué hacer:**
+  1. Sección nueva con tres columnas: **Daño** (elemento), **Estado** y **Categoría** (mental, etc.), cada una con un selector y un interruptor «Inmunidad».
+  2. Selector de duración: permanente, mientras esté equipada, o por turnos.
+  3. La vista previa usa la frase de la Parte 2 («Inmune al fuego; no a Quemadura»).
+  4. Sin JSON ni SQL para el GM.
+- **Prueba:** Playwright en la Forja a 390 px y escritorio: crear una criatura inmune al fuego que no sea inmune a Quemadura.
+- **Criterio de salida:** los cuatro ejemplos del resumen se crean desde la interfaz.
+
+### Paso 4.7 · Pruebas de combate y equipamiento
+
+- Criatura inmune al fuego, vulnerable a otros estados.
+- Dragón inmune al fuego y a Quemadura.
+- Personaje inmune al control mental, vulnerable al daño físico.
+- Objeto que concede inmunidad temporal mientras está equipado; desaparece al desequipar.
+- Capa con Fatiga máxima sin habilidades adicionales.
+- **Criterio de salida:** las cinco pruebas pasan y se anotan en `docs/metricas/`.
+
+---
+
 ## Riesgos
 
 - **Migrar `defensa` a `reaccion`** puede afectar combates en curso. Se hace al cargar, sin escribir en la base.
@@ -250,6 +333,8 @@ Migrar cada llamada a `await confirmar(...)` o `await avisar(...)`. Cada tanda e
 - **Tabla de 100 formas:** la edición en lista debe funcionar a 390 px.
 
 ## Preguntas abiertas
+
+3. ¿Qué posesiones, ilusiones o habilidades especiales son bloqueables por inmunidad mental? Lo decide YUGEN en sus reglas oficiales; el plan no lo fija.
 
 1. Cuando una reacción se ofrece al defensor, ¿el ataque espera la decisión o se resuelve después del golpe? (Recomiendo esperar la decisión.)
 2. ¿El menú de reacción muestra el coste antes de confirmar? (Recomiendo sí.)
