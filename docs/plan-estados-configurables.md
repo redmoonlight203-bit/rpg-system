@@ -54,8 +54,19 @@ Conclusión: el motor solo tiene estados codificados a mano. Hay que pasar a un 
 - **Prueba:** `tests/estados-modelo.test.mjs`: validación de duraciones, primitivas y origen.
 - **Criterio de salida:** un estado de ejemplo se valida y se guarda.
 
+### Paso 2.1 · Habilidades que ignoran inmunidades
+- **Archivos:** `lib/creacion.ts` (tipo `Efecto`), `lib/inmunidades.ts` (Parte 4).
+- **Qué hacer:** un efecto puede declarar `ignora`: lista de categorías, estados o tipos de daño que atraviesa. Por ejemplo, una habilidad de control mental que ignora la inmunidad mental. `comprobarInmunidad` respeta esa lista, y solo para ese efecto.
+- **Prueba:** `tests/ignorar-inmunidad.test.mjs`: un personaje inmune a control mental recibe el efecto de una habilidad que lo ignora, y no el de una habilidad común.
+- **Criterio de salida:** prueba pasa; la lista vacía no cambia ningún resultado.
+
 ### Paso 3 · Primitiva «Perder turno»
 - **Archivos:** `lib/combate.ts` (inicio de turno, `:813`).
+- **Reglas configurables:**
+  - **Primer turno siempre perdido** (opción «pierde el primer turno al 100 %»), sin tirada.
+  - **Salvación al inicio de cada turno** para terminar el estado (Paralizado la usa).
+  - **Permite reacciones:** sí/no (En trance = no; Paralizado = sí).
+  - **Despertar al recibir daño:** sí/no (Dormido puede usarlo).
 - **Qué hacer:** reemplazar la condición `congelado || aturdido` por la primitiva. Congelado y aturdido se convierten en definiciones de datos que usan la misma primitiva.
 - **Prueba:** Congelado y Aturdido siguen perdiendo el turno exactamente igual (regresión de `tests/combate*.test.mjs`).
 - **Criterio de salida:** regresión idéntica.
@@ -64,9 +75,10 @@ Conclusión: el motor solo tiene estados codificados a mano. Hay que pasar a un 
 - **Archivos:** `lib/combate.ts` (movimiento y turno), `lib/yunque-arena.ts`.
 - **Qué hacer:**
   1. El estado guarda la **fuente** (identificador del combatiente o casilla).
-  2. Al inicio de turno, el afectado se mueve 1 o 2 casillas alejándose de la fuente, eligiendo la casilla libre más lejana (determinista) o con tirada, según configuración.
-  3. Si no hay casilla libre, no se mueve y se registra en el log.
-  4. Validación en servidor: la distancia se comprueba en el motor, no en la interfaz.
+  2. Al inicio de turno, el afectado se mueve 1 o 2 casillas alejándose de la fuente. Durante el efecto no ataca a la fuente, ni cuando está acorralado.
+  3. El efecto dura hasta que se pierde (duración del estado, sin salvación).
+  4. Si no hay casilla libre, no se mueve y se registra en el log.
+  5. Validación en servidor: la distancia se comprueba en el motor, no en la interfaz.
 - **Prueba:** `tests/estado-asustado.test.mjs`: se aleja 1 o 2 casillas; no atraviesa muros; sin casilla libre no se mueve.
 - **Criterio de salida:** prueba pasa.
 
@@ -83,7 +95,7 @@ Conclusión: el motor solo tiene estados codificados a mano. Hay que pasar a un 
 ### Paso 6 · Primitiva «Percepción alterada» (Hipnotizado)
 - **Archivos:** la proyección de la Parte 3 (espejo mental), `lib/combate.ts` (estado).
 - **Qué hacer:**
-  1. Hipnotizado usa la misma proyección que el espejo mental, con **aleatoriedad por turno**: cada enemigo o aliado tiene una probabilidad configurable de aparecer en el bando contrario.
+  1. Hipnotizado usa la misma proyección que el espejo mental, con **aleatoriedad por turno**. La probabilidad de cambio de bando es configurable en el estado.
   2. Solo cambia la vista del afectado. El objetivo que envía la acción es el real, y el registro lo guarda.
 - **Prueba:** `tests/hipnotizado.test.mjs`: la probabilidad se respeta con semilla fija; el objetivo real queda en el registro.
 - **Criterio de salida:** prueba pasa.
@@ -126,20 +138,21 @@ Conclusión: el motor solo tiene estados codificados a mano. Hay que pasar a un 
 - **Criterio de salida:** coherencia entre editor y combate.
 
 ### Paso 12 · Verificación final
+- Habilidad que ignora inmunidad mental frente a un personaje inmune.
 - Estados de ejemplo: Asustado, Control mental, Hipnotizado, Dormido, Envenenado, Congelado, Mojado, Quemado, Paralizado y En trance.
 - Cada uno con su prueba y con una combinación entre dos estados.
 - Resultados anotados en `docs/metricas/`.
 - **Criterio de salida:** los diez estados pasan en partida de prueba.
 
-## Decisiones que necesito
+## Decisiones tomadas
 
-1. **Asustado:** ¿el afectado puede atacar a la fuente si está acorralado, o solo huye?
-2. **Control mental:** ¿el rival puede ordenar acciones que harían daño a sus propios aliados? (Recomiendo sí, porque es el efecto que pediste.)
-3. **Dormido:** ¿despierta solo al recibir daño, o también al superar una salvación al inicio de turno? (Recomiendo las dos opciones configurables.)
-4. **En trance:** ¿se diferencia de Dormido solo en la duración o también en las reacciones que permite? (Propongo que En trance no permite reacciones.)
-5. **Paralizado:** ¿puede seguir usando reacciones? (Propongo que sí.)
-6. **Hipnotizado:** ¿la probabilidad de cambio de bando es por enemigo, o un valor único para todo el combate? (Propongo por combatiente y por turno.)
-7. **Relación con inmunidades:** ¿los estados mentales (asustado, control mental, hipnotizado) quedan bloqueados por Mente Inquebrantable, o requieren revisión de las reglas oficiales de YUGEN? (Mismo criterio que la Parte 4: no lo decide el plan.)
+1. **Asustado:** solo huye mientras dure el efecto. No ataca a la fuente, ni acorralado.
+2. **Control mental:** el rival puede ordenar acciones que dañen a sus propios aliados.
+3. **Dormido:** los criterios de despertar son configurables en el Yunque (recibir daño, superar salvación, o ambos).
+4. **En trance:** pierde el turno y **no puede usar reacciones**.
+5. **Paralizado:** pierde el primer turno siempre (100 %). Después pierde un turno más por cada inicio de turno hasta superar la salvación configurada. Las reacciones siguen disponibles.
+6. **Hipnotizado:** la probabilidad de cambio de bando es configurable.
+7. **Estados mentales e inmunidades:** deben poder crearse habilidades que ignoren inmunidades (por categoría, estado o tipo de daño). Lo que se decide en YUGEN es qué estados quedan bloqueados por defecto (por ejemplo, Mente Inquebrantable); el motor solo ofrece la mecánica.
 
 ## Riesgos
 
