@@ -23,7 +23,7 @@ const NOMBRE_KION:Record<string,{nombre:string;descripcion:string}>={
  ancla:{nombre:'Ancla',descripcion:'Fuera de Limitless: detiene 4 de cada golpe físico'},
 };
 const KION:Plantilla[]=Object.keys(PLANTILLAS_REACCION).map(k=>({
- id:'kion-'+k,nombre:`${NOMBRE_KION[k].nombre} (Kion)`,descripcion:NOMBRE_KION[k].descripcion,icono:'escudo',para:'habilidad',
+ id:'kion-'+k,nombre:`${NOMBRE_KION[k].nombre} (plantilla)`,descripcion:NOMBRE_KION[k].descripcion,icono:'escudo',para:'habilidad',
  fragmentos:[accion('kion-'+k,{nombre:NOMBRE_KION[k].nombre,cantidad:0,coste_ph:2,ley_limitless:true,reaccion:structuredClone(PLANTILLAS_REACCION[k])})],
 }));
 
