@@ -21,7 +21,7 @@ function cargar(archivo) {
       return {publicarArchivoImagen: async () => { throw Error('No se suben imágenes durante render'); }};
     }
     if (nombre === 'next/link') {
-      return ({href, children, ...props}) => React.createElement('a', {...props, href}, children);
+      return function Link({href, children, ...props}) { return React.createElement('a', {...props, href}, children); };
     }
     if (nombre === 'next/navigation') return {useRouter: () => ({push() {}})};
     if (!nombre.startsWith('.')) return nativeRequire(nombre);
