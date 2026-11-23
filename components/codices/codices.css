@@ -231,7 +231,7 @@
   color: var(--color-ink);
 }
 
-.cx-pagina :is(.cx-cabecera p, .cx-cabecera small, .cx-no-disponible) {
+.cx-pagina :is(.cx-cabecera p, .cx-cabecera small, .cx-no-disponible, .cg-prose) {
   color: var(--color-ink);
 }
 
