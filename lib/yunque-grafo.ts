@@ -5,7 +5,7 @@ import {describirEfecto,describirRegla,describirReaccion,condicionClara} from ".
 import {validarPasivas,EVENTOS_PASIVA,CONDICIONES_PASIVA} from "./pasivas";
 import {reaccionDe,validarTactica,validarRequisitos} from "./combate";
 import {describirVision,validarVision} from "./vision";
-import {normalizarReaccion} from "./reacciones";
+import {normalizarReaccion,lineaCosteReaccion} from "./reacciones";
 /**
  * Grafo DERIVADO del Borrador (solo lectura): `aGrafo` nunca modifica `b`.
  * El Borrador es la única fuente de verdad; las ediciones son operaciones puras sobre él.
@@ -13,7 +13,9 @@ import {normalizarReaccion} from "./reacciones";
 export type TipoNodo='nucleo'|'accion'|'alcance'|'salvacion'|'estado'|'reaccion'|'transformacion'|'recurso'|'vfx'|'tabla_armas'|'vision'|'cuando'|'si'|'entonces'|'pasiva'|'vinculo'|'invocacion'|'requisitos';
 export type Ruta=(string|number)[];
 export type Puerto={id:string;lado:'entrada'|'salida';acepta:TipoNodo[];etiqueta?:string};
-export type Nodo={id:string;tipo:TipoNodo;ruta:Ruta;titulo:string;frase:string;error:string|null;puertos:Puerto[]};
+export type Nodo={id:string;tipo:TipoNodo;ruta:Ruta;titulo:string;frase:string;error:string|null;puertos:Puerto[];
+ /** Línea corta siempre visible bajo la frase (coste y usos de una reacción). */
+ insignia?:string};
 export type Cable={id:string;desde:{nodo:string;puerto:string};hasta:{nodo:string;puerto:string}};
 export type Grafo={nodos:Nodo[];cables:Cable[]};
 /** `estado`: solo las creaciones aprobadas (o sin estado, p. ej. en pruebas) cuentan como presentes en La Creación. */
@@ -53,7 +55,8 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(e.salvacion)modulo('salvacion','salvacion','Salvación',`CD ${e.salvacion.cd} de ${e.salvacion.atributo}; si la supera: ${e.salvacion.exito}.`);
   if(e.efecto==='estado')modulo('estado',null,'Estado',e.estado?`Aplica ${e.estado}.`:'Estado sin nombre.');
   const reaccion=(()=>{try{return reaccionDe(normalizarReaccion(e));}catch{return null;}})();
-  if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',texto(()=>describirReaccion(reaccion),'Reacción.'),fallo(()=>validarReaccion(reaccion)));
+  if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',texto(()=>describirReaccion(reaccion,e.coste_ph||0),'Reacción.'),fallo(()=>validarReaccion(reaccion)));
+  if(reaccion){const n=nodos.find(x=>x.id===`reaccion:${e.id}`);if(n)n.insignia=texto(()=>lineaCosteReaccion(reaccion,e.coste_ph||0),'Sin coste');}
   if(e.transformacion||e.efecto==='transformacion')modulo('transformacion','transformacion','Transformación',e.transformacion?.nombre||'Transformación sin configurar.');
   if(e.recurso)modulo('recurso','recurso','Recurso',`${e.recurso.nombre}: inicia en ${e.recurso.inicial}, cambia ${e.recurso.cambio}.`);
   if(e.vfx)modulo('vfx','vfx','Animación','Animación configurada.');

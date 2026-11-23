@@ -56,3 +56,17 @@ export function normalizarReaccion<E extends Pick<Efecto,'reaccion'|'defensa'>>(
   const plantilla=PLANTILLAS_REACCION[defensa];
   return {...resto,reaccion:e.reaccion??(plantilla?JSON.parse(JSON.stringify(plantilla)) as Reaccion:undefined)} as E;
 }
+const plural=(n:number,uno:string,varios:string)=>`${n} ${n===1?uno:varios}`;
+/**
+ * Línea de coste siempre visible (tarjeta del Yunque, menú de decisión y ficha): PH, usos y enfriamiento.
+ * `costeAccion` es el coste de PH de la acción cuando la reacción no tiene uno propio; `restantes`, los usos que quedan.
+ */
+export function lineaCosteReaccion(r:Pick<Reaccion,'coste'|'usos'|'enfriamiento'|'una_por_ronda'>,costeAccion=0,restantes?:number|null):string{
+  const coste=r.coste??costeAccion??0;
+  const limites:string[]=[];
+  if(r.usos&&r.usos.tipo!=='ilimitado')limites.push(`${plural(r.usos.maximo||1,'uso','usos')} por ${r.usos.tipo==='encuentro'?'encuentro':'ronda'}${restantes!=null?` (quedan ${restantes})`:''}`);
+  else if(r.una_por_ronda)limites.push('1 uso por ronda');
+  if(r.enfriamiento)limites.push(`enfriamiento ${plural(r.enfriamiento,'ronda','rondas')}`);
+  if(!coste&&!limites.length)return 'Sin coste';
+  return [coste?`${coste} PH`:'Sin coste de PH',...limites].join(' · ');
+}
