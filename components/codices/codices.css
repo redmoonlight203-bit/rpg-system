@@ -151,3 +151,27 @@
   .cx-codice,.cx-codice *,.cx-codice *::before,.cx-codice *::after{animation:none!important;transition:none!important}
 }
 .cx-codice[data-movimiento=no],.cx-codice[data-movimiento=no] *,.cx-codice[data-movimiento=no] *::before,.cx-codice[data-movimiento=no] *::after{animation:none!important;transition:none!important}
+
+/* ---- Tarot ---- */
+.cx-mesa-tarot{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}
+.cx-tarot-escena{perspective:1200px;display:grid;justify-items:center;padding:6px 0}
+.cx-tarot{--rx:0deg;--ry:0deg;position:relative;display:block;width:min(100%,340px);aspect-ratio:2/3.5;padding:0;border:0;background:none;cursor:pointer;color:inherit;transform-style:preserve-3d;transform:rotateX(var(--rx)) rotateY(calc(var(--ry) + var(--giro,0deg)));transition:transform var(--cx-volteo-ms) cubic-bezier(.3,.7,.2,1)}
+.cx-tarot.is-volteada{--giro:180deg}
+.cx-tarot-cara{position:absolute;inset:0;display:flex;flex-direction:column;border:2px solid var(--marco,var(--color-gold));border-radius:14px;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 18px 40px color-mix(in srgb,var(--color-well) 80%,transparent),0 0 0 6px color-mix(in srgb,var(--color-well) 70%,transparent),0 0 30px var(--brillo,transparent)}
+.cx-tarot-cara.is-anverso{background:var(--cx-dorso-img),linear-gradient(175deg,var(--tinte,var(--color-raised)),var(--color-well) 70%)}
+.cx-tarot-cara.is-reverso{transform:rotateY(180deg);padding:20px 18px;gap:10px;background:var(--cx-papel);color:var(--cx-tinta);overflow-y:auto;text-align:left}
+.cx-tarot-arcano{padding:10px 0 6px;text-align:center;font:600 22px var(--font-display);letter-spacing:.2em;color:var(--tinta,var(--color-gold-bright))}
+.cx-tarot-arte{flex:1;margin:0 14px;border:1px solid var(--marco,var(--color-gold));border-radius:50% 50% 8px 8px / 30% 30% 8px 8px;overflow:hidden;min-height:0}
+.cx-tarot-arte .cg-art{aspect-ratio:auto;height:100%}
+.cx-tarot-banda{display:grid;gap:2px;margin:12px 10px 14px;padding:8px 10px;text-align:center;border-top:1px solid var(--marco,var(--color-gold));border-bottom:1px solid var(--marco,var(--color-gold));background:color-mix(in srgb,var(--color-well) 55%,transparent)}
+.cx-tarot-nombre{font:600 18px/1.2 var(--font-display);color:var(--tinta,var(--color-gold-bright));overflow-wrap:anywhere}
+.cx-tarot-rango{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-text-muted)}
+.cx-tarot-titulo{display:block;text-align:center;font:600 18px var(--font-display);letter-spacing:.2em;text-transform:uppercase;border-bottom:1px solid color-mix(in srgb,var(--cx-tinta) 30%,transparent);padding-bottom:8px}
+.cx-tarot-accion{display:grid;gap:3px;padding:8px 0;border-bottom:1px dashed color-mix(in srgb,var(--cx-tinta) 25%,transparent)}
+.cx-tarot-accion-cab{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:15px}
+.cx-tarot-cara.is-reverso .cx-formula{color:var(--cx-tinta);border-color:color-mix(in srgb,var(--cx-tinta) 40%,transparent)}
+.cx-tarot-coste{font-size:13px;color:var(--cx-tinta-suave)}
+.cx-tarot-resumen,.cx-tarot-vacio{font-size:13px;line-height:1.5;color:var(--cx-tinta)}
+.cx-pista{margin:0;text-align:center;font-size:13px;color:var(--color-text-muted)}
+.cx-texto{min-width:0}
+@media (max-width:820px){.cx-mesa-tarot{grid-template-columns:minmax(0,1fr)}.cx-tarot{width:min(100%,300px)}}

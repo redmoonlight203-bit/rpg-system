@@ -52,3 +52,28 @@ test('los vínculos se dibujan como miniatura según el tipo de la creación enl
  for(const n of ['Tajo','Piel','Yelmo'])assert.ok(html.includes(`aria-label="Abrir ${n}"`),n);
  assert.match(html,/Cabeza/,'el equipo muestra su espacio');
 });
+
+const tajo={id:'e1',nombre:'Tajo',efecto:'dano',cantidad:2,caras:6,modificador:1,coste_ph:3,tipo_dano:'',estado:'',duracion:0};
+
+test('tarot: anverso y reverso accesibles',async()=>{
+ const {cargarDependencia}=await import('./helpers/cargar-ts.mjs');
+ const {arcanoDe}=cargarDependencia('codices');
+ const item=fixture('habilidad');
+ const html=vista(item);
+ assert.match(html,/class="cx-tarot[ "]/);
+ assert.match(html,/aria-pressed="false"/);
+ assert.ok(html.includes(`>${arcanoDe(item.id).romano}<`),'muestra el arcano');
+ assert.match(html,/Lectura/);
+ assert.match(html,/is-reverso"[^>]*aria-hidden="true"/);
+});
+
+test('tarot: lectura de acciones y tirada de prueba',()=>{
+ const html=vista(fixture('habilidad',{configuracion_dados:[tajo]}));
+ assert.match(html,/Tajo/);assert.match(html,/2d6/);assert.match(html,/3 PH/);assert.match(html,/Lanzar/);
+});
+
+test('tarot: La portan',()=>{
+ const h=fixture('habilidad',{id:'h'});
+ const html=vista(h,[h,fixture('personaje',{id:'pj',nombre:'Axel Kuro',habilidades:['h']})]);
+ assert.match(html,/La portan/);assert.match(html,/Abrir Axel Kuro/);
+});
