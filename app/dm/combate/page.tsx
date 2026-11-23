@@ -82,6 +82,7 @@ import "./combate.css";
 import "./diseno.css";
 import {useDialogo} from "../../../components/Dialogo";
 import MenuReaccion,{EsperandoReaccion} from "../../../components/MenuReaccion";
+import ControlArtefactoGM,{type ArtefactoGM} from "../../../components/ControlArtefactoGM";
 type Personaje = {
   balance_ipe?:number|null;
   imagen_url?:string;
@@ -116,6 +117,9 @@ export default function CampoCombate() {
   const [centro,setCentro]=useState<import("../../../lib/combate").Posicion|null>(null);
   const [modoMovimiento,setModoMovimiento]=useState(false);
   const [invocar,setInvocar]=useState<Fuente|null>(null);
+  // Artefactos con voces o espejo: el GM los usa desde la tarjeta de cada combatiente.
+  const [artefactosGM,setArtefactosGM]=useState<ArtefactoGM[]>([]);
+  useEffect(()=>{let vivo=true;void supabase.from('forja_maestra').select('id,nombre,configuracion_artefacto').not('configuracion_artefacto','is',null).then(r=>{if(vivo&&!r.error)setArtefactosGM((r.data||[]) as ArtefactoGM[]);});return()=>{vivo=false;};},[]);
   const [catalogo, setCatalogo] = useState<Personaje[]>([]),
     [partidas, setPartidas] = useState<Guardado[]>([]),
     [c, setC] = useState<Combate>(nuevoCombate),
@@ -802,6 +806,7 @@ export default function CampoCombate() {
             </p>
           ))}
         </details>
+        <ControlArtefactoGM c={c} m={m} artefactos={artefactosGM} ocupado={bloqueado} aplicar={f=>void ejecutar(()=>guardar(f(c)))}/>
       </article>
     );
   }

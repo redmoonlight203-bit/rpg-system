@@ -1,3 +1,4 @@
+import {validarVoces,type ConfigVoces} from "./artefactos-voces";
 /**
  * Artefactos con nivel: un objeto que crece con su portador (p. ej. una espada que devora armas).
  * Lógica pura y validación; los datos viajan en `forja_maestra.configuracion_artefacto`.
@@ -8,7 +9,11 @@ export type ConfiguracionArtefacto={niveles:NivelArtefacto[];
   /** Tabla d100: la fila `tirada-1` es la forma que toma el artefacto con un portador. Vacía = «Forma N». */
   formas?:string[];
   /** Tramos de la tirada d100 al devorar un arma. Sin tramos se usan TRAMOS_BASE. */
-  tramos?:TramoAbsorcion[]};
+  tramos?:TramoAbsorcion[];
+  /** Voces de demonio al tomar el arma. */
+  voces?:ConfigVoces;
+  /** Espejo mental que el GM puede lanzar sobre el portador. */
+  espejo?:import('./espejo-mental').OpcionesEspejo};
 export type TramoAbsorcion={desde:number;hasta:number;nombre:string;
   /** Cuántas estadísticas del arma se quedan, o todas. */
   estadisticas:{min:number;max:number}|'todas';
@@ -39,6 +44,7 @@ export function validarArtefacto(a:unknown):string|null{
     if(st&&(typeof st!=='object'||Object.entries(st).some(([k,v])=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k)||!entero(v,-1000,1000))))return `Nivel ${n.nivel}: estadísticas inválidas.`;
     if(n.cambios?.descripcion!==undefined&&(typeof n.cambios.descripcion!=='string'||n.cambios.descripcion.length>2000))return `Nivel ${n.nivel}: descripción demasiado larga.`;
   }
+  if(x.voces!==undefined){const f=validarVoces(x.voces);if(f)return 'Voces: '+f;}
   if(x.tramos!==undefined){const f=validarTramos(x.tramos);if(f)return f;}
   if(x.formas!==undefined){
     if(!Array.isArray(x.formas)||x.formas.length!==100)return 'La tabla de formas tiene exactamente 100 filas.';
@@ -51,7 +57,7 @@ export const formasVacias=()=>Array.from({length:100},()=>'');
 export const formaDe=(a:ConfiguracionArtefacto,tirada:number)=>a.formas?.[tirada-1]?.trim()||`Forma ${tirada}`;
 /** Copia limpia (sin campos desconocidos) para guardar. */
 export function normalizarArtefacto(a:ConfiguracionArtefacto):ConfiguracionArtefacto{
-  return {...a,...(a.formas?{formas:a.formas.map(f=>f.trim())}:{}),niveles:a.niveles.map(n=>({nivel:n.nivel,nombre:n.nombre.trim(),condicion_subida:n.condicion_subida,cambios:{...n.cambios}}))};
+  return {...a,...(a.voces?{voces:{...a.voces,voces:a.voces.voces.map(z=>({...z,texto:z.texto.trim(),...(z.opciones?{opciones:z.opciones.map(o=>o.trim()).filter(Boolean)}:{})}))}}:{}),...(a.formas?{formas:a.formas.map(f=>f.trim())}:{}),niveles:a.niveles.map(n=>({nivel:n.nivel,nombre:n.nombre.trim(),condicion_subida:n.condicion_subida,cambios:{...n.cambios}}))};
 }
 /** Nivel actual: se sube en orden mientras se cumpla la condición del siguiente. */
 export function nivelAlcanzado(a:ConfiguracionArtefacto,p:ProgresoArtefacto):number{

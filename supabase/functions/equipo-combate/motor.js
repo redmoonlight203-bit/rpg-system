@@ -97,6 +97,64 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
+const { activarVoz, avanzarVoz, vozNiega } = (() => {
+const NOMBRE_VOZ = { pregunta: 'Pregunta', comentario: 'Comentario', negativa: 'Negativa' };
+const entero = (v, min, max) => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+const texto = (v, max = 300) => typeof v === 'string' && !!v.trim() && v.length <= max;
+function validarVoces(v) {
+    if (!v || typeof v !== 'object')
+        return 'Configuración de voces inválida.';
+    const x = v;
+    if (!entero(x.cd, 1, 40))
+        return 'CD de la salvación de 1 a 40.';
+    if (!/^[a-z_][a-z0-9_]{0,63}$/.test(x.atributo || ''))
+        return 'Atributo de la salvación inválido.';
+    if (!entero(x.duracion, 1, 20))
+        return 'Duración de la voz de 1 a 20 turnos.';
+    if (!Array.isArray(x.voces) || !x.voces.length || x.voces.length > 30)
+        return 'Escribe entre 1 y 30 voces.';
+    const ids = new Set();
+    for (const [i, z] of x.voces.entries()) {
+        if (!z || !texto(z.id, 60) || ids.has(z.id))
+            return `Voz ${i + 1}: identificador repetido o vacío.`;
+        ids.add(z.id);
+        if (!['pregunta', 'comentario', 'negativa'].includes(z.tipo))
+            return `Voz ${i + 1}: tipo desconocido.`;
+        if (!texto(z.texto))
+            return `Voz ${i + 1}: escribe lo que dice.`;
+        if (z.tipo === 'pregunta' && (!Array.isArray(z.opciones) || z.opciones.length < 2 || z.opciones.length > 6 || z.opciones.some(o => !texto(o, 120))))
+            return `Voz ${i + 1}: una pregunta necesita de 2 a 6 opciones.`;
+        if (z.tipo === 'negativa' && !texto(z.habilidad, 120))
+            return `Voz ${i + 1}: indica la habilidad que niega.`;
+    }
+    return null;
+}
+const vocesBase = () => ({ cd: 14, atributo: 'voluntad', duracion: 3, voces: [
+        { id: 'hambre', tipo: 'pregunta', texto: '¿A quién devoramos primero?', opciones: ['Al más fuerte', 'Al más débil'] },
+        { id: 'desprecio', tipo: 'comentario', texto: 'Tus manos tiemblan. Qué decepción.' },
+    ] });
+function activarVoz(config, vozId) {
+    const v = config.voces.find(z => z.id === vozId);
+    if (!v)
+        throw Error('Esa voz no existe en el artefacto.');
+    return { ...JSON.parse(JSON.stringify(v)), estado: 'activa', restantes: config.duracion };
+}
+/** Un turno del portador: la voz pierde uno; devuelve undefined cuando calla. */
+function avanzarVoz(e) {
+    if (!e || e.estado !== 'activa')
+        return e;
+    return e.restantes <= 1 ? undefined : { ...e, restantes: e.restantes - 1 };
+}
+/** ¿Niega la voz esta acción? Compara con el id o el nombre del efecto. */
+function vozNiega(e, accion) {
+    if (!e || e.estado !== 'activa' || e.tipo !== 'negativa' || !e.habilidad)
+        return false;
+    const h = e.habilidad.trim().toLowerCase();
+    return [accion.efecto.id, accion.efecto.nombre, accion.nombre, accion.id].some(x => String(x || '').trim().toLowerCase() === h);
+}
+
+return { activarVoz, avanzarVoz, vozNiega };
+})();
 const { normalizarReaccion, disparadorDe, lineaCosteReaccion, CON_ALCANCE } = (() => {
 const DISPARADORES = ['antes_ser_atacado', 'despues_ser_atacado', 'tras_fallar_ataque', 'tras_fallar_prueba', 'aliado_atacado', 'aliado_ataca', 'aliado_cae', 'apuntado_por_area', 'fin_de_turno'];
 const NOMBRE_DISPARADOR = {
@@ -738,6 +796,72 @@ export function evaluarReacciones(c, dueno, disparador, contexto = {}) {
         .sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i)
         .map(x => disponibilidad(c, dueno, x.p, x.r)).filter((d) => !!d);
 }
+function conMiembro(c, id, fn) {
+    return registrar(c, () => { const n = copia(c), m = n.miembros.find(x => x.id === id); if (!m)
+        throw Error('Combatiente no encontrado.'); fn(n, m); return n; });
+}
+/** Tomar el artefacto: salvación; si falla, la voz queda pendiente hasta que el GM la elija. */
+export function tomarArtefacto(c, id, config, rng = dadoSeguro) {
+    return conMiembro(c, id, (n, m) => {
+        if (salvacion(n, m, config.cd, config.atributo, rng)) {
+            log(n, `${m.nombre} empuña el artefacto y acalla su voz.`);
+            return;
+        }
+        m.voz_artefacto = { estado: 'pendiente' };
+        m.voz_config = copia(config);
+        log(n, `${m.nombre} empuña el artefacto: una voz se abre paso en su mente.`);
+    });
+}
+export function asignarVoz(c, id, vozId) {
+    return conMiembro(c, id, (n, m) => {
+        if (!m.voz_config)
+            throw Error('Este combatiente no oye ninguna voz.');
+        m.voz_artefacto = activarVoz(m.voz_config, vozId);
+        log(n, `La voz habla a ${m.nombre}: «${m.voz_artefacto.estado === 'activa' ? m.voz_artefacto.texto : ''}»`);
+    });
+}
+export function responderVoz(c, id, respuesta) {
+    return conMiembro(c, id, (n, m) => {
+        const v = m.voz_artefacto;
+        if (v?.estado !== 'activa' || v.tipo !== 'pregunta')
+            throw Error('No hay ninguna pregunta que responder.');
+        if (v.respuesta)
+            throw Error('Ya respondiste a la voz.');
+        const r = String(respuesta || '').trim();
+        if (v.opciones?.length ? !v.opciones.includes(r) : !r || r.length > 200)
+            throw Error('Elige una de las opciones de la voz.');
+        m.voz_artefacto = { ...v, respuesta: r };
+        log(n, `${m.nombre} responde a la voz: «${r}».`);
+    });
+}
+/** Contra una negativa, el portador puede repetir la prueba una vez por encuentro. */
+export function resistirVoz(c, id, rng = dadoSeguro) {
+    return conMiembro(c, id, (n, m) => {
+        const v = m.voz_artefacto;
+        if (v?.estado !== 'activa' || v.tipo !== 'negativa')
+            throw Error('Solo se resiste una negativa de la voz.');
+        if (m.voz_resistida)
+            throw Error('Ya repetiste la prueba: solo una vez por encuentro.');
+        m.voz_resistida = true;
+        const cfg = m.voz_config;
+        if (salvacion(n, m, cfg?.cd ?? 14, cfg?.atributo ?? 'voluntad', rng)) {
+            delete m.voz_artefacto;
+            log(n, `${m.nombre} se impone a la voz.`);
+        }
+        else
+            log(n, `La voz sigue negándole a ${m.nombre} su habilidad.`);
+    });
+}
+/** Estado Dominado: el GM decide por el combatiente; el jugador no puede actuar. */
+export function dominar(c, id, activo) {
+    return conMiembro(c, id, (n, m) => {
+        m.estados = m.estados.filter(e => e.tipo !== 'dominado');
+        if (activo)
+            m.estados.push({ id: 'dominado', tipo: 'dominado', nombre: 'Dominado', restantes: 0, creado: m.turnos, bonos: {} });
+        log(n, activo ? `${m.nombre} queda dominado: el GM decide sus actos.` : `${m.nombre} recupera el control.`);
+    });
+}
+export const estaDominado = (m) => m.estados.some(e => e.tipo === 'dominado');
 /** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
 export function reaccionesDe(c, m) {
     return efectosConReaccion(m).filter((p) => !!p.reaccion).map(p => {
@@ -948,6 +1072,15 @@ function siguienteInterno(c, rng) {
     if (a && combatienteActivo(a))
         dispararReacciones(n, n.miembros.filter(w => w.id !== a.id && w.bando !== a.bando), "fin_de_turno", rng, { cerca: a, victima: a, hasta: () => a.vida <= 0 });
     if (a) {
+        if (a.voz_artefacto?.estado === 'activa') {
+            const v = avanzarVoz(a.voz_artefacto);
+            if (v)
+                a.voz_artefacto = v;
+            else {
+                delete a.voz_artefacto;
+                log(n, `${a.nombre}: la voz calla.`);
+            }
+        }
         if (a.transformacion && a.turnos > (a.transformacion.creado_turno ?? -1)) {
             const actualizado = avanzarTurnoTransformacion(a);
             Object.assign(a, actualizado);
@@ -1232,6 +1365,8 @@ export function acciones(m) {
             return { ...a, bloqueada: m.transformacion ? 'Otra transformación está activa.' : 'Ya utilizada en este encuentro.' };
         const efecto = m.transformacion?.definicion_id === 'limitless' && a.efecto.ley_limitless
             ? { ...a.efecto, coste_ph: 0 } : a.efecto;
+        if (vozNiega(m.voz_artefacto, a))
+            return { ...a, efecto: conAlcance(efecto, a.nombre), bloqueada: 'La voz del artefacto te lo niega.' };
         return { ...a, efecto: conAlcance(efecto, a.nombre) };
     });
 }
@@ -1477,6 +1612,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         return n;
     }
     const act = acciones(a).find((v) => v.id === accionId);
+    if (act && vozNiega(a.voz_artefacto, act))
+        throw Error('La voz del artefacto te lo niega.');
     if (!act)
         throw Error("La acción no existe.");
     if ((a.cooldowns[act.id] || 0) > 0)
