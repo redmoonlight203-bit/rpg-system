@@ -8,26 +8,13 @@ import {Portada,type PiezaGaleria} from "../GaleriaCreacion";
 import {CabeceraCodice} from "./Comunes";
 import {SeccionesCodice} from "./Secciones";
 import type {VistaProps} from "./tipos";
-
-/** ¿Se permite animar? Movimiento reducido del sistema o desactivado por el GM lo impiden. */
-export function useMovimiento(activo:boolean):boolean{
-  const [permitido,setPermitido]=useState(false);
-  useEffect(()=>{
-    const consulta=window.matchMedia("(prefers-reduced-motion: reduce)");
-    const actualizar=()=>setPermitido(activo&&!consulta.matches);
-    actualizar();
-    consulta.addEventListener("change",actualizar);
-    return ()=>consulta.removeEventListener("change",actualizar);
-  },[activo]);
-  return permitido;
-}
+import {useMedia,useMovimiento} from "./useMedia";
 
 /** Inclinación de la carta según el puntero (solo con ratón y movimiento permitido). */
 function useInclinacion(maximo:number,permitido:boolean){
   const carta=useRef<HTMLButtonElement>(null);
   const cuadro=useRef(0);
-  const [fino,setFino]=useState(false);
-  useEffect(()=>{setFino(window.matchMedia("(hover: hover) and (pointer: fine)").matches);},[]);
+  const fino=useMedia("(hover: hover) and (pointer: fine)");
   const activa=permitido&&fino&&maximo>0;
   useEffect(()=>()=>cancelAnimationFrame(cuadro.current),[]);
   function mover(e:React.PointerEvent<HTMLDivElement>){
