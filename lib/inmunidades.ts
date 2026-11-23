@@ -84,7 +84,7 @@ function describirValor(i:Inmunidad){
  const v=norm(i.valor);
  if(i.tipo==='dano')return NOMBRE_ELEMENTO[v]||`al daño de ${v.replace(/_/g,' ')}`;
  if(i.tipo==='estado')return `a ${capital(v)}`;
- const [c,s]=v.split(':');return s?`a efectos ${c==='mental'?'mentales':c} de ${s.replace(/_/g,' ')}`:`a efectos ${c==='mental'?'mentales':c}`;
+ const [c,s]=v.split(':');const SUB:Record<string,string>={ilusion:'ilusión',confusion:'confusión',posesion:'posesión'};return s?`a efectos ${c==='mental'?'mentales':c} de ${SUB[s]||s.replace(/_/g,' ')}`:`a efectos ${c==='mental'?'mentales':c}`;
 }
 /** Frase para la vista previa del Yunque: «Inmune al fuego; no a Quemadura». */
 export function describirInmunidades(lista:Inmunidad[]):string{

@@ -15,8 +15,8 @@ try{
  grant usage on schema public,private,auth to authenticated;grant select on personajes,perfiles,forja_maestra to authenticated;`);
  await db.query("insert into perfiles values($1,'KUROI')",[gm]);
  await db.query("insert into personajes(id,nombre) values(1,'Aiko'),(2,'Bram')");
- const sql=migracion('20261123100000_artefactos_con_nivel.sql')+migracion('20261123100100_portadores_artefacto.sql')+migracion('20261124090000_portadores_unicos.sql');
- await db.exec(sql);await db.exec(migracion('20261124090000_portadores_unicos.sql'));// idempotente
+ const sql=migracion('20261123100000_artefactos_con_nivel.sql')+migracion('20261123100100_portadores_artefacto.sql')+migracion('20261123120000_portadores_unicos.sql');
+ await db.exec(sql);await db.exec(migracion('20261123120000_portadores_unicos.sql'));// idempotente
  const mao=(await db.query("insert into forja_maestra(nombre,tipo_creacion,configuracion_artefacto) values('Mao','objeto','{}') returning id")).rows[0].id;
  const palo=(await db.query("insert into forja_maestra(nombre,tipo_creacion) values('Palo','objeto') returning id")).rows[0].id;
  await db.query("insert into portadores_artefacto(artefacto_id,personaje_id,forma_tirada) values($1,1,7)",[mao]);

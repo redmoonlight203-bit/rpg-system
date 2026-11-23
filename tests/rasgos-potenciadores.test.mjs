@@ -12,7 +12,7 @@ test('Bola de fuego 2d6 + 2 CB: dos componentes; el coste se descuenta una vez; 
  const n=lanzar(kuro(),[3]);
  assert.equal(de(n,'o').vida,50-9-9,'fuego 2d6+1d4 y rayo 2d6+1d4');
  assert.equal(de(n,'k').recursos_especiales.carga_bioelectrica,1);assert.equal(de(n,'k').ph,18,'2 PH de la Bola, nada más');
- assert.match(n.registro.join('\n'),/Bola de fuego potenciada: 2d6 fuego \+ 2d6 electricidad/);
+ assert.match(n.registro.join('\n'),/Técnica potenciada: Bola de fuego 2d6 fuego \+ 2d6 electricidad por 2 CB\./);
 });
 test('Mojado activa Superconducción solo sobre el componente eléctrico',()=>{
  const c=kuro();de(c,'o').estados.push({id:'mojado',tipo:'mojado',nombre:'Mojado',restantes:0,creado:0,bonos:{}});

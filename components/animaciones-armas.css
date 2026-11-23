@@ -3,7 +3,7 @@
 .weapon-animation-layer{position:absolute;inset:18px;z-index:14;pointer-events:none;overflow:visible}
 .weapon-actor,.weapon-flying-arrow,.weapon-contact{position:absolute;pointer-events:none;display:grid;place-items:center}
 .weapon-actor{transform:translate(-50%,-50%);z-index:2;filter:drop-shadow(0 2px 2px #000)}
-.weapon-held-svg{width:180%;height:180%;overflow:visible;image-rendering:pixelated}
+.weapon-held-svg{position:absolute;left:50%;top:50%;translate:-50% -50%;width:180%;height:auto;aspect-ratio:1;overflow:visible;image-rendering:pixelated}
 .weapon-gesto,.weapon-sword-swing,.weapon-bow-pull,.weapon-fist-first,.weapon-fist-second{transform-box:view-box;transform-origin:30px 48px}
 /* El esqueleto decide el gesto (familia) y su duración (suma de fases). Solo transform y opacity. */
 .weapon-held-svg{transition:none}

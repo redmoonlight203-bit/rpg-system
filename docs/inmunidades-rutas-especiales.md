@@ -1,4 +1,4 @@
-# Rutas especiales de control y posesión (plan maestro, Apéndice A · paso 4.4) · 24-11-2026
+# Rutas especiales de control y posesión (plan maestro, Apéndice A · paso 4.4) · 23-11-2026
 
 Cada ruta que aplica control, ilusión o posesión pasa ahora por `comprobarInmunidad` **antes** de su salvación. Sin
 inmunidades configuradas el resultado no cambia (pruebas `mente-inquebrantable` y regresión completa).

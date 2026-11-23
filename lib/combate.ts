@@ -8,7 +8,7 @@ import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type Disp
 import { type ReglaPasiva } from "./pasivas";
 import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./inmunidades";
 import {describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
-import {potenciar,potenciadoresPara,etiquetasDe,type Rasgo,type EleccionPotenciador} from "./rasgos";
+import {potenciar,potenciadoresPara,etiquetasDe,describirPotenciado,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
 import {DESARMADO_BASE,GUARDIA_BASE,describirConcepto,type ConceptoDesarmado,type ConceptoGuardia} from "./conceptos-basicos";
 export {describirConcepto};
@@ -1581,7 +1581,8 @@ function actuarInterno(
     }
   }
   log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
-  if (potenciadores.length) log(n, `${act.nombre} potenciada: ${(e.componentes || []).map(x => `${x.cantidad}d${x.caras} ${x.elemento}`).join(" + ")}.`);
+  // Misma frase que la vista previa del menú de potenciadores: lo previsto y lo registrado coinciden.
+  if (potenciadores.length) log(n, `Técnica potenciada: ${describirPotenciado(e.nombre || act.nombre, e, extra)}.`);
   eventoRecurso(n, a, "usar_etiqueta", etiquetasDe(e));
   if(e.vision?.modo==='con_accion')activarVision(n,a,e);
   if(dash&&centro){
@@ -1995,7 +1996,8 @@ function danoPorComponentes(n: Combate, a: Combatiente, t: Combatiente, e: Efect
     v *= o.critico ? 2 : 1;
     if (comp.origen === "base") v += e.modificador + (o.s.dano || 0) + (o.debil?.dano || 0);
     v = Math.max(0, v) * mult;
-    const inm = comprobarInmunidad(inmunidades, candidatoDano({ ...e, componentes: undefined, elemento: comp.elemento }, comp.elemento), e.ignora);
+    // Cada componente se juzga por SU elemento: el tipo de daño de la técnica base no se hereda (fuego ≠ rayo).
+    const inm = comprobarInmunidad(inmunidades, candidatoDano({ ...e, componentes: undefined, elemento: comp.elemento, tipo_dano: comp.origen === "base" ? e.tipo_dano : comp.elemento }, comp.elemento), e.ignora);
     if (inm.bloqueado) { log(n, `${t.nombre}: ${inm.motivo} (componente ${NOMBRE_COMPONENTE[comp.elemento]}).`); v = 0; }
     else if (inm.resistido) v = Math.floor(v / 2);
     total += v;

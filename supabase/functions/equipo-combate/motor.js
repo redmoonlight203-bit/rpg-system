@@ -383,7 +383,8 @@ function describirValor(i) {
     if (i.tipo === 'estado')
         return `a ${capital(v)}`;
     const [c, s] = v.split(':');
-    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
+    const SUB = { ilusion: 'ilusión', confusion: 'confusión', posesion: 'posesión' };
+    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${SUB[s] || s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
 }
 /** Frase para la vista previa del Yunque: «Inmune al fuego; no a Quemadura». */
 function describirInmunidades(lista) {
@@ -490,7 +491,8 @@ function describirValor(i) {
     if (i.tipo === 'estado')
         return `a ${capital(v)}`;
     const [c, s] = v.split(':');
-    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
+    const SUB = { ilusion: 'ilusión', confusion: 'confusión', posesion: 'posesión' };
+    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${SUB[s] || s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
 }
 /** Frase para la vista previa del Yunque: «Inmune al fuego; no a Quemadura». */
 function describirInmunidades(lista) {
@@ -663,7 +665,7 @@ const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', icon
 
 return { describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
 })();
-const { potenciar, potenciadoresPara, etiquetasDe } = (() => {
+const { potenciar, potenciadoresPara, etiquetasDe, describirPotenciado } = (() => {
 const { validarRecurso } = (() => {
 const EVENTOS_RECURSO = { inicio_combate: 'Al empezar el combate', inicio_turno: 'Al iniciar su turno', fin_turno: 'Al terminar su turno', causar_dano: 'Al causar daño', recibir_dano: 'Al recibir daño', usar_etiqueta: 'Al usar una técnica con etiqueta' };
 const ID = /^[a-z_][a-z0-9_]{0,40}$/;
@@ -885,7 +887,7 @@ function describirPotenciado(nombre, e, coste) {
 const EJEMPLO_BIOELECTRICIDAD = (cb) => ({ id: 'bioelectricidad', nombre: 'Bioelectricidad', origen: 'linaje', recursos: [cb],
     potenciadores: [{ id: 'carga_electrica', nombre: 'Carga eléctrica', acepta: ['ataque'], coste: { recurso: { id: cb.id, min: 1, max: 3 } }, componentes_anadidos: [{ elemento: 'electricidad', cantidad: 1, caras: 6, por_unidad: true }], limite_por_uso: 1 }] });
 
-return { potenciar, potenciadoresPara, etiquetasDe };
+return { potenciar, potenciadoresPara, etiquetasDe, describirPotenciado };
 })();
 const { generarRecurso, gastarRecurso, topeRecurso } = (() => {
 const EVENTOS_RECURSO = { inicio_combate: 'Al empezar el combate', inicio_turno: 'Al iniciar su turno', fin_turno: 'Al terminar su turno', causar_dano: 'Al causar daño', recibir_dano: 'Al recibir daño', usar_etiqueta: 'Al usar una técnica con etiqueta' };
@@ -1036,7 +1038,8 @@ function describirValor(i) {
     if (i.tipo === 'estado')
         return `a ${capital(v)}`;
     const [c, s] = v.split(':');
-    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
+    const SUB = { ilusion: 'ilusión', confusion: 'confusión', posesion: 'posesión' };
+    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${SUB[s] || s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
 }
 /** Frase para la vista previa del Yunque: «Inmune al fuego; no a Quemadura». */
 function describirInmunidades(lista) {
@@ -3221,8 +3224,9 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         }
     }
     log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+    // Misma frase que la vista previa del menú de potenciadores: lo previsto y lo registrado coinciden.
     if (potenciadores.length)
-        log(n, `${act.nombre} potenciada: ${(e.componentes || []).map(x => `${x.cantidad}d${x.caras} ${x.elemento}`).join(" + ")}.`);
+        log(n, `Técnica potenciada: ${describirPotenciado(e.nombre || act.nombre, e, extra)}.`);
     eventoRecurso(n, a, "usar_etiqueta", etiquetasDe(e));
     if (e.vision?.modo === 'con_accion')
         activarVision(n, a, e);
@@ -3696,7 +3700,8 @@ function danoPorComponentes(n, a, t, e, act, rng, o) {
         if (comp.origen === "base")
             v += e.modificador + (o.s.dano || 0) + (o.debil?.dano || 0);
         v = Math.max(0, v) * mult;
-        const inm = comprobarInmunidad(inmunidades, candidatoDano({ ...e, componentes: undefined, elemento: comp.elemento }, comp.elemento), e.ignora);
+        // Cada componente se juzga por SU elemento: el tipo de daño de la técnica base no se hereda (fuego ≠ rayo).
+        const inm = comprobarInmunidad(inmunidades, candidatoDano({ ...e, componentes: undefined, elemento: comp.elemento, tipo_dano: comp.origen === "base" ? e.tipo_dano : comp.elemento }, comp.elemento), e.ignora);
         if (inm.bloqueado) {
             log(n, `${t.nombre}: ${inm.motivo} (componente ${NOMBRE_COMPONENTE[comp.elemento]}).`);
             v = 0;

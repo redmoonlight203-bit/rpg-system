@@ -13,7 +13,7 @@ try{
  create function private.tienda_es_gm() returns boolean language sql stable as $$select exists(select 1 from public.perfiles where id=auth.uid() and rol='KUROI')$$;
  grant usage on schema public,private,auth to authenticated;grant select on perfiles to authenticated;`);
  await db.query("insert into perfiles values($1,'KUROI'),($2,'REENCARNADO')",[gm,ana]);
- const sql=readFileSync(new URL('../supabase/migrations/20261124100000_esqueletos.sql',import.meta.url),'utf8');
+ const sql=readFileSync(new URL('../supabase/migrations/20261123130000_esqueletos.sql',import.meta.url),'utf8');
  await db.exec(sql);await db.exec(sql);// idempotente
  await como(gm);
  await db.query('insert into esqueletos(id,nombre,definicion) values($1,$2,$3)',['guadana','Guadaña',guadana]);

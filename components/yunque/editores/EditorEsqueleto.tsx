@@ -40,7 +40,9 @@ export default function EditorEsqueleto({valor,definicion,ajustes,onChange}:{val
  const {propios,recargar}=useCatalogo();
  const [creando,setCreando]=useState<Esqueleto|null>(null);
  const [aviso,setAviso]=useState('');
- const todos=[...ESQUELETOS_BASE,...propios.filter(p=>!esqueletoBase(p.id))];
+ const lista=[...ESQUELETOS_BASE,...propios.filter(p=>!esqueletoBase(p.id))];
+ // El esqueleto propio guardado en el arma siempre aparece, aunque el catálogo aún no lo haya traído.
+ const todos=definicion&&!lista.some(e=>e.id===definicion.id)?[...lista,definicion]:lista;
  const actual=definicion||esqueletoBase(valor)||propios.find(p=>p.id===valor);
  const opciones:Opcion<string>[]=[...todos.map(e=>({valor:e.id,nombre:e.nombre,icono:ICONO[e.base||e.id]||'espada',ayuda:FAMILIAS[e.familia_gesto]})),{valor:'__nuevo',nombre:'Nuevo esqueleto',icono:'libro',ayuda:'Copia uno y cambia su gesto.'}];
  function elegir(id:string){

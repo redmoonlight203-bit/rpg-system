@@ -1,4 +1,4 @@
-# Auditoría de estados (plan maestro, Apéndice B · paso 1) · 24-11-2026
+# Auditoría de estados (plan maestro, Apéndice B · paso 1) · 23-11-2026
 
 Inventario de cada estado que el motor (`lib/combate.ts` en `main`, commit 0e52653) creaba, consultaba o consumía
 con `estado(…)`, `tiene(…)`, `quitarEstado(…)` o `tipo === '…'`, y qué es ahora.

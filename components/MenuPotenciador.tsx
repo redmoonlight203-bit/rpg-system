@@ -30,7 +30,7 @@ export function previsualizar(a:Accion,elecciones:EleccionPotenciador[]){
 }
 
 export default function MenuPotenciador({accion,ocupado=false,onConfirmar,onCancelar}:{accion:Accion;ocupado?:boolean;onConfirmar:(e:EleccionPotenciador[])=>void;onCancelar:()=>void}){
- const opciones=accion.potenciadores||[];
+ const opciones=useMemo(()=>accion.potenciadores||[],[accion.potenciadores]);
  const [activos,setActivos]=useState<Record<string,number>>({});
  const carta=useRef<HTMLElement>(null),confirmar=useRef<HTMLButtonElement>(null);
  useEffect(()=>{const previo=document.activeElement as HTMLElement|null;confirmar.current?.focus();return ()=>{previo?.focus?.();};},[]);

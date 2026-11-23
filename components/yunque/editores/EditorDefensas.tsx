@@ -14,7 +14,8 @@ const DANOS:Opcion<string>[]=[
  {valor:'hielo',nombre:'Hielo',icono:'hielo'},{valor:'luz_sagrada',nombre:'Luz sagrada',icono:'corona'},{valor:'veneno',nombre:'Veneno',icono:'pocion'},
  {valor:'fisico',nombre:'Físico',icono:'espada'},{valor:'magico',nombre:'Mágico',icono:'libro'},
 ];
-const CATEGORIAS:Opcion<string>[]=[{valor:'mental',nombre:'Toda la mente',icono:'alma'},...SUBCATEGORIAS_MENTALES.map(s=>({valor:'mental:'+s,nombre:s[0].toUpperCase()+s.slice(1).replace('ilusion','ilusión').replace('posesion','posesión').replace('confusion','confusión'),icono:'ojo'}))];
+const NOMBRE_SUB:Record<string,string>={control:'Control',miedo:'Miedo',ilusion:'Ilusión',confusion:'Confusión',memoria:'Memoria',posesion:'Posesión'};
+const CATEGORIAS:Opcion<string>[]=[{valor:'mental',nombre:'Toda la mente',icono:'alma'},...SUBCATEGORIAS_MENTALES.map(s=>({valor:'mental:'+s,nombre:NOMBRE_SUB[s],icono:'ojo'}))];
 const MODOS:Record<TipoInmunidad,Opcion<ModoInmunidad>[]>={
  dano:[{valor:'bloquear_dano',nombre:'Sin daño',ayuda:'No recibe ese daño; sus estados sí le afectan.'},{valor:'bloquear_todo',nombre:'Daño y estados',ayuda:'Tampoco sufre los estados de ese origen.'},{valor:'resistir',nombre:'Resiste',ayuda:'Recibe la mitad.'}],
  estado:[{valor:'bloquear_aplicacion',nombre:'Inmune',ayuda:'No se le aplica, sin tirada.'},{valor:'resistir',nombre:'Resiste',ayuda:'Dura la mitad.'}],
@@ -46,7 +47,7 @@ export default function EditorDefensas({valor,onChange,objeto=false,porTurnos=tr
      <button type="button" className="yq-defensa-anadir" onClick={()=>anadir(col.tipo)}>Añadir inmunidad</button>
     </fieldset>;})}
   </div>
-  {!sinDuracion&&<Fichas etiqueta="Duración" opciones={DURACIONES.filter(d=>(porTurnos||d.valor!=='turnos')&&(objeto||d.valor!=='equipada'))} valor={duracion} onChange={d=>onChange(valor.map(({turnos:_t,...i})=>({...i,duracion:d,...(d==='turnos'?{turnos}:{})})))}/>}
+  {!sinDuracion&&<Fichas etiqueta="Duración" opciones={DURACIONES.filter(d=>(porTurnos||d.valor!=='turnos')&&(objeto||d.valor!=='equipada'))} valor={duracion} onChange={d=>onChange(valor.map(i=>{const x={...i,duracion:d};if(d==='turnos')x.turnos=turnos;else delete x.turnos;return x;}))}/>}
   {!porTurnos&&!sinDuracion&&<p className="yq-nota">¿Inmunidad durante unos turnos? Crea una acción «Estado» con la primitiva «Inmunidad temporal».</p>}
   {!sinDuracion&&duracion==='turnos'&&<label className="yq-campo"><span>Turnos</span><Rueda nombre="turnos_inmunidad" etiqueta="Turnos de inmunidad" valor={turnos} min={1} max={99} onChange={t=>onChange(valor.map(i=>({...i,turnos:t})))} compacta/></label>}
   {valor.length>0&&<ul className="yq-defensa-lista">{valor.map((i,k)=><li key={i.tipo+i.valor} data-modo={i.modo}>

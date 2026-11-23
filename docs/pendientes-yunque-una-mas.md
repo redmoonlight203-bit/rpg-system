@@ -1,6 +1,6 @@
 # Pendientes · plan «Yunque · una más» (23-11-2026)
 
-Problemas menores que encontró la revisión final de la rama. **Resueltos los siete el 24-11-2026** (fase 0 del plan maestro de conceptos básicos configurables; prueba en `tests/pendientes-reacciones.test.mjs` y migración `20261124090000_portadores_unicos.sql`). Ninguno rompe el
+Problemas menores que encontró la revisión final de la rama. **Resueltos los siete el 23-11-2026** (fase 0 del plan maestro de conceptos básicos configurables; prueba en `tests/pendientes-reacciones.test.mjs` y migración `20261123120000_portadores_unicos.sql`). Ninguno rompe el
 combate; todos tienen arreglo local. Plan: [planes/plan-yunque-una-mas.md](planes/plan-yunque-una-mas.md).
 
 | # | Problema | Dónde | Qué pasa | Arreglo propuesto |
