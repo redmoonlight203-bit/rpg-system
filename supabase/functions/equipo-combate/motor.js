@@ -298,6 +298,371 @@ function lineaCosteReaccion(r, costeAccion = 0, restantes) {
 
 return { normalizarReaccion, disparadorDe, lineaCosteReaccion, CON_ALCANCE };
 })();
+const { comprobarInmunidad, norm } = (() => {
+const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
+const MODOS_INMUNIDAD = ['bloquear_dano', 'bloquear_aplicacion', 'bloquear_todo', 'resistir'];
+const SUBCATEGORIAS_MENTALES = ['control', 'miedo', 'ilusion', 'confusion', 'memoria', 'posesion'];
+const norm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, '_');
+const NOMBRE_ELEMENTO = { fuego: 'al fuego', agua: 'al agua', electricidad: 'al rayo', hielo: 'al hielo', luz_sagrada: 'a la luz sagrada', veneno: 'al veneno', fisico: 'al daño físico', magica: 'a la magia', magico: 'a la magia' };
+const capital = (t) => t ? t[0].toUpperCase() + t.slice(1).replace(/_/g, ' ') : t;
+function validarInmunidades(lista) {
+    if (lista === undefined)
+        return null;
+    if (!Array.isArray(lista) || lista.length > 40)
+        return 'Configura hasta 40 inmunidades.';
+    for (const i of lista) {
+        if (!i || typeof i !== 'object' || !TIPOS_INMUNIDAD.includes(i.tipo) || !MODOS_INMUNIDAD.includes(i.modo))
+            return 'Cada inmunidad necesita tipo y modo válidos.';
+        if (typeof i.valor !== 'string' || !/^[a-z_][a-z0-9_:]{0,63}$/.test(norm(i.valor)))
+            return 'Cada inmunidad necesita un daño, estado o categoría.';
+        if (i.tipo === 'estado' && i.modo === 'bloquear_dano')
+            return 'Un estado no causa daño propio: usa «impedir que se aplique».';
+        if (i.duracion !== undefined && !['permanente', 'equipada', 'turnos'].includes(i.duracion))
+            return 'Duración de inmunidad inválida.';
+        if (i.duracion === 'turnos' && (!Number.isInteger(i.turnos) || i.turnos < 1 || i.turnos > 99))
+            return 'Indica de 1 a 99 turnos.';
+    }
+    return null;
+}
+/** `ignora`: entradas `dano:fuego`, `estado:quemadura`, `categoria:mental` o `categoria:mental:control`. */
+function ignoraInmunidad(i, ignora = []) {
+    const v = norm(i.valor);
+    return ignora.map(norm).some(x => {
+        const [t, ...resto] = x.split(':');
+        const valor = resto.join(':');
+        if (t !== i.tipo)
+            return false;
+        return valor === v || (i.tipo === 'categoria' && (v.startsWith(valor + ':') || valor.startsWith(v + ':')));
+    });
+}
+function coincideCategoria(valor, c) {
+    if (!c.categoria)
+        return false;
+    const cat = norm(c.categoria), sub = c.subcategoria ? norm(c.subcategoria) : '';
+    const [vc, vs] = valor.split(':');
+    return vc === cat && (!vs || vs === sub);
+}
+/** Comprueba si un objetivo bloquea o resiste el candidato. Sin inmunidades nunca bloquea (regresión). */
+function comprobarInmunidad(objetivo, c, ignora = []) {
+    const lista = (Array.isArray(objetivo) ? objetivo : objetivo?.inmunidades) || [];
+    let resistido;
+    for (const i of lista) {
+        if (ignoraInmunidad(i, ignora))
+            continue;
+        const v = norm(i.valor);
+        let aplica = false;
+        if (c.clase === 'dano') {
+            const tipos = (c.tipos || []).map(norm);
+            if (i.tipo === 'dano')
+                aplica = tipos.includes(v) && ['bloquear_dano', 'bloquear_todo', 'resistir'].includes(i.modo);
+            else if (i.tipo === 'categoria')
+                aplica = coincideCategoria(v, c) && ['bloquear_dano', 'bloquear_todo', 'resistir'].includes(i.modo);
+        }
+        else {
+            if (i.tipo === 'estado')
+                aplica = !!c.estado && norm(c.estado) === v && i.modo !== 'bloquear_dano';
+            else if (i.tipo === 'categoria')
+                aplica = coincideCategoria(v, c) && i.modo !== 'bloquear_dano';
+            else if (i.tipo === 'dano')
+                aplica = !!c.origen && norm(c.origen) === v && (i.modo === 'bloquear_todo' || i.modo === 'resistir');
+        }
+        if (!aplica)
+            continue;
+        if (i.modo === 'resistir') {
+            resistido ??= i;
+            continue;
+        }
+        return { bloqueado: true, resistido: false, motivo: `inmune ${describirValor(i)}${i.origen ? ` (${i.origen})` : ''}` };
+    }
+    return resistido ? { bloqueado: false, resistido: true, motivo: `resiste ${describirValor(resistido)}${resistido.origen ? ` (${resistido.origen})` : ''}` } : { bloqueado: false, resistido: false, motivo: '' };
+}
+function describirValor(i) {
+    const v = norm(i.valor);
+    if (i.tipo === 'dano')
+        return NOMBRE_ELEMENTO[v] || `al daño de ${v.replace(/_/g, ' ')}`;
+    if (i.tipo === 'estado')
+        return `a ${capital(v)}`;
+    const [c, s] = v.split(':');
+    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
+}
+/** Frase para la vista previa del Yunque: «Inmune al fuego; no a Quemadura». */
+function describirInmunidades(lista) {
+    if (!lista.length)
+        return 'Sin inmunidades.';
+    const partes = lista.map(i => {
+        const base = `${i.modo === 'resistir' ? 'Resiste' : 'Inmune'} ${describirValor(i)}`;
+        const modo = i.modo === 'bloquear_aplicacion' && i.tipo !== 'estado' ? ' (no se le aplican sus estados)' : i.modo === 'bloquear_todo' && i.tipo === 'dano' ? ' (daño y estados de ese origen)' : '';
+        const dura = i.duracion === 'equipada' ? ' mientras esté equipada' : i.duracion === 'turnos' ? ` durante ${i.turnos} turnos` : '';
+        return base + modo + dura;
+    });
+    // Aclara el caso clásico: inmune al daño de un elemento pero no a su estado.
+    const fuego = lista.find(i => i.tipo === 'dano' && norm(i.valor) === 'fuego' && i.modo === 'bloquear_dano');
+    if (fuego && !lista.some(i => i.tipo === 'estado' && norm(i.valor) === 'quemadura'))
+        partes.push('no a Quemadura');
+    return capital(partes.join('; ')) + '.';
+}
+
+return { comprobarInmunidad, norm };
+})();
+const { definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
+const { validarInmunidades } = (() => {
+const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
+const MODOS_INMUNIDAD = ['bloquear_dano', 'bloquear_aplicacion', 'bloquear_todo', 'resistir'];
+const SUBCATEGORIAS_MENTALES = ['control', 'miedo', 'ilusion', 'confusion', 'memoria', 'posesion'];
+const norm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, '_');
+const NOMBRE_ELEMENTO = { fuego: 'al fuego', agua: 'al agua', electricidad: 'al rayo', hielo: 'al hielo', luz_sagrada: 'a la luz sagrada', veneno: 'al veneno', fisico: 'al daño físico', magica: 'a la magia', magico: 'a la magia' };
+const capital = (t) => t ? t[0].toUpperCase() + t.slice(1).replace(/_/g, ' ') : t;
+function validarInmunidades(lista) {
+    if (lista === undefined)
+        return null;
+    if (!Array.isArray(lista) || lista.length > 40)
+        return 'Configura hasta 40 inmunidades.';
+    for (const i of lista) {
+        if (!i || typeof i !== 'object' || !TIPOS_INMUNIDAD.includes(i.tipo) || !MODOS_INMUNIDAD.includes(i.modo))
+            return 'Cada inmunidad necesita tipo y modo válidos.';
+        if (typeof i.valor !== 'string' || !/^[a-z_][a-z0-9_:]{0,63}$/.test(norm(i.valor)))
+            return 'Cada inmunidad necesita un daño, estado o categoría.';
+        if (i.tipo === 'estado' && i.modo === 'bloquear_dano')
+            return 'Un estado no causa daño propio: usa «impedir que se aplique».';
+        if (i.duracion !== undefined && !['permanente', 'equipada', 'turnos'].includes(i.duracion))
+            return 'Duración de inmunidad inválida.';
+        if (i.duracion === 'turnos' && (!Number.isInteger(i.turnos) || i.turnos < 1 || i.turnos > 99))
+            return 'Indica de 1 a 99 turnos.';
+    }
+    return null;
+}
+/** `ignora`: entradas `dano:fuego`, `estado:quemadura`, `categoria:mental` o `categoria:mental:control`. */
+function ignoraInmunidad(i, ignora = []) {
+    const v = norm(i.valor);
+    return ignora.map(norm).some(x => {
+        const [t, ...resto] = x.split(':');
+        const valor = resto.join(':');
+        if (t !== i.tipo)
+            return false;
+        return valor === v || (i.tipo === 'categoria' && (v.startsWith(valor + ':') || valor.startsWith(v + ':')));
+    });
+}
+function coincideCategoria(valor, c) {
+    if (!c.categoria)
+        return false;
+    const cat = norm(c.categoria), sub = c.subcategoria ? norm(c.subcategoria) : '';
+    const [vc, vs] = valor.split(':');
+    return vc === cat && (!vs || vs === sub);
+}
+/** Comprueba si un objetivo bloquea o resiste el candidato. Sin inmunidades nunca bloquea (regresión). */
+function comprobarInmunidad(objetivo, c, ignora = []) {
+    const lista = (Array.isArray(objetivo) ? objetivo : objetivo?.inmunidades) || [];
+    let resistido;
+    for (const i of lista) {
+        if (ignoraInmunidad(i, ignora))
+            continue;
+        const v = norm(i.valor);
+        let aplica = false;
+        if (c.clase === 'dano') {
+            const tipos = (c.tipos || []).map(norm);
+            if (i.tipo === 'dano')
+                aplica = tipos.includes(v) && ['bloquear_dano', 'bloquear_todo', 'resistir'].includes(i.modo);
+            else if (i.tipo === 'categoria')
+                aplica = coincideCategoria(v, c) && ['bloquear_dano', 'bloquear_todo', 'resistir'].includes(i.modo);
+        }
+        else {
+            if (i.tipo === 'estado')
+                aplica = !!c.estado && norm(c.estado) === v && i.modo !== 'bloquear_dano';
+            else if (i.tipo === 'categoria')
+                aplica = coincideCategoria(v, c) && i.modo !== 'bloquear_dano';
+            else if (i.tipo === 'dano')
+                aplica = !!c.origen && norm(c.origen) === v && (i.modo === 'bloquear_todo' || i.modo === 'resistir');
+        }
+        if (!aplica)
+            continue;
+        if (i.modo === 'resistir') {
+            resistido ??= i;
+            continue;
+        }
+        return { bloqueado: true, resistido: false, motivo: `inmune ${describirValor(i)}${i.origen ? ` (${i.origen})` : ''}` };
+    }
+    return resistido ? { bloqueado: false, resistido: true, motivo: `resiste ${describirValor(resistido)}${resistido.origen ? ` (${resistido.origen})` : ''}` } : { bloqueado: false, resistido: false, motivo: '' };
+}
+function describirValor(i) {
+    const v = norm(i.valor);
+    if (i.tipo === 'dano')
+        return NOMBRE_ELEMENTO[v] || `al daño de ${v.replace(/_/g, ' ')}`;
+    if (i.tipo === 'estado')
+        return `a ${capital(v)}`;
+    const [c, s] = v.split(':');
+    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
+}
+/** Frase para la vista previa del Yunque: «Inmune al fuego; no a Quemadura». */
+function describirInmunidades(lista) {
+    if (!lista.length)
+        return 'Sin inmunidades.';
+    const partes = lista.map(i => {
+        const base = `${i.modo === 'resistir' ? 'Resiste' : 'Inmune'} ${describirValor(i)}`;
+        const modo = i.modo === 'bloquear_aplicacion' && i.tipo !== 'estado' ? ' (no se le aplican sus estados)' : i.modo === 'bloquear_todo' && i.tipo === 'dano' ? ' (daño y estados de ese origen)' : '';
+        const dura = i.duracion === 'equipada' ? ' mientras esté equipada' : i.duracion === 'turnos' ? ` durante ${i.turnos} turnos` : '';
+        return base + modo + dura;
+    });
+    // Aclara el caso clásico: inmune al daño de un elemento pero no a su estado.
+    const fuego = lista.find(i => i.tipo === 'dano' && norm(i.valor) === 'fuego' && i.modo === 'bloquear_dano');
+    if (fuego && !lista.some(i => i.tipo === 'estado' && norm(i.valor) === 'quemadura'))
+        partes.push('no a Quemadura');
+    return capital(partes.join('; ')) + '.';
+}
+
+return { validarInmunidades };
+})();
+const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal' };
+const ICONO_PRIMITIVA = { perder_turno: 'reloj', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'reloj', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo' };
+const CATEGORIAS_ESTADO = ['mental', 'fisico', 'elemental', 'narrativo'];
+const SALV = { cd: 12, atributo: 'salvacion' };
+/** Catálogo base. Los estados del motor antiguo son ahora definiciones; sus resultados no cambian. */
+const CATALOGO_ESTADOS = [
+    { id: 'congelado', nombre: 'Congelado', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
+    { id: 'aturdido', nombre: 'Aturdido', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
+    { id: 'mojado', nombre: 'Mojado', icono: 'agua', categoria: 'elemental', origen: 'agua', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'vulnerabilidad_elemental', consume: true, reacciones: [
+                    { elemento: 'fuego', nombre: 'Onda de vapor', dados: { cantidad: 1, caras: 4 }, aplica_estado: 'ciego' },
+                    { elemento: 'hielo', nombre: 'Congelación', aplica_estado: 'congelado' },
+                    { elemento: 'luz_sagrada', nombre: 'Agua bendita', dados: { cantidad: 1, caras: 6 }, multiplicador: 2, solo_corruptos: true, mensaje: 'Agua bendita contra oscuridad/corrupción: daño sagrado × 2.' },
+                    { elemento: 'electricidad', nombre: 'Superconducción', multiplicador: 2, mensaje: 'Superconducción: daño principal × 2.' }
+                ] }], descripcion: 'El agua amplifica el siguiente elemento que lo toque.' },
+    { id: 'quemadura', nombre: 'Quemadura', icono: 'fuego', categoria: 'elemental', origen: 'fuego', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'fuego', momento: 'inicio', salvacion_termina: SALV }] },
+    { id: 'veneno', nombre: 'Envenenado', icono: 'pocion', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
+    { id: 'regeneracion', nombre: 'Regeneración', icono: 'vida', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'curacion_periodica', cantidad: 1, caras: 4, momento: 'inicio' }] },
+    { id: 'dominado', nombre: 'Dominado', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
+    { id: 'control_mental', nombre: 'Control mental', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'cesion_control', controlador: 'fuente' }], descripcion: 'Quien lo controla decide sus actos; el GM puede cortarlo.' },
+    { id: 'asustado', nombre: 'Asustado', icono: 'ojo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
+    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'ojo', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
+    { id: 'dormido', nombre: 'Dormido', icono: 'reloj', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
+    { id: 'paralizado', nombre: 'Paralizado', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
+    { id: 'en_trance', nombre: 'En trance', icono: 'alma', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
+    { id: 'guardia', nombre: 'Guardia', icono: 'escudo', categoria: 'fisico', duracion: { tipo: 'hasta_su_turno' }, efectos: [{ tipo: 'bonos', bonos: { armadura: 2 } }] },
+    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
+    { id: 'escarcha', nombre: 'Escarcha: ARM a la mitad hasta el próximo ataque', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'ARM a la mitad contra el próximo ataque.' },
+    { id: 'marca_luz', nombre: 'Marcado por la Luz', icono: 'corona', categoria: 'elemental', origen: 'luz_sagrada', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'El próximo golpe estalla con 1d6.' },
+];
+const POR_ID = new Map(CATALOGO_ESTADOS.map(d => [d.id, d]));
+const definicionBase = (id) => id ? POR_ID.get(id) : undefined;
+/** Definición de una instancia activa: la copia que lleva (estado creado en el Yunque) o la del catálogo. */
+function definicionDe(inst) {
+    return inst.def || definicionBase(inst.tipo || inst.id);
+}
+const primitivas = (d, tipo) => (d?.efectos || []).filter((p) => p.tipo === tipo);
+const entero = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+const salvValida = (s) => !s || (entero(s.cd, 1, 100) && /^[a-z_][a-z0-9_]*$/.test(s.atributo || ''));
+function validarDefinicionEstado(d) {
+    if (!d || typeof d !== 'object')
+        return 'Estado sin definir.';
+    if (!/^[a-z_][a-z0-9_]{0,63}$/.test(d.id || ''))
+        return 'El estado necesita un identificador (letras minúsculas y guiones bajos).';
+    if (typeof d.nombre !== 'string' || !d.nombre.trim() || d.nombre.length > 120)
+        return 'El estado necesita un nombre.';
+    if (!CATEGORIAS_ESTADO.includes(d.categoria))
+        return 'Categoría de estado inválida.';
+    const du = d.duracion;
+    if (!du || !['turnos', 'combate', 'salvacion', 'hasta_su_turno'].includes(du.tipo))
+        return 'Elige una duración.';
+    if (du.tipo === 'turnos' && !entero(du.turnos, 1, 99))
+        return 'La duración va de 1 a 99 turnos.';
+    if (du.tipo === 'salvacion' && (!du.salvacion || !salvValida(du.salvacion)))
+        return 'Configura la salvación que termina el estado.';
+    if (!Array.isArray(d.efectos) || d.efectos.length > 8)
+        return 'Hasta 8 primitivas por estado.';
+    if (d.despertar && !salvValida(d.despertar.salvacion))
+        return 'Salvación de despertar inválida.';
+    if (d.origen !== undefined && !/^[a-z_][a-z0-9_]{0,63}$/.test(d.origen))
+        return 'Origen inválido.';
+    for (const p of d.efectos) {
+        if (!p || !(p.tipo in NOMBRE_PRIMITIVA))
+            return 'Primitiva desconocida.';
+        if (p.tipo === 'movimiento_forzado' && (!['alejar', 'acercar'].includes(p.sentido) || !entero(p.min, 0, 12) || !entero(p.max, 1, 12) || p.min > p.max))
+            return 'Movimiento forzado: de 0 a 12 casillas (mínimo ≤ máximo).';
+        if (p.tipo === 'cesion_control' && !['gm', 'fuente'].includes(p.controlador))
+            return 'Elige quién controla.';
+        if (p.tipo === 'percepcion_alterada' && !entero(p.probabilidad, 0, 100))
+            return 'Probabilidad de 0 a 100.';
+        if ((p.tipo === 'dano_periodico' || p.tipo === 'curacion_periodica') && (!entero(p.cantidad, 1, 20) || !entero(p.caras, 2, 100) || !['inicio', 'fin'].includes(p.momento)))
+            return 'Dados periódicos de 1 a 20 y de 2 a 100 caras.';
+        if (p.tipo === 'dano_periodico' && (!/^[a-z_][a-z0-9_]{0,63}$/.test(p.tipo_dano || '') || !salvValida(p.salvacion_termina)))
+            return 'Indica el tipo de daño periódico.';
+        if (p.tipo === 'modificador_movimiento' && (!['cero', 'mitad', 'restar'].includes(p.modo) || (p.modo === 'restar' && !entero(p.valor, 1, 30))))
+            return 'Modificador de movimiento inválido.';
+        if (p.tipo === 'vulnerabilidad_elemental' && (!Array.isArray(p.reacciones) || !p.reacciones.length || p.reacciones.some(r => !r || !r.elemento || !r.nombre || (r.dados && (!entero(r.dados.cantidad, 1, 20) || !entero(r.dados.caras, 2, 100))) || (r.multiplicador !== undefined && !(r.multiplicador > 0 && r.multiplicador <= 5)))))
+            return 'Cada reacción elemental necesita elemento, nombre y valores válidos.';
+        if (p.tipo === 'bonos' && (!p.bonos || Object.entries(p.bonos).some(([k, v]) => !/^[a-z_][a-z0-9_]*$/.test(k) || !Number.isFinite(v) || Math.abs(v) > 1000)))
+            return 'Bonos inválidos.';
+        if (p.tipo === 'inmunidad') {
+            const e = validarInmunidades(p.inmunidades);
+            if (e)
+                return e;
+            if (!p.inmunidades?.length)
+                return 'Añade al menos una inmunidad.';
+        }
+    }
+    return null;
+}
+/** Bonos que suma la definición (además de los bonos propios de la instancia). */
+function bonosDefinicion(d) {
+    const r = {};
+    for (const p of primitivas(d, 'bonos'))
+        for (const [k, v] of Object.entries(p.bonos))
+            r[k] = (r[k] || 0) + v;
+    return r;
+}
+/** Turnos iniciales de una instancia. 0 = hasta que se consuma o termine el combate. */
+function turnosIniciales(d, pedidos) {
+    if (d.duracion.tipo === 'turnos')
+        return Math.max(1, pedidos || d.duracion.turnos);
+    if (d.duracion.tipo === 'hasta_su_turno')
+        return 1;
+    return pedidos && pedidos > 0 && d.duracion.tipo !== 'salvacion' ? pedidos : 0;
+}
+function movimientoPermitido(defs, base) {
+    let v = base;
+    for (const d of defs)
+        for (const p of primitivas(d, 'modificador_movimiento'))
+            v = p.modo === 'cero' ? 0 : p.modo === 'mitad' ? Math.floor(v / 2) : Math.max(0, v - (p.valor || 0));
+    return v;
+}
+const permiteReacciones = (defs) => !defs.some(d => primitivas(d, 'perder_turno').some(p => p.permite_reacciones === false));
+const SUJETO_TIPO = { fuego: 'fuego', veneno: 'veneno', agua: 'agua', hielo: 'hielo', electricidad: 'rayo', luz_sagrada: 'luz sagrada' };
+/** Frase en lenguaje claro: la misma en el editor del Yunque y en el tooltip de combate. */
+function describirEstado(d) {
+    const partes = [];
+    for (const p of d.efectos) {
+        if (p.tipo === 'perder_turno')
+            partes.push((p.primer_turno ? 'pierde siempre su primer turno' : 'pierde su turno') + (p.consumir ? ' (una vez)' : '') + (p.permite_reacciones === false ? ', sin reacciones' : ''));
+        if (p.tipo === 'movimiento_forzado')
+            partes.push(`${p.sentido === 'alejar' ? 'se aleja' : 'se acerca'} ${p.min === p.max ? p.max : `${p.min}–${p.max}`} casillas de su fuente cada turno${p.no_ataca_fuente ? ' y no puede atacarla' : ''}`);
+        if (p.tipo === 'cesion_control')
+            partes.push(p.controlador === 'gm' ? 'el GM decide sus actos' : 'quien lo lanzó decide sus actos (el GM puede cortarlo)');
+        if (p.tipo === 'percepcion_alterada')
+            partes.push(`ve los bandos invertidos (${p.probabilidad} % cada turno)`);
+        if (p.tipo === 'dano_periodico')
+            partes.push(`recibe ${p.cantidad}d${p.caras} de ${SUJETO_TIPO[p.tipo_dano] || p.tipo_dano.replace(/_/g, ' ')} al ${p.momento} de su turno${p.salvacion_termina ? ` (salvación CD ${p.salvacion_termina.cd} para apagarlo)` : ''}`);
+        if (p.tipo === 'curacion_periodica')
+            partes.push(`recupera ${p.cantidad}d${p.caras} de vida al ${p.momento} de su turno`);
+        if (p.tipo === 'modificador_movimiento')
+            partes.push(p.modo === 'cero' ? 'no puede moverse' : p.modo === 'mitad' ? 'se mueve a la mitad' : `pierde ${p.valor} casillas de movimiento`);
+        if (p.tipo === 'vulnerabilidad_elemental')
+            partes.push(`reacciona con ${p.reacciones.map(r => `${SUJETO_TIPO[r.elemento] || r.elemento} (${r.nombre})`).join(', ')}${p.consume ? ' y se consume' : ''}`);
+        if (p.tipo === 'bonos')
+            partes.push(Object.entries(p.bonos).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.replace(/_/g, ' ')}`).join(', '));
+        if (p.tipo === 'inmunidad')
+            partes.push(`inmune a ${p.inmunidades.map(i => i.valor.replace(/_/g, ' ')).join(', ')}`);
+    }
+    if (d.despertar?.recibir_dano)
+        partes.push('despierta al recibir daño');
+    if (d.despertar?.salvacion)
+        partes.push(`salvación CD ${d.despertar.salvacion.cd} al inicio de cada turno para terminarlo`);
+    const du = d.duracion;
+    const dura = du.tipo === 'turnos' ? `dura ${du.turnos} ${du.turnos === 1 ? 'turno' : 'turnos'}` : du.tipo === 'combate' ? 'dura hasta que se consuma o acabe el combate' : du.tipo === 'salvacion' ? `dura hasta superar CD ${du.salvacion.cd}` : 'dura hasta el inicio de su siguiente turno';
+    return `${d.nombre}: ${[...partes, dura].filter(Boolean).join('; ')}.`;
+}
+/** Nueva definición vacía para el editor. */
+const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', icono: 'fuego', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+
+return { definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
+})();
 const { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION } = (() => {
 const PATRONES_OJO = [
     { valor: 'anillos', nombre: 'Anillos' },
@@ -768,6 +1133,56 @@ function tiene(m, tipo) {
 function quitarEstado(m, tipo) {
     m.estados = m.estados.filter((e) => (e.tipo || e.id) !== tipo);
 }
+/** Inmunidades vigentes: personaje, habilidades (incluidas las heredadas por linaje), pasivas, estados activos y
+ * equipo equipado. Al desequipar, el objeto deja de estar en `piezas` y su inmunidad desaparece sola. */
+export function inmunidadesDe(m) {
+    const r = [];
+    const sumar = (l, origen) => { for (const i of l || [])
+        r.push({ ...i, origen: i.origen || origen }); };
+    sumar(m.configuracion.inmunidades, m.nombre);
+    for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length))
+        for (const e of h.efectos || [])
+            sumar(e.inmunidades, h.nombre);
+    for (const p of Object.values(piezas(m)))
+        for (const e of p.efectos || [])
+            sumar(e.inmunidades, p.nombre);
+    for (const p of m.configuracion.pasivas || [])
+        sumar(p.inmunidades, p.nombre);
+    for (const e of m.estados)
+        for (const p of primitivas(definicionDe(e), 'inmunidad'))
+            sumar(p.inmunidades, e.nombre);
+    return r;
+}
+const NATURALEZA_DANO = { magica: ['magica', 'magico'], fisica: ['fisica', 'fisico'], natural: ['natural'] };
+/** Tipos de daño que una inmunidad puede reconocer: elemento, tipo de daño y naturaleza. */
+export function candidatoDano(e, elemento) {
+    const nat = e.naturaleza && e.naturaleza !== 'automatica' ? e.naturaleza : (e.coste_ph || 0) > 0 ? 'magica' : 'fisica';
+    const tipos = [elemento || elementoDe(e), norm(e.tipo_dano || ''), ...(NATURALEZA_DANO[nat] || [])].filter(t => t && t !== 'ninguno');
+    return { clase: 'dano', tipos, categoria: e.categoria, subcategoria: e.subcategoria };
+}
+/** Comprueba la inmunidad a un estado ANTES de la salvación (inmunidad completa: no hay tirada). */
+function puedeAplicar(c, t, id, def, e) {
+    const d = def || definicionBase(id);
+    const r = comprobarInmunidad(inmunidadesDe(t), { clase: 'estado', estado: d?.id || id, categoria: e?.categoria || d?.categoria, subcategoria: e?.subcategoria || d?.subcategoria, origen: d?.origen }, e?.ignora);
+    if (r.bloqueado) {
+        log(c, `${t.nombre}: ${r.motivo}; no sufre ${d?.nombre || id}.`);
+        return 'no';
+    }
+    return r.resistido ? 'resiste' : 'si';
+}
+/** Aplica un estado del catálogo (o una definición) con sus bonos, si la inmunidad lo permite. */
+function aplicarDefinicion(c, t, d, fuente, duracion, extras = {}, e) {
+    const permiso = puedeAplicar(c, t, d.id, d, e);
+    if (permiso === 'no')
+        return false;
+    let turnos = turnosIniciales(d, duracion);
+    if (permiso === 'resiste' && turnos > 1) {
+        turnos = Math.max(1, Math.floor(turnos / 2));
+        log(c, `${t.nombre} resiste ${d.nombre}: dura ${turnos} turno(s).`);
+    }
+    estado(t, d.id, d.nombre, turnos, bonosDefinicion(d), { ...(definicionBase(d.id) === d ? {} : { def: d }), ...(fuente ? { fuente } : {}), ...(d.duracion.tipo === 'hasta_su_turno' ? { inicio: true } : {}), ...extras });
+    return true;
+}
 function estado(m, tipo, nombre, duracion = 0, bonos = {}, extras = {}) {
     const existente = m.estados.find((e) => (e.tipo || e.id) === tipo);
     if (existente) {
@@ -824,6 +1239,8 @@ export function reaccionDe(e) { return e.reaccion; }
 function efectosConReaccion(m) { return (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).map(normalizarReaccion); }
 /** Coste, usos y enfriamiento: null si ahora no se puede ofrecer. */
 function disponibilidad(c, t, p, r) {
+    if (!permiteReacciones(t.estados.map(definicionDe)))
+        return null;
     const coste = t.transformacion?.definicion_id === 'limitless' && p.ley_limitless ? 0 : (r.coste ?? p.coste_ph ?? 0);
     if (phDisponibles(t) < coste || (r.una_por_ronda && t.rondas_reacciones?.[p.id] === c.ronda))
         return null;
@@ -877,6 +1294,8 @@ function conMiembro(c, id, fn) {
 const sinPreguntar = (rng) => rng.consultarReaccion ? rng : Object.assign((caras) => rng(caras), { consultarReaccion: () => false });
 export function tomarArtefacto(c, id, config, rng = dadoSeguro) {
     return conMiembro(c, id, (n, m) => {
+        if (puedeAplicar(n, m, 'voz_artefacto', { id: 'voz_artefacto', nombre: 'la voz del artefacto', categoria: 'mental', subcategoria: 'posesion', duracion: { tipo: 'combate' }, efectos: [] }) === 'no')
+            return;
         if (salvacion(n, m, config.cd, config.atributo, sinPreguntar(rng))) {
             log(n, `${m.nombre} empuña el artefacto y acalla su voz.`);
             return;
@@ -930,6 +1349,8 @@ export function resistirVoz(c, id, rng = dadoSeguro) {
 export function dominar(c, id, activo) {
     return conMiembro(c, id, (n, m) => {
         m.estados = m.estados.filter(e => e.tipo !== 'dominado');
+        if (activo && puedeAplicar(n, m, 'dominado') === 'no')
+            return;
         if (activo)
             m.estados.push({ id: 'dominado', tipo: 'dominado', nombre: 'Dominado', restantes: 0, creado: m.turnos, bonos: {} });
         log(n, activo ? `${m.nombre} queda dominado: el GM decide sus actos.` : `${m.nombre} recupera el control.`);
@@ -937,14 +1358,34 @@ export function dominar(c, id, activo) {
 }
 /** El GM lanza el espejo mental sobre un combatiente. */
 export function lanzarEspejo(c, id, opciones) {
-    return conMiembro(c, id, (n, m) => { m.espejo_mental = { ...copia(opciones), aviso: true }; log(n, `${m.nombre}: su mente se nubla (espejo mental).`); });
+    return conMiembro(c, id, (n, m) => { if (puedeAplicar(n, m, 'espejo_mental', { id: 'espejo_mental', nombre: 'Espejo mental', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'combate' }, efectos: [] }) === 'no')
+        return; m.espejo_mental = { ...copia(opciones), aviso: true }; log(n, `${m.nombre}: su mente se nubla (espejo mental).`); });
 }
 export function quitarEspejo(c, id) {
     return conMiembro(c, id, (n, m) => { delete m.espejo_mental; log(n, `${m.nombre}: el GM disipa el espejo mental.`); });
 }
-export const estaDominado = (m) => m.estados.some(e => e.tipo === 'dominado');
+/** Primitiva «Cesión de control»: quién decide los actos del afectado (null: su jugador). */
+export function controlDe(m) {
+    for (const s of m.estados) {
+        const p = primitivas(definicionDe(s), 'cesion_control')[0];
+        if (p)
+            return { controlador: p.controlador === 'fuente' && s.fuente ? 'fuente' : 'gm', fuente: s.fuente, estado: s.nombre };
+    }
+    return null;
+}
+export const estaDominado = (m) => !!controlDe(m);
+/** Combatientes que `controlador` dirige ahora (control mental de un rival). */
+export const controladosPor = (c, controlador) => c.miembros.filter(m => { const k = controlDe(m); return k?.controlador === 'fuente' && k.fuente === controlador && combatienteActivo(m); });
+/** El GM corta cualquier cesión de control en cualquier momento. */
+export function cortarControl(c, id) {
+    return conMiembro(c, id, (n, m) => {
+        const antes = m.estados.length;
+        m.estados = m.estados.filter(s => !primitivas(definicionDe(s), 'cesion_control').length);
+        log(n, antes !== m.estados.length ? `El GM corta el control sobre ${m.nombre}: recupera su voluntad.` : `${m.nombre} no estaba controlado.`);
+    });
+}
 /** El GM decide las reacciones de enemigos, NPC sin jugador, dominados y poseídos. */
-export const reaccionLaDecideGM = (m) => m.bando === 'enemigo' || !m.personaje_id || m.estados.some(e => e.tipo === 'dominado') || !!m.transformacion?.descontrolada;
+export const reaccionLaDecideGM = (m) => m.bando === 'enemigo' || !m.personaje_id || !!controlDe(m) || !!m.transformacion?.descontrolada;
 /** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
 export function reaccionesDe(c, m) {
     return efectosConReaccion(m).filter((p) => !!p.reaccion).map(p => {
@@ -987,6 +1428,18 @@ function dispararReacciones(c, candidatos, disparador, rng, ctx) {
         }
 }
 function recibir(c, a, t, e, total, rs, rng) {
+    if (total > 0 && !e.componentes?.length) {
+        const inm = comprobarInmunidad(inmunidadesDe(t), candidatoDano(e), e.ignora);
+        if (inm.bloqueado) {
+            log(c, `${t.nombre}: ${inm.motivo}; no recibe daño.`);
+            total = 0;
+        }
+        else if (inm.resistido) {
+            const antes = total;
+            total = Math.floor(total / 2);
+            log(c, `${t.nombre}: ${inm.motivo} (${antes} → ${total}).`);
+        }
+    }
     const alDano = reactivas(t, e, "recibir_dano");
     const reduccion = Math.max(0, ...[...rs, ...alDano].map((r) => r.reduccion_pct || 0));
     if (reduccion) {
@@ -1046,6 +1499,12 @@ function recibir(c, a, t, e, total, rs, rng) {
         log(c, `${t.nombre}: su forma se rompe y recupera su vida anterior.`);
     const cayo = perdido > 0 && resultadoDano.muerto;
     log(c, `${t.nombre} recibe ${perdido} daño; vida ${t.vida}.`);
+    if (perdido > 0)
+        for (const s of [...t.estados])
+            if (definicionDe(s)?.despertar?.recibir_dano) {
+                quitarEstado(t, s.tipo || s.id);
+                log(c, `${t.nombre} despierta: termina ${s.nombre}.`);
+            }
     if (perdido > 0) {
         activarReglas(c, a, t, alDano, rng);
         emitirMotor(c, 'recibir_dano', t, a, t, rng, e, perdido);
@@ -1079,6 +1538,13 @@ function entrar(c, m, rng) {
         else
             m.espejo_mental = { ...e, aviso: false };
     }
+    const percepcion = m.estados.flatMap(s => primitivas(definicionDe(s), 'percepcion_alterada'))[0];
+    if (percepcion && rng(100) <= percepcion.probabilidad) {
+        m.percepcion_alterada = { espejar: false, intercambiar: true, ocultar: false, aviso: true };
+        log(c, `${m.nombre}: su percepción se altera este turno.`);
+    }
+    else
+        delete m.percepcion_alterada;
     m.turnos++;
     // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
     // en estado normal. No consume acción ni PH y respeta el resultado del dado.
@@ -1090,6 +1556,9 @@ function entrar(c, m, rng) {
                 continue;
             if (m.vida * 100 > maxVida(m) * p.umbral_pct)
                 continue;
+            // Ruta especial: solo una inmunidad configurada a la posesión la bloquea (sin decisión por defecto).
+            if (puedeAplicar(c, m, 'posesion', { id: 'posesion', nombre: 'la posesión', categoria: 'mental', subcategoria: 'posesion', duracion: { tipo: 'combate' }, efectos: [] }) === 'no')
+                break;
             if (!salvacion(c, m, p.cd, 'salvacion', rng)) {
                 Object.assign(m, forzarPosesion(m, d, p.etapa_id));
                 log(c, `${m.nombre} pierde el control: se manifiesta ${d.etapas.find(et => et.id === p.etapa_id)?.nombre || d.nombre}.`);
@@ -1111,32 +1580,101 @@ function entrar(c, m, rng) {
             log(c, `${m.nombre}: ${r.nombre} al iniciar turno.`);
         }
     emitirMotor(c, 'inicio_turno', m, m, m, rng);
-    for (const e of [...m.estados]) {
-        if (["quemadura", "veneno", "regeneracion"].includes(e.tipo || "")) {
-            const v = dados(c, e.cantidad ?? 1, e.caras ?? 4, rng, `${m.nombre}: ${e.nombre}`);
-            if (e.tipo === "regeneracion")
-                curarCombatiente(m, v);
-            else
-                recibir(c, m, m, { ...basico(), efecto: "dano" }, v, [], rng);
-            log(c, `${m.nombre}: ${e.nombre}, vida ${m.vida}.`);
-            if (e.tipo === "quemadura" &&
-                salvacion(c, m, e.cd || 12, e.atributo || "salvacion", rng)) {
-                quitarEstado(m, e.tipo);
-                log(c, `${m.nombre} apaga la quemadura.`);
-            }
-        }
-    }
-    if (tiene(m, "congelado") || tiene(m, "aturdido")) {
-        m.accion_usada = true;
-        quitarEstado(m, "congelado");
-        quitarEstado(m, "aturdido");
-        log(c, `${m.nombre} pierde su turno por congelación/aturdimiento.`);
-    }
+    periodicos(c, m, 'inicio', rng);
+    perderTurno(c, m, rng);
+    for (const s of [...m.estados])
+        for (const p of primitivas(definicionDe(s), 'movimiento_forzado'))
+            if (s.fuente && combatienteActivo(m))
+                moverForzado(c, m, p, s.fuente, rng);
     normalizar(m);
     c.actual = m.id;
     log(c, `Ronda ${c.ronda} · Turno de ${m.nombre}.`);
     if (m.transformacion?.descontrolada && !m.accion_usada)
         resolverTurnoDescontrolado(c, m.id, rng);
+}
+/** Primitivas «Daño periódico» y «Curación periódica» de todos los estados activos. */
+function periodicos(c, m, momento, rng) {
+    for (const e of [...m.estados]) {
+        const d = definicionDe(e);
+        for (const p of (d?.efectos || [])) {
+            if ((p.tipo !== 'dano_periodico' && p.tipo !== 'curacion_periodica') || p.momento !== momento)
+                continue;
+            if (!m.estados.includes(e))
+                break;
+            // La instancia puede traer sus propios dados (acción que la aplicó); si no, los de la definición.
+            const v = dados(c, e.cantidad ?? p.cantidad, e.caras ?? p.caras, rng, `${m.nombre}: ${e.nombre}`);
+            if (p.tipo === 'curacion_periodica')
+                curarCombatiente(m, v);
+            else
+                recibir(c, m, m, { ...basico(), efecto: 'dano', tipo_dano: p.tipo_dano }, v, [], rng);
+            log(c, `${m.nombre}: ${e.nombre}, vida ${m.vida}.`);
+            if (p.tipo === 'dano_periodico' && p.salvacion_termina && m.estados.includes(e) && salvacion(c, m, e.cd || p.salvacion_termina.cd, e.atributo || p.salvacion_termina.atributo, rng)) {
+                quitarEstado(m, e.tipo || e.id);
+                log(c, e.tipo === 'quemadura' ? `${m.nombre} apaga la quemadura.` : `${m.nombre} se libra de ${e.nombre}.`);
+            }
+        }
+    }
+}
+/** Primitiva «Perder turno» con despertar por salvación (Paralizado, Dormido…) y estados que se consumen. */
+function perderTurno(c, m, rng) {
+    const pierden = [];
+    for (const e of [...m.estados]) {
+        const d = definicionDe(e);
+        if (!d)
+            continue;
+        const pt = primitivas(d, 'perder_turno')[0];
+        const sv = d.despertar?.salvacion || (d.duracion.tipo === 'salvacion' ? d.duracion.salvacion : undefined);
+        const obligado = !!pt?.primer_turno && !e.turnos_perdidos;
+        if (sv && !obligado) {
+            if (salvacion(c, m, sv.cd, sv.atributo, rng)) {
+                quitarEstado(m, e.tipo || e.id);
+                log(c, `${m.nombre} se libera de ${e.nombre}.`);
+                continue;
+            }
+        }
+        if (!pt)
+            continue;
+        pierden.push(e);
+        e.turnos_perdidos = (e.turnos_perdidos || 0) + 1;
+    }
+    if (!pierden.length)
+        return;
+    m.accion_usada = true;
+    for (const e of pierden)
+        if (primitivas(definicionDe(e), 'perder_turno').some(p => p.consumir))
+            quitarEstado(m, e.tipo || e.id);
+    const clasicos = pierden.every(e => ['congelado', 'aturdido'].includes(e.tipo || ''));
+    log(c, clasicos ? `${m.nombre} pierde su turno por congelación/aturdimiento.` : `${m.nombre} pierde su turno: ${pierden.map(e => e.nombre).join(', ')}.`);
+}
+/** Primitiva «Movimiento forzado»: se aleja (o acerca) de la fuente por casillas libres, sin atravesar muros. */
+function moverForzado(c, m, p, fuente, rng) {
+    const pos = posicionesTablero(c), dims = dimensionesTablero(c), origen = pos[fuente], desde = pos[m.id];
+    if (!origen || !desde)
+        return;
+    const ocupadas = new Set(Object.entries(pos).filter(([id]) => id !== m.id).map(([, q]) => q.x + ',' + q.y));
+    let actual = desde, pasos = 0;
+    while (pasos < p.max) {
+        const d0 = distanciaCasillas(actual, origen);
+        const opciones = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: actual.x + dx, y: actual.y + dy }))
+            .filter(q => q.x >= 0 && q.y >= 0 && q.x < dims.columnas && q.y < dims.filas && c.mapa?.celdas[q.x + ',' + q.y] !== 'muro' && !ocupadas.has(q.x + ',' + q.y))
+            .map(q => ({ q, d: distanciaCasillas(q, origen) }))
+            .filter(v => p.sentido === 'alejar' ? v.d > d0 : v.d < d0 && v.d >= 1)
+            .sort((u, v) => p.sentido === 'alejar' ? v.d - u.d : u.d - v.d);
+        if (!opciones.length)
+            break;
+        actual = opciones[0].q;
+        pasos++;
+    }
+    if (!pasos) {
+        log(c, `${m.nombre} quiere ${p.sentido === 'alejar' ? 'huir' : 'acercarse'}, pero no tiene casilla libre.`);
+        return;
+    }
+    for (const x of c.miembros)
+        x.posicion = pos[x.id];
+    m.posicion = { ...actual };
+    c.evento_visual = { ...(c.evento_visual || { id: crypto.randomUUID(), nombre: m.nombre, dados: [] }), movimientos: [...(c.evento_visual?.movimientos || []), { id: m.id, desde, hasta: actual, tipo: 'forzado' }] };
+    log(c, `${m.nombre} ${p.sentido === 'alejar' ? 'huye' : 'se acerca'} ${pasos} ${pasos === 1 ? 'casilla' : 'casillas'} (${actual.x + 1}, ${actual.y + 1}).`);
+    aplicarTerreno(c, m, rng);
 }
 function iniciarInterno(c, rng) {
     if (c.fase !== "preparacion")
@@ -1182,6 +1720,7 @@ function siguienteInterno(c, rng) {
                 log(n, `${a.nombre}: termina su transformación.`);
         }
         emitirMotor(n, 'fin_turno', a, a, a, rng);
+        periodicos(n, a, 'fin', rng);
         caducarMotor(n, a, rng);
         if ((estadisticas(a).fatiga || 0) > 0 &&
             a.fatiga >= (estadisticas(a).fatiga || 0))
@@ -1329,6 +1868,7 @@ function limpiarFinal(n) { n.miembros = n.miembros.filter(m => !m.invocacion); f
     m.transformaciones_usadas = [];
     emitirMotor(n, 'fin_combate', m, m, m, dadoSeguro);
     m.estados = [];
+    delete m.percepcion_alterada;
     if (m.motor) {
         m.motor.modificadores = [];
         m.motor.habilidades = [];
@@ -1449,7 +1989,7 @@ export function acciones(m) {
     const exclusivos = new Set(definiciones.flatMap(d => d.etapas.flatMap(e => e.habilidades || [])));
     const permitidos = new Set(definiciones.find(d => d.id === m.transformacion?.definicion_id)?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.habilidades || []);
     // Un ojo permanente sin dados propios es una pasiva: no aparece como acción.
-    return lista.filter(a => !reaccionDe(normalizarReaccion(a.efecto))).filter(a => !(a.efecto.vision?.modo === 'permanente' && !(a.efecto.cantidad > 0))).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
+    return lista.filter(a => !a.efecto.solo_pasivo).filter(a => !reaccionDe(normalizarReaccion(a.efecto))).filter(a => !(a.efecto.vision?.modo === 'permanente' && !(a.efecto.cantidad > 0))).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
         const d = a.efecto.transformacion;
         if (d && m.transformacion?.definicion_id === d.id) {
             const i = d.etapas.findIndex(e => e.id === m.transformacion?.etapa_id);
@@ -1813,6 +2353,15 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             ? distanciaCasillas(posiciones[u.id], origen) - distanciaCasillas(posiciones[v.id], origen) || u.id.localeCompare(v.id)
             : (e.efecto === 'dano' && tactica.forma !== 'individual' ? Number(u.id === a.id) - Number(v.id === a.id) : 0) || distanciaCasillas(posiciones[u.id], punto) - distanciaCasillas(posiciones[v.id], punto) || u.id.localeCompare(v.id));
     }
+    // Movimiento forzado con «no ataca a la fuente» (Asustado): ni de frente ni dentro de un área.
+    const temidos = a.estados.filter(s => s.fuente && primitivas(definicionDe(s), 'movimiento_forzado').some(p => p.no_ataca_fuente)).map(s => s.fuente);
+    if (temidos.length && e.efecto === 'dano') {
+        if (t && temidos.includes(t.id) && !tactica?.forma || t && temidos.includes(t.id) && tactica?.forma === 'individual')
+            throw Error(`${a.nombre} está asustado: no puede atacar a su fuente.`);
+        objetivos = objetivos.filter(o => !temidos.includes(o.id));
+        if (tactica && !objetivos.length)
+            throw Error('No hay objetivos válidos en el área.');
+    }
     if (typeof coste !== 'number' || !Number.isFinite(coste) || coste < 0)
         throw Error('Coste de PH inválido.');
     if (phDisponibles(a) < coste)
@@ -1965,6 +2514,14 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     if (e.efecto === "transformacion")
         throw Error("Transformación solo puede ejecutarse sobre el usuario.");
     if (e.efecto !== "dano") {
+        // Inmunidad completa: se bloquea ANTES de la salvación (no hay tirada).
+        const defEstado = e.efecto === "estado" && !e.aterrizar && !e.vuelo && !e.aprendizaje ? (e.estado_def || definicionBase(e.estado_tipo || "")) : undefined;
+        const claveEstado = e.estado_def ? e.estado_def.id : (e.estado_tipo || "narrativo") === "narrativo" ? "estado:" + e.id : e.estado_tipo;
+        const permiso = e.efecto === "estado" && !e.aterrizar && !e.vuelo && !e.aprendizaje ? puedeAplicar(n, t, claveEstado, defEstado, e) : 'si';
+        if (permiso === 'no') {
+            normalizar(t);
+            return n;
+        }
         const supera = e.salvacion
             ? salvacion(n, t, e.salvacion.cd, e.salvacion.atributo, rng)
             : false;
@@ -1987,12 +2544,21 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
                 return n;
             }
             const tipo = e.estado_tipo || "narrativo";
-            estado(t, tipo === "narrativo" ? "estado:" + e.id : tipo, e.estado || tipo, Math.max(1, e.duracion), e.bonos_estado || {}, {
-                cantidad: e.cantidad,
-                caras: e.caras,
+            const legado = !e.estado_def && ["narrativo", "veneno", "regeneracion", "aturdido", "quemadura"].includes(tipo);
+            let turnos = legado || !defEstado ? Math.max(1, e.duracion) : turnosIniciales(defEstado, e.duracion);
+            if (permiso === 'resiste' && turnos > 1) {
+                turnos = Math.max(1, Math.floor(turnos / 2));
+                log(n, `${t.nombre} resiste el estado: dura ${turnos} turno(s).`);
+            }
+            estado(t, claveEstado, e.estado || defEstado?.nombre || tipo, turnos, { ...bonosDefinicion(legado ? undefined : defEstado), ...(e.bonos_estado || {}) }, {
+                ...(e.estado_def ? { def: e.estado_def } : { cantidad: e.cantidad, caras: e.caras }),
                 cd: e.salvacion?.cd || 12,
                 atributo: e.salvacion?.atributo || "salvacion",
+                fuente: a.id,
+                ...(defEstado?.duracion.tipo === "hasta_su_turno" ? { inicio: true } : {}),
             });
+            if (defEstado && primitivas(defEstado, "cesion_control").length)
+                log(n, `${t.nombre} pierde el control: ${primitivas(defEstado, "cesion_control")[0].controlador === "gm" ? "el GM decide sus actos" : `${a.nombre} decide sus actos`}.`);
         }
         else {
             let v = Math.max(0, dados(n, e.cantidad, e.caras, rng, act.nombre) + e.modificador);
@@ -2165,23 +2731,20 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     let dadosTotal = dados(n, e.cantidad, e.caras, rng, act.nombre);
     if (elemento !== "ninguno")
         dadosTotal += dados(n, 1, 4, rng, "Daño elemental " + elemento);
-    const mojado = tiene(t, "mojado"), combo = mojado &&
-        ["fuego", "hielo", "electricidad", "luz_sagrada"].includes(elemento);
-    if (combo) {
-        quitarEstado(t, "mojado");
-        log(n, `${t.nombre}: Mojado se consume por ${elemento}.`);
+    // Primitiva «Vulnerabilidad elemental» (Mojado y los estados creados en el Yunque).
+    const vulnerable = t.estados.map(s => ({ s, r: primitivas(definicionDe(s), "vulnerabilidad_elemental").flatMap(p => p.reacciones.filter(x => x.elemento === elemento).map(x => ({ p, x })))[0] })).find(v => v.r);
+    const combo = !!vulnerable, reaccionElemental = vulnerable?.r.x, tipoVulnerable = vulnerable ? vulnerable.s.tipo || vulnerable.s.id : "";
+    if (vulnerable?.r.p.consume) {
+        quitarEstado(t, tipoVulnerable);
+        log(n, `${t.nombre}: ${vulnerable.s.nombre} se consume por ${elemento}.`);
     }
-    if (combo && elemento === "fuego") {
-        dadosTotal += dados(n, 1, 4, rng, "Onda de vapor");
-        if (permiteEstados)
-            estado(t, "ciego", "Ceguera: -4 al próximo ataque", 0, {
-                bono_impacto: -4,
-            });
+    if (reaccionElemental?.dados)
+        dadosTotal += dados(n, reaccionElemental.dados.cantidad, reaccionElemental.dados.caras, rng, reaccionElemental.nombre);
+    if (permiteEstados && reaccionElemental?.aplica_estado) {
+        const d = definicionBase(reaccionElemental.aplica_estado);
+        if (d)
+            aplicarDefinicion(n, t, d, a.id, undefined, {}, e);
     }
-    if (permiteEstados && combo && elemento === "hielo")
-        estado(t, "congelado", "Congelado: pierde su siguiente turno");
-    if (combo && elemento === "luz_sagrada")
-        dadosTotal += dados(n, 1, 6, rng, "Agua bendita");
     if (tiene(t, "marca_luz")) {
         quitarEstado(t, "marca_luz");
         dadosTotal += dados(n, 1, 6, rng, "Estallido de Marca de Luz");
@@ -2192,15 +2755,9 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         critico = true;
     let total = Math.max(0, dadosTotal * (critico ? 2 : 1) + e.modificador + (s.dano || 0) + (debil?.recompensa.dano || 0));
     log(n, `Daño: dados ${dadosTotal}${critico ? " × 2 (crítico)" : ""} + modificador ${e.modificador} + bono ${s.dano || 0} = ${total}.`);
-    if (combo && elemento === "electricidad") {
-        total *= 2;
-        log(n, "Superconducción: daño principal × 2.");
-    }
-    if (combo &&
-        elemento === "luz_sagrada" &&
-        (t.corrupto ?? !!t.stats.corrupto)) {
-        total *= 2;
-        log(n, "Agua bendita contra oscuridad/corrupción: daño sagrado × 2.");
+    if (reaccionElemental?.multiplicador && (!reaccionElemental.solo_corruptos || (t.corrupto ?? !!t.stats.corrupto))) {
+        total *= reaccionElemental.multiplicador;
+        log(n, reaccionElemental.mensaje || `${reaccionElemental.nombre}: daño × ${reaccionElemental.multiplicador}.`);
     }
     if (supera && e.salvacion?.exito === "mitad")
         total = Math.floor(total / 2);
@@ -2220,18 +2777,21 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         dispararReacciones(n, n.miembros.filter(w => w.id !== a.id && w.id !== blanco.id && w.bando === a.bando), "aliado_ataca", rng, { efecto: e, cerca: blanco, victima: blanco, hasta: () => blanco.vida <= 0 });
     }
     // Elemental saves affect secondary states, never repeat the attack roll.
-    if (permiteEstados && elemento === "agua")
+    if (permiteEstados && elemento === "agua" && puedeAplicar(n, t, "mojado", undefined, e) !== 'no')
         estado(t, "mojado", "Mojado");
     if (permiteEstados &&
         elemento === "fuego" &&
+        puedeAplicar(n, t, "quemadura", undefined, e) !== 'no' &&
         !salvacion(n, t, 12, "salvacion", rng))
         estado(t, "quemadura", "Quemadura", 0, {}, { cantidad: 1, caras: 4, cd: 12, atributo: "salvacion" });
     if (permiteEstados &&
         elemento === "hielo" &&
+        puedeAplicar(n, t, "escarcha", undefined, e) !== 'no' &&
         !salvacion(n, t, 12, "salvacion", rng))
         estado(t, "escarcha", "Escarcha: ARM a la mitad hasta el próximo ataque");
     if (permiteEstados &&
         elemento === "luz_sagrada" &&
+        puedeAplicar(n, t, "marca_luz", undefined, e) !== 'no' &&
         !salvacion(n, t, 12, "salvacion", rng))
         estado(t, "marca_luz", "Marcado por la Luz");
     if (elemento === "electricidad" && t.grupo_cercania) {
@@ -2242,7 +2802,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
             m.grupo_cercania === t.grupo_cercania)) {
             area(n, a, otro, e, 3, rng);
             log(n, `${otro.nombre}: chispa de cercanía 3.`);
-            if (combo && tiene(otro, "mojado")) {
+            if (combo && tiene(otro, tipoVulnerable)) {
                 const v = dados(n, 1, 6, rng, "Superconducción cercana");
                 area(n, a, otro, e, v, rng);
                 log(n, `${otro.nombre}: Superconducción ${v}; conserva Mojado.`);
@@ -2764,7 +3324,7 @@ export function posicionesTablero(c) {
     return resultado;
 }
 export function movimientoRestante(m) {
-    const limite = Math.max(0, Math.min(100, Math.floor(estadisticas(m).movimiento ?? 6)));
+    const limite = movimientoPermitido(m.estados.map(definicionDe), Math.max(0, Math.min(100, Math.floor(estadisticas(m).movimiento ?? 6))));
     return Math.max(0, limite - (m.movimiento?.turno === m.turnos ? m.movimiento.gastado : 0));
 }
 /** Distancias ortogonales: nadie atraviesa una casilla ocupada, incluidos caídos. */
