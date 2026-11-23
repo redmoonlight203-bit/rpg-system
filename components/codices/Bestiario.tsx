@@ -185,7 +185,13 @@ export default function Bestiario<T extends PiezaGaleria>({ ctx }: { ctx: Contex
             {ranuras.acciones}
             <AccionesEfectos ctx={ctx} />
             <PasivasLista ctx={ctx} />
-            {ranuras.formas}
+            {ranuras.formas && <section className="cg-detail-section">
+              {ranuras.formas}
+              <div className="cx-bestiario-ilustracion">
+                <Portada src={ctx.imagenVisible} tipo={ctx.tipo} icono={ctx.iconoVisible} />
+              </div>
+              {ctx.forma?.historia && <p className="cg-prose" aria-live="polite">{ctx.forma.historia}</p>}
+            </section>}
             {ranuras.presentacion}
             {ranuras.estado}
             {ranuras.peligro}

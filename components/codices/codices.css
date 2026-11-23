@@ -195,7 +195,7 @@
   padding: clamp(.5rem, 2vw, 1.35rem);
   border: 1px solid var(--color-gold);
   border-radius: .8rem;
-  background: var(--cx-cuero, linear-gradient(110deg, var(--color-ink), var(--color-raised)));
+  background: var(--cx-cuero, none), linear-gradient(110deg, var(--color-ink), var(--color-raised));
   touch-action: pan-y;
 }
 
@@ -217,7 +217,7 @@
   border: 1px solid var(--color-gold);
   border-radius: .2rem;
   background-color: var(--color-parchment);
-  background-image: var(--cx-papel, none);
+  background-image: var(--cx-papel, none), radial-gradient(ellipse at center, var(--color-parchment) 65%, var(--color-gold-soft));
   color: var(--color-ink);
   overflow-wrap: anywhere;
 }
