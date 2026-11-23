@@ -1,6 +1,7 @@
 import {nuevoEfecto,type Efecto,type TipoCreacion} from "./creacion";
 import {nuevaRegla,type Regla} from "./reglas";
-import {PLANTILLAS_REACCION} from "./combate";
+import {PLANTILLAS_REACCION} from "./reacciones";
+export {PLANTILLAS_REACCION};
 import type {Fragmento} from "./yunque-operaciones";
 /**
  * Plantillas del Grimorio del Yunque: subgrafos listos para usar. Salen de las 20 mecánicas del propietario que el
@@ -14,15 +15,15 @@ export type Plantilla={id:string;nombre:string;descripcion:string;fragmentos:Fra
  para:TipoCreacion};
 const accion=(id:string,p:Partial<Efecto>&{nombre:string}):Fragmento=>({tipo:'accion',datos:{...nuevoEfecto(),...p,id:'plantilla-'+id}});
 const regla=(id:string,p:Partial<Regla>&{nombre:string}):Fragmento=>({tipo:'cuando',datos:{...nuevaRegla(),...p,id:'plantilla-'+id}});
-const NOMBRE_KION:Record<keyof typeof PLANTILLAS_REACCION,{nombre:string;descripcion:string}>={
+const NOMBRE_KION:Record<string,{nombre:string;descripcion:string}>={
  inercia:{nombre:'Inercia',descripcion:'Salvación CD 14: detiene la mitad y deja actuar a otra defensa'},
  absorcion:{nombre:'Absorción',descripcion:'Ante magia: detiene 6 y guarda energía'},
  reflejo:{nombre:'Reflejo',descripcion:'En forma Limitless: detiene 4 y lo devuelve'},
  reciproco:{nombre:'Recíproco',descripcion:'Devuelve hasta 6 de lo que otra defensa detuvo'},
  ancla:{nombre:'Ancla',descripcion:'Fuera de Limitless: detiene 4 de cada golpe físico'},
 };
-const KION:Plantilla[]=(Object.keys(PLANTILLAS_REACCION) as (keyof typeof PLANTILLAS_REACCION)[]).map(k=>({
- id:'kion-'+k,nombre:`${NOMBRE_KION[k].nombre} (Kion)`,descripcion:NOMBRE_KION[k].descripcion,icono:'escudo',para:'habilidad',
+const KION:Plantilla[]=Object.keys(PLANTILLAS_REACCION).map(k=>({
+ id:'kion-'+k,nombre:`${NOMBRE_KION[k].nombre} (plantilla)`,descripcion:NOMBRE_KION[k].descripcion,icono:'escudo',para:'habilidad',
  fragmentos:[accion('kion-'+k,{nombre:NOMBRE_KION[k].nombre,cantidad:0,coste_ph:2,ley_limitless:true,reaccion:structuredClone(PLANTILLAS_REACCION[k])})],
 }));
 

@@ -45,7 +45,7 @@ import {
   retirar,
   iniciar,
   siguiente,
-  actuarConReacciones,responderReaccion,turnoConReacciones,
+  actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,
   acciones,
   estadisticas,
   maxVida,
@@ -80,6 +80,9 @@ import {describirEfecto,describirRegla,ayudaGuardia} from "../../../lib/descripc
 import ContenidoAyuda from "../../../components/ContenidoAyuda";
 import "./combate.css";
 import "./diseno.css";
+import {useDialogo} from "../../../components/Dialogo";
+import MenuReaccion,{EsperandoReaccion} from "../../../components/MenuReaccion";
+import ControlArtefactoGM,{type ArtefactoGM} from "../../../components/ControlArtefactoGM";
 type Personaje = {
   balance_ipe?:number|null;
   imagen_url?:string;
@@ -110,9 +113,13 @@ type Preparado = {
 type RespuestaAccion={id:string;version:number;datos?:Combate;pasos_deshacer?:number;repetida?:boolean;sql_ms?:number};
 type Guardado = { id: string; nombre: string; version: number };
 export default function CampoCombate() {
+  const {confirmar}=useDialogo();
   const [centro,setCentro]=useState<import("../../../lib/combate").Posicion|null>(null);
   const [modoMovimiento,setModoMovimiento]=useState(false);
   const [invocar,setInvocar]=useState<Fuente|null>(null);
+  // Artefactos con voces o espejo: el GM los usa desde la tarjeta de cada combatiente.
+  const [artefactosGM,setArtefactosGM]=useState<ArtefactoGM[]>([]);
+  useEffect(()=>{let vivo=true;void supabase.from('forja_maestra').select('id,nombre,configuracion_artefacto').not('configuracion_artefacto','is',null).then(r=>{if(vivo&&!r.error)setArtefactosGM((r.data||[]) as ArtefactoGM[]);});return()=>{vivo=false;};},[]);
   const [catalogo, setCatalogo] = useState<Personaje[]>([]),
     [partidas, setPartidas] = useState<Guardado[]>([]),
     [c, setC] = useState<Combate>(nuevoCombate),
@@ -144,7 +151,7 @@ export default function CampoCombate() {
   });
   const oferta=c.reaccion_pendiente?.oferta;
   const defensor=c.miembros.find(m=>m.id===oferta?.defensor);
-  const decideGM=defensor&&(defensor.bando==='enemigo'||!defensor.personaje_id);
+  const decideGM=!!defensor&&reaccionLaDecideGM(defensor);
   const bloqueado=ocupado||segura.pendiente||!!oferta;
 
   const [objetosMochila,setObjetosMochila]=useState<{id:string;nombre:string}[]>([]);
@@ -297,9 +304,7 @@ export default function CampoCombate() {
   }
   async function quitar(m: Combatiente) {
     if (
-      !window.confirm(
-        `¿Retirar a ${m.nombre} del combate? Su ficha e inventario se conservan.`,
-      )
+      !(await confirmar({titulo:'Retirar combatiente',mensaje:`¿Retirar a ${m.nombre} del combate? Su ficha e inventario se conservan.`,aceptar:'Retirar',peligro:true}))
     )
       return;
     await ejecutar(() => guardar(retirar(c, m.id)));
@@ -345,7 +350,7 @@ export default function CampoCombate() {
   async function borrarEncuentro() {
     if (
       !version ||
-      !window.confirm(`¿Eliminar definitivamente el encuentro «${nombre}»?`)
+      !(await confirmar({titulo:'Eliminar encuentro',mensaje:`¿Eliminar definitivamente el encuentro «${nombre}»?`,aceptar:'Eliminar',peligro:true}))
     )
       return;
     await ejecutar(async () => {
@@ -801,15 +806,15 @@ export default function CampoCombate() {
             </p>
           ))}
         </details>
+        <ControlArtefactoGM c={c} m={m} artefactos={artefactosGM} ocupado={bloqueado} aplicar={f=>void ejecutar(()=>guardar(f(c)))}/>
       </article>
     );
   }
   return (
     <main className="battle-theme">
-      {oferta&&<section aria-live="polite" className="rounded border border-amber-600 bg-neutral-950 p-4">
-       <strong>{oferta.nombre} puede usar {oferta.reaccion} · {oferta.coste} PH</strong>
-       {decideGM?<div>{[true,false].map(si=><button type="button" key={String(si)} className="m-2 rounded border p-2" disabled={ocupado||segura.pendiente} onClick={()=>void ejecutar(()=>guardar(responderReaccion(c,oferta.defensor,si)))}>{si?'Usar reacción':'Dejar pasar'}</button>)}</div>:<p>Esperando la decisión del jugador.</p>}
-      </section>}
+      {oferta&&(decideGM
+       ?<MenuReaccion oferta={oferta} ocupado={ocupado||segura.pendiente} onDecidir={si=>void ejecutar(()=>guardar(responderReaccion(c,oferta.defensor,si)))}/>
+       :<EsperandoReaccion nombre={oferta.nombre}/>)}
       {roll && c.fase !== "en_curso" && (
         <AnimacionDados
           key={JSON.stringify(roll)}
@@ -963,10 +968,10 @@ export default function CampoCombate() {
           <button
             className="battle-button"
             disabled={bloqueado}
-            onClick={() => {
-              if (window.confirm("¿Terminar este combate?"))
+            onClick={() => void (async () => {
+              if (await confirmar({titulo:"Terminar combate",mensaje:"¿Terminar este combate?",aceptar:"Terminar"}))
                 void ejecutar(() => guardar(finalizar(c)));
-            }}
+            })()}
           >
             Terminar combate
           </button>

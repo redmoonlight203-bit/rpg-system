@@ -7,6 +7,7 @@ import {useTiempoReal} from '../lib/useTiempoReal';
 import {describirRegla} from '../lib/descripciones';
 import type {Regla} from '../lib/reglas';
 import ImagenIconoLogro from './ImagenIconoLogro';
+import {useDialogo} from "./Dialogo";
 
 export type TituloCuenta={id:string;nombre:string;descripcion:string;imagen_url:string|null;icono:string|null;stats:Record<string,number>;reglas:Regla[]|null;reglas_pasivas:{nombre:string}[]|null;especial:boolean;afecta_party:boolean;efecto_narrativo:string;origen:string};
 type PersonajeCuenta={id:number;nombre:string;titulo_activo:string|null;es_companero:boolean|null;party_activo:boolean|null;estado_vida:string|null};
@@ -94,10 +95,11 @@ export function VentajasTitulos({usuario,contexto='negociación'}:{usuario:strin
 
 /** Panel del GM: retirar cualquier título de una cuenta, en cualquier momento. */
 export function RetirarTitulos({cuentas}:{cuentas:{id:string;email:string}[]}){
+  const {confirmar}=useDialogo();
  const [cuenta,setCuenta]=useState(''),[titulos,setTitulos]=useState<TituloCuenta[]>([]),[error,setError]=useState(''),[aviso,setAviso]=useState(''),[ocupado,setOcupado]=useState(false);
  const cargar=useCallback(async(id:string)=>{setError('');if(!id){setTitulos([]);return;}try{setTitulos(await cargarTitulosCuenta(id));}catch(e){setError(mensajeError(e,'No se pudieron cargar los títulos.'));}},[]);
  async function retirar(t:TituloCuenta){
-  if(!window.confirm(`¿Retirar «${t.nombre}» de esta cuenta? Los personajes que lo lleven quedarán sin título. En un combate ya en curso su efecto dura hasta que termine.`))return;
+  if(!(await confirmar({titulo:'Retirar título',mensaje:`¿Retirar «${t.nombre}» de esta cuenta? Los personajes que lo lleven quedarán sin título. En un combate ya en curso su efecto dura hasta que termine.`,aceptar:'Retirar',peligro:true})))return;
   setOcupado(true);setError('');setAviso('');
   try{const r=await supabase.rpc('titulo_retirar',{p_usuario:cuenta,p_titulo:t.id});if(r.error)throw r.error;setAviso(`«${t.nombre}» retirado.`);await cargar(cuenta);}
   catch(e){setError(mensajeError(e,'No se pudo retirar el título.'));}finally{setOcupado(false);}

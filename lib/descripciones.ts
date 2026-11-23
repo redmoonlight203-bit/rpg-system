@@ -1,6 +1,7 @@
 import {formula, type Efecto, type Reaccion, type ResultadoReaccion} from './creacion';
 import {type Regla, type EfectoRegla, type CondicionRegla} from './reglas';
 import {describirVision} from './vision';
+import {disparadorDe,lineaCosteReaccion} from "./reacciones";
 export type AyudaClara={resumen:string;detalles:string[]};
 const elementos:Record<string,string>={fuego:'fuego',agua:'agua',hielo:'hielo',electricidad:'electricidad',luz_sagrada:'luz sagrada'};
 const atributo=(s:string)=>({vida:'vida máxima',hp:'vida máxima',vida_actual:'vida actual',ph:'PH',ph_actual:'PH actuales',fatiga:'Fatiga máxima',fatiga_actual:'Fatiga actual',armadura:'armadura',bono_impacto:'bonificación al ataque',salvacion:'bonificación de salvación'}[s]||s.replaceAll('_',' '));
@@ -88,20 +89,39 @@ export function describirRegla(r:Regla):AyudaClara{
  return {resumen:(typeof r.descripcion==="string"&&r.descripcion.trim())||r.efectos.map(efectoReglaClaro).slice(0,2).join(' ')||'Activa los efectos configurados.',detalles:[condicionClara(r.condicion),...r.efectos.slice(0,6).map(efectoReglaClaro),...(r.coste_ph?[`Consume ${r.coste_ph} PH.`]:[]),...(r.coste_fatiga?[`Genera ${r.coste_fatiga} de Fatiga.`]:[]),...(r.enfriamiento?[`Debes esperar ${r.enfriamiento} turnos antes de volver a usarla.`]:[]),...(r.limite_por_turno?[`Máximo ${r.limite_por_turno} activación(es) por turno.`]:[])]};
 }
 export const ayudaGuardia:AyudaClara={resumen:'Adopta una postura defensiva para protegerte.',detalles:['Ganas 2 de armadura hasta tu siguiente turno.','Consume tu acción.']};
-/** Frase en vivo de la reacción, en el idioma de la mesa. */
-export function describirReaccion(r:Reaccion):string{
- if(r.esquiva_opuesta)return `Tira 1d${r.esquiva_opuesta.caras} contra el ataque. Si iguala o supera, esquiva y contraataca por 1d${r.esquiva_opuesta.contra_caras}. Si queda por debajo, recibe la mitad del daño.${r.una_por_ronda?' Una vez por ronda.':''}`;
+/** Frase en vivo de la reacción, en el idioma de la mesa. Termina con la línea de coste (lineaCosteReaccion). */
+export function describirReaccion(r:Reaccion,costeAccion=0):string{
+ const coste=` Coste: ${lineaCosteReaccion(r,costeAccion)}.`;
+ if(r.esquiva_opuesta)return `Tira 1d${r.esquiva_opuesta.caras} contra el ataque. Si iguala o supera, esquiva y contraataca por 1d${r.esquiva_opuesta.contra_caras}. Si queda por debajo, recibe la mitad del daño.`+coste;
  const partes:string[]=[];
  const ante=r.naturaleza==='magica'?'un golpe mágico':r.naturaleza==='fisica'?'un golpe físico':'cualquier golpe';
  const forma=r.forma?` estando en la forma «${r.forma}»`:r.sin_forma?` si no está en la forma «${r.sin_forma}»`:'';
- const res=(x:ResultadoReaccion|undefined,que:string)=>{const f:string[]=[];if(x?.devolver)f.push(`devuelve ${x.devolver.maximo?`hasta ${x.devolver.maximo} de `:''}${que} al atacante`);if(x?.reservar)f.push(`guarda ${Math.round(x.reservar.proporcion*100)} % de ${que} en «${x.reservar.recurso}» (máximo ${x.reservar.maximo})`);return f;};
+ const dadosContra=(c:NonNullable<ResultadoReaccion['contraatacar']>)=>`${c.cantidad}d${c.caras}${c.modificador?(c.modificador>0?'+':'')+c.modificador:''}`;
+ const reducir=(x:NonNullable<NonNullable<Reaccion['principal']>['reducir']>)=>x.modo==='todo'?'detiene todo el daño':x.modo==='mitad'?'detiene la mitad del daño':`detiene hasta ${x.valor||0} de daño`;
+ const res=(x:ResultadoReaccion|undefined,que:string,contra='al atacante')=>{const f:string[]=[];if(x?.devolver)f.push(`devuelve ${x.devolver.maximo?`hasta ${x.devolver.maximo} de `:''}${que} al atacante`);if(x?.reservar)f.push(`guarda ${Math.round(x.reservar.proporcion*100)} % de ${que} en «${x.reservar.recurso}» (máximo ${x.reservar.maximo})`);if(x?.contraatacar)f.push(`contraataca ${dadosContra(x.contraatacar)} ${contra}`);if(x?.repetir_tirada)f.push('repite la tirada y se queda con la segunda');return f;};
+ const d=disparadorDe(r),cerca=`a ${r.alcance||1} ${(r.alcance||1)===1?'casilla':'casillas'}`;
  if(r.principal){
-  const p=r.principal;
-  partes.push(`Al recibir ${ante}${forma}, ${p.salvacion?`tira salvación de ${p.salvacion.atributo} CD ${p.salvacion.cd} y, si la supera, `:''}${p.reducir.modo==='todo'?'detiene todo el daño':p.reducir.modo==='mitad'?'detiene la mitad del daño':`detiene hasta ${p.reducir.valor||0} de daño`}`);
-  partes.push(...res(p,'lo detenido'));
-  if(p.permite_seguimiento)partes.push('y da paso a una reacción de seguimiento');
+  const p=r.principal,salva=p.salvacion?`tira salvación de ${p.salvacion.atributo} CD ${p.salvacion.cd} y, si la supera, `:'';
+  if(d==='despues_ser_atacado'){
+   partes.push(`Al recibir ${ante}${forma}, ${salva}${p.reducir?reducir(p.reducir):'responde'}`);
+   partes.push(...res(p,'lo detenido'));
+   if(p.permite_seguimiento)partes.push('y da paso a una reacción de seguimiento');
+  }else{
+   const inicio:Record<string,string>={
+    antes_ser_atacado:`Antes de que te ataquen con ${ante}${forma}`,
+    tras_fallar_ataque:'Tras fallar un ataque',
+    tras_fallar_prueba:'Tras fallar una salvación',
+    aliado_atacado:`Cuando atacan a un aliado ${cerca}`,
+    aliado_ataca:`Cuando un aliado golpea a un enemigo ${cerca}`,
+    aliado_cae:`Cuando cae un aliado ${cerca}`,
+    apuntado_por_area:`Al quedar dentro de un área con ${ante}`,
+    fin_de_turno:`Cuando un enemigo ${cerca} termina su turno`,
+   };
+   const hace=[...(p.interponerse?['se interpone y recibe el ataque']:[]),...(p.reducir?[reducir(p.reducir)]:[]),...res(p,'lo detenido',d==='aliado_ataca'?'al objetivo':d==='aliado_cae'?'a quien lo derribó':d==='fin_de_turno'?'a ese enemigo':'al atacante')];
+   partes.push(`${inicio[d]}, ${salva}${hace.join(', ')||'responde'}`);
+  }
  }else if(r.seguimiento){
   partes.push(`Tras otra reacción que detuvo ${ante}${forma}`);partes.push(...res(r.seguimiento,'lo detenido'));
  }
- return partes.join(', ')+'.';
+ return partes.join(', ')+'.'+coste;
 }

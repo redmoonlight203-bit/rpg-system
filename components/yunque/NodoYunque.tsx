@@ -47,6 +47,7 @@ export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=fals
   </header>
   <div className="yq-nodo-cuerpo" style={{minHeight:outs.length?outs.length*GEO.fila+(GEO.salidaY0-GEO.cab)+6:undefined,paddingRight:outs.length?104:undefined}}>
    <p className="yq-nodo-frase">{nodo.frase||'—'}</p>
+   {nodo.insignia&&<p className="yq-nodo-insignia" title="Coste, usos y enfriamiento"><span aria-hidden="true">◈</span>{nodo.insignia}</p>}
    {nodo.error&&<p className="yq-nodo-error">{nodo.error}</p>}
   </div>
   {entrada&&<span className="yq-puerto yq-puerto--entrada" data-puerto="entrada" data-lado="entrada" style={{top:GEO.entradaY}} aria-hidden="true"/>}

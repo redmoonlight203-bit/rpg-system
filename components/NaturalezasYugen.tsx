@@ -9,6 +9,7 @@ import {type Efecto,validarEfectos} from '../lib/creacion';
 import {type ReglaPasiva,validarPasivas} from '../lib/pasivas';
 import {type Regla,validarReglas} from '../lib/reglas';
 import {supabase} from '../lib/supabase';
+import {useDialogo} from "./Dialogo";
 
 type Pasiva={id?:string;nombre:string;reglas?:ReglaPasiva[];reglas_motor?:Regla[];[key:string]:unknown};
 type Habilidad={id?:string;nombre:string;stats?:Record<string,number>;efectos?:Efecto[];reglas?:Regla[];[key:string]:unknown};
@@ -23,6 +24,7 @@ const pasos=['Identidad','Bonos','Poderes','Revisar y guardar'];
 const descripcionKemono='Portador de una bestia sellada en su interior. Conserva su raza de origen y su pasiva racial. El vínculo con la bestia puede conceder energía, habilidades y transformaciones; sus poderes y el riesgo de perder el control dependen de la bestia y del sello.';
 
 export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=false}:{personajeId?:number;onCambio?:()=>void;soloCatalogo?:boolean}){
+  const {confirmar}=useDialogo();
  const [catalogo,setCatalogo]=useState<Creacion[]>([]),[naturalezas,setNaturalezas]=useState<Naturaleza[]>([]),[vinculos,setVinculos]=useState<Vinculo[]>([]);
  const [atributos,setAtributos]=useState<{clave:string;etiqueta:string}[]>([]);
  const [nombre,setNombre]=useState(''),[descripcion,setDescripcion]=useState(''),[mod,setMod]=useState<Record<string,number>>({});
@@ -59,8 +61,8 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
   setEditId(n?.id||'');setNombre(n?.nombre||'');setDescripcion(n?.descripcion||'');setMod({...n?.modificadores});
   setPasivas(n?.pasivas||[]);setHabilidades(n?.habilidades||[]);setReglas(n?.reglas||{});setPaso(0);setError('');setMensaje('');
  }
- function kemono(){
-  if((nombre||descripcion||Object.keys(mod).length||pasivas.length||habilidades.length||reglas.motor?.length)&&!window.confirm('¿Sustituir el borrador por el ejemplo de Kemono?'))return;
+ async function kemono(){
+  if((nombre||descripcion||Object.keys(mod).length||pasivas.length||habilidades.length||reglas.motor?.length)&&!(await confirmar({titulo:'Ejemplo de Kemono',mensaje:'¿Sustituir el borrador por el ejemplo de Kemono?',aceptar:'Sustituir'})))return;
   editar();setNombre('Kemono');setDescripcion(descripcionKemono);setMensaje('Ejemplo preparado. Elige los bonos y poderes de tu bestia; todavía no se ha guardado.');
  }
  async function guardar(){
@@ -87,7 +89,7 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
   });
  }
  async function activar(v:Vinculo){await ejecutar(async()=>{const r=await supabase.from('personaje_naturalezas').update({activa:!v.activa}).eq('id',v.id).select('id').single();if(r.error)throw Error(r.error.message);setMensaje(v.activa?'Naturaleza suspendida. Sus bonos se han retirado.':'Naturaleza reactivada.');});}
- async function retirar(v:Vinculo){if(!window.confirm('¿Retirar esta naturaleza y sus bonos del personaje?'))return;await ejecutar(async()=>{const r=await supabase.from('personaje_naturalezas').delete().eq('id',v.id).select('id').single();if(r.error)throw Error(r.error.message);setMensaje('Naturaleza retirada.');});}
+ async function retirar(v:Vinculo){if(!(await confirmar({titulo:'Retirar naturaleza',mensaje:'¿Retirar esta naturaleza y sus bonos del personaje?',aceptar:'Retirar',peligro:true})))return;await ejecutar(async()=>{const r=await supabase.from('personaje_naturalezas').delete().eq('id',v.id).select('id').single();if(r.error)throw Error(r.error.message);setMensaje('Naturaleza retirada.');});}
  function quitarBono(k:string){setMod(prev=>Object.fromEntries(Object.entries(prev).filter(([clave])=>clave!==k)));}
  function cambiarEstadistica(anterior:string,nueva:string){if(!nueva||nueva===anterior)return;setMod(prev=>Object.fromEntries(Object.entries(prev).map(([k,v])=>[k===anterior?nueva:k,v])));}
  function vincular(id:string){const f=catalogo.find(c=>c.id===id);if(!f)return;if(f.tipo_creacion==='pasiva'){if(!pasivas.includes(id))setPasivas([...pasivas,id]);}else if(!habilidades.includes(id))setHabilidades([...habilidades,id]);}
@@ -103,7 +105,7 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
   </section>}
   <details open={soloCatalogo} className="space-y-4"><summary className="cursor-pointer font-semibold">Catálogo y creación de naturalezas ({naturalezas.length})</summary>
    {!!naturalezas.length&&<div className="mt-4 grid gap-2 sm:grid-cols-2">{naturalezas.map(n=><button type="button" key={n.id} disabled={ocupado} className={btn+' text-left'} onClick={()=>editar(n)}><strong className="block">{n.nombre}</strong><span className="text-xs text-neutral-400">{n.descripcion||'Editar esta naturaleza'}</span></button>)}</div>}
-   <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><h4 className="font-semibold">{editId?'Editar naturaleza':'Crear una naturaleza'}</h4><div className="flex gap-2"><button type="button" className={btn} disabled={ocupado} onClick={kemono}>Empezar con Kemono</button><button type="button" className={btn} disabled={ocupado} onClick={()=>{if(!nombre||window.confirm('¿Descartar el borrador y empezar otra naturaleza?'))editar();}}>Nueva desde cero</button></div></div>
+   <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><h4 className="font-semibold">{editId?'Editar naturaleza':'Crear una naturaleza'}</h4><div className="flex gap-2"><button type="button" className={btn} disabled={ocupado} onClick={()=>void kemono()}>Empezar con Kemono</button><button type="button" className={btn} disabled={ocupado} onClick={()=>void (async()=>{if(!nombre||await confirmar({titulo:'Nueva naturaleza',mensaje:'¿Descartar el borrador y empezar otra naturaleza?',aceptar:'Descartar',peligro:true}))editar();})()}>Nueva desde cero</button></div></div>
    <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Pasos para crear una naturaleza">{pasos.map((p,i)=><button type="button" key={p} disabled={ocupado} aria-current={paso===i?'step':undefined} className={`${btn} text-left ${paso===i?'border-emerald-500 bg-emerald-950/40':''}`} onClick={()=>setPaso(i)}><small className="block text-neutral-400">PASO {i+1}</small>{p}</button>)}</nav>
    <fieldset disabled={ocupado} className={panel}>
    {paso===0&&<><legend className="px-1 font-semibold">¿Qué ha cambiado en el personaje?</legend><label className="block text-sm">Nombre de la naturaleza<input className={input} maxLength={120} value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Kemono, vampirismo, bendición…"/></label><label className="block text-sm">Descripción<textarea className={input} rows={4} value={descripcion} onChange={e=>setDescripcion(e.target.value)} placeholder="Cómo se adquiere, qué representa y de dónde vienen sus poderes."/></label>{nombre.toLowerCase().includes('kemono')&&<div className="rounded-lg border border-amber-900 bg-amber-950/20 p-3 text-sm text-amber-200"><strong>Kemono: una bestia sellada dentro</strong><p className="mt-2">Su raza original se conserva. Los bonos, habilidades y transformaciones dependen de la bestia que lleva dentro.</p><p className="mt-2">Puedes crear variantes como «Kemono — nombre de la bestia» si cada bestia concede poderes distintos. Al aplicarla a un personaje, podrás registrar su bestia y su sello.</p></div>}</>}

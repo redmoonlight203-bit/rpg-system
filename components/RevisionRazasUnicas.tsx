@@ -5,6 +5,7 @@ import {mensajeError} from "../lib/errores";
 import {supabase} from "../lib/supabase";
 import {atributosBaseRaza, type Atributo, type PropuestaRaza} from "../lib/personajes";
 import IconoYugen from "./IconoYugen";
+import {useDialogo} from "./Dialogo";
 
 /** Revisión del GM: aprobar publica la raza en Reglas y estadísticas; rechazar la borra sin rastro. */
 export default function RevisionRazasUnicas({
@@ -18,6 +19,7 @@ export default function RevisionRazasUnicas({
   cuentas: {id: string; email: string}[];
   onResuelta: (mensaje: string) => void;
 }) {
+  const {confirmar}=useDialogo();
   const [comentarios, setComentarios] = useState<Record<string, string>>({}),
     [ocupado, setOcupado] = useState(false),
     [error, setError] = useState("");
@@ -27,11 +29,11 @@ export default function RevisionRazasUnicas({
     if (bloqueo.current) return;
     const comentario = (comentarios[p.id] || "").trim();
     if (
-      !window.confirm(
+      !(await confirmar(
         aprobar
-          ? `¿Aprobar «${p.nombre}»? Se publicará como raza en Reglas y estadísticas y solo su autor podrá elegirla.`
-          : `¿Rechazar «${p.nombre}»? La raza se borrará y el jugador solo verá tu comentario.`,
-      )
+          ? {titulo:'Aprobar raza',mensaje:`¿Aprobar «${p.nombre}»? Se publicará como raza en Reglas y estadísticas y solo su autor podrá elegirla.`,aceptar:'Aprobar'}
+          : {titulo:'Rechazar raza',mensaje:`¿Rechazar «${p.nombre}»? La raza se borrará y el jugador solo verá tu comentario.`,aceptar:'Rechazar',peligro:true},
+      ))
     )
       return;
     bloqueo.current = true;

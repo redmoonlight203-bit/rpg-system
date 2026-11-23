@@ -1,0 +1,69 @@
+/* Artefacto con nivel: senda de gemas, pestañas y tablas (design.md v3). */
+.ya-artefacto{display:grid;gap:12px}
+.ya-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ya-despertar{justify-self:start;min-height:44px;padding:10px 18px;font:700 14px var(--font-display);letter-spacing:.05em;color:var(--color-ink);background:linear-gradient(180deg,var(--color-gold-soft),var(--color-gold));border:1px solid var(--color-gold-bright);cursor:pointer;box-shadow:0 8px 24px -10px color-mix(in srgb,var(--color-gold) 80%,transparent)}
+.ya-quitar{font:600 12px var(--font-sans);color:var(--color-text-muted);background:none;border:1px solid var(--color-line);padding:6px 10px;cursor:pointer}
+.ya-pestanas{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--color-line)}
+.ya-pestanas button{padding:8px 12px;font:600 13px var(--font-display);letter-spacing:.04em;color:var(--color-text-muted);background:none;border:0;border-bottom:2px solid transparent;cursor:pointer}
+.ya-pestanas button[aria-selected=true]{color:var(--color-gold-bright);border-bottom-color:var(--color-gold)}
+.ya-senda{position:relative;display:grid;gap:10px;margin:0;padding:0 0 0 4px;list-style:none}
+.ya-senda::before{content:"";position:absolute;left:25px;top:20px;bottom:20px;width:2px;background:linear-gradient(180deg,var(--color-gold),color-mix(in srgb,var(--color-arcane) 70%,transparent))}
+.ya-senda li{position:relative;display:grid;gap:8px}
+.ya-gema{display:flex;align-items:center;gap:12px;width:100%;padding:0;text-align:left;background:none;border:0;color:var(--color-text);cursor:pointer}
+.ya-gema-num{position:relative;display:grid;place-items:center;flex:0 0 auto;width:44px;height:44px;transform:rotate(45deg);border:2px solid var(--color-gold);background:radial-gradient(circle at 40% 35%,var(--color-overlay),var(--color-well));box-shadow:0 0 16px -4px color-mix(in srgb,var(--color-gold) 60%,transparent);font:700 16px var(--font-serif);color:var(--color-gold-bright)}
+.ya-gema-num{font-variant-numeric:tabular-nums}
+.ya-gema-num>b{transform:rotate(-45deg);font-weight:700}
+.ya-senda li.is-abierto .ya-gema-num{border-color:var(--color-arcane);box-shadow:0 0 22px -2px color-mix(in srgb,var(--color-arcane) 80%,transparent)}
+.ya-gema-texto{display:grid;gap:2px;min-width:0}
+.ya-gema-texto strong{font:700 15px var(--font-display);letter-spacing:.03em;color:var(--color-parchment);overflow-wrap:anywhere}
+.ya-gema-texto small{font:12.5px var(--font-sans);color:var(--color-text-muted);overflow-wrap:anywhere}
+.ya-nivel-cuerpo{display:grid;gap:8px;margin-left:56px;padding:10px;border:1px solid var(--color-line);background:var(--color-well)}
+.ya-condicion{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:8px}
+.ya-stats{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ya-stat{display:inline-flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--color-line);font:12.5px var(--font-sans)}
+.ya-stat input{width:64px}
+.ya-stat button{background:none;border:0;color:var(--color-text-muted);cursor:pointer}
+.ya-acciones{display:flex;flex-wrap:wrap;gap:8px}
+.ya-acciones button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;font:600 13px var(--font-sans);color:var(--color-text);background:var(--color-well);border:1px solid var(--color-line);cursor:pointer}
+.ya-acciones button.is-peligro{color:var(--color-danger-text)}
+@media (max-width:480px){.ya-nivel-cuerpo{margin-left:0}}
+.ya-formas{display:grid;gap:10px}
+.ya-buscar{display:flex;align-items:center;gap:8px}
+.ya-tabla{display:grid;gap:4px;max-height:360px;overflow:auto;margin:0;padding:0 4px 0 0;list-style:none}
+.ya-tabla li{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:6px}
+.ya-tabla input{width:100%;min-width:0}
+.ya-tirada{display:grid;place-items:center;height:32px;font:700 13px var(--font-serif);font-variant-numeric:tabular-nums;color:var(--color-gold-soft);border:1px solid var(--color-line);background:var(--color-well)}
+.ya-portadores{display:grid;gap:8px;padding-top:8px;border-top:1px solid var(--color-line)}
+.ya-empunar{display:flex;flex-wrap:wrap;gap:8px}
+.ya-empunar select{flex:1 1 160px;min-width:0}
+.ya-revelado{display:flex;align-items:center;gap:14px;padding:12px;border:1px solid var(--color-arcane);background:color-mix(in srgb,var(--color-arcane) 12%,var(--color-well))}
+.ya-revelado p{margin:0;font:14px/1.5 var(--font-sans);color:var(--color-parchment)}
+.ya-d100{display:grid;place-items:center;flex:0 0 auto;width:58px;height:58px;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);background:radial-gradient(circle at 40% 35%,var(--color-overlay),var(--color-well));border:0;font:700 20px var(--font-serif);font-variant-numeric:tabular-nums;color:var(--color-arcane);box-shadow:inset 0 0 0 2px var(--color-arcane);animation:ya-giro .2s linear infinite}
+.ya-revelado.is-listo .ya-d100{animation:ya-aterriza .35s cubic-bezier(.2,1.4,.4,1) both;color:var(--color-gold-bright)}
+.ya-lista-portadores{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.ya-lista-portadores li{display:grid;gap:2px;padding:6px 8px;border-left:3px solid var(--color-gold);background:var(--color-well);font:12.5px var(--font-sans);color:var(--color-text-muted)}
+.ya-lista-portadores strong{font:600 14px var(--font-display);color:var(--color-parchment)}
+@keyframes ya-giro{to{transform:rotate(360deg)}}
+@keyframes ya-aterriza{from{transform:scale(1.4)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.ya-d100,.ya-revelado.is-listo .ya-d100{animation:none}}
+.ya-absorcion{display:grid;gap:10px}
+.ya-barra-d100{display:flex;height:26px;overflow:hidden;border:1px solid var(--color-line-strong)}
+.ya-barra-d100 span{display:flex;align-items:center;padding-left:4px;min-width:0;font:700 10.5px var(--font-sans);color:var(--color-ink);overflow:hidden}
+.ya-tramos{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.ya-tramos li{display:grid;gap:6px;padding:8px 10px;border:1px solid var(--color-line);border-left:4px solid;background:var(--color-well)}
+.ya-rango{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.ya-rango label{display:grid;gap:2px;font:12px var(--font-sans);color:var(--color-text-muted)}
+.ya-rango input{width:70px}
+.ya-check{display:inline-flex!important;align-items:center;gap:6px}
+.ya-devorar{display:grid;gap:8px;padding:10px;border:1px dashed color-mix(in srgb,var(--color-crimson) 60%,transparent)}
+.ya-resultado{display:grid;gap:4px;padding:10px;border:1px solid var(--color-gold);background:color-mix(in srgb,var(--color-gold) 8%,var(--color-well));animation:ya-aterriza .35s cubic-bezier(.2,1.4,.4,1) both}
+.ya-resultado strong{font:700 15px var(--font-display);color:var(--color-gold-bright)}
+.ya-resultado span{font:13px var(--font-sans);color:var(--color-parchment)}
+.ya-sube{font:700 14px var(--font-display);color:var(--color-arcane);letter-spacing:.06em}
+@media (prefers-reduced-motion:reduce){.ya-resultado{animation:none}}
+.ya-voces{display:grid;gap:10px}
+.ya-lista-voces{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.ya-lista-voces li{display:grid;gap:6px;padding:8px 10px;border:1px solid var(--color-line);border-left:4px solid var(--color-crimson);background:var(--color-well)}
+.ya-lista-voces li.is-pregunta{border-left-color:var(--color-arcane)}
+.ya-lista-voces li.is-comentario{border-left-color:var(--color-text-muted)}
+.ya-gema{min-height:66px;padding-left:9px}.ya-senda::before{left:34px}

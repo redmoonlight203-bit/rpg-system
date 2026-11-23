@@ -6,6 +6,7 @@ import {supabase} from '../../../lib/supabase';
 import {mensajeError} from '../../../lib/errores';
 import {useTiempoReal} from '../../../lib/useTiempoReal';
 import {Cabecera} from '../../../components/layout/Cabecera';
+import {useDialogo} from "../../../components/Dialogo";
 
 type Clan={id:string;nombre:string;descripcion:string;color:string};
 type Miembro={clan_id:string;personaje_id:number};
@@ -17,6 +18,7 @@ const boton='inline-flex min-h-11 items-center justify-center gap-2 rounded-xs b
 const principal='inline-flex min-h-11 items-center justify-center gap-2 rounded-xs border border-gold bg-gold px-4 py-2 text-sm font-semibold text-ink disabled:opacity-45';
 
 export default function Clanes(){
+  const {confirmar}=useDialogo();
  const [clanes,setClanes]=useState<Clan[]>([]),[miembros,setMiembros]=useState<Miembro[]>([]),[personajes,setPersonajes]=useState<Personaje[]>([]),[heredables,setHeredables]=useState<Heredable[]>([]),[categorias,setCategorias]=useState<Categoria[]>([]);
  const [elegido,setElegido]=useState(''),[form,setForm]=useState<Omit<Clan,'id'>&{id?:string}>({nombre:'',descripcion:'',color:'#c0263a'}),[nuevo,setNuevo]=useState(''),[error,setError]=useState(''),[aviso,setAviso]=useState(''),[ocupado,setOcupado]=useState(false);
  const cargar=useCallback(async()=>{try{
@@ -54,7 +56,7 @@ export default function Clanes(){
      <label className="block">Descripción<textarea className={input} maxLength={4000} value={form.descripcion} onChange={e=>setForm({...form,descripcion:e.target.value})}/></label>
      <label className="inline-flex items-center gap-3">Color<input type="color" value={form.color} onChange={e=>setForm({...form,color:e.target.value})}/></label>
      <div className="flex flex-wrap gap-3"><button className={principal} disabled={ocupado||!form.nombre.trim()}>{form.id?'Guardar clan':'Crear clan'}</button>
-      {form.id&&<button type="button" className={boton} disabled={ocupado} onClick={()=>{if(window.confirm(`¿Borrar el clan «${clan?.nombre}»? Sus miembros perderán lo heredado de él.`))void operar(()=>supabase.from('clanes').delete().eq('id',form.id!),'Clan borrado.').then(()=>elegir(''));}}><Trash2 size={16} aria-hidden="true"/>Borrar</button>}</div>
+      {form.id&&<button type="button" className={boton} disabled={ocupado} onClick={()=>void (async()=>{if(await confirmar({titulo:'Borrar clan',mensaje:`¿Borrar el clan «${clan?.nombre}»? Sus miembros perderán lo heredado de él.`,aceptar:'Borrar',peligro:true}))void operar(()=>supabase.from('clanes').delete().eq('id',form.id!),'Clan borrado.').then(()=>elegir(''));})()}><Trash2 size={16} aria-hidden="true"/>Borrar</button>}</div>
     </form>
     {clan&&<>
      <section className="space-y-3 rounded-xs border border-neutral-700 p-4">

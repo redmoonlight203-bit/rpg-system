@@ -17,6 +17,8 @@ import SelectorIconoYugen from "./SelectorIconoYugen";
 import {describirEfecto,describirRegla,type AyudaClara} from "../lib/descripciones";
 import ContenidoAyuda from "./ContenidoAyuda";
 import "./galeria-creacion.css";
+import {useDialogo} from "./Dialogo";
+import {useRouter} from "next/navigation";
 
 export type PiezaGaleria = {
   formas_historia?: import("./FormasHistoria").FormaHistoria[];
@@ -168,6 +170,8 @@ function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onA
 }
 
 function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; props: Props<T>; volver: () => void }) {
+  const {confirmar}=useDialogo();
+  const router=useRouter();
   const [indiceForma, cambiarForma] = useState(0);
   const formas = item.formas_historia || [];
   const forma = formas[indiceForma] || formas[0];
@@ -189,7 +193,7 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
     window.addEventListener("beforeunload", salir);
     return () => window.removeEventListener("beforeunload", salir);
   }, [dirty]);
-  function navegar(fn: () => void) { if (!ocupado && (!dirty || window.confirm("Tienes una imagen sin guardar. ¿Descartar el cambio?"))) fn(); }
+  function navegar(fn: () => void) { if (ocupado) return; if (!dirty) { fn(); return; } void confirmar({titulo:"Imagen sin guardar",mensaje:"Tienes una imagen sin guardar. ¿Descartar el cambio?",aceptar:"Descartar",cancelar:"Seguir editando",peligro:true}).then((si) => { if (si) fn(); }); }
   async function archivo(file?: File) {
     if (!file || bloqueo.current) return;
     bloqueo.current = true; setProcesando(true); setError(""); setAviso("");
@@ -237,7 +241,7 @@ function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; pro
       {ocupado && <p role="status">{procesando ? "Preparando imagen…" : "Guardando imagen…"}</p>}{error && <p className="cg-error" role="alert">{error}</p>}{aviso && <p className="cg-success" role="status">{aviso}</p>}{dirty && <p className="cg-unsaved">Presentación sin guardar</p>}
     </aside>
     <div className="cg-detail-content"><div className="cg-detail-heading"><span className="cg-eyebrow">{TIPOS.find((t) => t.valor === tipo)?.nombre} / {props.clasificacion(item.tipo)}</span><h2 tabIndex={-1} ref={titulo}>{item.nombre}</h2><p>{item.descripcion || "Sin descripción."}</p><div className="cg-detail-tags"><span>Clase {item.clase || "D"}</span><span>{item.es_grupo ? "Malla · valores por rango" : "Único · valores fijos"}</span>{item.ligado_al_alma && <span>Ligado al alma</span>}</div></div>
-      <div className="cg-detail-actions"><button className="cg-button cg-primary" disabled={ocupado} onClick={() => navegar(() => props.onEditar(item))}><Pencil size={15} />Editar ficha</button><button className="cg-button" disabled={ocupado||!!item.alma_en_uso} onClick={() => props.onEntregar(item)}>{item.ligado_al_alma?(item.alma_en_uso?"Ya entregada · Restablece para recuperar":"Entregar única al baúl"):"Entregar"}</button>{tipo === "personaje" && !item.ligado_al_alma && <button className="cg-button" disabled={ocupado} onClick={() => props.onBatalla(item)}><Swords size={15} />Preparar batalla</button>}<Link className="cg-button" href={`${tipo === "personaje" ? "/dm/tienda-almas" : "/dm/mercado"}?forja=${item.id}`} onClick={(e) => { if (ocupado || (dirty && !window.confirm("¿Salir sin guardar la imagen?"))) e.preventDefault(); }}>Publicar en tienda</Link></div>
+      <div className="cg-detail-actions"><button className="cg-button cg-primary" disabled={ocupado} onClick={() => navegar(() => props.onEditar(item))}><Pencil size={15} />Editar ficha</button><button className="cg-button" disabled={ocupado||!!item.alma_en_uso} onClick={() => props.onEntregar(item)}>{item.ligado_al_alma?(item.alma_en_uso?"Ya entregada · Restablece para recuperar":"Entregar única al baúl"):"Entregar"}</button>{tipo === "personaje" && !item.ligado_al_alma && <button className="cg-button" disabled={ocupado} onClick={() => props.onBatalla(item)}><Swords size={15} />Preparar batalla</button>}<Link className="cg-button" href={`${tipo === "personaje" ? "/dm/tienda-almas" : "/dm/mercado"}?forja=${item.id}`} onClick={(e) => { if (!ocupado && !dirty) return; e.preventDefault(); const destino = e.currentTarget.href; if (!ocupado) void confirmar({titulo:"Imagen sin guardar",mensaje:"¿Salir sin guardar la imagen?",aceptar:"Salir",cancelar:"Seguir editando",peligro:true}).then((si) => { if (si) router.push(destino); }); }}>Publicar en tienda</Link></div>
       {!!atributos(item).length && <section className="cg-detail-section"><h3>Atributos</h3><dl className="cg-attribute-grid">{atributos(item).map(([key, value]) => <div key={key}><dt>{props.etiqueta(item, key)}</dt><dd>{valor(value)}</dd></div>)}</dl></section>}
       {!!acciones.length && <section className="cg-detail-section"><h3>Acciones y efectos</h3>{acciones.map((e) => <div className="cg-rule cg-action-help" key={e.id} tabIndex={0} aria-describedby={`efecto-ayuda-${e.id}`}><strong>{e.nombre || EFECTOS_NOMBRE[e.efecto]}</strong><p>{describirEfecto(e).resumen}</p><span className="cg-effect-tooltip" role="tooltip" id={`efecto-ayuda-${e.id}`}><ContenidoAyuda ayuda={describirEfecto(e)}/></span></div>)}</section>}
       {!!item.reglas_pasivas?.length && <section className="cg-detail-section"><h3>Pasivas</h3>{item.reglas_pasivas.map((r) => <div className="cg-rule" key={r.id}><strong>{r.nombre}</strong><p>{{ permanente: "Siempre activa", inicio_turno: "Al iniciar turno", recibir_ataque: "Al recibir ataque", recibir_impacto: "Al recibir impacto", recibir_dano: "Al recibir daño" }[r.evento]} · {{ siempre: "Siempre", vida_mitad: "Vida a la mitad", sin_arma: "Sin arma", ataque_magico: "Ataque mágico", ataque_natural: "Ataque natural", ataque_elemental: "Ataque elemental" }[r.condicion]}</p><p>{[r.reduccion_pct ? `Reduce ${r.reduccion_pct}% de daño` : "", r.curacion ? `Cura ${r.curacion}` : "", r.recuperar_ph ? `Recupera ${r.recuperar_ph} PH` : "", r.reducir_fatiga ? `Reduce ${r.reducir_fatiga} Fatiga` : "", r.represalia_dados ? `Represalia ${r.represalia_dados}d${r.represalia_caras}` : ""].filter(Boolean).join(" · ")}</p><p>{Object.entries(r.bonos || {}).filter(([, v]) => v).map(([key, v]) => `${props.etiqueta(item, key)} ${v > 0 ? "+" : ""}${v}`).join(" · ")}</p></div>)}</section>}

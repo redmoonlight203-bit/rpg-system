@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabase";
 import { mensajeError } from "../../../lib/errores";
 import { Cabecera, Secciones } from "../../../components/layout/Cabecera";
 import { Button } from "../../../components/ui/Button";
+import {useDialogo} from "../../../components/Dialogo";
 
 interface Deuda {
   id: string;
@@ -33,6 +34,7 @@ const GRUPO: Record<Filtro, string[]> = {
 };
 
 export default function DeudasKuroi() {
+  const {confirmar}=useDialogo();
   const [deudas, setDeudas] = useState<Deuda[]>([]);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
@@ -63,8 +65,8 @@ export default function DeudasKuroi() {
     if (nuevoEstado === "pendiente_pago_confirmacion") {
       // El servidor fija la fecha del cobro; el jugador tiene 2 días para confirmarlo o impugnarlo.
       updateData.fecha_pago_solicitado = new Date().toISOString();
-      if (!window.confirm("¿Cobrar este pacto? El jugador tendrá 2 días para confirmar el pago o impugnarlo.")) return;
-    } else if (!window.confirm(nuevoEstado === "aprobada" ? "¿Aprobar este pacto?" : "¿Rechazar este pacto? El jugador verá que fue rechazado.")) return;
+      if (!(await confirmar({titulo:"Cobrar pacto",mensaje:"¿Cobrar este pacto? El jugador tendrá 2 días para confirmar el pago o impugnarlo.",aceptar:"Cobrar"}))) return;
+    } else if (!(await confirmar(nuevoEstado === "aprobada" ? {titulo:"Aprobar pacto",mensaje:"¿Aprobar este pacto?",aceptar:"Aprobar"} : {titulo:"Rechazar pacto",mensaje:"¿Rechazar este pacto? El jugador verá que fue rechazado.",aceptar:"Rechazar",peligro:true}))) return;
 
     setOcupado(deudaId);
     const { error } = await supabase.from("deudas_kuroi").update(updateData).eq("id", deudaId);

@@ -11,6 +11,7 @@ import { destinosPersonaje, type DestinoPersonaje } from "../lib/personajes";
 import {Billetera,type Moneda} from "./Billetera";
 import {VentajasTitulos} from "./ColeccionTitulos";
 import "./tienda.css";
+import {useDialogo} from "./Dialogo";
 
 type Plantilla = { id:string; nombre:string; descripcion:string; tipo_creacion?:string; clase:string };
 type Oferta = {
@@ -22,6 +23,7 @@ type Oferta = {
 const estados = {disponible:"Disponible",negociando:"Negociación privada",aceptada:"Aceptada",retirada:"Retirada"};
 
 export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
+  const {confirmar}=useDialogo();
  const [ofertas,setOfertas]=useState<Oferta[]>([]),[plantillas,setPlantillas]=useState<Plantilla[]>([]);
  const [elegida,setElegida]=useState<Plantilla|null>(null),[descripcion,setDescripcion]=useState("");
  const [error,setError]=useState(""),[aviso,setAviso]=useState(""),[cargando,setCargando]=useState(true),[ocupado,setOcupado]=useState(false);
@@ -114,12 +116,12 @@ export function Tienda({gm=false,almas=false}:{gm?:boolean;almas?:boolean}) {
     {o.propuesta&&o.estado!=="disponible"&&<blockquote className="tienda-propuesta"><strong>Propuesta del jugador</strong>{o.propuesta}</blockquote>}
     <div className="tienda-card-actions">
      {o.estado==="disponible"&&(gm
-      ?<button disabled={ocupado} onClick={()=>{if(window.confirm(`¿Retirar «${o.nombre}» del escaparate?`))void operar("retirar",o.id);}}>Retirar oferta</button>
+      ?<button disabled={ocupado} onClick={()=>void (async()=>{if(await confirmar({titulo:"Retirar oferta",mensaje:`¿Retirar «${o.nombre}» del escaparate?`,aceptar:"Retirar",peligro:true}))void operar("retirar",o.id);})()}>Retirar oferta</button>
       :<button className="tienda-primary" disabled={ocupado} onClick={()=>abrirTrato(o)}>{o.modo_precio==="monedas"?"Solicitar compra":"Negociar"}</button>)}
      {gm&&esNegociacion&&<>
-      <button className="tienda-primary" disabled={ocupado} onClick={()=>{
-       if(o.modo_precio!=="monedas"||window.confirm(`¿Aceptar y descontar ${o.precio} ${monedaOferta} al jugador?`))void operar("aceptar",o.id);
-      }}>{o.modo_precio==="monedas"?"Aceptar y cobrar":"Aceptar"}</button>
+      <button className="tienda-primary" disabled={ocupado} onClick={()=>void (async()=>{
+       if(o.modo_precio!=="monedas"||await confirmar({titulo:"Cerrar trato",mensaje:`¿Aceptar y descontar ${o.precio} ${monedaOferta} al jugador?`,aceptar:"Aceptar y cobrar"}))void operar("aceptar",o.id);
+      })()}>{o.modo_precio==="monedas"?"Aceptar y cobrar":"Aceptar"}</button>
       <button disabled={ocupado} onClick={()=>void operar("rechazar",o.id)}>Rechazar</button>
      </>}
      {!gm&&esNegociacion&&<>

@@ -8,6 +8,7 @@ import {
   ArrowLeft, Handshake, Plus, Mail, Calendar, 
   Clock, CheckCircle2, AlertCircle, XCircle, Send, X, ShieldAlert 
 } from "lucide-react";
+import {useDialogo} from "../../../components/Dialogo";
 
 interface Deuda {
   id: string;
@@ -20,6 +21,7 @@ interface Deuda {
 }
 
 export default function DeudasKuroi() {
+  const {avisar}=useDialogo();
   const router = useRouter();
   const [deudas, setDeudas] = useState<Deuda[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -101,13 +103,13 @@ export default function DeudasKuroi() {
     }]);
 
     if (!error) {
-      alert("Promesa enviada a la bitácora de Kuroi.");
+      void avisar({titulo:"Pacto sellado",mensaje:"Promesa enviada a la bitácora de Kuroi."});
       setTitulo("");
       setMensaje("");
       setMostrarFormulario(false);
       cargarYProcesarDeudas();
     } else {
-      alert(mensajeError(error, "No se pudo registrar el pacto. Vuelve a intentarlo."));
+      void avisar({titulo:"El pacto no se selló",mensaje:mensajeError(error, "No se pudo registrar el pacto. Vuelve a intentarlo.")});
     }
     setEnviando(false);
   };
@@ -121,11 +123,11 @@ export default function DeudasKuroi() {
       .eq("id", deudaId);
 
     if (!error) {
-      alert(aceptar ? "Deuda saldada oficialmente." : "Pago impugnado. La deuda permanece activa.");
+      void avisar(aceptar ? {titulo:"Deuda saldada",mensaje:"Deuda saldada oficialmente."} : {titulo:"Pago impugnado",mensaje:"Pago impugnado. La deuda permanece activa."});
       setDeudaDetalle(null);
       cargarYProcesarDeudas();
     } else {
-      alert(mensajeError(error, "No se pudo registrar tu respuesta. Vuelve a intentarlo."));
+      void avisar({titulo:"Sin respuesta",mensaje:mensajeError(error, "No se pudo registrar tu respuesta. Vuelve a intentarlo.")});
     }
   };
 

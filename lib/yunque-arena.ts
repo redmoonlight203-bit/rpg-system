@@ -1,9 +1,10 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {vigente,type Grafo} from "./yunque-grafo";
-import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG} from "./combate";
+import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG,type OfertaReaccion} from "./combate";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
+import {normalizarReaccion} from "./reacciones";
 /**
  * Arena de dolls del Yunque: un combate aislado en el navegador sobre `lib/combate.ts`.
  * Nunca guarda nada ni toca la red. El portador («doll») lleva la creación del borrador;
@@ -323,8 +324,8 @@ export type Flotante={id:string;quien:'doll'|'saco';tipo:'dano'|'cura'|'absorbid
 function detenidoPor(c:Combate,quien:string,nombre:string,total:number):number{
  const m=c.miembros.find(x=>x.id===quien);
  const e=(m?.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).find(x=>x.nombre===nombre);
- const r=e?reaccionDe(e)?.principal:undefined;
- if(!r)return 0;
+ const r=e?reaccionDe(normalizarReaccion(e))?.principal:undefined;
+ if(!r?.reducir)return 0;
  return r.reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,r.reducir.valor||0);
 }
 /**
@@ -369,4 +370,24 @@ export function leerPaso(antes:Combate,despues:Combate,n:number):{flotantes:Flot
  const vidaAntes=doll?.vida??0,vidaDespues=despues.miembros.find(m=>m.id===DOLL)?.vida??0;
  poner('doll','cura',vidaDespues-vidaAntes+recibido.doll);
  return {flotantes,dados};
+}
+/** Una reacción ofrecida en la arena espera la decisión del GM: el paso se detiene sin tocar el combate. */
+export type PausaArena={oferta:OfertaReaccion;tiradas:{caras:number;valor:number}[];respuestas:boolean[]};
+/**
+ * Ejecuta un paso de la arena con reacciones interactivas. Si el motor ofrece una reacción sin respuesta,
+ * devuelve la pausa; al responder se repite el paso con las mismas tiradas y las respuestas ya dadas.
+ */
+export function pasoConReacciones(f:(c:Combate,rng:RNG)=>Combate,c:Combate,azar:RNG,previa?:PausaArena,respuesta?:boolean):{combate:Combate;tiradas:PausaArena['tiradas']}|{pausa:PausaArena}{
+ const tiradas=previa?previa.tiradas.map(t=>({...t})):[];
+ const respuestas=previa?[...previa.respuestas,...(respuesta===undefined?[]:[respuesta])]:[];
+ let dado=0,pregunta=0;
+ const rng:RNG=caras=>{
+  const previo=tiradas[dado++];
+  if(previo){if(previo.caras!==caras)throw Error('El golpe cambió mientras se decidía la reacción.');return previo.valor;}
+  const valor=azar(caras);tiradas.push({caras,valor});return valor;
+ };
+ const PAUSA={};let oferta:OfertaReaccion|null=null;
+ rng.consultarReaccion=o=>{if(pregunta===respuestas.length){oferta=o;throw PAUSA;}return respuestas[pregunta++];};
+ try{return {combate:f(c,rng),tiradas};}
+ catch(e){if(e!==PAUSA||!oferta)throw e;return {pausa:{oferta,tiradas,respuestas}};}
 }

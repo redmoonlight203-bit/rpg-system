@@ -386,3 +386,21 @@ test('alternar pieza: el título también se quita y se pone',()=>{
  const n=A.alternarPieza(c,()=>10);
  assert.equal(A.piezaEquipada(n),false);
 });
+
+test('pasoConReacciones pausa ante una oferta y reanuda con la respuesta, reutilizando las mismas tiradas',()=>{
+ const b=clon(F.antigua);b.tipo='habilidad';
+ const c=arena(b);
+ let dado=0;const azar=()=>[6,5,4,3,2,1][dado++%6];
+ const golpe=(x,rng)=>A.golpeame(x,{cantidad:2,caras:8,naturaleza:'magica'},rng);
+ const r1=A.pasoConReacciones(golpe,c,azar);
+ assert.ok(r1.pausa,'se detiene a preguntar');
+ assert.equal(r1.pausa.oferta.defensor,'doll');assert.equal(m(c,'doll').vida,40,'no toca el combate mientras espera');
+ const tiradas=clon(r1.pausa.tiradas);
+ const no=A.pasoConReacciones(golpe,c,azar,r1.pausa,false);
+ assert.ok(no.combate);assert.equal(40-m(no.combate,'doll').vida,11,'sin reacción recibe el golpe entero');
+ const si=A.pasoConReacciones(golpe,c,azar,r1.pausa,true);
+ assert.ok(si.combate);assert.equal(m(si.combate,'doll').recursos_especiales['Energía absorbida'],3);
+ assert.deepEqual(clon(r1.pausa.tiradas),tiradas,'la pausa no se muta');
+ const directo=A.pasoConReacciones((x,rng)=>A.golpeame(x,{cantidad:1,caras:4,naturaleza:'fisica'},rng),c,()=>2);
+ assert.ok(directo.combate,'sin oferta no hay pausa');
+});

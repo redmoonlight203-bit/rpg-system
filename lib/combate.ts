@@ -1,7 +1,10 @@
 import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
-import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion } from "./creacion";
+import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion, type ContraataqueReaccion } from "./creacion";
+import {proyectarVista,desproyectar,proyectarRespuesta,type OpcionesEspejo} from "./espejo-mental";
+import {activarVoz,avanzarVoz,vozNiega,type ConfigVoces,type EstadoVoz} from "./artefactos-voces";
+import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type DisparadorReaccion} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
@@ -86,6 +89,17 @@ export type Combatiente = {
   hechizos_aprendidos?:string[];
   ronda_asistida?:number;
   rondas_reacciones?:Record<string,number>;
+  /** Usos de cada reacción (por id de efecto): en el encuentro, en la ronda actual y la ronda del último uso. */
+  usos_reaccion?:Record<string,{encuentro:number;ronda:number;en_ronda:number;ultima:number}>;
+  /** Reducciones elegidas antes del golpe (antes_ser_atacado, aliado_atacado, área); recibir las consume. */
+  reduccion_reaccion?:NonNullable<NonNullable<Reaccion['principal']>['reducir']>[];
+  /** Voz de demonio del artefacto que empuña (la asigna el GM tras una salvación fallida). */
+  voz_artefacto?:EstadoVoz;
+  voz_config?:ConfigVoces;
+  /** Ya repitió la prueba contra una negativa en este encuentro. */
+  voz_resistida?:boolean;
+  /** Espejo mental: solo cambia lo que ve su jugador. `aviso` hasta que empiece su siguiente turno. */
+  espejo_mental?:OpcionesEspejo&{aviso:boolean};
   situacion?: Situacion;
   neutral?: boolean;
   contribucion?: number;
@@ -177,7 +191,9 @@ function ilustracionFuente(fuente: Pick<Fuente, "id" | "forja_id" | "imagen_url"
   const forja_id = fuente.forja_id || fuente.id;
   return forja_id || fuente.imagen_url ? { forja_id, imagen_url: fuente.imagen_url } : undefined;
 }
-export type OfertaReaccion={defensor:string;nombre:string;reaccion:string;coste:number;efecto:string};
+export type OfertaReaccion={defensor:string;nombre:string;reaccion:string;coste:number;efecto:string;disparador?:DisparadorReaccion;usos_restantes?:number|null;enfriamiento?:number;
+ /** Línea de coste, usos y enfriamiento (lineaCosteReaccion), la misma que en el Yunque y la ficha. */
+ linea?:string};
 type OrdenAtaque={actor:string;accion:string;objetivo:string;forzar:boolean;centro?:Posicion};
 type OrdenGolpe=OrdenAtaque|{turno:'siguiente'|'iniciar'}|{objeto:string;actor:string;efecto:string;objetivo:string};
 type SolicitudReaccion={oferta:OfertaReaccion;orden:OrdenGolpe;tiradas:{caras:number;valor:number}[];respuestas:boolean[]};
@@ -416,12 +432,20 @@ export function salvacion(
   rng: RNG = dadoSeguro,
 ) {
   const d = rng(20),
-    bono = estadisticas(m)[atributo] || 0,
-    exito = d + bono >= cd;
+    bono = estadisticas(m)[atributo] || 0;
+  let exito = d + bono >= cd;
   log(
     c,
     `${m.nombre}: salvación d20 (${d}) + ${atributo} (${bono}) = ${d + bono}, CD ${cd}: ${exito ? "superada" : "fallida"}.`,
   );
+  if (!exito && c.fase === "en_curso")
+    for (const r of evaluarReacciones(c, m, "tras_fallar_prueba")) {
+      if (!ofrecer(c, m, r, rng, "tras_fallar_prueba")) continue;
+      const d2 = rng(20);
+      exito = d2 + bono >= cd;
+      log(c, `${m.nombre} repite la salvación: d20 (${d2}) + ${atributo} (${bono}) = ${d2 + bono}, CD ${cd}: ${exito ? "superada" : "fallida"}.`);
+      break;
+    }
   return exito;
 }
 function tiene(m: Combatiente, tipo: string) {
@@ -502,18 +526,143 @@ function activarReglas(
     }
   }
 }
-/**
- * Defensas de Kion expresadas como datos de la primitiva «Reacción» (plan del Yunque general, fase 2).
- * Las creaciones antiguas con `defensa` usan estas plantillas; las nuevas configuran `reaccion` en la Forja.
- */
-export const PLANTILLAS_REACCION:Record<NonNullable<Efecto["defensa"]>,Reaccion>={
-  inercia:{prioridad:10,principal:{salvacion:{cd:14,atributo:'salvacion'},reducir:{modo:'mitad'},animacion:'axioma-defensa',permite_seguimiento:true}},
-  absorcion:{naturaleza:'magica',principal:{reducir:{modo:'fijo',valor:6},reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10},animacion:'axioma-conservacion'},seguimiento:{reservar:{recurso:'Energía absorbida',proporcion:0.5,maximo:10}}},
-  reflejo:{naturaleza:'fisica',forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},devolver:{},animacion:'axioma-reaccion'},seguimiento:{devolver:{maximo:10}}},
-  reciproco:{naturaleza:'fisica',sin_forma:'limitless',seguimiento:{devolver:{maximo:6}}},
-  ancla:{naturaleza:'fisica',sin_forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},animacion:'axioma-reaccion'}},
-};
-export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion||(e.defensa?PLANTILLAS_REACCION[e.defensa]:undefined);}
+export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion;}
+/** Efectos del combatiente con las defensas antiguas normalizadas a `reaccion` (sin escribir en el estado). */
+function efectosConReaccion(m:Combatiente):Efecto[]{return (m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).map(normalizarReaccion);}
+type ReaccionDisponible={p:Efecto;r:Reaccion;coste:number;restantes:number|null};
+/** Coste, usos y enfriamiento: null si ahora no se puede ofrecer. */
+function disponibilidad(c:Combate,t:Combatiente,p:Efecto,r:Reaccion):ReaccionDisponible|null{
+  const coste=t.transformacion?.definicion_id==='limitless'&&p.ley_limitless?0:(r.coste??p.coste_ph??0);
+  if(phDisponibles(t)<coste||(r.una_por_ronda&&t.rondas_reacciones?.[p.id]===c.ronda))return null;
+  const u=t.usos_reaccion?.[p.id];
+  if(r.enfriamiento&&u&&c.ronda<=u.ultima+r.enfriamiento)return null;
+  let restantes:number|null=null;
+  if(r.usos&&r.usos.tipo!=='ilimitado'){
+    const usados=r.usos.tipo==='encuentro'?(u?.encuentro||0):(u&&u.ronda===c.ronda?u.en_ronda:0);
+    restantes=(r.usos.maximo||1)-usados;
+    if(restantes<=0)return null;
+  }
+  return {p,r,coste,restantes};
+}
+/** Pregunta al dueño (rng.consultarReaccion) y, si la usa, paga PH y anota el uso. */
+function ofrecer(c:Combate,t:Combatiente,d:ReaccionDisponible,rng:RNG,disparador:DisparadorReaccion,anotar=true):boolean{
+  if(rng.consultarReaccion&&!rng.consultarReaccion({defensor:t.id,nombre:t.nombre,reaccion:d.p.nombre,efecto:d.p.id,coste:d.coste,disparador,usos_restantes:d.restantes,enfriamiento:d.r.enfriamiento||0,linea:lineaCosteReaccion({...d.r,coste:d.coste},0,d.restantes)}))return false;
+  if(d.r.una_por_ronda)t.rondas_reacciones={...t.rondas_reacciones,[d.p.id]:c.ronda};
+  if(d.r.usos||d.r.enfriamiento){
+    const u=t.usos_reaccion?.[d.p.id];
+    t.usos_reaccion={...t.usos_reaccion,[d.p.id]:{encuentro:(u?.encuentro||0)+1,ronda:c.ronda,en_ronda:(u&&u.ronda===c.ronda?u.en_ronda:0)+1,ultima:c.ronda}};
+  }
+  t.ph=phDisponibles(t)-d.coste;
+  if(anotar)log(c,t.nombre+' activa '+d.p.nombre+' ('+d.coste+' PH).');
+  return true;
+}
+/** Reacciones que el disparador ofrece ahora al dueño, por prioridad. `cerca`: a quién mide el alcance. */
+export function evaluarReacciones(c:Combate,dueno:Combatiente,disparador:DisparadorReaccion,contexto:{efecto?:Efecto;cerca?:Combatiente}={}):ReaccionDisponible[]{
+  if(!combatienteActivo(dueno))return [];
+  const forma=dueno.transformacion?.definicion_id,e=contexto.efecto;
+  const magico=!!e&&(e.naturaleza==='magica'||e.coste_ph>0);
+  const pos=contexto.cerca&&CON_ALCANCE.includes(disparador)?posicionesTablero(c):null;
+  return efectosConReaccion(dueno).map((p,i)=>({p,r:p.reaccion,i}))
+    .filter((x):x is {p:Efecto;r:Reaccion;i:number}=>!!x.r&&disparadorDe(x.r)===disparador)
+    .filter(({r})=>(!r.naturaleza||!e||(r.naturaleza==='magica')===magico)&&(!r.forma||forma===r.forma)&&(!r.sin_forma||forma!==r.sin_forma))
+    .filter(({r})=>!pos||!contexto.cerca||(!!pos[dueno.id]&&!!pos[contexto.cerca.id]&&distanciaCasillas(pos[dueno.id],pos[contexto.cerca.id])<=(r.alcance||1)))
+    .sort((x,y)=>(y.r.prioridad||0)-(x.r.prioridad||0)||x.i-y.i)
+    .map(x=>disponibilidad(c,dueno,x.p,x.r)).filter((d):d is ReaccionDisponible=>!!d);
+}
+function conMiembro(c:Combate,id:string,fn:(n:Combate,m:Combatiente)=>void){
+  return registrar(c,()=>{const n=copia(c),m=n.miembros.find(x=>x.id===id);if(!m)throw Error('Combatiente no encontrado.');fn(n,m);return n;});
+}
+/** Tomar el artefacto: salvación; si falla, la voz queda pendiente hasta que el GM la elija. */
+/** Sin nadie a quien preguntar, las reacciones del jugador no se gastan solas: se rechazan. */
+const sinPreguntar=(rng:RNG):RNG=>rng.consultarReaccion?rng:Object.assign((caras:number)=>rng(caras),{consultarReaccion:()=>false});
+export function tomarArtefacto(c:Combate,id:string,config:ConfigVoces,rng:RNG=dadoSeguro){
+  return conMiembro(c,id,(n,m)=>{
+    if(salvacion(n,m,config.cd,config.atributo,sinPreguntar(rng))){log(n,`${m.nombre} empuña el artefacto y acalla su voz.`);return;}
+    m.voz_artefacto={estado:'pendiente'};m.voz_config=copia(config);
+    log(n,`${m.nombre} empuña el artefacto: una voz se abre paso en su mente.`);
+  });
+}
+export function asignarVoz(c:Combate,id:string,vozId:string){
+  return conMiembro(c,id,(n,m)=>{
+    if(!m.voz_config)throw Error('Este combatiente no oye ninguna voz.');
+    m.voz_artefacto=activarVoz(m.voz_config,vozId);
+    log(n,`La voz habla a ${m.nombre}: «${m.voz_artefacto.estado==='activa'?m.voz_artefacto.texto:''}»`);
+  });
+}
+export function responderVoz(c:Combate,id:string,respuesta:string){
+  return conMiembro(c,id,(n,m)=>{
+    const v=m.voz_artefacto;
+    if(v?.estado!=='activa'||v.tipo!=='pregunta')throw Error('No hay ninguna pregunta que responder.');
+    if(v.respuesta)throw Error('Ya respondiste a la voz.');
+    const r=String(respuesta||'').trim();
+    if(v.opciones?.length?!v.opciones.some(o=>o.trim()===r):!r||r.length>200)throw Error('Elige una de las opciones de la voz.');
+    m.voz_artefacto={...v,respuesta:r};
+    log(n,`${m.nombre} responde a la voz: «${r}».`);
+  });
+}
+/** Contra una negativa, el portador puede repetir la prueba una vez por encuentro. */
+export function resistirVoz(c:Combate,id:string,rng:RNG=dadoSeguro){
+  return conMiembro(c,id,(n,m)=>{
+    const v=m.voz_artefacto;
+    if(v?.estado!=='activa'||v.tipo!=='negativa')throw Error('Solo se resiste una negativa de la voz.');
+    if(m.voz_resistida)throw Error('Ya repetiste la prueba: solo una vez por encuentro.');
+    m.voz_resistida=true;
+    const cfg=m.voz_config;
+    if(salvacion(n,m,cfg?.cd??14,cfg?.atributo??'voluntad',sinPreguntar(rng))){delete m.voz_artefacto;log(n,`${m.nombre} se impone a la voz.`);}
+    else log(n,`La voz sigue negándole a ${m.nombre} su habilidad.`);
+  });
+}
+/** Estado Dominado: el GM decide por el combatiente; el jugador no puede actuar. */
+export function dominar(c:Combate,id:string,activo:boolean){
+  return conMiembro(c,id,(n,m)=>{
+    m.estados=m.estados.filter(e=>e.tipo!=='dominado');
+    if(activo)m.estados.push({id:'dominado',tipo:'dominado',nombre:'Dominado',restantes:0,creado:m.turnos,bonos:{}});
+    log(n,activo?`${m.nombre} queda dominado: el GM decide sus actos.`:`${m.nombre} recupera el control.`);
+  });
+}
+/** El GM lanza el espejo mental sobre un combatiente. */
+export function lanzarEspejo(c:Combate,id:string,opciones:OpcionesEspejo){
+  return conMiembro(c,id,(n,m)=>{m.espejo_mental={...copia(opciones),aviso:true};log(n,`${m.nombre}: su mente se nubla (espejo mental).`);});
+}
+export function quitarEspejo(c:Combate,id:string){
+  return conMiembro(c,id,(n,m)=>{delete m.espejo_mental;log(n,`${m.nombre}: el GM disipa el espejo mental.`);});
+}
+export const estaDominado=(m:Combatiente)=>m.estados.some(e=>e.tipo==='dominado');
+/** El GM decide las reacciones de enemigos, NPC sin jugador, dominados y poseídos. */
+export const reaccionLaDecideGM=(m:Pick<Combatiente,'bando'|'personaje_id'|'estados'|'transformacion'>)=>m.bando==='enemigo'||!m.personaje_id||m.estados.some(e=>e.tipo==='dominado')||!!m.transformacion?.descontrolada;
+/** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
+export function reaccionesDe(c:Combate,m:Combatiente):{id:string;nombre:string;disparador:DisparadorReaccion;linea:string;lista:boolean}[]{
+  return efectosConReaccion(m).filter((p):p is Efecto&{reaccion:Reaccion}=>!!p.reaccion).map(p=>{
+    const r=p.reaccion,u=m.usos_reaccion?.[p.id];
+    const restantes=r.usos&&r.usos.tipo!=='ilimitado'?Math.max(0,(r.usos.maximo||1)-(r.usos.tipo==='encuentro'?(u?.encuentro||0):(u&&u.ronda===c.ronda?u.en_ronda:0))):null;
+    const coste=m.transformacion?.definicion_id==='limitless'&&p.ley_limitless?0:(r.coste??p.coste_ph??0);
+    return {id:p.id,nombre:p.nombre,disparador:disparadorDe(r),linea:lineaCosteReaccion({...r,coste},0,restantes),lista:!!disponibilidad(c,m,p,r)};
+  });
+}
+function contraatacar(c:Combate,dueno:Combatiente,victima:Combatiente,ca:ContraataqueReaccion,rng:RNG,nombre:string){
+  const v=Math.max(0,dados(c,ca.cantidad,ca.caras,rng,nombre)+(ca.modificador||0));
+  Object.assign(victima,danarTransformado(victima,v).actor);
+  log(c,`${victima.nombre} sufre ${v} por ${nombre} de ${dueno.nombre}, sin encadenar reacciones.`);
+}
+/** Resuelve la parte principal de una reacción ya pagada (disparadores distintos de recibir el golpe). */
+function resolverPrincipal(c:Combate,dueno:Combatiente,d:ReaccionDisponible,rng:RNG,ctx:{victima?:Combatiente;protegido?:Combatiente}):boolean{
+  const pr=d.r.principal;
+  if(!pr)return false;
+  if(pr.salvacion&&!salvacion(c,dueno,pr.salvacion.cd,pr.salvacion.atributo,rng))return false;
+  if(pr.contraatacar&&ctx.victima&&ctx.victima.vida>0)contraatacar(c,dueno,ctx.victima,pr.contraatacar,rng,d.p.nombre);
+  if(pr.reducir&&ctx.protegido)(ctx.protegido.reduccion_reaccion||=[]).push({...pr.reducir});
+  if(pr.animacion)dueno.ultima_defensa={id:crypto.randomUUID(),animacion:pr.animacion};
+  return true;
+}
+/** Ofrece el disparador a cada candidato y resuelve las que acepta. */
+function dispararReacciones(c:Combate,candidatos:Combatiente[],disparador:DisparadorReaccion,rng:RNG,ctx:{efecto?:Efecto;cerca?:Combatiente;victima?:Combatiente;protegido?:(dueno:Combatiente)=>Combatiente|undefined;hasta?:()=>boolean}){
+  for(const dueno of candidatos)for(const previa of evaluarReacciones(c,dueno,disparador,ctx)){
+    if(ctx.hasta?.())return;
+    // Otra reacción aceptada antes pudo gastar los PH o los usos: se vuelve a comprobar.
+    const d=disponibilidad(c,dueno,previa.p,previa.r);
+    if(d&&ofrecer(c,dueno,d,rng,disparador))resolverPrincipal(c,dueno,d,rng,{victima:ctx.victima,protegido:ctx.protegido?.(dueno)});
+  }
+}
 function recibir(
   c: Combate,
   a: Combatiente,
@@ -536,23 +685,18 @@ function recibir(
       `${t.nombre}: reducción ${reduccion}% (${antes} → ${total}); no se acumulan porcentajes.`,
     );
   }
-  const reacciones=(t.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).map(p=>({p,r:reaccionDe(p)})).filter((x):x is {p:Efecto;r:Reaccion}=>!!x.r);
+  if(t.reduccion_reaccion?.length){
+    for(const r of t.reduccion_reaccion){const antes=total;total-=r.modo==='todo'?total:r.modo==='mitad'?total-Math.floor(total/2):Math.min(total,r.valor||0);log(c,`${t.nombre}: su reacción frena el golpe (${antes} → ${total}).`);}
+    delete t.reduccion_reaccion;
+  }
+  const reacciones=efectosConReaccion(t).map(p=>({p,r:reaccionDe(p)})).filter((x):x is {p:Efecto;r:Reaccion}=>!!x.r&&disparadorDe(x.r)==='despues_ser_atacado');
   if(total>0 && a.id!==t.id && reacciones.length){
     const forma=t.transformacion?.definicion_id;
-    const despierto=forma==='limitless';
     const magico=e.naturaleza==='magica'||e.coste_ph>0;
     const aplica=(r:Reaccion)=>(!r.naturaleza||(r.naturaleza==='magica')===magico)&&(!r.forma||forma===r.forma)&&(!r.sin_forma||forma!==r.sin_forma);
-    const pagar=(p:Efecto)=>{
-      const coste=despierto && p.ley_limitless?0:p.coste_ph;
-      const r=reaccionDe(p);
-      if(phDisponibles(t)<coste||r?.una_por_ronda&&t.rondas_reacciones?.[p.id]===c.ronda)return false;
-      if(rng.consultarReaccion&&!rng.consultarReaccion({defensor:t.id,nombre:t.nombre,reaccion:p.nombre,efecto:p.id,coste}))return false;
-      if(r?.una_por_ronda)t.rondas_reacciones={...t.rondas_reacciones,[p.id]:c.ronda};
-      t.ph=phDisponibles(t)-coste;
-      log(c,t.nombre+' activa '+p.nombre+' ('+coste+' PH).');
-      return true;
-    };
-    const resolver=(res:ResultadoReaccion,cantidad:number)=>{
+    const pagar=(p:Efecto,r:Reaccion)=>{const d=disponibilidad(c,t,p,r);return !!d&&ofrecer(c,t,d,rng,'despues_ser_atacado');};
+    const resolver=(res:ResultadoReaccion,cantidad:number,nombre:string)=>{
+      if(res.contraatacar&&a.vida>0)contraatacar(c,t,a,res.contraatacar,rng,nombre);
       if(res.reservar){
         const {recurso,proporcion,maximo}=res.reservar,saldo=t.recursos_especiales?.[recurso]||0;
         t.recursos_especiales={...t.recursos_especiales,[recurso]:Math.min(maximo,saldo+Math.floor(cantidad*proporcion))};
@@ -560,17 +704,17 @@ function recibir(
       if(res.devolver)Object.assign(a,danarTransformado(a,res.devolver.maximo===undefined?cantidad:Math.min(cantidad,res.devolver.maximo)).actor);
     };
     // Principales por prioridad (estable): la primera que se paga resuelve el golpe, aunque falle su salvación.
-    const principales=reacciones.map((x,i)=>({...x,i})).filter(x=>x.r.principal&&!x.r.esquiva_opuesta&&aplica(x.r)).sort((x,y)=>(y.r.prioridad||0)-(x.r.prioridad||0)||x.i-y.i);
+    const principales=reacciones.map((x,i)=>({...x,i})).filter(x=>x.r.principal?.reducir&&!x.r.esquiva_opuesta&&aplica(x.r)).sort((x,y)=>(y.r.prioridad||0)-(x.r.prioridad||0)||x.i-y.i);
     for(const x of principales){
-      const pr=x.r.principal!;
-      if(!pagar(x.p))continue;
+      const pr=x.r.principal!,reducir=pr.reducir!;
+      if(!pagar(x.p,x.r))continue;
       if(!pr.salvacion||salvacion(c,t,pr.salvacion.cd,pr.salvacion.atributo,rng)){
-        const detenido=pr.reducir.modo==='todo'?total:pr.reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,pr.reducir.valor||0);
+        const detenido=reducir.modo==='todo'?total:reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,reducir.valor||0);
         total-=detenido;
-        resolver(pr,detenido);
+        resolver(pr,detenido,x.p.nombre);
         if(pr.permite_seguimiento){
           const sig=reacciones.find(y=>y!==x&&y.r.seguimiento&&aplica(y.r));
-          if(sig && pagar(sig.p))resolver(sig.r.seguimiento!,detenido);
+          if(sig && pagar(sig.p,sig.r))resolver(sig.r.seguimiento!,detenido,sig.p.nombre);
         }
         if(pr.animacion)t.ultima_defensa={id:crypto.randomUUID(),animacion:pr.animacion};
       }
@@ -588,6 +732,8 @@ function recibir(
     emitirMotor(c, 'recibir_dano', t, a, t, rng, e, perdido);
     if (a.id !== t.id) emitirMotor(c, 'causar_dano', a, a, t, rng, e, perdido);
     if (cayo && t.vida <= 0) {
+      if (a.id !== t.id)
+        dispararReacciones(c, c.miembros.filter(w=>w.id!==t.id&&w.id!==a.id&&w.bando===t.bando), "aliado_cae", rng, {cerca:t, victima:a, hasta:()=>a.vida<=0});
       emitirMotor(c, 'morir', t, a, t, rng, e, perdido);
       if (a.id !== t.id && a.bando !== t.bando) emitirMotor(c, 'matar', a, a, t, rng, e, perdido);
     }
@@ -610,6 +756,11 @@ function area(
 }
 function entrar(c: Combate, m: Combatiente, rng: RNG) {
   aplicarTerreno(c,m,rng);
+  if(m.espejo_mental){
+    const e=m.espejo_mental;
+    if(salvacion(c,m,e.cd??14,e.atributo??'voluntad',rng)){delete m.espejo_mental;log(c,`${m.nombre}: su mente se aclara.`);}
+    else m.espejo_mental={...e,aviso:false};
+  }
   m.turnos++;
   // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
   // en estado normal. No consume acción ni PH y respeta el resultado del dado.
@@ -688,7 +839,10 @@ function siguienteInterno(c: Combate, rng: RNG) {
   const n = copia(c),
     a = n.miembros.find((m) => m.id === n.actual);
   delete n.resultado;
+  if (a && combatienteActivo(a))
+    dispararReacciones(n, n.miembros.filter(w=>w.id!==a.id&&w.bando!==a.bando), "fin_de_turno", rng, {cerca:a, victima:a, hasta:()=>a.vida<=0});
   if (a) {
+    if(a.voz_artefacto?.estado==='activa'){const v=avanzarVoz(a.voz_artefacto);if(v)a.voz_artefacto=v;else{delete a.voz_artefacto;log(n,`${a.nombre}: la voz calla.`);}}
     if(a.transformacion&&a.turnos>(a.transformacion.creado_turno??-1)){const actualizado=avanzarTurnoTransformacion(a);Object.assign(a,actualizado);if(!a.transformacion)log(n,`${a.nombre}: termina su transformación.`);}
     emitirMotor(n, 'fin_turno', a, a, a, rng);
     caducarMotor(n,a,rng);
@@ -740,6 +894,7 @@ function registrar(c: Combate, fn: () => Combate, rng:RNG=dadoSeguro) {
   const {historial:_historial,...sinHistorial}=c;
   const previo = copia(sinHistorial) as Combate;
   let n = fn();
+  for(const m of n.miembros)delete m.reduccion_reaccion;
   if(c.fase==='en_curso'){
     for(const m of n.miembros){
       const anterior=c.miembros.find(x=>x.id===m.id);
@@ -910,12 +1065,13 @@ export function acciones(m: Combatiente) {
   const exclusivos=new Set(definiciones.flatMap(d=>d.etapas.flatMap(e=>e.habilidades||[])));
   const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
   // Un ojo permanente sin dados propios es una pasiva: no aparece como acción.
-  return lista.filter(a=>!reaccionDe(a.efecto)).filter(a=>!(a.efecto.vision?.modo==='permanente'&&!(a.efecto.cantidad>0))).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
+  return lista.filter(a=>!reaccionDe(normalizarReaccion(a.efecto))).filter(a=>!(a.efecto.vision?.modo==='permanente'&&!(a.efecto.cantidad>0))).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
    const d=a.efecto.transformacion;
    if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':d.etapas[i+1]?.descontrolada?'Esta fase requiere fallar la salvación de posesión.':undefined};}
    if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
    const efecto=m.transformacion?.definicion_id==='limitless' && a.efecto.ley_limitless
      ? {...a.efecto,coste_ph:0} : a.efecto;
+   if(vozNiega(m.voz_artefacto,a))return {...a,efecto:conAlcance(efecto,a.nombre),bloqueada:'La voz del artefacto te lo niega.'};
    return {...a,efecto:conAlcance(efecto,a.nombre)};
   });
 }
@@ -927,6 +1083,8 @@ export function acciones(m: Combatiente) {
 /** IA simple y determinista para la criatura poseída. Nunca cambia su bando:
  * puede atacar aliados y enemigos indistintamente sin regalar la victoria al
  * bando original. El servidor ejecuta la acción, no el cliente del jugador. */
+/** Una pausa de reacción (motor o arena) nunca se trata como un intento fallido. */
+function esPausaReaccion(e:unknown){return !(e instanceof Error)||(e as {pausa_reaccion?:boolean}).pausa_reaccion===true;}
 function resolverTurnoDescontrolado(c:Combate,actorId:string,rng:RNG){
  let actor=c.miembros.find(m=>m.id===actorId);
  if(!actor||!actor.transformacion?.descontrolada||!combatienteActivo(actor)||actor.accion_usada)return;
@@ -946,7 +1104,7 @@ function resolverTurnoDescontrolado(c:Combate,actorId:string,rng:RNG){
     Object.assign(c,n);
     log(c,`${actor!.nombre} poseído ataca sin distinguir aliados de enemigos: ${t.nombre}.`);
     return true;
-   }catch{continue;}
+   }catch(e){if(esPausaReaccion(e))throw e;continue;}
   }
   return false;
  };
@@ -1112,6 +1270,7 @@ function actuarInterno(
     return n;
   }
   const act = acciones(a).find((v) => v.id === accionId);
+  if (act && vozNiega(a.voz_artefacto, act)) throw Error('La voz del artefacto te lo niega.');
   if (!act) throw Error("La acción no existe.");
   if ((a.cooldowns[act.id] || 0) > 0) throw Error("Habilidad en enfriamiento.");
   if(act.efecto.efecto==="transformacion"){
@@ -1253,7 +1412,7 @@ function actuarInterno(
   }
   const magia=(a.configuracion.habilidades||[]).find(h=>accionId==='hab:'+h.id+':'+e.id);
   const claveMagia=magia?.forja_id||magia?.id;
-  if(claveMagia&&(e.naturaleza==='magica'||coste>0)&&!e.reaccion&&!e.defensa){
+  if(claveMagia&&(e.naturaleza==='magica'||coste>0)&&!normalizarReaccion(e).reaccion){
     for(const testigo of n.miembros){
       if(testigo.id===a.id||!combatienteActivo(testigo)||tiene(testigo,'ciego')||!testigo.configuracion.habilidades?.some(h=>h.efectos?.some(ef=>ef.aprendizaje)))continue;
       if(lineaVisible(posiciones[testigo.id],origen,n.mapa))testigo.hechizos_observados={...testigo.hechizos_observados,[a.id]:claveMagia};
@@ -1280,6 +1439,8 @@ function actuarInterno(
     normalizar(a);
     return n;
   }
+  if(punto&&tactica&&tactica.forma!=='individual')
+    for(const objetivo of objetivos)if(objetivo.id!==a.id)dispararReacciones(n,[objetivo],'apuntado_por_area',rng,{efecto:e,protegido:()=>objetivo});
   for(const objetivo of objetivos){
     if(a.vida<=0)break;
     resolverEfecto(n,a,objetivo,e,act,rng,punto);
@@ -1343,6 +1504,28 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   }
   emitirMotor(n, 'atacar', a, a, t, rng, e);
   if (a.vida <= 0) return n;
+  if (a.id !== t.id) {
+    // Un aliado cercano puede interponerse (solo ante ataques a un único objetivo) o proteger.
+    if (!e.tablero || e.tablero.forma === "individual") {
+      const objetivo = t;
+      for (const w of n.miembros.filter(w=>w.id!==objetivo.id&&w.id!==a.id&&w.bando===objetivo.bando)) {
+        let interpuesto = false;
+        for (const previa of evaluarReacciones(n, w, "aliado_atacado", {efecto:e, cerca:objetivo})) {
+          const d = disponibilidad(n, w, previa.p, previa.r);
+          if (!d || !ofrecer(n, w, d, rng, "aliado_atacado")) continue;
+          const seInterpone = !!d.r.principal?.interponerse;
+          if (!resolverPrincipal(n, w, d, rng, {protegido: seInterpone ? w : objetivo})) continue;
+          if (seInterpone) { log(n, `${w.nombre} se interpone y recibe el ataque dirigido a ${objetivo.nombre}.`); interpuesto = true; break; }
+        }
+        if (interpuesto) { t = w; break; }
+      }
+    }
+    dispararReacciones(n, [t], "antes_ser_atacado", rng, {efecto:e, victima:a, protegido:()=>t, hasta:()=>a.vida<=0});
+    if (a.vida <= 0) {
+      log(n, `${a.nombre} cae por una reacción antes de impactar.`);
+      return n;
+    }
+  }
   const elemento = (estadisticas(t).transmutar||0)>0 && e.naturaleza==='magica'?'hielo':elementoDe(e),
     antes = reactivas(t, e, "recibir_ataque");
   activarReglas(n, a, t, antes, rng);
@@ -1409,6 +1592,17 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
       n,
       `${n.resultado}: d20 ${d} + impacto ${s.bono_impacto || 0} = ${impacto}, ARM ${arm}.`,
     );
+    if (!acierta && a.id !== t.id)
+      for (const r of evaluarReacciones(n, a, "tras_fallar_ataque", {efecto:e})) {
+        if (!ofrecer(n, a, r, rng, "tras_fallar_ataque")) continue;
+        const d2 = rng(20), impacto2 = d2 + (s.bono_impacto || 0) + (debil?.recompensa.impacto || 0);
+        totalAtaque = impacto2;
+        critico = d2 === 20 || (!!debil?.recompensa.critico && d2 !== 1);
+        acierta = critico || (d2 !== 1 && impacto2 >= arm);
+        n.resultado = d2 === 1 ? "Fallo critico" : critico ? "Critico" : acierta ? "Impacto" : "Fallo";
+        log(n, `${a.nombre} repite la tirada: d20 ${d2} + impacto ${s.bono_impacto || 0} = ${impacto2}, ARM ${arm}: ${n.resultado}.`);
+        break;
+      }
   } else n.resultado = "Impacto";
   // A blind penalty is consumed by the next attempted attack, even on a miss.
   quitarEstado(a, "ciego");
@@ -1416,15 +1610,13 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   if (!acierta) { emitirMotor(n, 'fallar', a, a, t, rng, e); return n; }
   let mitadPorEsquiva=false;
   if(a.id!==t.id&&!tiene(t,'ciego')){
-    const defensas=(t.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).filter(p=>p.reaccion?.esquiva_opuesta).sort((p,q)=>(q.reaccion?.prioridad||0)-(p.reaccion?.prioridad||0));
+    const defensas=efectosConReaccion(t).filter(p=>p.reaccion?.esquiva_opuesta).sort((p,q)=>(q.reaccion?.prioridad||0)-(p.reaccion?.prioridad||0));
     for(const p of defensas){
       const r=p.reaccion!,dadosEsquiva=r.esquiva_opuesta!,forma=t.transformacion?.definicion_id;
       if((r.forma&&r.forma!==forma)||(r.sin_forma&&r.sin_forma===forma)||(r.naturaleza&&(r.naturaleza==='magica')!==(e.naturaleza==='magica'||e.coste_ph>0)))continue;
-      const coste=forma==='limitless'&&p.ley_limitless?0:p.coste_ph;
-      if(phDisponibles(t)<coste||(r.una_por_ronda&&t.rondas_reacciones?.[p.id]===n.ronda))continue;
-      if(rng.consultarReaccion&&!rng.consultarReaccion({defensor:t.id,nombre:t.nombre,reaccion:p.nombre,efecto:p.id,coste}))continue;
-      t.ph=phDisponibles(t)-coste;
-      if(r.una_por_ronda)t.rondas_reacciones={...t.rondas_reacciones,[p.id]:n.ronda};
+      const disponible=disparadorDe(r)==='despues_ser_atacado'?disponibilidad(n,t,p,r):null;
+      if(!disponible||!ofrecer(n,t,disponible,rng,'despues_ser_atacado',false))continue;
+      const coste=disponible.coste;
       const ataque=totalAtaque??(rng(20)+(s.bono_impacto||0)),esquiva=rng(dadosEsquiva.caras);
       log(n,t.nombre+' usa '+p.nombre+' ('+coste+' PH): esquiva '+esquiva+' contra ataque '+ataque+'.');
       if(esquiva>=ataque){
@@ -1496,6 +1688,10 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   activarReglas(n, a, t, impacto, rng);
   if(mitadPorEsquiva){total=Math.floor(total/2);log(n,'Esquiva parcial: '+total+' de daño antes de otras reducciones.');}
   recibir(n, a, t, e, total, [...antes, ...impacto], rng);
+  if (a.id !== t.id && t.vida > 0 && a.vida > 0) {
+    const blanco = t;
+    dispararReacciones(n, n.miembros.filter(w=>w.id!==a.id&&w.id!==blanco.id&&w.bando===a.bando), "aliado_ataca", rng, {efecto:e, cerca:blanco, victima:blanco, hasta:()=>blanco.vida<=0});
+  }
   // Elemental saves affect secondary states, never repeat the attack roll.
   if (permiteEstados && elemento === "agua") estado(t, "mojado", "Mojado");
   if (
@@ -1567,7 +1763,7 @@ function resolverGolpe(c:Combate,orden:OrdenGolpe,tiradas:SolicitudReaccion['tir
   if(previo){if(previo.caras!==caras)throw Error('El ataque cambió durante la reacción.');return previo.valor;}
   const valor=azar(caras);tiradas.push({caras,valor});return valor;
  };
- class Pausa extends Error{constructor(readonly oferta:OfertaReaccion){super();}}
+ class Pausa extends Error{readonly pausa_reaccion=true;constructor(readonly oferta:OfertaReaccion){super();}}
  rng.consultarReaccion=oferta=>{
   if(pregunta===respuestas.length)throw new Pausa(oferta);
   return respuestas[pregunta++];
@@ -2201,3 +2397,6 @@ export function vistaOcular(c: Combate, id: string): VistaOcular | null {
     objetivos, ...(amenaza.size ? { amenaza: [...amenaza] } : {}),
   };
 }
+
+/** Proyección del espejo mental para la vista de un jugador (la Edge Function la aplica a su respuesta). */
+export {proyectarVista,desproyectar,proyectarRespuesta};

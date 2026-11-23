@@ -18,6 +18,7 @@ import {validarValoresForja} from "../../../lib/forja";
 import {SLOTS,tipoDe,subcategorias,clasificacionesPara,efectosDe,validarEfectos,validarEquipamiento} from "../../../lib/creacion";
 import {ForjaOperacion,ForjaInstancias} from "../../../components/ForjaOperacion";
 import {validarMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
+import {validarArtefacto,normalizarArtefacto} from "../../../lib/artefactos";
 import GaleriaCreacion from "../../../components/GaleriaCreacion";
 import {evaluarInvocacion} from "../../../lib/invocaciones";
 import NavyCompanera from "../../../components/NavyCompanera";
@@ -28,11 +29,13 @@ import {validarPortada} from "../../../lib/imagenes-creacion";
 import {esMonstruo} from "../../../lib/progresion";
 import {vacio,vinculoVacio,type Borrador,type Creacion,type Peticion} from "../../../lib/yunque-borrador";
 import type {AtributoForja,ContextoTaller,NaturalezaCatalogo} from "../../../components/yunque/contexto";
+import {useDialogo} from "../../../components/Dialogo";
 
 type Atributo=AtributoForja;
 const boton="rounded-lg border border-neutral-700 px-3 py-2 text-sm hover:border-orange-600 disabled:cursor-not-allowed disabled:opacity-40";
 const panel="forja-panel space-y-5 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:p-6";
 export default function Forja(){
+  const {confirmar}=useDialogo();
  const [naturalezasCatalogo,setNaturalezasCatalogo]=useState<NaturalezaCatalogo[]>([]);
  const [categorias,setCategorias]=useState<CategoriaBase[]>([]),[atributos,setAtributos]=useState<Atributo[]>([]),[creaciones,setCreaciones]=useState<Creacion[]>([]),[peticiones,setPeticiones]=useState<Peticion[]>([]);
  const [pestana,setPestana]=useState<"creacion"|"yunque">("creacion"),[b,setB]=useState<Borrador>(vacio),[cargando,setCargando]=useState(true),[guardando,setGuardando]=useState(false),[error,setError]=useState(""),[aviso,setAviso]=useState("");
@@ -63,7 +66,7 @@ export default function Forja(){
  const ctxTaller=useMemo<ContextoTaller>(()=>({categorias,atributos,creaciones,naturalezas:naturalezasCatalogo,onProcesandoImagen:setImagenProcesando}),[categorias,atributos,creaciones,naturalezasCatalogo]);
  // Al entrar en «El yunque», el taller ocupa la ventana.
  useEffect(()=>{if(pestana==="yunque"&&!cargando)yunque.current?.scrollIntoView({block:"start"});},[pestana,cargando]);
- function desdeCreacion(f:Creacion):Borrador{return {personal_de:f.personal_de||"",formas:f.formas_historia||[],icono:f.icono||"",naturalezaVinculo:{...vinculoVacio(),...(f.naturaleza_vinculo||{})},ramaMonstruo:esMonstruo(categorias,f.tipo),monstruo:f.configuracion_monstruo||null,invocacion:f.configuracion_invocacion||null,requisitos_uso:f.requisitos_uso||{},consumible:!!f.consumible,id:f.id,nombre:f.nombre,tipo:tipoDe(f,categorias),clasificacion:f.tipo,descripcion:f.descripcion||"",historia:f.historia||"",requisitos:f.requisitos||"",defectos:f.defectos||"",imagen:f.imagen_url||"",clase:f.clase||"D",malla:!!f.es_grupo||esMonstruo(categorias,f.tipo),nivelMaximo:f.nivel_maximo||20,slot:f.slot_tipo||"ninguno",stats:f.stats||{},rangos:f.stats_rango||{},efectos:efectosDe(f),pasivas:f.pasivas||[],reglas:f.reglas||[],reglas_pasivas:f.reglas_pasivas||[],habilidades:Array.isArray(f.habilidades)?f.habilidades.filter(h=>typeof h==="string"):[],equipamiento:f.equipamiento||{},alma:!!f.ligado_al_alma,venta:!!f.es_vendible,precio:f.precio_sugerido||""};}
+ function desdeCreacion(f:Creacion):Borrador{return {personal_de:f.personal_de||"",formas:f.formas_historia||[],icono:f.icono||"",naturalezaVinculo:{...vinculoVacio(),...(f.naturaleza_vinculo||{})},ramaMonstruo:esMonstruo(categorias,f.tipo),monstruo:f.configuracion_monstruo||null,artefacto:f.configuracion_artefacto||null,invocacion:f.configuracion_invocacion||null,requisitos_uso:f.requisitos_uso||{},consumible:!!f.consumible,id:f.id,nombre:f.nombre,tipo:tipoDe(f,categorias),clasificacion:f.tipo,descripcion:f.descripcion||"",historia:f.historia||"",requisitos:f.requisitos||"",defectos:f.defectos||"",imagen:f.imagen_url||"",clase:f.clase||"D",malla:!!f.es_grupo||esMonstruo(categorias,f.tipo),nivelMaximo:f.nivel_maximo||20,slot:f.slot_tipo||"ninguno",stats:f.stats||{},rangos:f.stats_rango||{},efectos:efectosDe(f),pasivas:f.pasivas||[],reglas:f.reglas||[],reglas_pasivas:f.reglas_pasivas||[],habilidades:Array.isArray(f.habilidades)?f.habilidades.filter(h=>typeof h==="string"):[],equipamiento:f.equipamiento||{},alma:!!f.ligado_al_alma,venta:!!f.es_vendible,precio:f.precio_sugerido||""};}
  // Conserva los cambios conectados al borrador mientras el usuario recorre el taller.
  const [reservas,setReservas]=useState<Record<string,Borrador>>({});
  const [ruta,setRuta]=useState<string[]>([]);
@@ -117,6 +120,7 @@ export default function Forja(){
   if(!b.nombre.trim()||!opcionesClasificacion.some(c=>c.clave===b.clasificacion))return falla("Escribe un nombre y selecciona una subcategoría. Puedes crearlas en Estadísticas.");
   if(padre&&b.tipo!==padre.tipo)return falla(`Esta creación es para ${padre.b.nombre||"el personaje"}: debe ser ${padre.tipo==="titulo"?"un título":padre.tipo==="objeto"?"un objeto":`una ${padre.tipo}`}.`);
   const falloMonstruo=validarMonstruo(monstruo?b.monstruo:null,activas as FuenteMonstruo[]);if(falloMonstruo)return falla(falloMonstruo);
+  const falloArtefacto=b.tipo==="objeto"&&b.artefacto?validarArtefacto(b.artefacto):null;if(falloArtefacto)return falla(falloArtefacto);
   const stats={...b.stats},rangos={...b.rangos};for(const a of disponibles){if(!(a.clave in stats))stats[a.clave]=a.valor_defecto??0;if(!(a.clave in rangos))rangos[a.clave]={min:a.valor_defecto??0,max:a.valor_defecto??0};}
   if(["objeto","habilidad"].includes(b.tipo))for(const clave of tecnicos){delete stats[clave];delete rangos[clave];}
   const fallo=validarPortada(b.imagen)||(b.icono&&!iconoValido(b.icono)?"Elige un emblema disponible.":null)||validarRequisitos(b.requisitos_uso)||validarReglas(b.reglas)||validarPasivas(b.reglas_pasivas)||validarValoresForja(stats,mallaActiva?rangos:undefined)||validarEfectos(b.efectos)||(b.tipo==="personaje"?validarEquipamiento(b.equipamiento,creaciones,categorias):null);
@@ -132,7 +136,7 @@ export default function Forja(){
   bloqueo.current=true;setGuardando(true);const sesionGuardada=sesion.current;
   try{
    if(b.tipo==="personaje" && b.formas.some(f=>!f.nombre.trim()||validarPortada(f.imagen)))throw Error("Revisa el nombre y la imagen de cada forma.");
-   const payload={...(b.personal_de||creaciones.some(c=>"personal_de" in c)?{personal_de:b.tipo==="personaje"?null:b.personal_de||null}:{}),formas_historia:b.tipo==="personaje"?b.formas:[],icono:b.icono||null,naturaleza_vinculo:b.tipo==="personaje"&&b.naturalezaVinculo.naturaleza_id?b.naturalezaVinculo:{},configuracion_monstruo:monstruo?b.monstruo:null,configuracion_invocacion:b.tipo==="habilidad"?b.invocacion:null,requisitos_uso:b.requisitos_uso,consumible:b.tipo==="objeto"&&b.consumible,nombre:b.nombre.trim(),tipo:b.clasificacion,tipo_creacion:b.tipo,descripcion:b.descripcion,historia:b.historia,requisitos:b.requisitos,defectos:b.defectos,imagen_url:b.imagen,es_grupo:mallaActiva,nivel_maximo:b.nivelMaximo,slot_tipo:b.tipo==="objeto"?b.slot:b.tipo==="titulo"?"titulo":"ninguno",stats:mallaActiva?{}:stats,stats_rango:mallaActiva?rangos:{},configuracion_dados:b.tipo==="personaje"?[]:b.efectos,habilidades:b.tipo==="personaje"?b.habilidades:[],pasivas:b.tipo==="personaje"?b.pasivas:[],reglas:b.reglas,reglas_pasivas:b.reglas_pasivas,equipamiento:b.tipo==="personaje"?b.equipamiento:{},ligado_al_alma:b.alma,es_vendible:b.venta,precio_sugerido:b.venta?b.precio:null,ubicacion:b.venta?"mercado":"forja"};
+   const payload={...(b.personal_de||creaciones.some(c=>"personal_de" in c)?{personal_de:b.tipo==="personaje"?null:b.personal_de||null}:{}),formas_historia:b.tipo==="personaje"?b.formas:[],icono:b.icono||null,naturaleza_vinculo:b.tipo==="personaje"&&b.naturalezaVinculo.naturaleza_id?b.naturalezaVinculo:{},configuracion_monstruo:monstruo?b.monstruo:null,...(b.artefacto||creaciones.some(c=>"configuracion_artefacto" in c)?{configuracion_artefacto:b.tipo==="objeto"&&b.artefacto?normalizarArtefacto(b.artefacto):null}:{}),configuracion_invocacion:b.tipo==="habilidad"?b.invocacion:null,requisitos_uso:b.requisitos_uso,consumible:b.tipo==="objeto"&&b.consumible,nombre:b.nombre.trim(),tipo:b.clasificacion,tipo_creacion:b.tipo,descripcion:b.descripcion,historia:b.historia,requisitos:b.requisitos,defectos:b.defectos,imagen_url:b.imagen,es_grupo:mallaActiva,nivel_maximo:b.nivelMaximo,slot_tipo:b.tipo==="objeto"?b.slot:b.tipo==="titulo"?"titulo":"ninguno",stats:mallaActiva?{}:stats,stats_rango:mallaActiva?rangos:{},configuracion_dados:b.tipo==="personaje"?[]:b.efectos,habilidades:b.tipo==="personaje"?b.habilidades:[],pasivas:b.tipo==="personaje"?b.pasivas:[],reglas:b.reglas,reglas_pasivas:b.reglas_pasivas,equipamiento:b.tipo==="personaje"?b.equipamiento:{},ligado_al_alma:b.alma,es_vendible:b.venta,precio_sugerido:b.venta?b.precio:null,ubicacion:b.venta?"mercado":"forja"};
    const {data:{session}}=await supabase.auth.getSession();
    if(!session)throw Error("Inicia sesión para guardar.");
    const resultado=await clasificarForja(session.access_token,{tipo:b.tipo,clasificacion:b.clasificacion,stats:valoresBorrador(b,true),efectos:payload.configuracion_dados,reglas:b.reglas,reglas_pasivas:b.reglas_pasivas,habilidades:payload.habilidades,pasivas:payload.pasivas,equipamiento:payload.equipamiento,slot:b.slot,consumible:b.consumible,id:b.id,nombre:b.nombre});
@@ -161,11 +165,11 @@ export default function Forja(){
   }finally{bloqueo.current=false;}
  }
  async function restablecer(f:Creacion){
-  if(bloqueo.current||!window.confirm(`¿Restablecer «${f.nombre}»? Se retirará de los baúles y personajes y quedará únicamente en La creación, lista para una nueva entrega. Los recuerdos del cementerio se conservan. Si está en un encuentro activo, debes terminarlo primero.`))return;
+  if(bloqueo.current||!(await confirmar({titulo:'Restablecer creación',aceptar:'Restablecer',peligro:true,mensaje:`¿Restablecer «${f.nombre}»? Se retirará de los baúles y personajes y quedará únicamente en La creación, lista para una nueva entrega. Los recuerdos del cementerio se conservan. Si está en un encuentro activo, debes terminarlo primero.`})))return;
   bloqueo.current=true;
   try{const r=await supabase.rpc('forja_restablecer_alma',{p_forja:f.id});if(r.error)throw Error(r.error.message);setAviso('Creación restablecida. Ya no está vinculada a ninguna cuenta.');setRevision(v=>v+1);await cargar(false);}catch(e){setError(mensajeError(e,'No se pudo restablecer.'));}finally{bloqueo.current=false;}
  }
- async function eliminar(f:Creacion){if(!window.confirm(`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(mensajeError(r.error,'No se pudo eliminar.'));else await cargar();}
+ async function eliminar(f:Creacion){if(!(await confirmar({titulo:'Eliminar creación',mensaje:`¿Eliminar definitivamente «${f.nombre}»? Se quitará de las plantillas que lo usan. Las copias y combates guardados se conservarán.`,aceptar:'Eliminar',peligro:true})))return;const r=await supabase.rpc("forja_eliminar",{p_id:f.id});if(r.error)setError(mensajeError(r.error,'No se pudo eliminar.'));else await cargar();}
 
  const etiquetaClasificacion=(c:CategoriaBase)=>categorias.filter(v=>v.parent_id&&v.nombre===c.nombre).length>1?`${c.nombre} (${categorias.find(p=>p.id===c.parent_id)?.nombre||""})`:c.nombre;
  const nombreClasificacion=(clave:string)=>categorias.find(c=>c.clave===clave)?.nombre||`Sin clasificación (${clave})`;
