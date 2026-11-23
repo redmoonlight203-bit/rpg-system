@@ -82,3 +82,25 @@ test('la raíz del códice usa un modificador que no choca con las piezas',()=>{
  const html=vista(fixture('habilidad'));
  assert.match(html,/class="cg-detail cx-codice cx-codice--tarot /);
 });
+
+const monstruo=(extra={})=>fixture('personaje',{id:'m',nombre:'Gorveth',tipo:'bestia',...extra});
+
+test('bestiario: libro con portada, marcapáginas y navegación',()=>{
+ const m=monstruo({stats:{vida:40},historia:'Despertó en el norte.',configuracion_monstruo:{variantes:[
+  {id:'v1',nombre:'Cría',peso:1,bonos:{},habilidades:[],pasivas:[],equipamiento:{}},
+  {id:'v2',nombre:'Anciano',peso:3,bonos:{vida:20},habilidades:[],pasivas:[],equipamiento:{}}]}});
+ const html=vista(m);
+ assert.match(html,/aria-roledescription="libro"/);
+ assert.match(html,/Gorveth/);
+ // lámina, ficha de campo, cría, anciano, crónica, ficha = 6
+ assert.match(html,/Página 1 de 6/);
+ for(const cinta of ['Lámina','Ficha de campo','Variantes','Crónica','Ficha'])assert.ok(html.includes(`>${cinta}<`),cinta);
+ assert.match(html,/<button[^>]*disabled=""[^>]*>[^<]*<svg[^>]*>.*?<\/svg>Anterior/s);
+});
+
+test('bestiario: un monstruo vacío solo tiene portada y ficha',()=>{
+ const html=vista(monstruo());
+ assert.match(html,/Página 1 de 2/);
+ assert.doesNotMatch(html,/>Variantes</);
+ assert.doesNotMatch(html,/>Anatomía</);
+});

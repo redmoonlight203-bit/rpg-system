@@ -180,3 +180,63 @@
 .forja-theme .cx-codice .cx-campo,.forja-theme .cx-codice .cx-tirada label{font:13px var(--font-sans)!important;letter-spacing:0!important;text-transform:none!important}
 .forja-theme .cx-codice .cx-select{font:13px var(--font-sans)!important;letter-spacing:0!important;padding:7px 10px!important;border-radius:2px!important}
 .cx-codice .cx-nombre{font:600 clamp(28px,4vw,40px)/1.15 var(--font-display)!important}
+
+/* ---- Bestiario ---- */
+.cx-bestiario{display:grid;gap:12px;min-width:0}
+.cx-cintas{display:flex;gap:6px;overflow-x:auto;padding:0 18px;overscroll-behavior-x:contain;scrollbar-width:thin}
+.cx-cinta{flex:none;position:relative;padding:8px 12px 14px;border:0;border-radius:2px 2px 0 0;background:linear-gradient(180deg,color-mix(in srgb,var(--color-crimson) 75%,var(--color-well)),var(--color-crimson));color:var(--color-parchment);font:600 12px var(--font-sans)!important;letter-spacing:.06em!important;cursor:pointer;clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%);transition:transform .18s;opacity:.78}
+.cx-cinta:hover,.cx-cinta[aria-current]{opacity:1;transform:translateY(3px)}
+.cx-cinta[aria-current]{background:linear-gradient(180deg,var(--color-gold),color-mix(in srgb,var(--color-gold) 70%,var(--color-well)));color:var(--color-well)}
+.cx-libro{position:relative;padding:14px;border-radius:10px;background:var(--cx-cuero);box-shadow:0 24px 50px color-mix(in srgb,var(--color-well) 85%,transparent),inset 0 0 0 2px color-mix(in srgb,var(--color-gold) 35%,transparent),inset 0 0 0 7px color-mix(in srgb,var(--color-well) 40%,transparent);perspective:2200px;outline-offset:6px}
+.cx-pliego{position:relative;display:grid;grid-template-columns:minmax(0,1fr);transform-style:preserve-3d}
+.cx-libro.is-doble .cx-pliego{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.cx-pagina{position:relative;min-width:0;min-height:560px;padding:30px clamp(18px,3vw,34px) 46px;background:var(--cx-papel);color:var(--cx-tinta)}
+.cx-pagina.is-izquierda{border-radius:4px 0 0 4px;box-shadow:inset -26px 0 34px -26px color-mix(in srgb,var(--color-ink) 70%,transparent)}
+.cx-pagina.is-derecha{border-radius:0 4px 4px 0;box-shadow:inset 26px 0 34px -26px color-mix(in srgb,var(--color-ink) 70%,transparent)}
+.cx-pagina.is-unica{border-radius:4px;box-shadow:inset 18px 0 30px -24px color-mix(in srgb,var(--color-ink) 60%,transparent)}
+.cx-pagina-vacia{height:100%}
+.cx-lomo{display:none}
+.cx-libro.is-doble .cx-lomo{display:block;position:absolute;top:14px;bottom:14px;left:50%;width:2px;transform:translateX(-1px);background:color-mix(in srgb,var(--color-ink) 45%,transparent);pointer-events:none;z-index:4}
+.cx-folio{position:absolute;left:0;right:0;bottom:14px;text-align:center;font:600 13px var(--font-display);color:var(--cx-tinta-suave)}
+.cx-pagina-titulo{margin:0 0 16px!important;padding-bottom:8px;border-bottom:1px solid color-mix(in srgb,var(--color-ink) 30%,transparent);font:600 20px/1.2 var(--font-display)!important;letter-spacing:.08em!important;color:var(--color-crimson)!important;text-align:center}
+/* La hoja que gira */
+.cx-hoja{position:absolute;top:0;bottom:0;z-index:3;transform-style:preserve-3d;animation-duration:var(--cx-pagina-ms);animation-timing-function:cubic-bezier(.45,.05,.35,1);animation-fill-mode:forwards}
+.cx-hoja.is-adelante{left:50%;right:0;transform-origin:left center;animation-name:cx-pasar-adelante}
+.cx-hoja.is-atras{left:0;right:50%;transform-origin:right center;animation-name:cx-pasar-atras}
+.cx-hoja.is-sola{left:0;right:0}
+.cx-hoja.is-sola.is-atras{transform-origin:left center;animation-name:cx-volver}
+.cx-hoja-cara,.cx-hoja-dorso{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.cx-hoja-dorso{transform:rotateY(180deg)}
+.cx-hoja .cx-pagina{height:100%;overflow:hidden}
+@keyframes cx-pasar-adelante{from{transform:rotateY(0)}to{transform:rotateY(-180deg)}}
+@keyframes cx-pasar-atras{from{transform:rotateY(0)}to{transform:rotateY(180deg)}}
+@keyframes cx-volver{from{transform:rotateY(-180deg)}to{transform:rotateY(0)}}
+.cx-libro-pie{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--color-text-muted)}
+/* Contenido sobre papel: tinta oscura */
+.cx-pagina :is(.cx-seccion,.cg-rule,.cx-variante,.cx-ficha-lista>div,.cx-requisitos-uso li,.cx-bonos li,.cx-ritual li,.cx-equipo-variante li,.cg-attribute-grid>div){background:transparent!important;border-color:color-mix(in srgb,var(--color-ink) 28%,transparent)!important;color:var(--cx-tinta)}
+.cx-pagina .cx-seccion{border-top:0;padding-top:0}
+.cx-pagina :is(p,.cg-prose,dt,small,.cx-probabilidad,.cx-ritual-tipo,.cx-mini-espacio,.cx-tarot-coste,.cx-descripcion){color:var(--cx-tinta-suave)!important}
+.cx-pagina :is(strong,dd,b,h4,.cx-ritual-nombre,.cx-subtitulo,.cg-rule strong){color:var(--cx-tinta)!important}
+.cx-pagina .cg-attribute-grid dd{font:600 24px var(--font-serif);color:var(--color-crimson)!important}
+.cx-pagina .cx-mini-nombre{color:var(--cx-tinta)}
+.cx-pagina .cx-formula{color:var(--cx-tinta);border-color:color-mix(in srgb,var(--color-ink) 40%,transparent)}
+.cx-pagina .cx-capitular::first-letter{color:var(--color-crimson)}
+.cx-pagina .cx-no-disponible{color:var(--cx-tinta-suave);border-color:color-mix(in srgb,var(--color-ink) 35%,transparent)}
+/* La ficha final vuelve a un panel oscuro para los controles */
+.cx-pagina .cx-ficha-final{margin:-6px -8px 0;padding:14px;border-radius:4px;background:var(--color-raised);color:var(--color-text)}
+.cx-pagina .cx-ficha-final :is(p,small,dt){color:var(--color-text-muted)!important}
+.cx-pagina .cx-ficha-final .cx-pagina-titulo{color:var(--color-gold-soft)!important;border-color:var(--color-line)}
+/* Lámina de portada */
+.cx-lamina{display:grid;justify-items:center;gap:14px;text-align:center}
+.cx-lamina-retrato{width:min(100%,300px);aspect-ratio:3/4;border-radius:50% 50% 6px 6px / 34% 34% 6px 6px;overflow:hidden;border:3px double color-mix(in srgb,var(--color-ink) 60%,transparent);box-shadow:0 0 0 6px color-mix(in srgb,var(--color-parchment) 70%,transparent),0 0 0 7px color-mix(in srgb,var(--color-ink) 35%,transparent)}
+.cx-lamina-retrato .cg-art{aspect-ratio:auto;height:100%}
+.cx-lamina .cx-cabecera{border-bottom:0;margin:0;padding:0}
+.cx-pagina .cx-nombre{color:var(--color-crimson)!important;text-shadow:none}
+.cx-pagina .cx-eyebrow{color:var(--cx-tinta-suave)!important}
+.cx-pagina .cg-detail-tags{justify-content:center}
+.cx-pagina .cg-detail-tags>span{color:var(--cx-tinta);border-color:color-mix(in srgb,var(--color-ink) 35%,transparent)}
+.cx-lamina .cx-campo{width:100%;max-width:300px;color:var(--cx-tinta-suave)}
+@media (max-width:620px){.cx-pagina{min-height:440px;padding:24px 16px 42px}.cx-libro{padding:8px}.cx-libro-pie .cg-button{padding:8px 10px}}
+.cx-pagina .y3-sello{color:var(--color-crimson)}
+.cx-codice .cx-cinta{background:linear-gradient(180deg,color-mix(in srgb,var(--color-crimson) 75%,var(--color-well)),var(--color-crimson))!important;color:var(--color-parchment)!important;border:0!important}
+.cx-codice .cx-cinta[aria-current]{background:linear-gradient(180deg,var(--color-gold-bright),var(--color-gold))!important;color:var(--color-ink)!important}

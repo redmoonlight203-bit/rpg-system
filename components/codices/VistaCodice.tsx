@@ -10,11 +10,12 @@ import {AccionesCreacion,Rastro,ZonaPeligro,nombreTipo} from "./Comunes";
 import {EditorPresentacion,EstadoPresentacionAvisos,usePresentacion} from "./EditorPresentacion";
 import Pergamino from "./Pergamino";
 import Tarot from "./Tarot";
+import Bestiario from "./Bestiario";
 import type {ContextoCodice,VistaProps} from "./tipos";
 import "./codices.css";
 
 /** Pieza central de cada códice. Un códice sin vista propia usa el pergamino. */
-const VISTAS:Partial<Record<Codice,ComponentType<VistaProps<PiezaGaleria>>>>={pergamino:Pergamino,tarot:Tarot};
+const VISTAS:Partial<Record<Codice,ComponentType<VistaProps<PiezaGaleria>>>>={pergamino:Pergamino,tarot:Tarot,bestiario:Bestiario};
 
 export type PropsVistaCodice<T extends PiezaGaleria>={
   item:T;
