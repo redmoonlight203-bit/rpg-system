@@ -5,6 +5,7 @@ import type {ReglaPasiva} from "./pasivas";
 import {reaccionDe} from "./combate";
 import {nuevaVision} from "./vision";
 import {aGrafo,type Nodo,type Puerto,type Ruta,type TipoNodo} from "./yunque-grafo";
+import {normalizarReaccion} from "./reacciones";
 /**
  * Operaciones PURAS sobre el Borrador: cada gesto del lienzo es una `Operacion`.
  * `aplicar` nunca muta su entrada y lanza `Error` con un mensaje claro si no aplica.
@@ -95,7 +96,7 @@ function defectoModulo(tipo:TipoNodo):unknown{
 const tieneModulo=(e:Efecto,tipo:TipoNodo):boolean=>{
  switch(tipo){
   case 'alcance':return !!e.tablero;case 'salvacion':return !!e.salvacion;case 'estado':return e.efecto==='estado';
-  case 'reaccion':return !!reaccionDe(e);case 'transformacion':return !!e.transformacion||e.efecto==='transformacion';
+  case 'reaccion':return !!reaccionDe(normalizarReaccion(e));case 'transformacion':return !!e.transformacion||e.efecto==='transformacion';
   case 'recurso':return !!e.recurso;case 'vfx':return !!e.vfx;case 'tabla_armas':return !!e.tabla_armas;case 'vision':return !!e.vision;
  }
  return false;
@@ -178,7 +179,7 @@ export function copiar(b:Borrador,nodo:string):Fragmento{
   case 'nucleo':return falla('El núcleo no se puede copiar.');
   case 'vinculo':return falla('Usa la colección para enlazar creaciones.');
   case 'estado':return {tipo:'estado',datos:clon({estado:(v as Efecto).estado,duracion:(v as Efecto).duracion,estado_tipo:(v as Efecto).estado_tipo,bonos_estado:(v as Efecto).bonos_estado})};
-  case 'reaccion':return {tipo:'reaccion',datos:clon(reaccionDe(leer(b,n.ruta.slice(0,2)) as Efecto))};
+  case 'reaccion':return {tipo:'reaccion',datos:clon(reaccionDe(normalizarReaccion(leer(b,n.ruta.slice(0,2)) as Efecto)))};
   case 'transformacion':{const e=leer(b,n.ruta.slice(0,2)) as Efecto;return {tipo:'transformacion',datos:clon(e.transformacion??falla('La acción no tiene transformación configurada.'))};}
   default:return {tipo:n.tipo,datos:clon(v)};
  }

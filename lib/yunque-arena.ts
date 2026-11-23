@@ -4,6 +4,7 @@ import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,act
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
+import {normalizarReaccion} from "./reacciones";
 /**
  * Arena de dolls del Yunque: un combate aislado en el navegador sobre `lib/combate.ts`.
  * Nunca guarda nada ni toca la red. El portador («doll») lleva la creación del borrador;
@@ -323,7 +324,7 @@ export type Flotante={id:string;quien:'doll'|'saco';tipo:'dano'|'cura'|'absorbid
 function detenidoPor(c:Combate,quien:string,nombre:string,total:number):number{
  const m=c.miembros.find(x=>x.id===quien);
  const e=(m?.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).find(x=>x.nombre===nombre);
- const r=e?reaccionDe(e)?.principal:undefined;
+ const r=e?reaccionDe(normalizarReaccion(e))?.principal:undefined;
  if(!r?.reducir)return 0;
  return r.reducir.modo==='mitad'?total-Math.floor(total/2):Math.min(total,r.reducir.valor||0);
 }

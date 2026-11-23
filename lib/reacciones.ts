@@ -46,3 +46,13 @@ export const PLANTILLAS_REACCION:Record<string,Reaccion>={
   reciproco:{naturaleza:'fisica',sin_forma:'limitless',seguimiento:{devolver:{maximo:6}}},
   ancla:{naturaleza:'fisica',sin_forma:'limitless',principal:{reducir:{modo:'fijo',valor:4},animacion:'axioma-reaccion'}},
 };
+/**
+ * Convierte la `defensa` de una creación antigua en `reaccion` usando su plantilla. Se aplica al cargar
+ * (motor, Yunque): devuelve una copia y nunca reescribe el efecto guardado. Una reacción propia gana.
+ */
+export function normalizarReaccion<E extends Pick<Efecto,'reaccion'|'defensa'>>(e:E):E{
+  if(e.defensa===undefined)return e;
+  const {defensa,...resto}=e;
+  const plantilla=PLANTILLAS_REACCION[defensa];
+  return {...resto,reaccion:e.reaccion??(plantilla?JSON.parse(JSON.stringify(plantilla)) as Reaccion:undefined)} as E;
+}

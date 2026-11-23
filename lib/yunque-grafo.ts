@@ -5,6 +5,7 @@ import {describirEfecto,describirRegla,describirReaccion,condicionClara} from ".
 import {validarPasivas,EVENTOS_PASIVA,CONDICIONES_PASIVA} from "./pasivas";
 import {reaccionDe,validarTactica,validarRequisitos} from "./combate";
 import {describirVision,validarVision} from "./vision";
+import {normalizarReaccion} from "./reacciones";
 /**
  * Grafo DERIVADO del Borrador (solo lectura): `aGrafo` nunca modifica `b`.
  * El Borrador es la única fuente de verdad; las ediciones son operaciones puras sobre él.
@@ -51,7 +52,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(e.tablero)modulo('alcance','tablero','Alcance',`${e.tablero.forma}${e.tablero.tamano?` de ${e.tablero.tamano}`:''}, alcance ${e.tablero.alcance}, afecta a ${e.tablero.afecta}.`);
   if(e.salvacion)modulo('salvacion','salvacion','Salvación',`CD ${e.salvacion.cd} de ${e.salvacion.atributo}; si la supera: ${e.salvacion.exito}.`);
   if(e.efecto==='estado')modulo('estado',null,'Estado',e.estado?`Aplica ${e.estado}.`:'Estado sin nombre.');
-  const reaccion=(()=>{try{return reaccionDe(e);}catch{return null;}})();
+  const reaccion=(()=>{try{return reaccionDe(normalizarReaccion(e));}catch{return null;}})();
   if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',texto(()=>describirReaccion(reaccion),'Reacción.'),fallo(()=>validarReaccion(reaccion)));
   if(e.transformacion||e.efecto==='transformacion')modulo('transformacion','transformacion','Transformación',e.transformacion?.nombre||'Transformación sin configurar.');
   if(e.recurso)modulo('recurso','recurso','Recurso',`${e.recurso.nombre}: inicia en ${e.recurso.inicial}, cambia ${e.recurso.cambio}.`);

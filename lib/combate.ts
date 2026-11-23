@@ -2,7 +2,7 @@ import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion } from "./creacion";
-import {PLANTILLAS_REACCION} from "./reacciones";
+import {normalizarReaccion} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
 import {direccionAtaque,puntosDebiles,sumarRecompensas,describirRecompensa,NOMBRE_DIRECCION,type Vision,type RecompensaPunto,type DireccionOcular,type AparienciaOjo} from "./vision";
 export type RequisitosUso={razas?:string[];minimos?:Record<string,number>;nivel_minimo?:number;habilidades?:string[];desbloqueo_automatico?:boolean;
@@ -503,7 +503,9 @@ function activarReglas(
     }
   }
 }
-export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion||(e.defensa?PLANTILLAS_REACCION[e.defensa]:undefined);}
+export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion;}
+/** Efectos del combatiente con las defensas antiguas normalizadas a `reaccion` (sin escribir en el estado). */
+function efectosConReaccion(m:Combatiente):Efecto[]{return (m.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).map(normalizarReaccion);}
 function recibir(
   c: Combate,
   a: Combatiente,
@@ -526,7 +528,7 @@ function recibir(
       `${t.nombre}: reducción ${reduccion}% (${antes} → ${total}); no se acumulan porcentajes.`,
     );
   }
-  const reacciones=(t.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).map(p=>({p,r:reaccionDe(p)})).filter((x):x is {p:Efecto;r:Reaccion}=>!!x.r);
+  const reacciones=efectosConReaccion(t).map(p=>({p,r:reaccionDe(p)})).filter((x):x is {p:Efecto;r:Reaccion}=>!!x.r);
   if(total>0 && a.id!==t.id && reacciones.length){
     const forma=t.transformacion?.definicion_id;
     const despierto=forma==='limitless';
@@ -900,7 +902,7 @@ export function acciones(m: Combatiente) {
   const exclusivos=new Set(definiciones.flatMap(d=>d.etapas.flatMap(e=>e.habilidades||[])));
   const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
   // Un ojo permanente sin dados propios es una pasiva: no aparece como acción.
-  return lista.filter(a=>!reaccionDe(a.efecto)).filter(a=>!(a.efecto.vision?.modo==='permanente'&&!(a.efecto.cantidad>0))).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
+  return lista.filter(a=>!reaccionDe(normalizarReaccion(a.efecto))).filter(a=>!(a.efecto.vision?.modo==='permanente'&&!(a.efecto.cantidad>0))).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
    const d=a.efecto.transformacion;
    if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':d.etapas[i+1]?.descontrolada?'Esta fase requiere fallar la salvación de posesión.':undefined};}
    if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
@@ -1243,7 +1245,7 @@ function actuarInterno(
   }
   const magia=(a.configuracion.habilidades||[]).find(h=>accionId==='hab:'+h.id+':'+e.id);
   const claveMagia=magia?.forja_id||magia?.id;
-  if(claveMagia&&(e.naturaleza==='magica'||coste>0)&&!e.reaccion&&!e.defensa){
+  if(claveMagia&&(e.naturaleza==='magica'||coste>0)&&!normalizarReaccion(e).reaccion){
     for(const testigo of n.miembros){
       if(testigo.id===a.id||!combatienteActivo(testigo)||tiene(testigo,'ciego')||!testigo.configuracion.habilidades?.some(h=>h.efectos?.some(ef=>ef.aprendizaje)))continue;
       if(lineaVisible(posiciones[testigo.id],origen,n.mapa))testigo.hechizos_observados={...testigo.hechizos_observados,[a.id]:claveMagia};
@@ -1406,7 +1408,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   if (!acierta) { emitirMotor(n, 'fallar', a, a, t, rng, e); return n; }
   let mitadPorEsquiva=false;
   if(a.id!==t.id&&!tiene(t,'ciego')){
-    const defensas=(t.configuracion.habilidades||[]).flatMap(h=>h.efectos||[]).filter(p=>p.reaccion?.esquiva_opuesta).sort((p,q)=>(q.reaccion?.prioridad||0)-(p.reaccion?.prioridad||0));
+    const defensas=efectosConReaccion(t).filter(p=>p.reaccion?.esquiva_opuesta).sort((p,q)=>(q.reaccion?.prioridad||0)-(p.reaccion?.prioridad||0));
     for(const p of defensas){
       const r=p.reaccion!,dadosEsquiva=r.esquiva_opuesta!,forma=t.transformacion?.definicion_id;
       if((r.forma&&r.forma!==forma)||(r.sin_forma&&r.sin_forma===forma)||(r.naturaleza&&(r.naturaleza==='magica')!==(e.naturaleza==='magica'||e.coste_ph>0)))continue;

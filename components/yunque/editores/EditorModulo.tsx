@@ -17,6 +17,7 @@ import {tipoDe,type Efecto} from '../../../lib/creacion';
 import {linaje} from '../../../lib/estadisticas';
 import type {ContextoTaller} from '../contexto';
 import type {EditorNodoProps} from './EditorAccion';
+import {normalizarReaccion} from "../../../lib/reacciones";
 
 const EXITOS:Opcion<NonNullable<Efecto['salvacion']>['exito']>[]=[
  {valor:'mitad',nombre:'Mitad del daño',icono:'escudo',ayuda:'Si la supera, recibe la mitad'},
@@ -79,7 +80,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
    </fieldset>
   </div>;
   case 'reaccion':{
-   const r=e.reaccion??reaccionDe(e);
+   const r=reaccionDe(normalizarReaccion(e));
    return <div className="yq-editor yq-legado">
     {e.defensa&&!e.reaccion&&<p className="yq-nota">Defensa clásica «{e.defensa}». Al editarla se guarda como reacción.</p>}
     <EditorReaccion valor={r??undefined} onChange={v=>{if(v)patch({reaccion:v,defensa:undefined});else operar({op:'quitar',nodo:nodo.id});}}/>

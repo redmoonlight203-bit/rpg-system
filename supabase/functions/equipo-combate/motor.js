@@ -97,7 +97,7 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
-const { PLANTILLAS_REACCION } = (() => {
+const { normalizarReaccion } = (() => {
 const DISPARADORES = ['antes_ser_atacado', 'despues_ser_atacado', 'tras_fallar_ataque', 'tras_fallar_prueba', 'aliado_atacado', 'aliado_ataca', 'aliado_cae', 'apuntado_por_area', 'fin_de_turno'];
 const NOMBRE_DISPARADOR = {
     antes_ser_atacado: 'Antes de que me ataquen',
@@ -136,8 +136,19 @@ const PLANTILLAS_REACCION = {
     reciproco: { naturaleza: 'fisica', sin_forma: 'limitless', seguimiento: { devolver: { maximo: 6 } } },
     ancla: { naturaleza: 'fisica', sin_forma: 'limitless', principal: { reducir: { modo: 'fijo', valor: 4 }, animacion: 'axioma-reaccion' } },
 };
+/**
+ * Convierte la `defensa` de una creación antigua en `reaccion` usando su plantilla. Se aplica al cargar
+ * (motor, Yunque): devuelve una copia y nunca reescribe el efecto guardado. Una reacción propia gana.
+ */
+function normalizarReaccion(e) {
+    if (e.defensa === undefined)
+        return e;
+    const { defensa, ...resto } = e;
+    const plantilla = PLANTILLAS_REACCION[defensa];
+    return { ...resto, reaccion: e.reaccion ?? (plantilla ? JSON.parse(JSON.stringify(plantilla)) : undefined) };
+}
 
-return { PLANTILLAS_REACCION };
+return { normalizarReaccion };
 })();
 const { direccionAtaque, puntosDebiles, sumarRecompensas, describirRecompensa, NOMBRE_DIRECCION } = (() => {
 const PATRONES_OJO = [
@@ -650,7 +661,9 @@ function activarReglas(c, a, t, rs, rng) {
         }
     }
 }
-export function reaccionDe(e) { return e.reaccion || (e.defensa ? PLANTILLAS_REACCION[e.defensa] : undefined); }
+export function reaccionDe(e) { return e.reaccion; }
+/** Efectos del combatiente con las defensas antiguas normalizadas a `reaccion` (sin escribir en el estado). */
+function efectosConReaccion(m) { return (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).map(normalizarReaccion); }
 function recibir(c, a, t, e, total, rs, rng) {
     const alDano = reactivas(t, e, "recibir_dano");
     const reduccion = Math.max(0, ...[...rs, ...alDano].map((r) => r.reduccion_pct || 0));
@@ -659,7 +672,7 @@ function recibir(c, a, t, e, total, rs, rng) {
         total = Math.floor(total * (1 - reduccion / 100));
         log(c, `${t.nombre}: reducción ${reduccion}% (${antes} → ${total}); no se acumulan porcentajes.`);
     }
-    const reacciones = (t.configuracion.habilidades || []).flatMap(h => h.efectos || []).map(p => ({ p, r: reaccionDe(p) })).filter((x) => !!x.r);
+    const reacciones = efectosConReaccion(t).map(p => ({ p, r: reaccionDe(p) })).filter((x) => !!x.r);
     if (total > 0 && a.id !== t.id && reacciones.length) {
         const forma = t.transformacion?.definicion_id;
         const despierto = forma === 'limitless';
@@ -1093,7 +1106,7 @@ export function acciones(m) {
     const exclusivos = new Set(definiciones.flatMap(d => d.etapas.flatMap(e => e.habilidades || [])));
     const permitidos = new Set(definiciones.find(d => d.id === m.transformacion?.definicion_id)?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.habilidades || []);
     // Un ojo permanente sin dados propios es una pasiva: no aparece como acción.
-    return lista.filter(a => !reaccionDe(a.efecto)).filter(a => !(a.efecto.vision?.modo === 'permanente' && !(a.efecto.cantidad > 0))).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
+    return lista.filter(a => !reaccionDe(normalizarReaccion(a.efecto))).filter(a => !(a.efecto.vision?.modo === 'permanente' && !(a.efecto.cantidad > 0))).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
         const d = a.efecto.transformacion;
         if (d && m.transformacion?.definicion_id === d.id) {
             const i = d.etapas.findIndex(e => e.id === m.transformacion?.etapa_id);
@@ -1552,7 +1565,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     }
     const magia = (a.configuracion.habilidades || []).find(h => accionId === 'hab:' + h.id + ':' + e.id);
     const claveMagia = magia?.forja_id || magia?.id;
-    if (claveMagia && (e.naturaleza === 'magica' || coste > 0) && !e.reaccion && !e.defensa) {
+    if (claveMagia && (e.naturaleza === 'magica' || coste > 0) && !normalizarReaccion(e).reaccion) {
         for (const testigo of n.miembros) {
             if (testigo.id === a.id || !combatienteActivo(testigo) || tiene(testigo, 'ciego') || !testigo.configuracion.habilidades?.some(h => h.efectos?.some(ef => ef.aprendizaje)))
                 continue;
@@ -1720,7 +1733,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     }
     let mitadPorEsquiva = false;
     if (a.id !== t.id && !tiene(t, 'ciego')) {
-        const defensas = (t.configuracion.habilidades || []).flatMap(h => h.efectos || []).filter(p => p.reaccion?.esquiva_opuesta).sort((p, q) => (q.reaccion?.prioridad || 0) - (p.reaccion?.prioridad || 0));
+        const defensas = efectosConReaccion(t).filter(p => p.reaccion?.esquiva_opuesta).sort((p, q) => (q.reaccion?.prioridad || 0) - (p.reaccion?.prioridad || 0));
         for (const p of defensas) {
             const r = p.reaccion, dadosEsquiva = r.esquiva_opuesta, forma = t.transformacion?.definicion_id;
             if ((r.forma && r.forma !== forma) || (r.sin_forma && r.sin_forma === forma) || (r.naturaleza && (r.naturaleza === 'magica') !== (e.naturaleza === 'magica' || e.coste_ph > 0)))
