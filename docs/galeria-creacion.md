@@ -11,3 +11,21 @@ Se reutiliza `forja_maestra.imagen_url`. Los archivos se guardan como imágenes 
 Sin portada, o si la URL no carga, se muestra un símbolo según el tipo. La colección no incluye imágenes de ejemplo ni altera los datos de las creaciones.
 
 Verificación: `node --test tests/imagenes-creacion.test.mjs`, `npx tsc --noEmit` y `npm run build` con las variables públicas de conexión del proyecto. La vista previa administrada disponible en este entorno pasa opciones de Vite a Next.js, por lo que la verificación visual en navegador queda pendiente.
+
+## Códices
+
+Cada tipo tiene una ficha propia. Se conservan las acciones, los filtros y la confirmación al salir sin guardar.
+
+| Creación | Códice |
+|---|---|
+| Monstruo | Bestiario paginado |
+| Personaje | Expediente de héroe |
+| Habilidad | Carta de tarot con tirada de prueba |
+| Objeto | Reliquia en vitrina |
+| Pasiva | Sello ritual |
+| Título | Edicto |
+| Otro | Pergamino |
+
+Las miniaturas abren la creación enlazada en la misma vista. El rastro guarda hasta ocho creaciones y vuelve a la anterior sin duplicarla si se la visita de nuevo. Volver a la colección vacía el rastro. Un vínculo a una creación retirada se muestra como «Creación no disponible».
+
+Verificación: `node --test tests/codices.test.mjs tests/codices-render.test.mjs tests/forja-visual.test.mjs tests/cartas.test.mjs tests/imagenes-creacion.test.mjs`. La verificación visual de la ruta de GM requiere acceso al entorno de desarrollo.

@@ -132,3 +132,8 @@ Las imágenes cuadradas de 480 × 480 px se asignan por identificador en `lib/ar
 | Umbral Espacial | `umbral-espacial.webp` | Two dark elliptical portal surfaces joined by a bent amethyst filament, different star fields visible inside, bold circular openings. |
 | Vector Absoluto | `vector-absoluto.webp` | A concentrated bright diagonal lance of gold light made of thin co-aligned parallel lines that shear through a thin slate wall, one distinct vector. |
 | Vuelo Inercial | `vuelo-inercial.webp` | A small airborne cloaked silhouette banked over a cloud of dust with crisp successive curved gold motion trails, dark navy sky. |
+
+## Códices (opcional)
+
+Texturas cuadradas de 512 × 512 px, WebP sin costuras, en `public/arte/codices/`:
+`libro-cuero.webp`, `papel.webp` y `tarot-dorso.webp`. La interfaz funciona sin ellas con gradientes; se habilitan por variable CSS solo después de añadir los archivos.
