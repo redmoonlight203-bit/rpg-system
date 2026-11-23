@@ -7,7 +7,7 @@ import {plantilla} from "../../lib/codices";
 import {mensajeError} from "../../lib/errores";
 import type {PiezaGaleria} from "../GaleriaCreacion";
 import type {ContextoCodice} from "./tipos";
-import type {ReactNode} from "react";
+import type {CSSProperties,ReactNode} from "react";
 
 export function textoEyebrow<T extends PiezaGaleria>(ctx:ContextoCodice<T>):string{
   return plantilla(ctx.config.codices[ctx.codice].eyebrow,ctx.vars);
@@ -68,10 +68,10 @@ export function ZonaPeligro<T extends PiezaGaleria>({ctx}:{ctx:ContextoCodice<T>
 }
 
 /** Botón que abre otra creación dentro de la vista, o texto atenuado si ya no existe. */
-export function EnlaceCreacion<T extends PiezaGaleria>({ctx,id,className="",etiqueta,children}:{ctx:ContextoCodice<T>;id:string;className?:string;etiqueta?:string;children:ReactNode}){
+export function EnlaceCreacion<T extends PiezaGaleria>({ctx,id,className="",etiqueta,estilo,children}:{ctx:ContextoCodice<T>;id:string;className?:string;etiqueta?:string;estilo?:CSSProperties;children:ReactNode}){
   const destino=ctx.props.items.find(i=>i.id===id);
   if(!destino)return <span className="cx-no-disponible">Creación no disponible</span>;
-  return <button type="button" className={`cx-enlace ${className}`} disabled={ctx.ocupado} aria-label={etiqueta||`Abrir ${destino.nombre}`} onClick={()=>ctx.abrir(id)}>{children}</button>;
+  return <button type="button" className={`cx-enlace ${className}`} disabled={ctx.ocupado} aria-label={etiqueta||`Abrir ${destino.nombre}`} style={estilo} onClick={()=>ctx.abrir(id)}>{children}</button>;
 }
 
 /** Migas de las creaciones recorridas. */

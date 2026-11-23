@@ -14,8 +14,8 @@ function destino<T extends PiezaGaleria>(ctx:ContextoCodice<T>,id:string){return
 export function MiniTarot<T extends PiezaGaleria>({ctx,id,indice=0}:{ctx:ContextoCodice<T>;id:string;indice?:number}){
   const d=destino(ctx,id);
   if(!d)return <EnlaceCreacion ctx={ctx} id={id}>{null}</EnlaceCreacion>;
-  return <EnlaceCreacion ctx={ctx} id={id} className={`cx-mini cx-mini-tarot ${rangoDe(d.clase).css}`}>
-    <span className="cx-mini-tarot-carta" style={{"--k":indice} as CSSProperties}>
+  return <EnlaceCreacion ctx={ctx} id={id} className={`cx-mini cx-mini-tarot ${rangoDe(d.clase).css}`} estilo={{"--k":indice} as CSSProperties}>
+    <span className="cx-mini-tarot-carta">
       <span className="cx-mini-arcano">{arcanoDe(d.id).romano}</span>
       <span className="cx-mini-arte"><Portada src={imagenCreacion(d.id,d.imagen_url)} tipo={ctx.props.tipoDe(d)} icono={ctx.props.iconoDe(d)}/></span>
     </span>

@@ -17,12 +17,16 @@ const stubs={
  'next/link':{__esModule:true,default:Link},
  'next/navigation':{useRouter:()=>({push(){},replace(){},back(){}}),usePathname:()=>'/dm/forja',useSearchParams:()=>new URLSearchParams()},
 };
+// Cliente falso: las consultas no devuelven filas (el render estático no ejecuta efectos de todos modos).
+const consulta={select:()=>consulta,eq:()=>consulta,order:()=>consulta,maybeSingle:async()=>({data:null,error:null}),single:async()=>({data:null,error:null})};
+const supabaseFalso={from:()=>consulta,rpc:async()=>({data:null,error:null}),auth:{getSession:async()=>({data:{session:null}})}};
 function cargar(path){
  if(cache.has(path))return cache.get(path);
  const exports={};cache.set(path,exports);
  const require=name=>{
   if(name.endsWith('.css'))return {};
   if(stubs[name])return stubs[name];
+  if(name.endsWith('/lib/supabase'))return {supabase:supabaseFalso};
   if(name.endsWith('/imagenes-storage'))return {publicarArchivoImagen:async()=>{throw Error('No se suben imágenes durante render');}};
   if(!name.startsWith('.'))return nativeRequire(name);
   const base=resolve(dirname(path),name),p=['.tsx','.ts','.js','/index.ts','/index.tsx'].map(ext=>base+ext).find(existsSync);

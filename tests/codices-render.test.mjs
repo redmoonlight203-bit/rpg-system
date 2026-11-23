@@ -43,3 +43,12 @@ test('un vínculo a una creación borrada no es un botón',()=>{
  assert.match(html,/Creación no disponible/);
  assert.doesNotMatch(html,/<button[^>]*>[^<]*Creación no disponible/);
 });
+
+test('los vínculos se dibujan como miniatura según el tipo de la creación enlazada',()=>{
+ const h=fixture('habilidad',{id:'h',nombre:'Tajo'}),p=fixture('pasiva',{id:'p',nombre:'Piel'}),o=fixture('objeto',{id:'o',nombre:'Yelmo',slot_tipo:'casco'});
+ const item=fixture('otro',{habilidades:['h'],pasivas:['p'],equipamiento:{casco:'o'}});
+ const html=vista(item,[item,h,p,o]);
+ assert.match(html,/cx-mini-tarot[ "]/);assert.match(html,/cx-mini-sello[ "]/);assert.match(html,/cx-mini-reliquia[ "]/);
+ for(const n of ['Tajo','Piel','Yelmo'])assert.ok(html.includes(`aria-label="Abrir ${n}"`),n);
+ assert.match(html,/Cabeza/,'el equipo muestra su espacio');
+});
