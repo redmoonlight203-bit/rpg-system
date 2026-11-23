@@ -1,5 +1,5 @@
 'use client';
-import {useId} from 'react';
+import {useId, useState} from 'react';
 import './ocular.css';
 import type {AparienciaOjo} from '../lib/vision';
 
@@ -43,6 +43,17 @@ function Marcas({a}: {a: AparienciaOjo}) {
   return null;
 }
 
+/** La imagen representa el ojo completo, no una textura para el iris. */
+function IlustracionOjo({url, respaldo}: {url: string; respaldo: React.ReactNode}) {
+  const [estado, setEstado] = useState<'cargando' | 'lista' | 'error'>('cargando');
+  return <>
+    {estado !== 'lista' && respaldo}
+    {estado !== 'error' && <image className="ojo-visual-propia" href={url} x={4} y={4} width={92} height={92}
+      preserveAspectRatio="xMidYMid meet" opacity={estado === 'lista' ? 1 : 0}
+      onLoad={() => setEstado('lista')} onError={() => setEstado('error')}/>}
+  </>;
+}
+
 /**
  * Dibujo de un ojo de la primitiva «Visión» a partir de su apariencia (color, patrón, marcas) o de una imagen.
  * `abriendo` reproduce una vez la apertura del párpado (desactivada con movimiento reducido por CSS).
@@ -50,6 +61,18 @@ function Marcas({a}: {a: AparienciaOjo}) {
 export default function OjoVisual({apariencia: a, nombre, size = 96, abriendo = false}: {apariencia: AparienciaOjo; nombre: string; size?: number; abriendo?: boolean}) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const rendija = a.patron === 'rendija';
+  const dibujo = <>
+    <g className="ojo-visual-globo" clipPath={`url(#ojo${id})`}>
+      <rect x="0" y="0" width="100" height="100" fill="#efe9df"/>
+      <g className="ojo-visual-iris">
+        <circle cx={C} cy={C} r={IRIS} fill={`url(#iris${id})`}/>
+        <g clipPath={`url(#circulo${id})`}><Marcas a={a}/></g>
+        {rendija ? <ellipse cx={C} cy={C} rx={3} ry={IRIS * 0.8} fill="#050505"/> : <circle cx={C} cy={C} r={a.patron === 'anillos' || a.patron === 'rejilla' ? PUPILA * 0.7 : PUPILA} fill="#050505"/>}
+        <circle cx={C - 8} cy={C - 9} r={3.5} fill="#ffffff" opacity={0.7}/>
+      </g>
+    </g>
+    <path className="ojo-visual-parpado" d="M4 50 Q50 6 96 50 Q50 94 4 50 Z" fill="none" stroke={a.secundario || '#111111'} strokeWidth={3}/>
+  </>;
   return <svg className={`ojo-visual${abriendo ? ' is-abriendo' : ''}`} width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={`Ojo: ${nombre}`}>
     <defs>
       <radialGradient id={`iris${id}`} cx="50%" cy="50%" r="50%">
@@ -60,17 +83,8 @@ export default function OjoVisual({apariencia: a, nombre, size = 96, abriendo = 
       <clipPath id={`ojo${id}`}><path d="M4 50 Q50 6 96 50 Q50 94 4 50 Z"/></clipPath>
       <clipPath id={`circulo${id}`}><circle cx={C} cy={C} r={IRIS}/></clipPath>
     </defs>
-    <g className="ojo-visual-globo" clipPath={`url(#ojo${id})`}>
-      <rect x="0" y="0" width="100" height="100" fill="#efe9df"/>
-      {a.imagen_url
-        ? <image href={a.imagen_url} x={C - IRIS} y={C - IRIS} width={IRIS * 2} height={IRIS * 2} clipPath={`url(#circulo${id})`} preserveAspectRatio="xMidYMid slice"/>
-        : <g className="ojo-visual-iris">
-          <circle cx={C} cy={C} r={IRIS} fill={`url(#iris${id})`}/>
-          <g clipPath={`url(#circulo${id})`}><Marcas a={a}/></g>
-          {rendija ? <ellipse cx={C} cy={C} rx={3} ry={IRIS * 0.8} fill="#050505"/> : <circle cx={C} cy={C} r={a.patron === 'anillos' || a.patron === 'rejilla' ? PUPILA * 0.7 : PUPILA} fill="#050505"/>}
-          <circle cx={C - 8} cy={C - 9} r={3.5} fill="#ffffff" opacity={0.7}/>
-        </g>}
-    </g>
-    <path className="ojo-visual-parpado" d="M4 50 Q50 6 96 50 Q50 94 4 50 Z" fill="none" stroke={a.secundario || '#111111'} strokeWidth={3}/>
+    {a.imagen_url
+      ? <IlustracionOjo key={a.imagen_url} url={a.imagen_url} respaldo={dibujo}/>
+      : dibujo}
   </svg>;
 }
