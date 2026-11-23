@@ -23,7 +23,9 @@ import { linaje, imagenDeRaza } from "../../../lib/estadisticas";
 import IconoYugen from "../../../components/IconoYugen";
 import FichaVital from "../../../components/FichaVital";
 import "../../../components/personajes.css";
+import {useDialogo} from "../../../components/Dialogo";
 export default function PersonajesJugador() {
+  const dialogo=useDialogo();
   const router = useRouter(),
     bloqueo = useRef(false);
   const [personajes, setPersonajes] = useState<Personaje[]>([]),
@@ -124,7 +126,7 @@ export default function PersonajesJugador() {
   async function retirarPropuesta(x: PropuestaRaza, confirmar: boolean) {
     if (
       confirmar &&
-      !window.confirm(`¿Retirar la propuesta «${x.nombre}»? Se borrará por completo.`)
+      !(await dialogo.confirmar({titulo:'Retirar propuesta',mensaje:`¿Retirar la propuesta «${x.nombre}»? Se borrará por completo.`,aceptar:'Retirar',peligro:true}))
     )
       return;
     setError("");

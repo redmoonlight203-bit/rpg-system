@@ -9,8 +9,10 @@ import {Kintsugi} from "../../components/ui/Signature";
 import {Button, Panel, Field} from "../../components/ui";
 import { supabase } from "../../lib/supabase";
 import { UserPlus, LogIn, Lock } from "lucide-react";
+import {useDialogo} from "../../components/Dialogo";
 
 export default function LoginPage() {
+  const {avisar}=useDialogo();
   const router = useRouter();
   const [esRegistro, setEsRegistro] = useState(false);
   const [recuperar,setRecuperar]=useState(false),[aviso,setAviso]=useState("");
@@ -50,9 +52,9 @@ export default function LoginPage() {
         if (error) throw error;
 
         if (esKuroi) {
-          alert("Cuenta de Kuroi creada y aprobada con éxito. Ya puedes iniciar sesión.");
+          void avisar({titulo:"Cuenta de Kuroi",mensaje:"Cuenta de Kuroi creada y aprobada con éxito. Ya puedes iniciar sesión."});
         } else {
-          alert("Tu alma ha sido registrada. Está en estado PENDIENTE hasta que Kuroi apruebe tu acceso.");
+          void avisar({titulo:"Alma registrada",mensaje:"Tu alma ha sido registrada. Está en estado PENDIENTE hasta que Kuroi apruebe tu acceso."});
         }
         setEsRegistro(false);
       } else {
