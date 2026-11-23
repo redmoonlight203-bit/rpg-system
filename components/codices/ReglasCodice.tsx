@@ -59,4 +59,3 @@ export function ResumenEfecto({ efecto: e, depth = 0 }: { efecto: EfectoRegla; d
     {([['Éxito', e.exito], ['Fallo', e.fallo]] as const).map(([label, efectos]) => efectos?.length ? <div className="cg-effect-branch" key={label}><b>{label}</b>{efectos.map((efecto, i) => <ResumenEfecto key={i} efecto={efecto} depth={depth + 1} />)}</div> : null)}
   </div>;
 }
-
