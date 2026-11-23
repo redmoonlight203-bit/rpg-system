@@ -31,7 +31,7 @@ import IconoYugen from "./IconoYugen";
 import { destinosPersonaje, type DestinoPersonaje, type Personaje } from "../lib/personajes";
 import "./personajes.css";
 import "./party.css";
-import {useDialogo} from "../components/Dialogo";
+import {useDialogo} from "./Dialogo";
 type Cuenta = { id: string; email: string };
 type Fuente = {
   id: string;

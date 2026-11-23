@@ -15,6 +15,7 @@ import { describirEfecto, describirRegla } from "../lib/descripciones";
 import type { Efecto } from "../lib/creacion";
 import type { Regla } from "../lib/reglas";
 import "./personajes.css";
+import {useDialogo} from "./Dialogo";
 type Recurso = {
   id: string;
   nombre: string;
@@ -49,6 +50,7 @@ export default function BaulAlma({
   usuarioId?: string;
   nombreCuenta?: string;
 }) {
+  const {confirmar}=useDialogo();
   const gm = !!usuarioId,
     bloqueo = useRef(false),
     solicitud = useRef({ firma: "", id: "" });
@@ -147,9 +149,7 @@ export default function BaulAlma({
   }
   async function eliminar(r: Recurso) {
     if (
-      !window.confirm(
-        `¿Eliminar permanentemente «${r.nombre}» del alma de esta cuenta?`,
-      )
+      !(await confirmar({titulo:'Eliminar del alma',mensaje:`¿Eliminar permanentemente «${r.nombre}» del alma de esta cuenta?`,aceptar:'Eliminar',peligro:true}))
     )
       return;
     await ejecutar(async () => {

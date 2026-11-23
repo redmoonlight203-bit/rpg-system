@@ -9,7 +9,7 @@ import LogoYugen from './LogoYugen';
 import ProgresoJugador from './ProgresoJugador';
 import NavegacionMovil from './NavegacionMovil';
 import {supabase} from '../lib/supabase';
-import {useDialogo} from "../components/Dialogo";
+import {useDialogo} from "./Dialogo";
 const rutas=new Set(['/ficha','/ficha/personajes','/ficha/personaje','/ficha/equipamiento','/ficha/inventario','/ficha/habilidades','/ficha/alma','/ficha/tienda','/ficha/tienda-almas','/ficha/combate','/ficha/tiradas','/ficha/experiencia','/ficha/party','/ficha/logros','/ficha/arena','/ficha/deudas']);
 export default function AccesoReencarnado({children}:{children:ReactNode}){
   const {avisar}=useDialogo();

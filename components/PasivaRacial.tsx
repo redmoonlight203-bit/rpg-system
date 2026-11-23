@@ -7,12 +7,14 @@ import {validarPasivas, type ReglaPasiva} from "../lib/pasivas";
 import {validarReglas, type Regla} from "../lib/reglas";
 import {linaje, type CategoriaBase} from "../lib/estadisticas";
 import {supabase} from "../lib/supabase";
+import {useDialogo} from "./Dialogo";
 export type DefinicionRacial = {nombre:string; descripcion:string; reglas:Regla[]; reglas_pasivas:ReglaPasiva[]};
 type Categoria = CategoriaBase & {pasiva_racial?:DefinicionRacial|null};
 const vacia=():DefinicionRacial=>({nombre:"",descripcion:"",reglas:[],reglas_pasivas:[]});
 const boton="rounded-lg border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40";
 const campo="mt-2 w-full rounded-lg border border-neutral-700 bg-well p-3 text-sm";
 export function PasivaRacial({categoria,categorias,onSaved}:{categoria:Categoria;categorias:Categoria[];onSaved:()=>void}){
+  const {confirmar}=useDialogo();
  const [valor,setValor]=useState<DefinicionRacial>(()=>structuredClone(categoria.pasiva_racial||vacia()));
  const [editando,setEditando]=useState(false),[ocupado,setOcupado]=useState(false),[error,setError]=useState("");
  const bloqueo=useRef(false);
@@ -38,7 +40,7 @@ export function PasivaRacial({categoria,categorias,onSaved}:{categoria:Categoria
   {editando&&<fieldset disabled={ocupado} className="min-w-0 space-y-5"><label className="block text-sm">Nombre de la pasiva<input maxLength={120} className={campo} value={valor.nombre} onChange={e=>setValor({...valor,nombre:e.target.value})}/></label><label className="block text-sm">Descripción para el jugador<textarea maxLength={2000} rows={3} className={campo} value={valor.descripcion} onChange={e=>setValor({...valor,descripcion:e.target.value})}/></label>
   <EditorPasivas value={valor.reglas_pasivas} onChange={reglas_pasivas=>setValor({...valor,reglas_pasivas})}/>
   <details className="rounded-lg border border-neutral-800 p-3"><summary className="cursor-pointer text-sm">Reglas avanzadas: condiciones, salvaciones y transformaciones</summary><div className="mt-4"><EditorReglas value={valor.reglas} onChange={reglas=>setValor({...valor,reglas})}/></div></details>
-  <div className="flex flex-wrap gap-3"><button className={boton} onClick={()=>void guardar()}>{ocupado?"Guardando…":"Guardar pasiva"}</button><button className={boton} onClick={()=>{setEditando(false);setError("");}}>Cancelar</button>{categoria.pasiva_racial&&<button className={`${boton} text-red-300`} onClick={()=>{if(window.confirm(`¿Quitar la pasiva propia de ${categoria.nombre}? Las pasivas de sus antepasados se conservan.`))void guardar(true);}}>Quitar pasiva propia</button>}</div></fieldset>}
+  <div className="flex flex-wrap gap-3"><button className={boton} onClick={()=>void guardar()}>{ocupado?"Guardando…":"Guardar pasiva"}</button><button className={boton} onClick={()=>{setEditando(false);setError("");}}>Cancelar</button>{categoria.pasiva_racial&&<button className={`${boton} text-red-300`} onClick={()=>void (async()=>{if(await confirmar({titulo:'Quitar pasiva propia',mensaje:`¿Quitar la pasiva propia de ${categoria.nombre}? Las pasivas de sus antepasados se conservan.`,aceptar:'Quitar',peligro:true}))void guardar(true);})()}>Quitar pasiva propia</button>}</div></fieldset>}
   {error&&<p role="alert" className="text-sm text-red-300">{error}</p>}
  </section>;
 }
