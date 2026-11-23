@@ -463,3 +463,54 @@ Esta tarea agrupa cuatro vistas porque son estáticas y comparten patrón. Si un
 - **Cobertura:** bestiario (T6), tarot (T5), diseño propio para cada tipo (T5–T8), combinación de los códices (T4 miniaturas, T9 rastro, `portadoresDe` en T1), interactividad (voltear, pasar página, inclinación, abanico, tirada) y conservación de todas las acciones (T3, cuyas pruebas se repiten en T8). No queda ningún requisito sin tarea.
 - **Coherencia de nombres:** `ContextoCodice`, `PropsGaleria`, `codiceDe`, `vinculosDe`, `portadoresDe`, `avanzarRastro`, `cadenaPasiva`, `espacioDe`, `tirarPrueba`, `paginasBestiario`, `variantesBestiario` y `usePaginasLibro` se definen en T1–T3/T6 y se usan con la misma firma en el resto de tareas.
 - **Riesgos conocidos:** (1) `useDialogo` lanza un error sin su proveedor, y el arnés de T2 lo envuelve. (2) `matchMedia` no existe en el renderizado estático, así que todos los usos van dentro de `useEffect`. (3) Si el `foreignObject` del sello falla en Safari, el icono se superpone con posición absoluta (T7). (4) El papel claro del bestiario y de los edictos exige texto `--color-ink`, nunca `--color-text`. Compruébalo con el contraste del navegador.
+
+---
+
+## Ampliación A (23-11-2026): todo configurable
+
+Petición del propietario al ordenar la ejecución: *«nada de código o configuraciones fijas: todo debe ser interactivo y fácilmente configurable para varios usos»*. Esta ampliación **manda sobre** las decisiones de diseño anteriores cuando choquen: lo que allí aparece como fijo pasa a ser el **valor por defecto** de una configuración que el GM edita desde la interfaz.
+
+### Modelo (en `lib/codices.ts`, puro y probado)
+
+```ts
+export type ReglaAsignacion={id:string;tipo:TipoCreacion|'*';monstruo:'si'|'no'|'*';clasificacion:string;codice:Codice}; // clasificacion '' = cualquiera
+export type SeccionConfig={clave:ClaveSeccion;visible:boolean;titulo:string};
+export type AjustesCodice={nombre:string;eyebrow:string;secciones:SeccionConfig[]};
+export type ConfiguracionCodices={
+  version:1;
+  asignaciones:ReglaAsignacion[];          // la primera que coincide gana
+  porCreacion:Record<string,Codice>;        // «Ver como» de una creación concreta; tiene prioridad
+  codices:Record<Codice,AjustesCodice>;
+  movimiento:{activo:boolean;pagina_ms:number;volteo_ms:number;inclinacion_max:number};
+  libro:{dos_paginas_desde:number};         // px
+  rastro:{max:number};
+  tarot:{tirada:boolean};
+};
+export const CLAVES_SECCION=['atributos','acciones','dados','tirada','pasivas','ritual','reglas','grimorio','arsenal','vinculos','variantes','artefacto','heraldica','requisitos','naturaleza','invocacion','historia','portadores'] as const;
+export type ClaveSeccion=typeof CLAVES_SECCION[number];
+export const CATALOGO_SECCIONES:Record<ClaveSeccion,{titulo:string;ayuda:string}>;
+export function configuracionBase():ConfiguracionCodices;            // reproduce las decisiones de diseño
+export function normalizarConfiguracion(raw:unknown):{config:ConfiguracionCodices;avisos:string[]}; // nunca lanza
+export function resolverCodice(item:{id:string;tipo:string},tipo:string,monstruo:boolean,c:ConfiguracionCodices):Codice;
+export function plantilla(texto:string,vars:Record<string,string|number>):string; // {clave}; desconocidas se quedan igual
+export function seccionesVisibles(c:ConfiguracionCodices,codice:Codice):SeccionConfig[];
+```
+
+- Las **secciones** son un vocabulario común: cualquier códice puede mostrar cualquier sección, en el orden y con el título que el GM decida. Lo único propio de cada códice es su **pieza central** (libro, carta, vitrina, sello, estandarte, retrato o rollo) y su estética.
+- En el bestiario, cada sección visible con datos es una lámina (`variantes` se despliega en una lámina por variante). `paginasBestiario` pasa a recibir la lista de secciones visibles y una función `tieneDatos(clave)`.
+- `normalizarConfiguracion` acepta configuraciones antiguas o incompletas: completa lo que falta con la base, descarta claves y códices desconocidos (con aviso), acota los números (`pagina_ms` y `volteo_ms` entre 0 y 2000, `inclinacion_max` entre 0 y 15, `rastro.max` entre 2 y 20, `dos_paginas_desde` entre 480 y 1600) y quita los títulos vacíos (se usa el del catálogo).
+
+### Persistencia
+
+- Tabla `public.forja_codices` (una sola fila `id=1`, `config jsonb`) con lectura para usuarios autenticados y escritura solo mediante `public.codices_guardar(p_config jsonb)`, que exige `private.tienda_es_gm()` y limita el tamaño a 200 000 bytes. Migración `supabase/migrations/20261124100000_forja_codices.sql`, probada con PGlite en `tests/codices-database.mjs`. **No se aplica a la base real sin permiso del propietario.**
+- Hook `components/codices/useConfigCodices.ts`: lee el servidor; si la tabla aún no existe o falla, usa la copia local (`localStorage`, clave `yugen.codices.v1`) y, si no hay, la base. Informa su `origen` ('servidor' | 'local' | 'base') para que la interfaz lo diga claramente. Guardar escribe en el servidor y en la copia local.
+
+### Interfaz de configuración
+
+- **«Configurar códices»** (botón en la cabecera de la colección) abre el *Taller de códices* (`components/codices/TallerCodices.tsx`) con pestañas: **Asignación** (reglas tipo/monstruo/clasificación → códice, reordenables con `ListaArrastrable`, añadir y quitar), **Códices** (por códice: nombre, plantilla del eyebrow con marcadores `{nombre}` `{clasificacion}` `{tipo}` `{rango}` `{rango_nombre}` `{romano}`, y secciones: mostrar/ocultar, renombrar, reordenar y añadir cualquiera del catálogo), **Movimiento** (activar, duraciones, inclinación, ancho para dos páginas, longitud del rastro, tirada de prueba) y **Archivo** (exportar a `.json`, importar con validación y vista previa de avisos antes de reemplazar el borrador, restablecer la base). Una **vista previa en vivo** muestra cualquier creación elegida con el borrador sin guardar.
+- **«Ver como»** en cada códice: un selector que cambia el códice de esa creación (`porCreacion`) y se guarda al momento; la opción «Automático» lo quita.
+- Movimiento: además de `prefers-reduced-motion`, se respeta `movimiento.activo` y las duraciones configuradas (variables CSS `--cx-pagina-ms` y `--cx-volteo-ms`).
+
+### Orden de ejecución con la ampliación
+
+T1 (+ modelo de configuración) → T2 → T3 → **A2** persistencia → T4 (+ **A3** `SeccionCodice`, el renderizador común de secciones) → T5–T8 (cada vista coloca su pieza central y recorre `seccionesVisibles`) → T9 → **A4** Taller y «Ver como» → T10 (la documentación incluye la configuración).
