@@ -38,6 +38,27 @@ B3. **Configuración general en el Yunque.** `components/EditorReaccion.tsx` dej
 B4. **Decisión de uso con menú en pantalla.** La oferta de reacción sale como panel en la pantalla del defensor (aceptar, rechazar, o usar después), no como `window.confirm`. Afecta a `components/yunque/ArenaDolls.tsx` y a la pantalla de combate (`app/ficha/combate/page.tsx`).
 B5. **Pruebas.** Reacción inventada en cada combinación de disparador, naturaleza y reducción; regresión de Kion; prueba de la oferta sin navegador (solo lógica).
 
+### Disparadores generales de reacción (decisión del GM, 23-11)
+
+Cualquier reacción puede configurar su disparador entre estos (no solo defensas contra golpes):
+
+| Disparador | Ejemplo |
+|---|---|
+| Antes de ser atacado | Defenderse antes del impacto |
+| Después de ser atacado | Defenderse o devolver tras el golpe |
+| Tras fallar un ataque propio | Volver a tirar |
+| Tras fallar una prueba o salvación propia | Repetir la tirada |
+| Cuando un aliado es atacado | Interponerse, compartir el daño |
+| Cuando un aliado ataca | Atacar en respuesta, apoyar |
+| Cuando un aliado cae a 0 de vida | Reaccionar por la caída |
+| Al ser apuntado por un área | Esquivar o reducir el área |
+| Al terminar su turno | Acción fuera de turno |
+
+Cada disparador define qué puede hacer la reacción: repetir una tirada, contraatacar, reducir, interponerse, devolver, aplicar un estado o mover. Las combinaciones se validan en el Yunque (no se ofrece un disparador que el motor no pueda resolver).
+
+B6. Ampliar `Reaccion` con `disparador` (lista de la tabla) y con los resultados nuevos (repetir tirada, contraatacar, interponer). El motor evalúa los disparadores en el mismo punto donde hoy se evalúan las defensas.
+B7. **Coste y usos siempre visibles.** Cada reacción muestra en la tarjeta del Yunque, en el menú de decisión y en la ficha del combatiente: coste en PH, usos por encuentro o por turno y enfriamiento si lo tiene. Sin coste o usos, muestra «Sin coste». Esto va en la vista previa del editor y en el menú de la fase C.
+
 ## Fase C · Menús en pantalla
 
 Objetivo: ningún `window.confirm`, `window.alert` ni `window.prompt` en la aplicación.
