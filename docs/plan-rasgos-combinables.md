@@ -50,6 +50,8 @@ El motor asume **un elemento por efecto**. Para combinar fuego y electricidad en
 
 ## Paso 3 · Definición de Rasgo y Potenciador
 
+El coste de un potenciador referencia recursos del catálogo del paso 4 por `id`, no por nombre.
+
 - **Archivos nuevos:** `lib/rasgos.ts`, `tests/rasgos.test.mjs`.
 - **Qué hacer:**
   1. Tipo `Rasgo`: `{id, nombre, origen: 'clan' | 'linaje' | 'adquirido', recursos: [...], potenciadores: Potenciador[]}`.
@@ -58,15 +60,19 @@ El motor asume **un elemento por efecto**. Para combinar fuego y electricidad en
 - **Prueba:** `tests/rasgos.test.mjs`.
 - **Criterio de salida:** un rasgo de ejemplo (bioelectricidad) se valida.
 
-## Paso 4 · Recurso Carga Bioeléctrica (reutilizar `recursos_especiales`)
+## Paso 4 · Catálogo de recursos configurable (CB es solo el primer ejemplo)
 
-- **Archivos:** `lib/combate.ts` (`recursos_especiales`), `lib/rasgos.ts`.
+Principio: **ningún recurso está escrito en el motor.** Carga Bioeléctrica es una entrada más del catálogo, creada desde el Yunque, igual que cualquier otra.
+
+- **Archivos:** `lib/recursos.ts` (nuevo: catálogo y validación), `lib/combate.ts` (`recursos_especiales`, consumo y generación), `components/yunque/editores/EditorRecurso.tsx` (nuevo), tabla `recursos_definiciones` si el catálogo debe ser compartido entre creaciones (ver migración en el paso 4.2).
 - **Qué hacer:**
-  1. Definir CB como recurso del rasgo, con tope configurable, generación y consumo.
-  2. El consumo de CB se valida en el servidor (igual que PH).
-  3. CB y Fatiga son independientes (ver propuesta, sección 2).
-- **Prueba:** no se puede gastar más CB de la que hay; el tope se respeta.
-- **Criterio de salida:** prueba de recurso pasa en el motor.
+  1. **4.1 · Definición de recurso** con: `id`, `nombre`, `tope` (fijo o formula), `inicial`, `generacion` (eventos o acciones que lo suman, con cantidad), `consumo` (cantidades y cuándo se permite), `recuperacion` (opcional), `visible` (quién lo ve).
+  2. **4.2 · Persistencia:** el catálogo vive en la creación del rasgo, no en código. Si varios rasgos comparten un recurso, se referencia por `id` del catálogo. Migración idempotente, con pruebas PGlite.
+  3. **4.3 · Validación en servidor:** nunca se gasta más de lo que hay; el tope se respeta; un recurso no definido no puede consumirse.
+  4. **4.4 · Interfaz:** barra del recurso en la tarjeta del combatiente y en la ficha, con su nombre configurado.
+  5. **4.5 · Independencia:** cada recurso es independiente de Fatiga, PH y de los demás recursos, salvo que el GM configure una relación explícita.
+- **Prueba:** `tests/recursos-configurables.test.mjs`: dos recursos distintos en el mismo personaje no se mezclan; un recurso creado desde el Yunque (no CB) se genera, gasta y topa igual que CB.
+- **Criterio de salida:** se crea un recurso nuevo con nombre distinto a CB desde el Yunque y funciona en combate sin tocar código.
 
 ## Paso 5 · Aplicar un potenciador al lanzar una habilidad
 
@@ -119,11 +125,15 @@ El motor asume **un elemento por efecto**. Para combinar fuego y electricidad en
 
 ---
 
-## Decisiones abiertas
+## Decisiones tomadas (23-11)
 
-1. **Conversión CB a dados:** ¿1 CB = 1d6, o la tabla es configurable por potenciador? Recomiendo configurable, con 1d6 por CB como valor de ejemplo.
-2. **Enfriamiento:** ¿potenciar la habilidad cambia su enfriamiento? Recomiendo que no.
-3. **Dos rasgos con el mismo elemento:** ¿se suman los dados o solo cuenta el mayor? Recomiendo sumar, respetando el tope de componentes.
+1. **1 CB = 1d6.** Es el valor de ejemplo del catálogo. Cada potenciador puede cambiar la escala (por ejemplo, 1 CB = 1d4) desde el Yunque.
+2. **Potenciar no cambia el enfriamiento** de la habilidad.
+3. **Dos rasgos con el mismo elemento suman sus dados**, con el máximo de componentes definido en el paso 1.
+
+## Requisito general del plan
+
+Todo lo que aparece como ejemplo (CB, 1d6, Bola de fuego, Mojado) es **configuración**, no código. El motor solo conoce mecanismos: recursos del catálogo, componentes elementales, etiquetas y potenciadores. Si una pieza nueva necesita código del motor, se documenta como excepción en el plan antes de programarla.
 
 ## Riesgos
 
