@@ -283,3 +283,15 @@
 .cx-proclama .cx-seccion{padding-top:16px;border-top:1px solid color-mix(in srgb,var(--color-ink) 20%,transparent)!important}
 .cx-proclama .cx-seccion>h3{color:var(--color-crimson)!important}
 .cx-proclama .cx-heraldica li{color:var(--cx-tinta)}
+
+/* ---- Expediente ---- */
+.cx-expediente-marco{padding:16px!important}
+.cx-expediente-retrato{border-color:var(--marco,var(--color-line-strong))}
+.cx-expediente-sello{display:flex;justify-content:center;margin-top:14px}
+.cx-codice--expediente .cx-seccion-grimorio,.cx-codice--expediente .cx-seccion-arsenal{background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--color-arcane) 10%,transparent),transparent 70%)}
+
+/* Los botones de enlace no heredan el aspecto de botón del tema de la Forja. */
+.cx-codice .cx-enlace{min-height:0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important;color:inherit!important;letter-spacing:0!important;text-transform:none!important}
+.cx-codice .cx-mini{display:inline-grid!important;justify-items:center;align-content:start;gap:6px}
+.cx-codice .cx-mini-chip{display:inline-flex!important;align-items:center;gap:7px;padding:8px 10px!important;border:1px solid var(--color-line-strong)!important}
+.cx-hueco{min-height:100px}

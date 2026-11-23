@@ -130,3 +130,13 @@ test('pergamino: rollo con el nombre como título',()=>{
  const html=vista(fixture('otro'));
  assert.match(html,/cx-rollo/);assert.match(html,/<h2[^>]*>Reliquia sin nombre<\/h2>/);
 });
+
+test('expediente: retrato, medallones, grimorio, arsenal y talismanes',()=>{
+ const h=fixture('habilidad',{id:'h',nombre:'Tajo'}),p=fixture('pasiva',{id:'p',nombre:'Piel'}),o=fixture('objeto',{id:'o',nombre:'Yelmo',slot_tipo:'casco'});
+ const pj=fixture('personaje',{habilidades:['h'],pasivas:['p'],equipamiento:{casco:'o'},stats:{vida:18,armadura:8,fatiga:5}});
+ const html=vista(pj,[pj,h,p,o]);
+ assert.match(html,/class="cx-mesa cx-mesa-expediente/);
+ for(const t of ['Grimorio','Arsenal','Talismanes','Cabeza','aria-label="Mano derecha: vacío"','y3-medallon'])assert.ok(html.includes(t),t);
+ assert.match(html,/cx-mini-tarot[ "]/);assert.match(html,/cx-mini-sello[ "]/);assert.match(html,/cx-mini-reliquia[ "]/);
+ assert.match(html,/Preparar batalla/);
+});
