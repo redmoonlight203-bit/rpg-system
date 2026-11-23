@@ -1,5 +1,7 @@
 # YUNQUE - UNA MÁS · Plan paso a paso
 
+> **Estado (23-11-2026):** ejecutado. Problemas menores pendientes en [pendientes-yunque-una-mas.md](../pendientes-yunque-una-mas.md).
+
 Tres trabajos en un solo plan:
 
 - **Parte 1 · Menús en pantalla:** eliminar `window.confirm`, `window.alert` y `window.prompt`.

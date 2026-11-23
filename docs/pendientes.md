@@ -2,6 +2,8 @@
 
 # Estabilización de YUGEN
 
+> Pendientes del plan «Yunque · una más» (23-11-2026): [pendientes-yunque-una-mas.md](pendientes-yunque-una-mas.md).
+
 ## Ahora (máximo 3)
 
 1. Ejecutar en la Forja, como GM, «Migrar retratos existentes». La autorización de publicación ya fue concedida. El intento de migración directa administrativa fue bloqueado; se implementó la vía autenticada, pero **la carga de datos históricos no se declara ejecutada** hasta confirmar los archivos.
