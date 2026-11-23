@@ -12,7 +12,7 @@ const ICONO:Record<DisparadorReaccion,typeof Shield>={antes_ser_atacado:ShieldAl
 type Principal=NonNullable<Reaccion['principal']>;
 /** Reacción nueva con un resultado que el disparador sí resuelve. */
 function inicial(d:DisparadorReaccion,previa?:Reaccion):Reaccion{
- const base:Reaccion={disparador:d==='despues_ser_atacado'?undefined:d,coste:previa?.coste,usos:previa?.usos,enfriamiento:previa?.enfriamiento,naturaleza:previa?.naturaleza};
+ const base:Reaccion={disparador:d==='despues_ser_atacado'?undefined:d,coste:previa?.coste,usos:previa?.usos,enfriamiento:previa?.enfriamiento,naturaleza:['tras_fallar_ataque','tras_fallar_prueba'].includes(d)?undefined:previa?.naturaleza};
  const p=RESULTADOS_POR_DISPARADOR[d];
  const principal:Principal=p.includes('repetir_tirada')?{repetir_tirada:{}}:p.includes('interponerse')?{interponerse:{}}:p.includes('reducir')?{reducir:{modo:'fijo',valor:3}}:{contraatacar:{cantidad:1,caras:6}};
  return JSON.parse(JSON.stringify({...base,principal}));
@@ -38,8 +38,8 @@ export default function EditorReaccion({valor,onChange,costeAccion=0}:{valor?:Re
    <fieldset className="yq-reaccion-coste"><legend>Coste</legend>
     <div className="flex flex-wrap gap-3">
      <label>Coste (PH)<input type="number" min={0} max={1000} placeholder={String(costeAccion)} value={r.coste??''} onChange={ev=>set({coste:ev.target.value===''?undefined:numero(ev.target.value,0,1000)})}/></label>
-     <label>Usos<select value={r.usos?.tipo||'ilimitado'} onChange={ev=>{const tipo=ev.target.value as 'encuentro'|'turno'|'ilimitado';set({usos:tipo==='ilimitado'?undefined:{tipo,maximo:r.usos?.maximo||1},una_por_ronda:undefined});}}><option value="ilimitado">Sin límite</option><option value="encuentro">Por encuentro</option><option value="turno">Por ronda</option></select></label>
-     {r.usos&&r.usos.tipo!=='ilimitado'&&<label>Máximo<input type="number" min={1} max={100} value={r.usos.maximo||1} onChange={ev=>set({usos:{...r.usos!,maximo:numero(ev.target.value,1,100)}})}/></label>}
+     <label>Usos<select value={r.usos?.tipo||(r.una_por_ronda?'turno':'ilimitado')} onChange={ev=>{const tipo=ev.target.value as 'encuentro'|'turno'|'ilimitado';set({usos:tipo==='ilimitado'?undefined:{tipo,maximo:r.usos?.maximo||1},una_por_ronda:undefined});}}><option value="ilimitado">Sin límite</option><option value="encuentro">Por encuentro</option><option value="turno">Por ronda</option></select></label>
+     {(r.usos&&r.usos.tipo!=='ilimitado'||r.una_por_ronda)&&<label>Máximo<input type="number" min={1} max={100} value={r.usos?.maximo||1} onChange={ev=>set({usos:{tipo:r.usos?.tipo||'turno',maximo:numero(ev.target.value,1,100)},una_por_ronda:undefined})}/></label>}
      <label>Enfriamiento (rondas)<input type="number" min={0} max={100} value={r.enfriamiento??0} onChange={ev=>set({enfriamiento:numero(ev.target.value,0,100)||undefined})}/></label>
     </div>
     <p className="yq-reaccion-linea">{lineaCosteReaccion(r,costeAccion)}</p>

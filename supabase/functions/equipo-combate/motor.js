@@ -2032,6 +2032,12 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
                     if (seInterpone) {
                         log(n, `${w.nombre} se interpone y recibe el ataque dirigido a ${objetivo.nombre}.`);
                         interpuesto = true;
+                        // Las reducciones ya pagadas por otros aliados viajan con el golpe: no se pierden los PH.
+                        if (objetivo.reduccion_reaccion?.length) {
+                            (w.reduccion_reaccion ||= []).push(...objetivo.reduccion_reaccion);
+                            delete objetivo.reduccion_reaccion;
+                        }
+                        n.objetivo_final = w.id;
                         break;
                     }
                 }
@@ -2311,7 +2317,9 @@ export function responderReaccion(c, defensor, aceptar, rng = dadoSeguro) {
 function animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro) {
     const pos = posicionesTablero(c);
     const propio = efecto?.efecto === 'transformacion' || efecto?.tablero?.afecta === 'yo' || accionId === 'volver_forma' || efecto?.vision?.modo === 'abrir';
-    const hasta = propio ? pos[actorId] : centro || pos[objetivoId] || pos[actorId];
+    const final = n.objetivo_final;
+    delete n.objetivo_final;
+    const hasta = propio ? pos[actorId] : centro || pos[final || objetivoId] || pos[actorId];
     const area = efecto?.tablero && hasta ? areaDesde(pos[actorId], hasta, efecto.tablero, dimensionesTablero(c)) : undefined;
     n.evento_visual = { ...n.evento_visual, id: n.evento_visual?.id || crypto.randomUUID(), nombre: efecto?.nombre || accionId, dados: n.evento_visual?.dados || [], animacion: efecto?.animacion || 'impacto', vfx: efecto?.vfx, desde: pos[actorId], hasta, area,
         movimientos: n.evento_visual?.movimientos?.map(m => ({ ...m, tipo: m.id === actorId ? efecto?.tablero?.movimiento_lanzador?.tipo || m.tipo : m.tipo })) };

@@ -13,6 +13,17 @@ export function useDialogo():ApiDialogo{
   return useMemo(()=>({confirmar:cola.confirmar,avisar:cola.avisar}),[cola]);
 }
 
+/** Trampa de foco reutilizable: Tab y Mayús+Tab circulan dentro del contenedor. */
+export function atraparFoco(e:React.KeyboardEvent,contenedor:HTMLElement|null){
+  if(e.key!=="Tab"||!contenedor)return;
+  const focos=[...contenedor.querySelectorAll<HTMLElement>("button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex='-1'])")];
+  if(!focos.length)return;
+  const primero=focos[0],ultimo=focos[focos.length-1];
+  if(!contenedor.contains(document.activeElement)){e.preventDefault();primero.focus();return;}
+  if(e.shiftKey&&document.activeElement===primero){e.preventDefault();ultimo.focus();}
+  else if(!e.shiftKey&&document.activeElement===ultimo){e.preventDefault();primero.focus();}
+}
+
 function Esquina({className}:{className:string}){
   return <svg className={"dlg-esquina "+className} viewBox="0 0 24 24" aria-hidden="true"><path d="M2 22V8a6 6 0 0 1 6-6h14" fill="none" stroke="currentColor" strokeWidth="1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg>;
 }
@@ -32,12 +43,7 @@ function Panel({cola}:{cola:ColaDialogos}){
   const titulo="dlg-titulo-"+actual.id,mensaje="dlg-mensaje-"+actual.id;
   const tecla=(e:React.KeyboardEvent)=>{
     if(cola.tecla(e.key)){e.preventDefault();e.stopPropagation();return;}
-    if(e.key!=="Tab"||!panel.current)return;
-    const focos=[...panel.current.querySelectorAll<HTMLElement>("button:not([disabled])")];
-    if(!focos.length)return;
-    const primero=focos[0],ultimo=focos[focos.length-1];
-    if(e.shiftKey&&document.activeElement===primero){e.preventDefault();ultimo.focus();}
-    else if(!e.shiftKey&&document.activeElement===ultimo){e.preventDefault();primero.focus();}
+    atraparFoco(e,panel.current);
   };
   return <div className="dlg-velo" onMouseDown={e=>{if(e.target===e.currentTarget)cola.responder(false);}} onKeyDown={tecla}>
     <div ref={panel} key={actual.id} role={actual.tipo==="confirmar"?"alertdialog":"dialog"} aria-modal="true" aria-labelledby={titulo} aria-describedby={mensaje} className={"dlg-panel"+(actual.peligro?" dlg-panel--peligro":"")}>
