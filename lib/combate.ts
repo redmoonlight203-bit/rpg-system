@@ -2,6 +2,7 @@ import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion, type ContraataqueReaccion } from "./creacion";
+import {proyectarVista,desproyectar,type OpcionesEspejo} from "./espejo-mental";
 import {activarVoz,avanzarVoz,vozNiega,type ConfigVoces,type EstadoVoz} from "./artefactos-voces";
 import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type DisparadorReaccion} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
@@ -97,6 +98,8 @@ export type Combatiente = {
   voz_config?:ConfigVoces;
   /** Ya repitió la prueba contra una negativa en este encuentro. */
   voz_resistida?:boolean;
+  /** Espejo mental: solo cambia lo que ve su jugador. `aviso` hasta que empiece su siguiente turno. */
+  espejo_mental?:OpcionesEspejo&{aviso:boolean};
   situacion?: Situacion;
   neutral?: boolean;
   contribucion?: number;
@@ -615,6 +618,13 @@ export function dominar(c:Combate,id:string,activo:boolean){
     log(n,activo?`${m.nombre} queda dominado: el GM decide sus actos.`:`${m.nombre} recupera el control.`);
   });
 }
+/** El GM lanza el espejo mental sobre un combatiente. */
+export function lanzarEspejo(c:Combate,id:string,opciones:OpcionesEspejo){
+  return conMiembro(c,id,(n,m)=>{m.espejo_mental={...copia(opciones),aviso:true};log(n,`${m.nombre}: su mente se nubla (espejo mental).`);});
+}
+export function quitarEspejo(c:Combate,id:string){
+  return conMiembro(c,id,(n,m)=>{delete m.espejo_mental;log(n,`${m.nombre}: el GM disipa el espejo mental.`);});
+}
 export const estaDominado=(m:Combatiente)=>m.estados.some(e=>e.tipo==='dominado');
 /** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
 export function reaccionesDe(c:Combate,m:Combatiente):{id:string;nombre:string;disparador:DisparadorReaccion;linea:string;lista:boolean}[]{
@@ -740,6 +750,11 @@ function area(
 }
 function entrar(c: Combate, m: Combatiente, rng: RNG) {
   aplicarTerreno(c,m,rng);
+  if(m.espejo_mental){
+    const e=m.espejo_mental;
+    if(salvacion(c,m,e.cd??14,e.atributo??'voluntad',rng)){delete m.espejo_mental;log(c,`${m.nombre}: su mente se aclara.`);}
+    else m.espejo_mental={...e,aviso:false};
+  }
   m.turnos++;
   // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
   // en estado normal. No consume acción ni PH y respeta el resultado del dado.
@@ -2373,3 +2388,6 @@ export function vistaOcular(c: Combate, id: string): VistaOcular | null {
     objetivos, ...(amenaza.size ? { amenaza: [...amenaza] } : {}),
   };
 }
+
+/** Proyección del espejo mental para la vista de un jugador (la Edge Function la aplica a su respuesta). */
+export {proyectarVista,desproyectar};

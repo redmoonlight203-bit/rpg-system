@@ -97,6 +97,52 @@ function avanzarTurnoTransformacion(actor) {
 
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
+const { proyectarVista, desproyectar } = (() => {
+const reflejar = (p, d) => ({ x: d.columnas - 1 - p.x, y: p.y });
+const clave = (k, d) => { const [x, y] = k.split(',').map(Number); return `${d.columnas - 1 - x},${y}`; };
+const OTRO = { jugador: 'enemigo', enemigo: 'jugador' };
+/** Vista proyectada para `propio`. Nunca muta la entrada. */
+function proyectarVista(vista, propio, o) {
+    const v = JSON.parse(JSON.stringify(vista));
+    const d = v.tablero || { columnas: v.mapa?.columnas || 10, filas: v.mapa?.filas || 10 };
+    const yo = v.objetivos?.find(x => x.id === propio);
+    for (const x of v.objetivos || []) {
+        if (o.espejar && x.posicion)
+            x.posicion = reflejar(x.posicion, d);
+        if (x.id === propio)
+            continue;
+        if (o.intercambiar && yo && OTRO[x.bando])
+            x.bando = OTRO[x.bando];
+        if (o.ocultar) {
+            x.nombre = '???';
+            delete x.imagen_url;
+        }
+    }
+    if (o.espejar) {
+        if (v.alcanzables)
+            v.alcanzables = Object.fromEntries(Object.entries(v.alcanzables).map(([k, n]) => [clave(k, d), n]));
+        if (v.mapa?.celdas)
+            v.mapa.celdas = Object.fromEntries(Object.entries(v.mapa.celdas).map(([k, t]) => [clave(k, d), t]));
+        const ev = v.evento_visual;
+        if (ev) {
+            if (ev.desde)
+                ev.desde = reflejar(ev.desde, d);
+            if (ev.hasta)
+                ev.hasta = reflejar(ev.hasta, d);
+            if (ev.area)
+                ev.area = ev.area.map(p => reflejar(p, d));
+            if (ev.movimientos)
+                ev.movimientos = ev.movimientos.map(m => ({ ...m, desde: reflejar(m.desde, d), hasta: reflejar(m.hasta, d) }));
+        }
+    }
+    return v;
+}
+/** Casilla real de un clic hecho sobre la vista reflejada (mover, centro de un área). */
+function desproyectar(p, o, d) { return o.espejar ? reflejar(p, d) : { ...p }; }
+const AVISO_ESPEJO = 'Tu mente se confunde';
+
+return { proyectarVista, desproyectar };
+})();
 const { activarVoz, avanzarVoz, vozNiega } = (() => {
 const NOMBRE_VOZ = { pregunta: 'Pregunta', comentario: 'Comentario', negativa: 'Negativa' };
 const entero = (v, min, max) => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
@@ -861,6 +907,13 @@ export function dominar(c, id, activo) {
         log(n, activo ? `${m.nombre} queda dominado: el GM decide sus actos.` : `${m.nombre} recupera el control.`);
     });
 }
+/** El GM lanza el espejo mental sobre un combatiente. */
+export function lanzarEspejo(c, id, opciones) {
+    return conMiembro(c, id, (n, m) => { m.espejo_mental = { ...copia(opciones), aviso: true }; log(n, `${m.nombre}: su mente se nubla (espejo mental).`); });
+}
+export function quitarEspejo(c, id) {
+    return conMiembro(c, id, (n, m) => { delete m.espejo_mental; log(n, `${m.nombre}: el GM disipa el espejo mental.`); });
+}
 export const estaDominado = (m) => m.estados.some(e => e.tipo === 'dominado');
 /** Reacciones del combatiente para su ficha: frase de coste con usos restantes y si ahora podría usarse. */
 export function reaccionesDe(c, m) {
@@ -985,6 +1038,15 @@ function area(c, a, t, e, total, rng) {
 }
 function entrar(c, m, rng) {
     aplicarTerreno(c, m, rng);
+    if (m.espejo_mental) {
+        const e = m.espejo_mental;
+        if (salvacion(c, m, e.cd ?? 14, e.atributo ?? 'voluntad', rng)) {
+            delete m.espejo_mental;
+            log(c, `${m.nombre}: su mente se aclara.`);
+        }
+        else
+            m.espejo_mental = { ...e, aviso: false };
+    }
     m.turnos++;
     // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
     // en estado normal. No consume acción ni PH y respeta el resultado del dado.
@@ -3073,3 +3135,5 @@ export function vistaOcular(c, id) {
         objetivos, ...(amenaza.size ? { amenaza: [...amenaza] } : {}),
     };
 }
+/** Proyección del espejo mental para la vista de un jugador (la Edge Function la aplica a su respuesta). */
+export { proyectarVista, desproyectar };
