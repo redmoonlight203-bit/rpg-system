@@ -36,3 +36,11 @@ test('stats del nivel: se acumulan los cambios hasta el nivel actual',()=>{
  assert.deepEqual(JSON.parse(JSON.stringify(A.statsDeNivel(dos,2))),{filo:6});
  assert.deepEqual(JSON.parse(JSON.stringify(A.statsDeNivel(dos,1))),{filo:2});
 });
+test('tabla de 100 formas: tamaño, texto y forma por tirada',()=>{
+ const a={niveles:[{nivel:1,nombre:'Hoja',condicion_subida:null,cambios:{}}],formas:A.formasVacias()};
+ assert.equal(a.formas.length,100);assert.equal(A.validarArtefacto(a),null);
+ a.formas[41]='Colmillo de obsidiana';assert.equal(A.formaDe(a,42),'Colmillo de obsidiana');
+ assert.equal(A.formaDe(a,1),'Forma 1','una fila vacía se nombra por su número');
+ assert.match(A.validarArtefacto({...a,formas:a.formas.slice(0,99)}),/100/);
+ assert.match(A.validarArtefacto({...a,formas:a.formas.map((f,i)=>i===3?'x'.repeat(200):f)}),/forma 4/i);
+});

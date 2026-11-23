@@ -27,3 +27,22 @@
 .ya-acciones button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;font:600 13px var(--font-sans);color:var(--color-text);background:var(--color-well);border:1px solid var(--color-line);cursor:pointer}
 .ya-acciones button.is-peligro{color:var(--color-danger-text)}
 @media (max-width:480px){.ya-nivel-cuerpo{margin-left:0}}
+.ya-formas{display:grid;gap:10px}
+.ya-buscar{display:flex;align-items:center;gap:8px}
+.ya-tabla{display:grid;gap:4px;max-height:360px;overflow:auto;margin:0;padding:0 4px 0 0;list-style:none}
+.ya-tabla li{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:6px}
+.ya-tabla input{width:100%;min-width:0}
+.ya-tirada{display:grid;place-items:center;height:32px;font:700 13px var(--font-serif);font-variant-numeric:tabular-nums;color:var(--color-gold-soft);border:1px solid var(--color-line);background:var(--color-well)}
+.ya-portadores{display:grid;gap:8px;padding-top:8px;border-top:1px solid var(--color-line)}
+.ya-empunar{display:flex;flex-wrap:wrap;gap:8px}
+.ya-empunar select{flex:1 1 160px;min-width:0}
+.ya-revelado{display:flex;align-items:center;gap:14px;padding:12px;border:1px solid var(--color-arcane);background:color-mix(in srgb,var(--color-arcane) 12%,var(--color-well))}
+.ya-revelado p{margin:0;font:14px/1.5 var(--font-sans);color:var(--color-parchment)}
+.ya-d100{display:grid;place-items:center;flex:0 0 auto;width:58px;height:58px;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);background:radial-gradient(circle at 40% 35%,var(--color-overlay),var(--color-well));border:0;font:700 20px var(--font-serif);font-variant-numeric:tabular-nums;color:var(--color-arcane);box-shadow:inset 0 0 0 2px var(--color-arcane);animation:ya-giro .2s linear infinite}
+.ya-revelado.is-listo .ya-d100{animation:ya-aterriza .35s cubic-bezier(.2,1.4,.4,1) both;color:var(--color-gold-bright)}
+.ya-lista-portadores{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.ya-lista-portadores li{display:grid;gap:2px;padding:6px 8px;border-left:3px solid var(--color-gold);background:var(--color-well);font:12.5px var(--font-sans);color:var(--color-text-muted)}
+.ya-lista-portadores strong{font:600 14px var(--font-display);color:var(--color-parchment)}
+@keyframes ya-giro{to{transform:rotate(360deg)}}
+@keyframes ya-aterriza{from{transform:scale(1.4)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.ya-d100,.ya-revelado.is-listo .ya-d100{animation:none}}

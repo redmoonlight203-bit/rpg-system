@@ -11,6 +11,7 @@ import EditorMonstruo from '../EditorMonstruo';
 import {Interruptor} from './Controles';
 import NaturalezaAdquirida from './NaturalezaAdquirida';
 import EditorArtefacto from './editores/EditorArtefacto';
+import {pestanasArtefacto} from './editores/pestanas-artefacto';
 import PruebaBalance, {type useBalanceBorrador} from './PruebaBalance';
 import {activas,atributosVisibles,esMonstruoB,type ContextoTaller} from './contexto';
 import type {FuenteMonstruo} from '../../lib/monstruos';
@@ -66,7 +67,7 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla,balance}:
    <label className="yq-campo"><span>Historia</span><textarea rows={5} value={b.historia} onChange={e=>patch({historia:e.target.value})} placeholder="Su origen, sus hazañas y su lugar en Yugen…"/></label>
    {b.tipo==='personaje'&&<section className="yq-ficha-seccion"><h3 className="yq-ficha-titulo">Formas de su historia</h3><FormasHistoria formas={b.formas} cambiar={formas=>patch({formas})}/></section>}
    {b.tipo==='personaje'&&<NaturalezaAdquirida valor={b.naturalezaVinculo} onChange={naturalezaVinculo=>patch({naturalezaVinculo})} catalogo={ctx.naturalezas??[]} clases={NATURALEZA}/>}
-   {b.tipo==='objeto'&&<EditorArtefacto valor={b.artefacto} onChange={artefacto=>patch({artefacto})} atributos={atributosVisibles(b,ctx)}/>}
+   {b.tipo==='objeto'&&<EditorArtefacto valor={b.artefacto} onChange={artefacto=>patch({artefacto})} atributos={atributosVisibles(b,ctx)} pestanas={pestanasArtefacto(b.id)}/>}
    {monstruo&&<section className="yq-ficha-seccion yq-ficha-especie" id="yq-ficha-especie"><EditorMonstruo value={b.monstruo} onChange={m=>patch({monstruo:m})} catalogo={activas(ctx) as FuenteMonstruo[]} atributos={atributosVisibles(b,ctx)}/></section>}
    <section className="yq-ficha-seccion">
     <h3 className="yq-ficha-titulo">Requisitos y limitaciones</h3>

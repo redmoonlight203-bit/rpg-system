@@ -4,7 +4,9 @@
  */
 export type CondicionSubida={tipo:'contador';contador:string;meta:number}|{tipo:'evento';evento:string};
 export type NivelArtefacto={nivel:number;nombre:string;condicion_subida:CondicionSubida|null;cambios:{stats?:Record<string,number>;descripcion?:string}};
-export type ConfiguracionArtefacto={niveles:NivelArtefacto[]};
+export type ConfiguracionArtefacto={niveles:NivelArtefacto[];
+  /** Tabla d100: la fila `tirada-1` es la forma que toma el artefacto con un portador. Vacía = «Forma N». */
+  formas?:string[]};
 export type ProgresoArtefacto={contadores:Record<string,number>;eventos:string[]};
 
 const texto=(v:unknown,max=120)=>typeof v==='string'&&!!v.trim()&&v.length<=max;
@@ -27,11 +29,18 @@ export function validarArtefacto(a:unknown):string|null{
     if(st&&(typeof st!=='object'||Object.entries(st).some(([k,v])=>!/^[a-z_][a-z0-9_]{0,63}$/.test(k)||!entero(v,-1000,1000))))return `Nivel ${n.nivel}: estadísticas inválidas.`;
     if(n.cambios?.descripcion!==undefined&&(typeof n.cambios.descripcion!=='string'||n.cambios.descripcion.length>2000))return `Nivel ${n.nivel}: descripción demasiado larga.`;
   }
+  if(x.formas!==undefined){
+    if(!Array.isArray(x.formas)||x.formas.length!==100)return 'La tabla de formas tiene exactamente 100 filas.';
+    const mala=x.formas.findIndex(f=>typeof f!=='string'||f.length>120);
+    if(mala>=0)return `La forma ${mala+1} es demasiado larga (máximo 120).`;
+  }
   return null;
 }
+export const formasVacias=()=>Array.from({length:100},()=>'');
+export const formaDe=(a:ConfiguracionArtefacto,tirada:number)=>a.formas?.[tirada-1]?.trim()||`Forma ${tirada}`;
 /** Copia limpia (sin campos desconocidos) para guardar. */
 export function normalizarArtefacto(a:ConfiguracionArtefacto):ConfiguracionArtefacto{
-  return {...a,niveles:a.niveles.map(n=>({nivel:n.nivel,nombre:n.nombre.trim(),condicion_subida:n.condicion_subida,cambios:{...n.cambios}}))};
+  return {...a,...(a.formas?{formas:a.formas.map(f=>f.trim())}:{}),niveles:a.niveles.map(n=>({nivel:n.nivel,nombre:n.nombre.trim(),condicion_subida:n.condicion_subida,cambios:{...n.cambios}}))};
 }
 /** Nivel actual: se sube en orden mientras se cumpla la condición del siguiente. */
 export function nivelAlcanzado(a:ConfiguracionArtefacto,p:ProgresoArtefacto):number{
