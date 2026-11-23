@@ -30,3 +30,33 @@ test('el arnés renderiza una Carta de la galería', () => {
   assert.match(html, /cg-carta/);
   assert.ok(html.includes(item.nombre));
 });
+
+const vista = 'components/codices/VistaCodice.tsx';
+const nada = () => {};
+function ver(item, items = [], extra = {}) {
+  return renderizar(vista, 'default', {item, props:propsBase(items), volver:nada, abrir:nada, ...extra});
+}
+
+test('la ficha conserva sus acciones y textos', () => {
+  const html = ver(fixture('objeto'));
+  for (const texto of ['Volver a la colección', 'Editar ficha', 'Entregar', 'Publicar en tienda',
+    'href="/dm/mercado?forja=', 'Eliminar creación', 'Las copias existentes conservan sus valores.', 'Elegir imagen o icono']) {
+    assert.ok(html.includes(texto), texto);
+  }
+});
+
+test('personaje: preparar batalla y tienda de almas', () => {
+  const normal = ver(fixture('personaje'));
+  assert.ok(normal.includes('Preparar batalla'));
+  assert.ok(normal.includes('/dm/tienda-almas?forja='));
+  const alma = ver(fixture('personaje', {ligado_al_alma:true, alma_en_uso:true}));
+  assert.ok(alma.includes('Ya entregada · Restablece para recuperar'));
+  assert.ok(alma.includes('Restablecer y devolver a La creación'));
+  assert.ok(!alma.includes('Preparar batalla'));
+});
+
+test('enlace roto no expone un botón', () => {
+  const html = ver(fixture('personaje', {habilidades:['no-existe']}));
+  assert.match(html, /<span class="cx-no-disponible">Creación no disponible<\/span>/);
+  assert.doesNotMatch(html, /aria-label="Abrir Creación no disponible"/);
+});
