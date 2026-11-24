@@ -1,5 +1,81 @@
 // GENERADO por scripts/preparar-motor-edge.mjs. No editar directamente.
+const { huellaDe, casillasHuella, claveHuella, cabeHuella, distanciaHuellas, validarHuella } = (() => {
+const MAX_HUELLA = 6;
+function huellaValida(v) {
+    if (!v || typeof v !== 'object')
+        return false;
+    const h = v;
+    return [h.ancho, h.alto].every(n => Number.isInteger(n) && n >= 1 && n <= MAX_HUELLA);
+}
+/** Una huella no declarada hereda 1 × 1, la especie o el cuerpo base según el contexto. */
+function validarHuella(v) {
+    return v === undefined || huellaValida(v) ? null : `El ancho y el alto deben ser enteros de 1 a ${MAX_HUELLA} casillas.`;
+}
+function normalizarHuella(v) {
+    return huellaValida(v) ? { ancho: v.ancho, alto: v.alto } : { ancho: 1, alto: 1 };
+}
+const huellaDe = (m) => normalizarHuella(m.transformacion?.huella ?? m.configuracion?.huella ?? m.huella);
+function casillasHuella(m, p) {
+    if (!p)
+        return [];
+    const { ancho, alto } = huellaDe(m), r = [];
+    for (let y = 0; y < alto; y++)
+        for (let x = 0; x < ancho; x++)
+            r.push({ x: p.x + x, y: p.y + y });
+    return r;
+}
+const claveHuella = ({ x, y }) => x + ',' + y;
+function cabeHuella(m, p, c, bloqueada) {
+    return !!p && Number.isInteger(p.x) && Number.isInteger(p.y) && casillasHuella(m, p).every(q => q.x >= 0 && q.y >= 0 && q.x < c.columnas && q.y < c.filas && !bloqueada(q));
+}
+function distanciaHuellas(a, pa, b, pb) {
+    if (!pa || !pb)
+        return Infinity;
+    const h = huellaDe(a), j = huellaDe(b);
+    return Math.max(0, pa.x - pb.x - j.ancho + 1, pb.x - pa.x - h.ancho + 1) + Math.max(0, pa.y - pb.y - j.alto + 1, pb.y - pa.y - h.alto + 1);
+}
+
+return { huellaDe, casillasHuella, claveHuella, cabeHuella, distanciaHuellas, validarHuella };
+})();
 const { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion } = (() => {
+const { validarHuella } = (() => {
+const MAX_HUELLA = 6;
+function huellaValida(v) {
+    if (!v || typeof v !== 'object')
+        return false;
+    const h = v;
+    return [h.ancho, h.alto].every(n => Number.isInteger(n) && n >= 1 && n <= MAX_HUELLA);
+}
+/** Una huella no declarada hereda 1 × 1, la especie o el cuerpo base según el contexto. */
+function validarHuella(v) {
+    return v === undefined || huellaValida(v) ? null : `El ancho y el alto deben ser enteros de 1 a ${MAX_HUELLA} casillas.`;
+}
+function normalizarHuella(v) {
+    return huellaValida(v) ? { ancho: v.ancho, alto: v.alto } : { ancho: 1, alto: 1 };
+}
+const huellaDe = (m) => normalizarHuella(m.transformacion?.huella ?? m.configuracion?.huella ?? m.huella);
+function casillasHuella(m, p) {
+    if (!p)
+        return [];
+    const { ancho, alto } = huellaDe(m), r = [];
+    for (let y = 0; y < alto; y++)
+        for (let x = 0; x < ancho; x++)
+            r.push({ x: p.x + x, y: p.y + y });
+    return r;
+}
+const claveHuella = ({ x, y }) => x + ',' + y;
+function cabeHuella(m, p, c, bloqueada) {
+    return !!p && Number.isInteger(p.x) && Number.isInteger(p.y) && casillasHuella(m, p).every(q => q.x >= 0 && q.y >= 0 && q.x < c.columnas && q.y < c.filas && !bloqueada(q));
+}
+function distanciaHuellas(a, pa, b, pb) {
+    if (!pa || !pb)
+        return Infinity;
+    const h = huellaDe(a), j = huellaDe(b);
+    return Math.max(0, pa.x - pb.x - j.ancho + 1, pb.x - pa.x - h.ancho + 1) + Math.max(0, pa.y - pb.y - j.alto + 1, pb.y - pa.y - h.alto + 1);
+}
+
+return { validarHuella };
+})();
 function maxVidaForma(stats) {
     return Math.max(1, Math.trunc(stats.vida ?? stats.hp ?? 1));
 }
@@ -7,6 +83,9 @@ function comprobarEtapa(d, id) {
     const e = d.etapas.find(e => e.id === id);
     if (!e)
         throw Error('La etapa no pertenece a esta transformación.');
+    const error = validarHuella(e.huella);
+    if (error)
+        throw Error(error);
     return e;
 }
 function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
@@ -26,7 +105,7 @@ function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
     const stats = { ...original, ...etapa.stats };
     const forma = def.tipo === 'forma';
     const activa = {
-        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx,
+        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella,
         stats_originales: original, vida_original: actor.vida,
         vida_forma: forma ? maxVidaForma(stats) : actor.vida,
         turnos_restantes: def.duracion_turnos && def.duracion_turnos > 0 ? def.duracion_turnos : null
@@ -45,7 +124,7 @@ function cambiarEtapaTransformacion(actor, def, etapaId) {
     // El avance de etapa no regenera HP. En forma, la vida restante se limita
     // al nuevo máximo; en poder, la vida real permanece intacta.
     const vida = activa.tipo === 'forma' ? Math.min(actor.vida, maxVidaForma(stats)) : actor.vida;
-    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, vida_forma: vida } };
+    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella, vida_forma: vida } };
 }
 /** Activación automática y forzada por una salvación fallida; ignora el límite
  * de uso manual y los costes, pero no hace que el jugador pierda su ficha base. */
@@ -61,7 +140,7 @@ function forzarPosesion(actor, def, etapaId) {
     const curacion = Math.max(0, Math.trunc(etapa.curacion_entrada || 0));
     const vida = Math.max(1, Math.min(max, actor.vida + curacion));
     const activa = {
-        definicion_id: def.id, tipo: 'poder', etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx,
+        definicion_id: def.id, tipo: 'poder', etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella,
         descontrolada: true, vida_maxima_alterada: true,
         stats_originales: originales, vida_original: actor.transformacion?.vida_original ?? actor.vida,
         vida_forma: vida, turnos_restantes: null
@@ -98,7 +177,7 @@ function avanzarTurnoTransformacion(actor) {
 return { activarTransformacion, cambiarEtapaTransformacion, terminarTransformacion, avanzarTurnoTransformacion, danarTransformado, forzarPosesion };
 })();
 const { proyectarVista, desproyectar, proyectarRespuesta } = (() => {
-const reflejar = (p, d) => ({ x: d.columnas - 1 - p.x, y: p.y });
+const reflejar = (p, d, ancho = 1) => ({ x: d.columnas - ancho - p.x, y: p.y });
 const clave = (k, d) => { const [x, y] = k.split(',').map(Number); return `${d.columnas - 1 - x},${y}`; };
 const OTRO = { jugador: 'enemigo', enemigo: 'jugador' };
 /** Vista proyectada para `propio`. Nunca muta la entrada. */
@@ -108,7 +187,7 @@ function proyectarVista(vista, propio, o) {
     const yo = v.objetivos?.find(x => x.id === propio);
     for (const x of v.objetivos || []) {
         if (o.espejar && x.posicion)
-            x.posicion = reflejar(x.posicion, d);
+            x.posicion = reflejar(x.posicion, d, x.huella?.ancho);
         if (x.id === propio)
             continue;
         if (o.intercambiar && yo && OTRO[x.bando])
@@ -119,8 +198,9 @@ function proyectarVista(vista, propio, o) {
         }
     }
     if (o.espejar) {
+        const ancho = yo?.huella?.ancho ?? 1;
         if (v.alcanzables)
-            v.alcanzables = Object.fromEntries(Object.entries(v.alcanzables).map(([k, n]) => [clave(k, d), n]));
+            v.alcanzables = Object.fromEntries(Object.entries(v.alcanzables).map(([k, n]) => { const [x, y] = k.split(',').map(Number), p = reflejar({ x, y }, d, ancho); return [p.x + ',' + p.y, n]; }));
         if (v.mapa?.celdas)
             v.mapa.celdas = Object.fromEntries(Object.entries(v.mapa.celdas).map(([k, t]) => [clave(k, d), t]));
         const ev = v.evento_visual;
@@ -132,13 +212,13 @@ function proyectarVista(vista, propio, o) {
             if (ev.area)
                 ev.area = ev.area.map(p => reflejar(p, d));
             if (ev.movimientos)
-                ev.movimientos = ev.movimientos.map(m => ({ ...m, desde: reflejar(m.desde, d), hasta: reflejar(m.hasta, d) }));
+                ev.movimientos = ev.movimientos.map(m => { const ancho = v.objetivos?.find(x => x.id === m.id)?.huella?.ancho; return { ...m, desde: reflejar(m.desde, d, ancho), hasta: reflejar(m.hasta, d, ancho) }; });
         }
     }
     return v;
 }
-/** Casilla real de un clic hecho sobre la vista reflejada (mover, centro de un área). */
-function desproyectar(p, o, d) { return o.espejar ? reflejar(p, d) : { ...p }; }
+/** Casilla real de un clic reflejado: el movimiento usa el ancho de la ficha, un área usa 1. */
+function desproyectar(p, o, d, ancho = 1) { return o.espejar ? reflejar(p, d, ancho) : { ...p }; }
 const AVISO_ESPEJO = 'Tu mente se confunde';
 const ESPEJO_DIRECCION = { e: 'o', o: 'e', ne: 'no', no: 'ne', se: 'so', so: 'se', n: 'n', s: 's' };
 /**
@@ -2006,7 +2086,7 @@ export function evaluarReacciones(c, dueno, disparador, contexto = {}) {
     return efectosConReaccion(dueno).map((p, i) => ({ p, r: p.reaccion, i }))
         .filter((x) => !!x.r && disparadorDe(x.r) === disparador)
         .filter(({ r }) => (!r.naturaleza || !e || (r.naturaleza === 'magica') === magico) && (!r.forma || forma === r.forma) && (!r.sin_forma || forma !== r.sin_forma))
-        .filter(({ r }) => !pos || !contexto.cerca || (!!pos[dueno.id] && !!pos[contexto.cerca.id] && distanciaCasillas(pos[dueno.id], pos[contexto.cerca.id]) <= (r.alcance || 1)))
+        .filter(({ r }) => !pos || !contexto.cerca || (!!pos[dueno.id] && !!pos[contexto.cerca.id] && distanciaEntreFichas(dueno, pos[dueno.id], contexto.cerca, pos[contexto.cerca.id]) <= (r.alcance || 1)))
         .sort((x, y) => (y.r.prioridad || 0) - (x.r.prioridad || 0) || x.i - y.i)
         .map(x => disponibilidad(c, dueno, x.p, x.r)).filter((d) => !!d);
 }
@@ -2288,7 +2368,10 @@ function entrar(c, m, rng) {
             if (puedeAplicar(c, m, 'posesion', { id: 'posesion', nombre: 'la posesión', categoria: 'mental', subcategoria: 'posesion', duracion: { tipo: 'combate' }, efectos: [] }) === 'no')
                 break;
             if (!salvacion(c, m, p.cd, 'salvacion', rng)) {
-                Object.assign(m, forzarPosesion(m, d, p.etapa_id));
+                if (!aplicarFormaConEspacio(c, m, forzarPosesion(m, d, p.etapa_id))) {
+                    log(c, `${m.nombre}: no hay espacio para la forma de posesión.`);
+                    break;
+                }
                 log(c, `${m.nombre} pierde el control: se manifiesta ${d.etapas.find(et => et.id === p.etapa_id)?.nombre || d.nombre}.`);
             }
             else
@@ -2381,12 +2464,12 @@ function moverForzado(c, m, p, fuente, rng) {
     const pos = posicionesTablero(c), dims = dimensionesTablero(c), origen = pos[fuente], desde = pos[m.id];
     if (!origen || !desde)
         return;
-    const ocupadas = new Set(Object.entries(pos).filter(([id]) => id !== m.id).map(([, q]) => q.x + ',' + q.y));
+    const ocupadas = new Set(casillasOtras(c.miembros, pos, m.id).map(claveHuella));
     let actual = desde, pasos = 0;
     while (pasos < p.max) {
         const d0 = distanciaCasillas(actual, origen);
         const opciones = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: actual.x + dx, y: actual.y + dy }))
-            .filter(q => q.x >= 0 && q.y >= 0 && q.x < dims.columnas && q.y < dims.filas && c.mapa?.celdas[q.x + ',' + q.y] !== 'muro' && !ocupadas.has(q.x + ',' + q.y))
+            .filter(q => cabeHuella(huellaReserva(m), q, dims, r => c.mapa?.celdas[claveHuella(r)] === 'muro' || ocupadas.has(claveHuella(r))))
             .map(q => ({ q, d: distanciaCasillas(q, origen) }))
             .filter(v => p.sentido === 'alejar' ? v.d > d0 : v.d < d0 && v.d >= 1)
             .sort((u, v) => p.sentido === 'alejar' ? v.d - u.d : u.d - v.d);
@@ -2412,6 +2495,9 @@ function iniciarInterno(c, rng) {
     const n = copia(c), primero = orden(n).find(combatienteActivo);
     if (!primero)
         throw Error("Añade personajes en pie.");
+    const espacios = posicionesTablero(n);
+    if (n.miembros.some(m => !espacios[m.id]))
+        throw Error("No hay espacio para todas las fichas en el mapa.");
     n.fase = "en_curso";
     for (const m of n.miembros)
         emitirMotor(n, 'inicio_combate', m, m, m, rng);
@@ -2813,7 +2899,7 @@ function resolverTurnoDescontrolado(c, actorId, rng) {
         for (const t of otros())
             for (const ac of posibilidades) {
                 const p = posicionesTablero(c), area = ac.efecto.tablero;
-                if (!area || (area.origen_area === 'lanzador' ? distanciaCasillas(p[actorId], p[t.id]) > area.tamano : distanciaCasillas(p[actorId], p[t.id]) > area.alcance) || !lineaVisible(p[actorId], p[t.id], c.mapa))
+                if (!area || !alcanceVisibleEntreFichas(actor, p[actorId], t, p[t.id], area.origen_area === 'lanzador' ? area.tamano : area.alcance, c.mapa))
                     continue;
                 try {
                     if (area.movimiento_lanzador && !['aterrizaje', 'recorrido'].includes(area.origen_area || ''))
@@ -2841,8 +2927,8 @@ function resolverTurnoDescontrolado(c, actorId, rng) {
         const candidatos = casillasAlcanzables(c, actorId);
         const mejor = Object.entries(candidatos).map(([clave, coste]) => {
             const [x, y] = clave.split(',').map(Number), p = { x, y };
-            return { p, coste, d: distanciaCasillas(p, blanco) };
-        }).filter(x => x.d < distanciaCasillas(origen, blanco))
+            return { p, coste, d: distanciaEntreFichas(actor, p, objetivo, blanco) };
+        }).filter(x => x.d < distanciaEntreFichas(actor, origen, objetivo, blanco))
             .sort((a, b) => a.d - b.d || a.coste - b.coste || a.p.y - b.p.y || a.p.x - b.p.x)[0];
         if (mejor) {
             for (const miembro of c.miembros)
@@ -2867,10 +2953,10 @@ function destinoAtaqueMovil(c, a, t, m) {
     const posiciones = posicionesTablero(c), origen = posiciones[a.id], blanco = posiciones[t.id], dim = dimensionesTablero(c);
     if (!origen || !blanco)
         throw Error('La posición del atacante o del objetivo no existe.');
-    if (distanciaCasillas(origen, blanco) <= m.alcance_golpe)
+    if (distanciaEntreFichas(a, origen, t, blanco) <= m.alcance_golpe)
         return { ...origen };
-    const ocupadas = new Set(Object.entries(posiciones).filter(([id]) => id !== a.id).map(([, p]) => p.x + ',' + p.y));
-    const libres = (p) => p.x >= 0 && p.y >= 0 && p.x < dim.columnas && p.y < dim.filas && !ocupadas.has(p.x + ',' + p.y) && c.mapa?.celdas[p.x + ',' + p.y] !== 'muro';
+    const ocupadas = new Set(casillasOtras(c.miembros, posiciones, a.id).map(claveHuella));
+    const libres = (p) => cabeHuella(huellaReserva(a), p, dim, q => ocupadas.has(claveHuella(q)) || c.mapa?.celdas[claveHuella(q)] === 'muro');
     const distancias = new Map([[origen.x + ',' + origen.y, 0]]);
     if (m.tipo === 'dash') {
         // BFS de costes: terreno difícil cuesta dos casillas.
@@ -2891,10 +2977,10 @@ function destinoAtaqueMovil(c, a, t, m) {
         }
     }
     const candidatos = [];
-    for (let dy = -m.alcance_golpe; dy <= m.alcance_golpe; dy++)
-        for (let dx = -m.alcance_golpe; dx <= m.alcance_golpe; dx++) {
-            const p = { x: blanco.x + dx, y: blanco.y + dy };
-            if (!libres(p) || distanciaCasillas(p, blanco) > m.alcance_golpe)
+    for (let y = 0; y < dim.filas; y++)
+        for (let x = 0; x < dim.columnas; x++) {
+            const p = { x, y };
+            if (!libres(p) || distanciaEntreFichas(a, p, t, blanco) > m.alcance_golpe)
                 continue;
             const distancia = distanciaCasillas(origen, p);
             const coste = m.tipo === 'dash' ? distancias.get(p.x + ',' + p.y) : distancia;
@@ -2913,9 +2999,9 @@ function planearAtaqueDeArea(c, a, punto, m) {
     if (!origen)
         throw Error('El atacante no tiene posición.');
     const clave = (p) => p.x + ',' + p.y;
-    const ocupados = new Set(Object.entries(posiciones).filter(([id]) => id !== a.id).map(([, p]) => clave(p)));
-    const suelo = (p) => p.x >= 0 && p.y >= 0 && p.x < dim.columnas && p.y < dim.filas && c.mapa?.celdas[clave(p)] !== 'muro';
-    const libre = (p) => suelo(p) && !ocupados.has(clave(p));
+    const ocupados = new Set(casillasOtras(c.miembros, posiciones, a.id).map(claveHuella));
+    const suelo = (p) => cabeHuella(huellaReserva(a), p, dim, q => c.mapa?.celdas[clave(q)] === 'muro');
+    const libre = (p) => cabeHuella(huellaReserva(a), p, dim, q => ocupados.has(clave(q)) || c.mapa?.celdas[clave(q)] === 'muro');
     if (m.tipo === 'carrera') {
         const dx = punto.x - origen.x, dy = punto.y - origen.y, pasos = Math.max(Math.abs(dx), Math.abs(dy));
         if (!pasos)
@@ -2924,7 +3010,7 @@ function planearAtaqueDeArea(c, a, punto, m) {
         let anterior = origen, coste = 0, destino = origen;
         for (let i = 1; i <= Math.max(pasos, m.casillas); i++) {
             const p = { x: Math.round(origen.x + dx * i / pasos), y: Math.round(origen.y + dy * i / pasos) };
-            if (!suelo(p) || !lineaVisible(anterior, p, c.mapa))
+            if (!suelo(p) || casillasHuella(huellaReserva(a), anterior).some(q => !lineaVisible(q, { x: q.x + p.x - anterior.x, y: q.y + p.y - anterior.y }, c.mapa)))
                 break;
             const nuevo = coste + distanciaCasillas(anterior, p);
             if (nuevo > m.casillas)
@@ -3018,9 +3104,9 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             throw Error('PH insuficientes.');
         const alcance = acciones(a).find(v => v.id === accionId)?.efecto.tablero;
         const posiciones = posicionesTablero(n);
-        if (alcance && distanciaCasillas(posiciones[a.id], posiciones[t.id]) > alcance.alcance)
+        if (alcance && distanciaEntreFichas(a, posiciones[a.id], t, posiciones[t.id]) > alcance.alcance)
             throw Error('El destino está fuera del alcance de la habilidad.');
-        if (!lineaVisible(posiciones[a.id], posiciones[t.id], n.mapa))
+        if (!lineaEntreFichas(a, posiciones[a.id], t, posiciones[t.id], n.mapa))
             throw Error('Un muro bloquea la trayectoria.');
         ejecutarRegla(n, a, entrada.clave, entrada.regla, a, t, rng, undefined, 0, true);
         a.accion_usada = true;
@@ -3086,7 +3172,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
                 throw Error("No hay otra etapa.");
             if (d.etapas[indice + 1].descontrolada)
                 throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');
-            Object.assign(a, cambiarEtapaTransformacion(a, d, d.etapas[indice + 1].id));
+            if (!aplicarFormaConEspacio(n, a, cambiarEtapaTransformacion(a, d, d.etapas[indice + 1].id)))
+                throw Error('No hay espacio para esa transformación.');
             log(n, `${a.nombre} avanza a ${d.etapas[indice + 1].nombre}.`);
         }
         else {
@@ -3094,7 +3181,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
                 throw Error("Transformación ya utilizada en esta partida.");
             if (phDisponibles(a) < (act.efecto.coste_ph || 0))
                 throw Error("PH insuficientes.");
-            Object.assign(a, activarTransformacion(a, { ...d, coste_ph: act.efecto.coste_ph, duracion_turnos: act.efecto.duracion || d.duracion_turnos }));
+            if (!aplicarFormaConEspacio(n, a, activarTransformacion(a, { ...d, coste_ph: act.efecto.coste_ph, duracion_turnos: act.efecto.duracion || d.duracion_turnos })))
+                throw Error('No hay espacio para esa transformación.');
             log(n, `${a.nombre} activa ${d.nombre}.`);
         }
         if (a.transformacion && !a.transformacion.creado_turno)
@@ -3145,14 +3233,17 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             throw Error(fallo);
     }
     const posiciones = posicionesTablero(n), origen = posiciones[a.id];
-    const apuntado = tactica?.origen_area === 'lanzador' ? origen : centro || (t ? posiciones[t.id] : undefined);
+    const objetivoEnAlcance = t && tactica && casillasHuella(t, posiciones[t.id])
+        .filter(q => alcanceVisibleEntreFichas(a, origen, {}, q, tactica.alcance, n.mapa))
+        .sort((p, q) => distanciaEntreFichas(a, origen, {}, p) - distanciaEntreFichas(a, origen, {}, q))[0];
+    const apuntado = tactica?.origen_area === 'lanzador' ? origen : centro || objetivoEnAlcance || (t ? posiciones[t.id] : undefined);
     const dimensiones = dimensionesTablero(n);
     const requiereAreaMovil = tactica?.origen_area === 'aterrizaje' || tactica?.origen_area === 'recorrido';
     const plan = requiereAreaMovil && tactica?.movimiento_lanzador && apuntado ? planearAtaqueDeArea(n, a, apuntado, tactica.movimiento_lanzador) : undefined;
     const punto = tactica?.origen_area === 'aterrizaje' && plan ? plan.destino : apuntado;
     let objetivos = t ? [t] : [];
     if (e.portal && tactica && apuntado) {
-        if (!alcanceDesde(origen, tactica, dimensiones).some(p => p.x === apuntado.x && p.y === apuntado.y) || !lineaVisible(origen, apuntado, n.mapa) || n.mapa?.celdas[apuntado.x + ',' + apuntado.y] === 'muro' || Object.values(posiciones).some(p => p.x === apuntado.x && p.y === apuntado.y))
+        if (!alcanceVisibleEntreFichas(a, origen, {}, apuntado, tactica.alcance, n.mapa) || !cabeFichaEn(n, a, apuntado, posiciones))
             throw Error('El umbral necesita una casilla libre visible dentro del alcance.');
         if (phDisponibles(a) < coste)
             throw Error('PH insuficientes.');
@@ -3167,19 +3258,19 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     if (dash && (!centro || !tactica || !Number.isInteger(tactica.alcance) || tactica.alcance < 1 || tactica.alcance > 30 || !casillasAlcanzables(n, a.id, tactica.alcance)[centro.x + ',' + centro.y]))
         throw Error('Elige una casilla libre y alcanzable para el dash.');
     if (tactica && !dash) {
-        if (!apuntado || !alcanceDesde(origen, tactica, dimensiones).some(p => p.x === apuntado.x && p.y === apuntado.y))
+        if (!apuntado || !cabeHuella({}, apuntado, dimensiones, () => false) || distanciaEntreFichas(a, origen, {}, apuntado) > tactica.alcance)
             throw Error('El destino está fuera del alcance de la habilidad.');
-        if (!lineaVisible(origen, apuntado, n.mapa))
+        if (!alcanceVisibleEntreFichas(a, origen, {}, apuntado, tactica.alcance, n.mapa))
             throw Error('Un muro bloquea la trayectoria.');
         if (!punto || requiereAreaMovil && !plan)
             throw Error('No hay un destino válido para el movimiento ofensivo.');
         const area = tactica.origen_area === 'recorrido' && plan
-            ? [...areaDeRecorrido(plan.trayecto, tactica.movimiento_lanzador?.ancho || 0, dimensiones), ...(distanciaCasillas(plan.trayecto[plan.trayecto.length - 1], apuntado) <= (tactica.movimiento_lanzador?.alcance_golpe || 0) ? [apuntado] : [])]
-            : areaDesde(origen, punto, tactica, dimensiones);
+            ? [...areaDeRecorrido(plan.trayecto.flatMap(p => casillasHuella(a, p)), tactica.movimiento_lanzador?.ancho || 0, dimensiones), ...(distanciaCasillas(plan.trayecto[plan.trayecto.length - 1], apuntado) <= (tactica.movimiento_lanzador?.alcance_golpe || 0) ? [apuntado] : [])]
+            : areaDesdeFicha(a, origen, punto, tactica, dimensiones);
         objetivos = n.miembros.filter(m => {
             const p = m.id === a.id && plan ? plan.destino : posiciones[m.id];
             return !(e.suelo && tiene(m, 'vuelo')) && (m.vida > 0 || e.efecto === 'curacion' && situacionCombatiente(m) !== 'muerto')
-                && objetivoDelArea(a, m, e) && area.some(v => v.x === p.x && v.y === p.y);
+                && objetivoDelArea(a, m, e) && casillasHuella(m, p).some(q => area.some(v => v.x === q.x && v.y === q.y));
         });
         if (!objetivos.length)
             throw Error('No hay objetivos válidos en el área.');
@@ -3482,7 +3573,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
         return n;
     }
     let arm = (estadisticas(t).armadura || 0) +
-        antes.reduce((v, r) => v + (r.bonos.armadura || 0), 0) + (n.mapa?.celdas[`${posicionesTablero(n)[t.id].x},${posicionesTablero(n)[t.id].y}`] === 'cobertura' && distanciaCasillas(posicionesTablero(n)[a.id], posicionesTablero(n)[t.id]) > 1 ? 2 : 0);
+        antes.reduce((v, r) => v + (r.bonos.armadura || 0), 0) + coberturaEntre(n, a, t);
     const debil = golpeOcular(n, a, t);
     const anticipa = anticipacion(n, t, a);
     if (anticipa) {
@@ -4015,7 +4106,7 @@ function efectosMotor(efectos, ctx, origen) {
         for (const t of destinos) {
             if (ctx.alcanceManual !== undefined && t.id !== ctx.yo.id && ['dano', 'estado', 'perder_accion'].includes(e.tipo)) {
                 const p = posicionesTablero(ctx.c);
-                if (distanciaCasillas(p[ctx.yo.id], p[t.id]) > ctx.alcanceManual)
+                if (distanciaEntreFichas(ctx.yo, p[ctx.yo.id], t, p[t.id]) > ctx.alcanceManual)
                     continue;
             }
             const v = () => valorMotor(e.valor, ctx), m = motor(t), clave = e.clave || `${origen}:${indice}`;
@@ -4300,27 +4391,71 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
 export function dimensionesTablero(c) {
     return c.mapa ? { columnas: c.mapa.columnas, filas: c.mapa.filas } : { columnas: 12, filas: Math.max(8, Math.ceil(c.miembros.length / 8) + 2) };
 }
+/** Guarda espacio para volver al tamaño original incluso al moverse bajo una forma más pequeña. */
+export function huellaReserva(m) {
+    if (!m.transformacion)
+        return m;
+    const base = huellaDe({ configuracion: m.configuracion }), actual = huellaDe(m);
+    // Reserva el rectángulo que contiene tanto la forma activa como la original.
+    return { huella: { ancho: Math.max(base.ancho, actual.ancho), alto: Math.max(base.alto, actual.alto) } };
+}
+function casillasOtras(miembros, pos, id) {
+    return miembros.filter(m => m.id !== id).flatMap(m => casillasHuella(huellaReserva(m), pos[m.id]));
+}
+export function cabeFichaEn(c, m, p, pos = posicionesTablero(c)) {
+    const ocupadas = new Set(casillasOtras(c.miembros, pos, m.id).map(claveHuella));
+    return cabeHuella(huellaReserva(m), p, dimensionesTablero(c), q => ocupadas.has(claveHuella(q)) || c.mapa?.celdas[claveHuella(q)] === 'muro');
+}
+/** Tamaño del participante en el encuentro actual. */
+export function configurarHuellaParticipante(c, id, huella) {
+    if (c.fase !== 'preparacion')
+        throw Error('Configura el tamaño antes de iniciar el combate.');
+    const fallo = validarHuella(huella);
+    if (fallo)
+        throw Error(fallo);
+    const n = copia(c), m = n.miembros.find(a => a.id === id);
+    if (!m)
+        throw Error('No existe ese participante.');
+    const config = { ...m.configuracion };
+    if (huella)
+        config.huella = { ...huella };
+    else
+        delete config.huella;
+    if (!aplicarFormaConEspacio(n, m, { ...m, configuracion: config }))
+        throw Error('No hay espacio para ese tamaño. Mueve la ficha antes de agrandarla.');
+    return n;
+}
+function aplicarFormaConEspacio(c, m, forma, posiciones = posicionesTablero(c)) {
+    const p = posiciones[m.id];
+    if (!cabeFichaEn(c, forma, p, posiciones))
+        return false;
+    // Fija las posiciones existentes para que cambiar de forma no reasigne otras fichas.
+    for (const a of c.miembros)
+        if (posiciones[a.id])
+            a.posicion = posiciones[a.id];
+    Object.assign(m, forma, { posicion: p });
+    return true;
+}
 export function posicionesTablero(c) {
-    const { columnas, filas } = dimensionesTablero(c), resultado = {}, ocupadas = new Set();
-    const valida = (p) => Number.isInteger(p.x) && Number.isInteger(p.y) && p.x >= 0 && p.y >= 0 && p.x < columnas && p.y < filas;
+    const d = dimensionesTablero(c), { columnas, filas } = d, resultado = {}, ocupadas = new Set();
+    const colocar = (m, p) => {
+        const ficha = huellaReserva(m);
+        if (!p || !cabeHuella(ficha, p, d, q => ocupadas.has(claveHuella(q)) || c.mapa?.celdas[claveHuella(q)] === 'muro'))
+            return false;
+        resultado[m.id] = { ...p };
+        for (const q of casillasHuella(ficha, p))
+            ocupadas.add(claveHuella(q));
+        return true;
+    };
     for (const m of c.miembros)
-        if (m.posicion && valida(m.posicion) && !ocupadas.has(`${m.posicion.x},${m.posicion.y}`) && c.mapa?.celdas[`${m.posicion.x},${m.posicion.y}`] !== "muro") {
-            resultado[m.id] = { ...m.posicion };
-            ocupadas.add(`${m.posicion.x},${m.posicion.y}`);
-        }
+        colocar(m, m.posicion);
     for (const m of c.miembros)
         if (!resultado[m.id]) {
-            const xs = Array.from({ length: columnas }, (_, i) => (i + 1) % columnas);
-            const columnasBando = m.bando === 'jugador' ? xs : Array.from({ length: columnas }, (_, i) => (columnas - 2 - i + columnas) % columnas);
-            for (const x of columnasBando) {
-                for (let y = 1; y <= filas; y++) {
-                    const fila = y % filas;
-                    if (!ocupadas.has(`${x},${fila}`) && c.mapa?.celdas[`${x},${fila}`] !== "muro") {
-                        resultado[m.id] = { x, y: fila };
-                        ocupadas.add(`${x},${fila}`);
+            const xs = Array.from({ length: columnas }, (_, i) => m.bando === 'jugador' ? (i + 1) % columnas : (2 * columnas - 2 - i) % columnas);
+            for (const x of xs) {
+                for (let y = 1; y <= filas; y++)
+                    if (colocar(m, { x, y: y % filas }))
                         break;
-                    }
-                }
                 if (resultado[m.id])
                     break;
             }
@@ -4337,9 +4472,11 @@ export function casillasAlcanzables(c, actorId, alcance) {
     if (!m || tiene(m, 'derribado'))
         return {};
     const posiciones = posicionesTablero(c), inicio = posiciones[actorId], { columnas, filas } = dimensionesTablero(c);
-    return distanciasMovimiento(inicio, Object.values(posiciones), columnas, filas, c.mapa, alcance ?? movimientoRestante(m), tiene(m, 'vuelo'));
+    return distanciasMovimiento(inicio, casillasOtras(c.miembros, posiciones, m.id), columnas, filas, c.mapa, alcance ?? movimientoRestante(m), tiene(m, 'vuelo'), huellaReserva(m));
 }
-export function distanciasMovimiento(inicio, posiciones, columnas, filas, mapa, limite, vuelo) {
+export function distanciasMovimiento(inicio, posiciones, columnas, filas, mapa, limite, vuelo, ficha = {}) {
+    if (!inicio)
+        return {};
     const ocupadas = new Set(posiciones.map(p => p.x + ',' + p.y));
     const distancias = { [`${inicio.x},${inicio.y}`]: 0 }, cola = [inicio];
     for (let i = 0; i < cola.length; i++) {
@@ -4348,8 +4485,11 @@ export function distanciasMovimiento(inicio, posiciones, columnas, filas, mapa, 
             continue;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const x = p.x + dx, y = p.y + dy, k = `${x},${y}`;
-            const coste = !vuelo && mapa?.celdas[k] === 'dificil' ? 2 : 1;
-            if (x < 0 || y < 0 || x >= columnas || y >= filas || ocupadas.has(k) || mapa?.celdas[k] === 'muro' || d + coste > limite || (k in distancias && distancias[k] <= d + coste))
+            // El terreno difícil cobra una sola vez por paso, al incorporar casillas nuevas.
+            const anterior = new Set(casillasHuella(ficha, p).map(claveHuella));
+            const destino = { x, y };
+            const coste = !vuelo && casillasHuella(ficha, destino).some(q => !anterior.has(claveHuella(q)) && mapa?.celdas[claveHuella(q)] === 'dificil') ? 2 : 1;
+            if (!cabeHuella(ficha, destino, { columnas, filas }, q => ocupadas.has(claveHuella(q)) || mapa?.celdas[claveHuella(q)] === 'muro') || d + coste > limite || (k in distancias && distancias[k] <= d + coste))
                 continue;
             distancias[k] = d + coste;
             cola.push({ x, y });
@@ -4379,6 +4519,8 @@ export function desplazar(c, actorId, destino) {
         return n;
     });
 }
+export { huellaDe };
+export const distanciaEntreFichas = distanciaHuellas;
 export const distanciaCasillas = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 export function validarTactica(e) {
     const t = e.tablero;
@@ -4415,6 +4557,25 @@ export function alcanceDesde(origen, t, d) {
             if (distanciaCasillas(origen, { x, y }) <= t.alcance)
                 resultado.push({ x, y });
     return resultado;
+}
+export function alcanceDesdeFicha(m, origen, t, d) {
+    const resultado = [];
+    for (let y = 0; y < d.filas; y++)
+        for (let x = 0; x < d.columnas; x++)
+            if (distanciaEntreFichas(m, origen, {}, { x, y }) <= t.alcance)
+                resultado.push({ x, y });
+    return resultado;
+}
+export function areaDesdeFicha(m, origen, centro, t, d) {
+    if (t.origen_area !== 'lanzador' || ['linea', 'cono'].includes(t.forma))
+        return areaDesde(origen, centro, t, d);
+    return [...new Map(casillasHuella(m, origen).flatMap(q => areaDesde(q, q, t, d)).map(q => [claveHuella(q), q])).values()];
+}
+export function lineaEntreFichas(a, pa, b, pb, mapa, atraviesa = false) {
+    return casillasHuella(a, pa).some(u => casillasHuella(b, pb).some(v => atraviesa || lineaVisible(u, v, mapa)));
+}
+export function alcanceVisibleEntreFichas(a, pa, b, pb, alcance, mapa) {
+    return casillasHuella(a, pa).some(u => casillasHuella(b, pb).some(v => distanciaCasillas(u, v) <= alcance && lineaVisible(u, v, mapa)));
 }
 /** Círculo/cruz usan radio; cuadrado usa lado; línea/cono usan longitud desde el lanzador. */
 export function areaDesde(origen, centro, t, d) {
@@ -4453,7 +4614,7 @@ function secundariosTablero(c, a, t, e, centro, supera) {
     if (d && (d.cuando === 'siempre' || !supera)) {
         const posiciones = posicionesTablero(c), dim = dimensionesTablero(c), origen = posiciones[t.id];
         let p = { ...origen };
-        const ocupadas = new Set(Object.entries(posiciones).filter(([id]) => id !== t.id).map(([, p]) => `${p.x},${p.y}`));
+        const ocupadas = new Set(casillasOtras(c.miembros, posiciones, t.id).map(claveHuella));
         for (let i = 0; i < d.casillas; i++) {
             let dx = centro.x - p.x, dy = centro.y - p.y;
             if (d.tipo === 'atraer' && dx === 0 && dy === 0)
@@ -4469,7 +4630,7 @@ function secundariosTablero(c, a, t, e, centro, supera) {
                     break;
             }
             const pasos = Math.abs(dx) >= Math.abs(dy) ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }] : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
-            const siguiente = pasos.filter(v => v.x || v.y).map(v => ({ x: p.x + v.x, y: p.y + v.y })).find(v => v.x >= 0 && v.y >= 0 && v.x < dim.columnas && v.y < dim.filas && !ocupadas.has(`${v.x},${v.y}`) && c.mapa?.celdas[`${v.x},${v.y}`] !== 'muro');
+            const siguiente = pasos.filter(v => v.x || v.y).map(v => ({ x: p.x + v.x, y: p.y + v.y })).find(v => cabeHuella(huellaReserva(t), v, dim, q => ocupadas.has(claveHuella(q)) || c.mapa?.celdas[claveHuella(q)] === 'muro'));
             if (!siguiente)
                 break;
             p = siguiente;
@@ -4553,9 +4714,31 @@ export function lineaVisible(a, b, mapa) {
     }
     return true;
 }
+function coberturaEntre(c, a, t) {
+    if (!c.mapa)
+        return 0;
+    const p = posicionesTablero(c), fuente = casillasHuella(a, p[a.id]), objetivo = casillasHuella(t, p[t.id]);
+    if (distanciaEntreFichas(a, p[a.id], t, p[t.id]) <= 1)
+        return 0;
+    let distancia = Infinity, cubierta = false;
+    for (const q of objetivo)
+        for (const u of fuente) {
+            const d = distanciaCasillas(u, q);
+            if (d > distancia || !lineaVisible(u, q, c.mapa))
+                continue;
+            const protege = c.mapa.celdas[claveHuella(q)] === 'cobertura';
+            if (d < distancia) {
+                distancia = d;
+                cubierta = protege;
+            }
+            else
+                cubierta = cubierta && protege;
+        }
+    return cubierta ? 2 : 0;
+}
 function aplicarTerreno(c, m, rng = dadoSeguro) {
     const p = posicionesTablero(c)[m.id];
-    if (!tiene(m, 'vuelo') && p && c.mapa?.celdas[`${p.x},${p.y}`] === 'peligro' && m.vida > 0) {
+    if (!tiene(m, 'vuelo') && p && casillasHuella(m, p).some(q => c.mapa?.celdas[claveHuella(q)] === 'peligro') && m.vida > 0) {
         recibir(c, m, m, { ...basico(), efecto: 'dano' }, 2, [], rng);
         log(c, `${m.nombre}: terreno peligroso, 2 de daño.`);
     }
@@ -4661,9 +4844,7 @@ function observa(c, o, t, v, pos) {
     const po = pos[o.id], pt = pos[t.id];
     if (!po || !pt)
         return false;
-    if (v.alcance && distanciaCasillas(po, pt) > v.alcance)
-        return false;
-    if (!v.atraviesa_muros && !lineaVisible(po, pt, c.mapa))
+    if (v.atraviesa_muros ? (v.alcance && distanciaEntreFichas(o, po, t, pt) > v.alcance) : !alcanceVisibleEntreFichas(o, po, t, pt, v.alcance || Infinity, c.mapa))
         return false;
     return !bajoTierra(t) || !!v.revelar?.ocultos;
 }
@@ -4741,11 +4922,12 @@ export function vistaOcular(c, id) {
                 const p = pos[t.id];
                 for (const k of [`${p.x},${p.y}`, ...Object.keys(casillasAlcanzables(sinMover, t.id))]) {
                     const [cx, cy] = k.split(',').map(Number);
-                    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-                        const ax = cx + dx, ay = cy + dy;
-                        if (ax >= 0 && ay >= 0 && ax < columnas && ay < filas && c.mapa?.celdas[`${ax},${ay}`] !== 'muro')
-                            amenaza.add(`${ax},${ay}`);
-                    }
+                    for (const q of casillasHuella(t, { x: cx, y: cy }))
+                        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                            const ax = q.x + dx, ay = q.y + dy;
+                            if (ax >= 0 && ay >= 0 && ax < columnas && ay < filas && c.mapa?.celdas[`${ax},${ay}`] !== 'muro')
+                                amenaza.add(`${ax},${ay}`);
+                        }
                 }
             }
         }

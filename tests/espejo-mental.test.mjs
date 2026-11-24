@@ -54,3 +54,16 @@ test('salvación al inicio de cada turno para cortar el efecto',()=>{
  const corta=m.siguiente(turnoDe(n,'malo'),dados([18]));
  assert.equal(de(corta,'p').espejo_mental,undefined);assert.ok(corta.registro.some(l=>/mente se aclara/.test(l)));
 });
+
+test('espejo: refleja la huella completa y los destinos por ancla, pero el área por casilla',()=>{
+ const v=vista(),o={espejar:true,intercambiar:false,ocultar:false};
+ v.objetivos[0].huella={ancho:3,alto:2};
+ v.alcanzables={'2,1':1};
+ v.evento_visual.movimientos=[{id:'p',desde:{x:1,y:2},hasta:{x:2,y:1}}];
+ const p=E.proyectarVista(v,'p',o);
+ assert.deepEqual(json(p.objetivos[0].posicion),{x:6,y:2});
+ assert.deepEqual(json(p.alcanzables),{'5,1':1});
+ assert.deepEqual(json(p.evento_visual.movimientos[0].hasta),{x:5,y:1});
+ assert.deepEqual(json(p.evento_visual.area),[{x:2,y:3}]);
+ assert.deepEqual(json(E.desproyectar({x:5,y:1},o,dims,3)),{x:2,y:1});
+});

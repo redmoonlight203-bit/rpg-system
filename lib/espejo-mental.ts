@@ -8,31 +8,32 @@ export type OpcionesEspejo={espejar:boolean;intercambiar:boolean;ocultar:boolean
   confirmar?:boolean;cd?:number;atributo?:string};
 type Pos={x:number;y:number};
 type Dims={columnas:number;filas:number};
-const reflejar=(p:Pos,d:Dims):Pos=>({x:d.columnas-1-p.x,y:p.y});
+const reflejar=(p:Pos,d:Dims,ancho=1):Pos=>({x:d.columnas-ancho-p.x,y:p.y});
 const clave=(k:string,d:Dims)=>{const [x,y]=k.split(',').map(Number);return `${d.columnas-1-x},${y}`;};
 const OTRO:Record<string,string>={jugador:'enemigo',enemigo:'jugador'};
 
 /** Vista proyectada para `propio`. Nunca muta la entrada. */
-export function proyectarVista<V extends {tablero?:Dims;objetivos?:{id:string;nombre:string;bando:string;posicion?:Pos;imagen_url?:string}[];alcanzables?:Record<string,number>;mapa?:{columnas?:number;filas?:number;celdas?:Record<string,string>}|null;evento_visual?:{desde?:Pos;hasta?:Pos;area?:Pos[];movimientos?:{desde:Pos;hasta:Pos}[]}|null}>(vista:V,propio:string,o:OpcionesEspejo):V{
+export function proyectarVista<V extends {tablero?:Dims;objetivos?:{id:string;nombre:string;bando:string;posicion?:Pos;huella?:{ancho:number};imagen_url?:string}[];alcanzables?:Record<string,number>;mapa?:{columnas?:number;filas?:number;celdas?:Record<string,string>}|null;evento_visual?:{desde?:Pos;hasta?:Pos;area?:Pos[];movimientos?:{id?:string;desde:Pos;hasta:Pos}[]}|null}>(vista:V,propio:string,o:OpcionesEspejo):V{
   const v:V=JSON.parse(JSON.stringify(vista));
   const d=v.tablero||{columnas:v.mapa?.columnas||10,filas:v.mapa?.filas||10};
   const yo=v.objetivos?.find(x=>x.id===propio);
   for(const x of v.objetivos||[]){
-    if(o.espejar&&x.posicion)x.posicion=reflejar(x.posicion,d);
+    if(o.espejar&&x.posicion)x.posicion=reflejar(x.posicion,d,x.huella?.ancho);
     if(x.id===propio)continue;
     if(o.intercambiar&&yo&&OTRO[x.bando])x.bando=OTRO[x.bando];
     if(o.ocultar){x.nombre='???';delete x.imagen_url;}
   }
   if(o.espejar){
-    if(v.alcanzables)v.alcanzables=Object.fromEntries(Object.entries(v.alcanzables).map(([k,n])=>[clave(k,d),n]));
+    const ancho=yo?.huella?.ancho??1;
+    if(v.alcanzables)v.alcanzables=Object.fromEntries(Object.entries(v.alcanzables).map(([k,n])=>{const [x,y]=k.split(',').map(Number),p=reflejar({x,y},d,ancho);return [p.x+','+p.y,n];}));
     if(v.mapa?.celdas)v.mapa.celdas=Object.fromEntries(Object.entries(v.mapa.celdas).map(([k,t])=>[clave(k,d),t]));
     const ev=v.evento_visual;
-    if(ev){if(ev.desde)ev.desde=reflejar(ev.desde,d);if(ev.hasta)ev.hasta=reflejar(ev.hasta,d);if(ev.area)ev.area=ev.area.map(p=>reflejar(p,d));if(ev.movimientos)ev.movimientos=ev.movimientos.map(m=>({...m,desde:reflejar(m.desde,d),hasta:reflejar(m.hasta,d)}));}
+    if(ev){if(ev.desde)ev.desde=reflejar(ev.desde,d);if(ev.hasta)ev.hasta=reflejar(ev.hasta,d);if(ev.area)ev.area=ev.area.map(p=>reflejar(p,d));if(ev.movimientos)ev.movimientos=ev.movimientos.map(m=>{const ancho=v.objetivos?.find(x=>x.id===m.id)?.huella?.ancho;return {...m,desde:reflejar(m.desde,d,ancho),hasta:reflejar(m.hasta,d,ancho)};});}
   }
   return v;
 }
-/** Casilla real de un clic hecho sobre la vista reflejada (mover, centro de un área). */
-export function desproyectar(p:Pos,o:OpcionesEspejo,d:Dims):Pos{return o.espejar?reflejar(p,d):{...p};}
+/** Casilla real de un clic reflejado: el movimiento usa el ancho de la ficha, un área usa 1. */
+export function desproyectar(p:Pos,o:OpcionesEspejo,d:Dims,ancho=1):Pos{return o.espejar?reflejar(p,d,ancho):{...p};}
 export const AVISO_ESPEJO='Tu mente se confunde';
 const ESPEJO_DIRECCION:Record<string,string>={e:'o',o:'e',ne:'no',no:'ne',se:'so',so:'se',n:'n',s:'s'};
 type Ocular={objetivos?:Record<string,{puntos?:string[]}>;amenaza?:string[]}|null|undefined;

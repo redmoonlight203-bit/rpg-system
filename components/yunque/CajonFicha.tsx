@@ -7,6 +7,7 @@ import {createPortal} from 'react-dom';
 import {X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import FormasHistoria from '../FormasHistoria';
+import EditorHuella from '../EditorHuella';
 import EditorMonstruo from '../EditorMonstruo';
 import {Interruptor} from './Controles';
 import NaturalezaAdquirida from './NaturalezaAdquirida';
@@ -66,6 +67,7 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla,balance}:
    <label className="yq-campo"><span>Descripción</span><textarea rows={3} maxLength={5000} value={b.descripcion} onChange={e=>patch({descripcion:e.target.value})} placeholder="Qué es, a simple vista."/></label>
    <label className="yq-campo"><span>Historia</span><textarea rows={5} value={b.historia} onChange={e=>patch({historia:e.target.value})} placeholder="Su origen, sus hazañas y su lugar en Yugen…"/></label>
    {b.tipo==='personaje'&&<section className="yq-ficha-seccion"><h3 className="yq-ficha-titulo">Formas de su historia</h3><FormasHistoria formas={b.formas} cambiar={formas=>patch({formas})}/></section>}
+   {b.tipo==='personaje'&&<section className="yq-ficha-seccion"><EditorHuella titulo={monstruo?'Tamaño base de la especie':'Tamaño en combate'} valor={b.huella} defecto="Normal (1 × 1)" onChange={huella=>patch({huella})}/></section>}
    {b.tipo==='personaje'&&<NaturalezaAdquirida valor={b.naturalezaVinculo} onChange={naturalezaVinculo=>patch({naturalezaVinculo})} catalogo={ctx.naturalezas??[]} clases={NATURALEZA}/>}
    {b.tipo==='objeto'&&<EditorArtefacto valor={b.artefacto} onChange={artefacto=>patch({artefacto})} atributos={atributosVisibles(b,ctx)} pestanas={pestanasArtefacto(b.id)}/>}
    {monstruo&&<section className="yq-ficha-seccion yq-ficha-especie" id="yq-ficha-especie"><EditorMonstruo value={b.monstruo} onChange={m=>patch({monstruo:m})} catalogo={activas(ctx) as FuenteMonstruo[]} atributos={atributosVisibles(b,ctx)}/></section>}

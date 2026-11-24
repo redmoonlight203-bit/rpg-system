@@ -1,8 +1,9 @@
 import {SLOTS,type Efecto} from './creacion';
 import {faltantesRequisitos,type Fuente,type Config} from './combate';
+import {huellaValida,type Huella} from './huellas-combate';
 import type {Rango} from './forja';
 export type EquipoMonstruo={modo:'catalogo'|'generado';opciones:string[];nombre?:string;dos_manos?:boolean;rangos?:Record<string,Rango>;dados?:number;caras?:number};
-export type VarianteMonstruo={id:string;nombre:string;peso:number;bonos:Record<string,number>;habilidades:string[];pasivas:string[];equipamiento:Record<string,EquipoMonstruo>};
+export type VarianteMonstruo={id:string;nombre:string;peso:number;huella?:Huella;bonos:Record<string,number>;habilidades:string[];pasivas:string[];equipamiento:Record<string,EquipoMonstruo>};
 export type ConfiguracionMonstruo={variantes:VarianteMonstruo[]};
 export type FuenteMonstruo=Fuente & {id:string;tipo_creacion:string;estado?:string;es_grupo?:boolean;stats_rango?:Record<string,Rango>;configuracion_dados?:Efecto[]};
 export function validarMonstruo(config:ConfiguracionMonstruo|null|undefined,catalogo:FuenteMonstruo[]):string|null{
@@ -11,6 +12,7 @@ export function validarMonstruo(config:ConfiguracionMonstruo|null|undefined,cata
  const ids=new Set<string>();
  for(const v of config.variantes){
   if(!v.id||ids.has(v.id)||!v.nombre.trim()||v.nombre.length>100)return 'Cada variante necesita nombre e identificador únicos.';ids.add(v.id);
+  if(v.huella!==undefined&&!huellaValida(v.huella))return 'La huella de variante debe usar dimensiones enteras válidas.';
   if(!Number.isFinite(v.peso)||v.peso<=0||v.peso>1000)return 'El peso de aparición debe estar entre 1 y 1000.';
   if(Object.entries(v.bonos).some(([k,n])=>['nivel','exp_total','experiencia'].includes(k)||!Number.isFinite(n)||Math.abs(n)>1000000))return 'Ajustes de estadísticas inválidos.';
   for(const [tipo,lista] of [['habilidad',v.habilidades],['pasiva',v.pasivas]] as const){if(lista.length>20||new Set(lista).size!==lista.length||lista.some(id=>!catalogo.some(c=>c.id===id&&c.tipo_creacion===tipo)))return 'Hay poderes repetidos o no disponibles en una variante.';}
@@ -58,5 +60,5 @@ export function prepararVariante<T extends {nombre:string;stats:Record<string,nu
  const stats={...base};for(const [k,v] of Object.entries(bonos))stats[k]=(stats[k]||0)+v;
  const habilidades=[...new Map([...(f.configuracion.habilidades||[]),...variante.habilidades.map(fuente)].map(h=>[h.id,h])).values()];
  const pasivas=[...(f.configuracion.pasivas||[]),...variante.pasivas.filter(id=>!f.configuracion.pasivas?.some(p=>p.id===id)).map(id=>{const c=fuente(id);return {id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]};})];
- return {...f,nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
+ return {...f,nombre:`${f.nombre} · ${variante.nombre}`,stats,configuracion:{...f.configuracion,...(variante.huella?{huella:{...variante.huella}}:{}),stats_base:base,equipamiento:equipo,bonos_equipamiento:bonos,habilidades,pasivas,reserva:Object.values(equipo)}};
 }

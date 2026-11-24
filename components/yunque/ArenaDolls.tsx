@@ -14,7 +14,8 @@ import type {TiradaVisual} from '../AnimacionDados';
 import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,
  type PausaArena,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
 import {estadosVisibles,recursosVisibles,vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
- accionDisponible,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
+ accionDisponible,huellaReserva,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
+import {huellaDe} from '../../lib/huellas-combate';
 import MenuReaccion,{ListaReacciones} from '../MenuReaccion';
 import MenuPotenciador from '../MenuPotenciador';
 import type {EleccionPotenciador} from '../../lib/rasgos';
@@ -172,7 +173,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   if(!c)return [];
   const p=seguro(()=>posicionesTablero(c),{} as Record<string,Posicion>);
   return c.miembros.filter(m=>p[m.id]).map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:seguro(()=>maxVida(m),m.vida),
-   imagen_url:m.transformacion?.imagen_etapa||(m.id===DOLL?imagenDoll:IMAGEN_SACO),estados:m.estados.map(e=>e.nombre),posicion:p[m.id]}));
+   imagen_url:m.transformacion?.imagen_etapa||(m.id===DOLL?imagenDoll:IMAGEN_SACO),estados:m.estados.map(e=>e.nombre),posicion:p[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
  },[c,imagenDoll]);
  const columnas=c?.mapa?.columnas,filas=c?.mapa?.filas;
  const mapa=useMemo(()=>columnas&&filas?{id:'arena-yunque',version:1 as const,nombre:'Arena del Yunque',columnas,filas,celdas:{},procedural:sueloArena(columnas,filas)}:undefined,[columnas,filas]);
