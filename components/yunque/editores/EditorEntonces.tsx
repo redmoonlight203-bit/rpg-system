@@ -8,6 +8,7 @@ import {ICONO_EFECTO_REGLA,cambiarTipoEfecto} from '../../../lib/yunque-grimorio
 import {mensajeError} from '../../../lib/errores';
 import {leerRuta} from '../../../lib/yunque-grafo';
 import type {EditorNodoProps} from './EditorAccion';
+import {EstadoDelBorrador} from './SelectorEstado';
 
 const TIPOS:Opcion<EfectoRegla['tipo']>[]=(Object.keys(EFECTOS_REGLA) as EfectoRegla['tipo'][]).map(t=>({valor:t,nombre:{atributo:'Atributo',transformar:'Transformar',estado:'Estado',quitar_estado:'Quitar estado',dano:'Daño',curar:'Curar',ph:'PH',fatiga:'Fatiga',perder_accion:'Perder acción',salvacion:'Salvación',condicional:'Si / si no',habilidad:'Acción temporal',mensaje:'Mensaje'}[t],icono:ICONO_EFECTO_REGLA[t],ayuda:EFECTOS_REGLA[t]}));
 const CORTOS:Record<DestinoRegla,string>={yo:'Portador',actor:'Autor',objetivo:'Objetivo',aliados:'Aliados',enemigos:'Enemigos',todos:'Todos'};
@@ -83,9 +84,8 @@ export default function EditorEntonces({b,nodo,operar,avisar}:EditorNodoProps&{a
    <Fichas etiqueta="Operación" opciones={OPERACIONES} valor={e.operacion} onChange={operacion=>patch({operacion,...(operacion!=='sumar'?{permanente:undefined,limite:undefined}:{})})}/>
   </>}
   {CON_VALOR.includes(e.tipo)&&<EditorValor valor={e.valor} onChange={valor=>patch({valor})} etiqueta={({dano:'Daño',curar:'Vida que recupera',ph:'PH (negativo quita)',fatiga:'Fatiga (negativo alivia)'} as Record<string,string>)[e.tipo]??'Cantidad'}/>}
-  {['estado','quitar_estado','transformar'].includes(e.tipo)&&<div className="yq-dos">
-   <Texto etiqueta="Clave del estado o forma" valor={e.clave||''} max={100} placeholder="furia" onChange={clave=>patch({clave:clave||undefined})}/>
-   <Texto etiqueta="Nombre visible" valor={e.nombre||''} max={120} placeholder="Furia" onChange={nombre=>patch({nombre:nombre||undefined})}/>
+  {['estado','quitar_estado','transformar'].includes(e.tipo)&&<div>
+   <EstadoDelBorrador b={b} operar={operar} etiqueta={e.tipo==='transformar'?'Forma':'Estado o forma'} valor={e.clave} onElegir={(clave,nombre)=>patch({clave,nombre})}/>
   </div>}
   {e.tipo==='transformar'&&<section className="yq-lista" aria-label="Cambios de la forma">
    <header><span>Cambios de la forma</span><button type="button" className="yq-boton" disabled={cambios.length>=30} onClick={()=>patch({cambios:[...cambios,{atributo:'armadura',operacion:'sumar',valor:1}]})}>+ Atributo</button></header>
@@ -101,8 +101,8 @@ export default function EditorEntonces({b,nodo,operar,avisar}:EditorNodoProps&{a
    <AtributoFichas etiqueta="Bono para resistir" valor={e.atributo||'salvacion'} onChange={atributo=>patch({atributo})} opciones={[{valor:'salvacion',nombre:'Salvación'},{valor:'fuerza',nombre:'Fuerza'},{valor:'destreza',nombre:'Destreza'},{valor:'mente',nombre:'Mente'}]}/>
   </div>}
   {e.tipo==='condicional'&&<div className="yq-subcondicion">
-   <Fichas etiqueta="Condición" opciones={[{valor:'probabilidad',nombre:'Probabilidad',icono:'ojo'},{valor:'comparar',nombre:'Comparar',icono:'vida'},{valor:'estado',nombre:'Tiene estado',icono:'alma'},{valor:'elemento',nombre:'Elemento',icono:'fuego'}] as Opcion<string>[]} valor={e.condicion?.tipo} onChange={t=>patch({condicion:t==='probabilidad'?{tipo:'probabilidad',porcentaje:50}:t==='comparar'?{tipo:'comparar',sujeto:'yo',atributo:'vida_actual',operador:'<',valor:50,porcentaje:true}:t==='estado'?{tipo:'estado',sujeto:'yo',estado:'furia'}:{tipo:'elemento',elemento:'fuego'}})}/>
-   {e.condicion&&<FormCondicion c={e.condicion} onChange={condicion=>patch({condicion})}/>}
+   <Fichas etiqueta="Condición" opciones={[{valor:'probabilidad',nombre:'Probabilidad',icono:'ojo'},{valor:'comparar',nombre:'Comparar',icono:'vida'},{valor:'estado',nombre:'Tiene estado',icono:'alma'},{valor:'elemento',nombre:'Elemento',icono:'fuego'}] as Opcion<string>[]} valor={e.condicion?.tipo} onChange={t=>patch({condicion:t==='probabilidad'?{tipo:'probabilidad',porcentaje:50}:t==='comparar'?{tipo:'comparar',sujeto:'yo',atributo:'vida_actual',operador:'<',valor:50,porcentaje:true}:t==='estado'?{tipo:'estado',sujeto:'yo',estado:''}:{tipo:'elemento',elemento:'fuego'}})}/>
+   {e.condicion&&<FormCondicion c={e.condicion} onChange={condicion=>patch({condicion})} b={b} operar={operar}/>}
   </div>}
   {(e.tipo==='salvacion'||e.tipo==='condicional')&&<p className="yq-nota">Lo que ocurre en cada caso cuelga de las salidas <b className="is-exito">Éxito</b> y <b className="is-fallo">Fallo</b>: arrastra efectos hasta ellas.</p>}
   {e.tipo==='habilidad'&&e.accion&&<div className="yq-subaccion">

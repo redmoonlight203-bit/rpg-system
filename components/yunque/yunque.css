@@ -713,3 +713,9 @@
  .yq-taller .yq-resumen-plantillas{animation:none}
  .yq-taller .yq-resumen-cerrar,.yq-taller .yq-resumen-plantillas li button{transition:none}
 }
+/* Selector de estado o forma: se elige del registro, no se escribe la clave. */
+.yq-taller .yq-estado-fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.yq-taller .yq-estado-fila>select,.yq-taller .yq-estado-fila>input{flex:1 1 180px;min-width:0;padding:8px 11px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:15px var(--font-sans)}
+.yq-taller .yq-estado-fila>select:focus,.yq-taller .yq-estado-fila>input:focus{outline:none;border-color:var(--color-arcane);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-arcane) 22%,transparent)}
+.yq-taller .yq-estado-fila>select.is-huerfano{border-color:color-mix(in srgb,var(--color-gold) 60%,var(--color-line))}
+.yq-taller .yq-estado .yq-campo-ayuda.is-error{color:var(--color-danger-text)}

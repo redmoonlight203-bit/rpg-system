@@ -83,11 +83,11 @@ function clavesDeReglas(reglas:unknown[]):{clave:string;nombre?:string}[]{
 
 /** Añade al registro las claves que ya usan las reglas, con su id **exacto** (sin normalizar). No toca las reglas. */
 export function registrarClavesExistentes(lista:RegistroEstado[],reglas:unknown[]):RegistroEstado[]{
+ // Orden de primera aparición; el nombre es el primero que dé un efecto (las condiciones no llevan nombre).
+ const nombres=new Map<string,string|undefined>();
+ for(const {clave,nombre} of clavesDeReglas(reglas))if(!nombres.get(clave))nombres.set(clave,nombre);
  const out=[...lista];
- for(const {clave,nombre} of clavesDeReglas(reglas)){
-  if(buscarEstado(out,clave))continue;
-  out.push({id:clave,nombre:nombre??clave});
- }
+ for(const [clave,nombre] of nombres)if(!buscarEstado(out,clave))out.push({id:clave,nombre:nombre??clave});
  return out;
 }
 
@@ -97,4 +97,21 @@ export function opcionesSelector(lista:RegistroEstado[],valor:string|undefined):
  const out:OpcionEstado[]=lista.map(e=>({valor:e.id,nombre:e.nombre,huerfano:false}));
  if(valor&&!buscarEstado(lista,valor))out.push({valor,nombre:'Sin registrar',huerfano:true});
  return out;
+}
+
+/** Copia de las reglas con el `nombre` visible actualizado en los efectos que aplican, quitan o transforman en `id`.
+ *  La clave no cambia: es lo que compara el motor. Así el nombre nuevo se guarda con la creación. */
+export function renombrarEnReglas<T>(reglas:T[],id:string,nombre:string):T[]{
+ const efectos=(lista:unknown,d:number):unknown=>{
+  if(!Array.isArray(lista)||d>MAX_PROFUNDIDAD)return lista;
+  return lista.map(e=>{
+   if(!objeto(e))return e;
+   const out:Record<string,unknown>={...e};
+   if(EFECTOS_CON_CLAVE.includes(String(e.tipo))&&e.clave===id)out.nombre=nombre;
+   if(Array.isArray(e.exito))out.exito=efectos(e.exito,d+1);
+   if(Array.isArray(e.fallo))out.fallo=efectos(e.fallo,d+1);
+   return out;
+  });
+ };
+ return reglas.map(r=>objeto(r)&&Array.isArray(r.efectos)?{...r,efectos:efectos(r.efectos,0)} as T:r);
 }

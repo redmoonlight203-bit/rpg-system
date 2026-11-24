@@ -95,3 +95,38 @@ test('un valor registrado no se duplica y conserva su nombre', () => {
 test('valor vacío no añade huérfanos', () => {
   assert.equal(opcionesSelector([], '').length, 0);
 });
+
+const {validarReglas}=cargarDependencia('reglas');
+const regla=(p)=>({id:'x',nombre:'x',evento:'usar',condicion:{tipo:'siempre'},efectos:[{tipo:'mensaje',destino:'yo'}],coste_ph:0,coste_fatiga:0,enfriamiento:0,usos:0,prioridad:0,...p});
+test('una condición de estado terminado sin clave pide elegir un estado', () => {
+  const r = validarReglas([regla({condicion:{tipo:'estado_terminado',clave:''}})]);
+  assert.match(r ?? '', /Elige un estado/);
+});
+test('una condición «tiene estado» vacía pide elegir un estado', () => {
+  assert.match(validarReglas([regla({condicion:{tipo:'estado',sujeto:'yo',estado:''}})]) ?? '', /Elige un estado/);
+});
+test('un efecto de estado sin clave pide elegir un estado', () => {
+  assert.match(validarReglas([regla({efectos:[{tipo:'estado',destino:'yo'}]})]) ?? '', /Elige un estado/);
+});
+test('una clave antigua con mayúsculas y espacios sigue siendo válida', () => {
+  assert.equal(validarReglas([regla({condicion:{tipo:'estado',sujeto:'yo',estado:'Furia '},efectos:[{tipo:'transformar',destino:'yo',clave:'Furia ',cambios:[{atributo:'dano',operacion:'sumar',valor:1}]}]})]), null);
+});
+
+const {renombrarEnReglas}=cargarDependencia('registro-estados');
+test('renombrar propaga el nombre a los efectos con esa clave sin tocar la clave', () => {
+  const reglas=[{id:'a',condicion:{tipo:'estado',sujeto:'yo',estado:'furia'},efectos:[
+    {tipo:'transformar',clave:'furia',nombre:'Furia'},
+    {tipo:'estado',clave:'veneno',nombre:'Veneno'},
+    {tipo:'salvacion',exito:[],fallo:[{tipo:'quitar_estado',clave:'furia'}]},
+  ]}];
+  const copia=JSON.stringify(reglas);
+  const r=renombrarEnReglas(reglas,'furia','Rabia');
+  assert.equal(r[0].efectos[0].nombre,'Rabia');
+  assert.equal(r[0].efectos[0].clave,'furia');
+  assert.equal(r[0].efectos[1].nombre,'Veneno');
+  assert.equal(r[0].efectos[2].fallo[0].nombre,'Rabia');
+  assert.equal(r[0].condicion.estado,'furia');
+  assert.equal(JSON.stringify(reglas),copia);
+  const lista=registrarClavesExistentes([],r);
+  assert.equal(buscarEstado(lista,'furia').nombre,'Rabia');
+});

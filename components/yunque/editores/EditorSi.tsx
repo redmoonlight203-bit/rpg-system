@@ -1,10 +1,11 @@
 'use client';
 // Editor de una condición («Si»): el tipo como fichas; «Todas», «Alguna» y «No» agrupan creando nodos «Si» hijos.
-import {Fichas,Interruptor,Rueda,Texto,type Opcion} from '../Controles';
+import {Fichas,Interruptor,Rueda,type Opcion} from '../Controles';
 import {condicionClara} from '../../../lib/descripciones';
 import type {CondicionRegla,Sujeto} from '../../../lib/reglas';
 import {leerRuta} from '../../../lib/yunque-grafo';
 import type {EditorNodoProps} from './EditorAccion';
+import {EstadoDelBorrador} from './SelectorEstado';
 
 export const SUJETOS:Opcion<Sujeto>[]=[
  {valor:'yo',nombre:'Portador',icono:'humano',ayuda:'Quien tiene esta habilidad u objeto'},
@@ -37,10 +38,10 @@ function nuevaHoja(t:Hoja,antes:CondicionRegla):CondicionRegla{
  switch(t){
   case 'siempre':return {tipo:'siempre'};
   case 'comparar':return {tipo:'comparar',sujeto,atributo:'vida_actual',operador:'<',valor:50,porcentaje:true};
-  case 'estado':return {tipo:'estado',sujeto,estado:'furia'};
+  case 'estado':return {tipo:'estado',sujeto,estado:''};
   case 'elemento':return {tipo:'elemento',elemento:'fuego'};
   case 'probabilidad':return {tipo:'probabilidad',porcentaje:50};
-  case 'estado_terminado':return {tipo:'estado_terminado',clave:'furia'};
+  case 'estado_terminado':return {tipo:'estado_terminado',clave:''};
  }
 }
 /** Fichas de atributos frecuentes más un campo para cualquier otra clave. */
@@ -52,8 +53,8 @@ export function AtributoFichas({etiqueta,valor,onChange,opciones=ATRIBUTOS_REGLA
    onChange={e=>{const v=e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'_');onChange(v||opciones[0].valor);}}/></label>
  </div>;
 }
-/** Formulario de una condición hoja (también lo usa el efecto «Condicional»). */
-export function FormCondicion({c,onChange}:{c:CondicionRegla;onChange:(c:CondicionRegla)=>void}){
+/** Formulario de una condición hoja (también lo usa el efecto «Condicional»). Los estados se eligen del registro del borrador. */
+export function FormCondicion({c,onChange,b,operar}:{c:CondicionRegla;onChange:(c:CondicionRegla)=>void}&Pick<EditorNodoProps,'b'|'operar'>){
  switch(c.tipo){
   case 'comparar':return <>
    <Fichas etiqueta="De quién" opciones={SUJETOS} valor={c.sujeto} onChange={sujeto=>onChange({...c,sujeto})}/>
@@ -67,14 +68,14 @@ export function FormCondicion({c,onChange}:{c:CondicionRegla;onChange:(c:Condici
   </>;
   case 'estado':return <>
    <Fichas etiqueta="Quién" opciones={SUJETOS} valor={c.sujeto} onChange={sujeto=>onChange({...c,sujeto})}/>
-   <Texto etiqueta="Estado o forma" valor={c.estado} max={100} placeholder="furia, veneno…" onChange={estado=>onChange({...c,estado})}/>
+   <EstadoDelBorrador b={b} operar={operar} etiqueta="Estado o forma" valor={c.estado} onElegir={estado=>onChange({...c,estado})}/>
   </>;
   case 'elemento':return <Fichas etiqueta="Elemento del ataque" opciones={ELEMENTOS_REGLA} valor={c.elemento} onChange={elemento=>onChange({...c,elemento})} tono="arcano"/>;
   case 'probabilidad':return <div className="yq-probabilidad">
    <Rueda nombre="porcentaje" etiqueta="Probabilidad en porcentaje" valor={c.porcentaje} min={0} max={100} paso={5} onChange={porcentaje=>onChange({...c,porcentaje:Math.round(porcentaje)})}/><b>%</b>
    <div className="yq-umbral is-azar" aria-hidden="true"><i style={{width:`${c.porcentaje}%`}}/></div>
   </div>;
-  case 'estado_terminado':return <Texto etiqueta="Estado o forma que termina" valor={c.clave} max={100} placeholder="phoenix_parpadeante" onChange={clave=>onChange({...c,clave})}/>;
+  case 'estado_terminado':return <EstadoDelBorrador b={b} operar={operar} etiqueta="Estado o forma que termina" valor={c.clave} onElegir={clave=>onChange({...c,clave})}/>;
   default:return null;
  }
 }
@@ -98,7 +99,7 @@ export default function EditorSi({b,nodo,operar}:EditorNodoProps){
  }
  return <div className="yq-editor">
   <Fichas etiqueta="Condición" opciones={TIPOS} valor={c.tipo} onChange={t=>{if(t!==c.tipo)fijar(nuevaHoja(t,c));}} columnas={3}/>
-  <FormCondicion c={c} onChange={fijar}/>
+  <FormCondicion c={c} onChange={fijar} b={b} operar={operar}/>
   <p className="yq-frase-viva" aria-live="polite">{condicionClara(c)}</p>
   {c.tipo==='siempre'?<p className="yq-nota">Arrastra una condición del Grimorio hasta aquí para que la regla solo se active a veces.</p>
    :<div className="yq-botonera" role="group" aria-label="Combinar con otras condiciones">
