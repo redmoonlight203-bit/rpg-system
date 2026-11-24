@@ -52,3 +52,22 @@ test('un grafo válido devuelve null', () => {
   const g={formas:[{id:'a',nombre:'A',es_realidad:true,estadisticas:{},poderes:[]},{id:'b',nombre:'B',estadisticas:{},poderes:[]}],transiciones:[{id:'t',desde:'a',hasta:'b',sentido:'ambos'}]};
   assert.equal(validarGrafo(g), null);
 });
+
+const {formasAlcanzables}=cargarDependencia('transformaciones-grafo');
+test('la realidad es alcanzable desde cualquier forma, aunque no haya transición', () => {
+  const g={formas:[{id:'r',nombre:'R',es_realidad:true,estadisticas:{},poderes:[]},{id:'x',nombre:'X',estadisticas:{},poderes:[]}],transiciones:[]};
+  assert.ok(formasAlcanzables(g,'x').includes('r'));
+});
+test('una forma que toma el control sigue teniendo vuelta a la realidad', () => {
+  const g={formas:[{id:'r',nombre:'R',es_realidad:true,estadisticas:{},poderes:[]},{id:'gigante',nombre:'Gigante',control:true,estadisticas:{},poderes:[]}],transiciones:[]};
+  assert.ok(formasAlcanzables(g,'gigante').includes('r'));
+});
+test('cambio libre en ambos sentidos y cadena en un solo sentido', () => {
+  const f=(id,extra={})=>({id,nombre:id,estadisticas:{},poderes:[],...extra});
+  const g={formas:[f('r',{es_realidad:true}),f('dragon'),f('e1'),f('e2')],transiciones:[
+    {id:'1',desde:'r',hasta:'dragon',sentido:'ambos'},{id:'2',desde:'r',hasta:'e1',sentido:'uno'},{id:'3',desde:'e1',hasta:'e2',sentido:'uno'}]};
+  assert.deepEqual([...formasAlcanzables(g,'dragon')],['r']);
+  assert.deepEqual([...formasAlcanzables(g,'r').sort()],['dragon','e1']);
+  assert.deepEqual([...formasAlcanzables(g,'e1').sort()],['e2','r']);
+  assert.deepEqual([...formasAlcanzables(g,'e2')],['r']);
+});

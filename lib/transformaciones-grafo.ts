@@ -99,3 +99,19 @@ export function validarGrafo(grafo: Grafo): string | null {
   if (huerfana) return `${huerfana.nombre}: no hay ninguna transición que lleve a esta forma.`;
   return null;
 }
+
+/** Formas a las que se puede ir en un paso desde `desde`. Las cadenas no se
+ * saltan pasos. Incluye siempre la realidad (vuelta implícita), también desde
+ * una forma que toma el control: quién puede activarla lo decide el motor. */
+export function formasAlcanzables(grafo: Grafo, desde: string): string[] {
+  const realidad = grafo.formas.find(f => f.es_realidad)?.id;
+  const destinos = new Set(salidas(grafo, desde));
+  if (realidad && desde !== realidad) destinos.add(realidad);
+  destinos.delete(desde);
+  return [...destinos].filter(id => grafo.formas.some(f => f.id === id));
+}
+
+/** Transición directa entre dos formas (para leer su coste), si existe. */
+export function transicionEntre(grafo: Grafo, desde: string, hasta: string): Transicion | undefined {
+  return grafo.transiciones.find(t => (t.desde === desde && t.hasta === hasta) || (t.sentido === 'ambos' && t.desde === hasta && t.hasta === desde));
+}
