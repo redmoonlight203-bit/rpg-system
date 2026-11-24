@@ -33,8 +33,8 @@
 .campo .tactical-cell.reachable,.campo .has-procedural-map .tactical-cell.reachable{background:rgb(var(--azul)/.36);box-shadow:inset 0 0 0 1px rgb(var(--azul)/.62)}
 .campo .tactical-cell.threat{background:rgb(var(--rojo)/.3);box-shadow:inset 0 0 0 1px rgb(var(--rojo)/.55)}
 .campo .tactical-cell.reachable:hover,.campo .tactical-cell.destination,.campo .has-procedural-map .tactical-cell.destination{background:rgb(var(--azul)/.58);box-shadow:inset 0 0 0 1px rgb(255 255 255/.7)}
-.campo .tactical-cell.reachable>span{position:absolute;right:6%;top:5%;min-width:1.5em;padding:0 3px;border-radius:2px;background:#000c;color:#fff;font:700 12px/1.5 var(--font-sans,system-ui);opacity:0}
-.campo .tactical-cell.reachable.cursor>span,.campo .tactical-cell.destination>span{opacity:1}
+.campo .tactical-cell.reachable>.tactical-move-step{position:absolute;right:6%;top:5%;min-width:1.5em;padding:0 3px;border-radius:2px;background:#000c;color:#fff;font:700 12px/1.5 var(--font-sans,system-ui);opacity:0}
+.campo .tactical-cell.reachable.cursor>.tactical-move-step,.campo .tactical-cell.destination>.tactical-move-step{opacity:1}
 
 /* Alcance y área de habilidades. */
 .campo .tactical-cell.spell-range{background:rgb(255 255 255/.13);outline:0;box-shadow:inset 0 0 0 1px rgb(255 255 255/.4)}
@@ -152,3 +152,17 @@
 /* El número de daño manda: mientras se muestra, el nombre se aparta. */
 .campo .tactical-life-float{top:-48%}
 .campo .tactical-cell:has(.tactical-life-float) .tactical-token-name,.campo .tactical-cell:has(.tactical-life-float) .tactical-turn-marker{opacity:0}
+
+/* La ficha animada nace del ancla; el resto de la huella mantiene hitboxes de casilla independientes. */
+.campo .tactical-cell.footprint-anchor{z-index:4;overflow:visible}
+.campo .tactical-cell.footprint-anchor.token-moving{z-index:14}
+.campo .tactical-token-footprint{--footprint-inset:3px;inset:var(--footprint-inset) auto auto var(--footprint-inset);pointer-events:none}
+.campo .tactical-token-footprint *{pointer-events:none}
+.campo .arena-vista-completa .tactical-token-footprint{--footprint-inset:1px}
+.campo .tactical-cell.footprint-occupied:not(.spell-area):not(.reachable){background:rgb(var(--azul)/.17);box-shadow:inset 0 0 0 1px rgb(var(--azul)/.46)}
+.campo .tactical-cell.footprint-occupied.enemy:not(.spell-area):not(.reachable){background:rgb(var(--rojo)/.18);box-shadow:inset 0 0 0 1px rgb(var(--rojo)/.48)}
+.campo .tactical-cell.footprint-occupied.target:not(.spell-area):not(.reachable){background:rgb(var(--rojo)/.37);box-shadow:inset 0 0 0 1px rgb(var(--rojo)/.72)}
+.campo .tactical-cell.footprint-destination{outline:1px dashed rgb(var(--azul));outline-offset:-2px}
+.campo .tactical-cell.footprint-occupied:focus-visible{outline:2px solid #fff;outline-offset:-3px;z-index:5}
+
+.campo .tactical-cell.footprint-hover .tactical-token-name{opacity:1}

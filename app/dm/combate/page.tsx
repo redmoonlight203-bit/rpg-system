@@ -56,7 +56,7 @@ import {
   elementoDe,
   finalizar,
   descansar,
-  configurarParticipante,
+  configurarParticipante, configurarHuellaParticipante,
   usarObjeto,
   accionesObjeto,
   type Posicion,
@@ -65,7 +65,10 @@ import {
   type Bando,
   type Fuente,
   accionDisponible,
+  huellaReserva,
 } from "../../../lib/combate";
+import EditorHuella from "../../../components/EditorHuella";
+import {huellaDe} from "../../../lib/huellas-combate";
 import {EditorEquipoCombate,consultarEquipo,type ContextoEquipo} from "../../../components/EditorEquipoCombate";
 import { formula } from "../../../lib/creacion";
 import AnimacionDados, {
@@ -84,7 +87,9 @@ import "./diseno.css";
 import {useDialogo} from "../../../components/Dialogo";
 import MenuReaccion,{EsperandoReaccion} from "../../../components/MenuReaccion";
 import ControlArtefactoGM,{type ArtefactoGM} from "../../../components/ControlArtefactoGM";
+import {normalizarHuella} from "../../../lib/huellas-combate";
 type Personaje = {
+  naturaleza_vinculo?:{huella?:unknown}|null;
   balance_ipe?:number|null;
   imagen_url?:string;
   configuracion_monstruo?:ConfiguracionMonstruo|null;
@@ -378,7 +383,7 @@ export default function CampoCombate() {
     });
   }
   async function cargarPerfilesEncuentro(){
-    const campos="id,nombre,imagen_url,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel,configuracion_monstruo" as const;
+    const campos="id,nombre,imagen_url,clase,stats,es_grupo,stats_rango,nivel_maximo,nivel,configuracion_monstruo,naturaleza_vinculo" as const;
     const consulta=<T extends string>(seleccion:T)=>supabase.from("forja_maestra").select(seleccion)
       .eq("tipo_creacion","personaje").eq("estado","aprobado").order("nombre");
     const perfiles=await consulta(`${campos},balance_ipe` as const);
@@ -507,7 +512,7 @@ export default function CampoCombate() {
       const r = await supabase.rpc('combate_preparar_personaje',{p_forja:origenId});
       if (r.error) throw Error(r.error.message);
       let f = r.data as Preparado;
-      if(plantilla.imagen_url)f={...f,configuracion:{...f.configuracion,imagen_url:plantilla.imagen_url}};
+      f={...f,configuracion:{...f.configuracion,...(plantilla.imagen_url?{imagen_url:plantilla.imagen_url}:{}),huella:normalizarHuella(plantilla.naturaleza_vinculo?.huella??f.configuracion.huella)}};
       if(plantilla.es_grupo&&plantilla.stats_rango&&Object.keys(plantilla.stats_rango).length){
         const escaladas=escalarMalla(plantilla.stats_rango,nivel,plantilla.nivel_maximo||20);
         const bonos=f.configuracion.bonos_equipamiento||{};
@@ -579,7 +584,7 @@ export default function CampoCombate() {
   }
   const fichasTablero=useMemo(()=>{
     const posiciones=posicionesTablero(c);
-    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:fotoDe(m),estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id]}));
+    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:fotoDe(m),estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
   },[c,fotoDe]);
   const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
   useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
@@ -661,6 +666,13 @@ export default function CampoCombate() {
         {m.personaje_id && (
           <span className="battle-owner-tag">Personaje de jugador</span>
         )}
+        {c.fase==='preparacion'&&<details className="battle-size">
+          <summary>Tamaño en este encuentro · {huellaDe(m).ancho} × {huellaDe(m).alto}</summary>
+          <fieldset disabled={bloqueado}>
+            <EditorHuella titulo={`Tamaño de ${m.nombre}`} valor={m.configuracion.huella} defecto="1 × 1 por defecto"
+              onChange={h=>void ejecutar(()=>guardar(configurarHuellaParticipante(c,m.id,h)))}/>
+          </fieldset>
+        </details>}
         {c.actual === m.id && m.vida > 0 && m.vida / maxVida(m) <= 0.25 && (
           <p className="battle-danger-label">Vida crítica · Es su turno</p>
         )}

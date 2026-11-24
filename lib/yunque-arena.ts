@@ -1,9 +1,10 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {vigente,type Grafo} from "./yunque-grafo";
-import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG,type OfertaReaccion} from "./combate";
+import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,huellaReserva,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG,type OfertaReaccion} from "./combate";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
+import {casillasHuella,cabeHuella,normalizarHuella} from "./huellas-combate";
 import {normalizarReaccion} from "./reacciones";
 /**
  * Arena de dolls del Yunque: un combate aislado en el navegador sobre `lib/combate.ts`.
@@ -69,6 +70,7 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  if(b.tipo==='personaje'){
   // Solo lo que sigue en La Creación (aprobado): lo archivado se omite, como en el grafo.
   const buscar=(cid:string)=>ctx.creaciones.find(c=>c.id===cid&&vigente(c));
+  config.huella=normalizarHuella(b.huella);
   config.raza=b.clasificacion;config.linaje_raza=ctx.linaje;
   config.habilidades=b.habilidades.map(buscar).filter((c):c is PiezaArena=>!!c).map(fuenteObjeto);
   config.pasivas=b.pasivas.map(buscar).filter((c):c is PiezaArena=>!!c).map(c=>({id:c.id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[],inmunidades:inmunidadesPasiva(c.configuracion_dados)}));
@@ -110,15 +112,16 @@ export function prepararArena(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesD
   c.mapa={...MAPA,celdas:{}};
   c=agregar(c,portador(b,ctx,doll),'jugador',iniciativa(20));
   const pedidas=(disposicion.sacos?.length?disposicion.sacos:[undefined]).slice(0,SACOS.length);
-  const ocupadas=new Set([clave(POSICION_DOLL)]);
+  const d=c.miembros.find(m=>m.id===DOLL)!;
+  const posDoll={x:Math.min(POSICION_DOLL.x,ARENA.columnas-normalizarHuella(d.configuracion.huella).ancho),y:Math.min(POSICION_DOLL.y,ARENA.filas-normalizarHuella(d.configuracion.huella).alto)};
+  d.posicion=posDoll;
+  const ocupadas=new Set(casillasHuella(d,posDoll).map(clave));
   for(const [i,pedida] of pedidas.entries()){
    c=agregar(c,fuenteSaco(SACOS[i],saco),'enemigo',iniciativa(1));
    const s=c.miembros.find(m=>m.id===SACOS[i])!;
    s.posicion=libre(ocupadas,pedida);ocupadas.add(clave(s.posicion));
   }
-  const d=c.miembros.find(m=>m.id===DOLL)!;
   d.iniciativa=Math.max(d.iniciativa,...c.miembros.filter(m=>m.id!==DOLL).map(m=>m.iniciativa+1));
-  d.posicion={...POSICION_DOLL};
   return {combate:c};
  }catch(e){return {error:PREFIJO+(e instanceof Error?e.message:String(e))};}
 }
@@ -217,7 +220,7 @@ export function agregarSaco(c:Combate,saco:Partial<AjustesDoll>={},donde?:Posici
  const id=SACOS.find(x=>!c.miembros.some(m=>m.id===x));
  if(!id)throw Error(`Como mucho ${SACOS.length} sacos en la arena.`);
  const posiciones=posicionesTablero(c);
- const ocupadas=new Set(Object.values(posiciones).map(clave));
+ const ocupadas=new Set(c.miembros.flatMap(m=>casillasHuella(huellaReserva(m),posiciones[m.id]).map(clave)));
  // El saco se prepara aparte (agregar solo admite la preparación) y entra ya en pie, con iniciativa por debajo del portador.
  const solo=agregar({...nuevoCombate(),mapa:{...MAPA,celdas:{}}},fuenteSaco(id,saco),'enemigo',()=>1);
  const s=solo.miembros[0] as Combatiente;
@@ -251,7 +254,8 @@ export function colocar(c:Combate,id:string,p:Posicion):Combate{
  if(!s)throw Error('Ese saco no está en la arena.');
  if(!dentro(p))throw Error('Esa casilla no está en la arena.');
  const posiciones=posicionesTablero(c);
- if(Object.entries(posiciones).some(([k,q])=>k!==id&&q.x===p.x&&q.y===p.y))throw Error('Esa casilla está ocupada.');
+ const ocupadas=new Set(c.miembros.filter(m=>m.id!==id).flatMap(m=>casillasHuella(huellaReserva(m),posiciones[m.id]).map(clave)));
+ if(!cabeHuella(s,p,ARENA,q=>ocupadas.has(clave(q))||c.mapa?.celdas[clave(q)]==='muro'))throw Error('Esa casilla está ocupada.');
  const n=copia({...c,historial:[]}) as Combate;
  for(const m of n.miembros)m.posicion=posiciones[m.id];
  n.miembros.find(m=>m.id===id)!.posicion={x:p.x,y:p.y};

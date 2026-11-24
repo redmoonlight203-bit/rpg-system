@@ -445,3 +445,14 @@ test('Ignífugo conserva sus inmunidades en la Arena como pasiva directa o de un
   assert.equal(m(siguiente(turnoDoll,()=>6),'doll').vida,vida);
  }
 });
+
+test('la arena reserva las celdas del portador grande y no coloca sacos sobre su huella',()=>{
+ const b={...clon(F.personaje),huella:{ancho:3,alto:2}};
+ const c=arena(b,{},{},{sacos:[{x:3,y:3},{x:4,y:4}]},()=>1);
+ const d=m(c,'doll'),pos=d.posicion,enDoll=q=>q.x>=pos.x&&q.x<pos.x+3&&q.y>=pos.y&&q.y<pos.y+2;
+ assert.deepEqual(clon(d.configuracion.huella),{ancho:3,alto:2});
+ assert.ok(A.sacosDe(c).every(q=>!enDoll(q)));
+ assert.throws(()=>A.colocar(c,'saco',{x:pos.x+1,y:pos.y}),/ocupada/);
+ const n=A.agregarSaco(c,{},{x:pos.x+1,y:pos.y});
+ assert.ok(A.sacosDe(n).every(q=>!enDoll(q)));
+});

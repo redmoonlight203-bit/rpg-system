@@ -8,14 +8,16 @@ import AnimacionesArmas from './AnimacionesArmas';
 import type {AnimacionEtapa} from '../lib/vfx';
 import {precargarVFX} from '../lib/precarga-vfx';
 import FichaAnimada from './FichaAnimada';
-import {intensidadHerida,rutaVisual} from '../lib/movimiento-visual';
+import {casillasHuella,type Huella} from '../lib/huellas-combate';
+import {distanciasFicha,rutaFicha,vecinosCasilla,claveCasilla} from './huellas-tablero';
+import {intensidadHerida} from '../lib/movimiento-visual';
 import RetratoCombate from './RetratoCombate';
 import FotoEncuadrada from './FotoEncuadrada';
 import {imagenCreacion} from '../lib/arte-creacion';
 import Dado3D from './Dado3D';
 import {describirEfecto,describirRegla} from '../lib/descripciones';
 import {HudOcular,MarcasOculares,PanelOcular,casillasDebiles,estiloOcular,lineaOcular} from './CapaOcular';
-import {distanciasMovimiento,lineaVisible,alcanceDesde,areaDesde, type VistaOcular, type MapaCombate,objetivoDelArea, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
+import {alcanceVisibleEntreFichas,alcanceDesdeFicha,areaDesdeFicha, type VistaOcular, type MapaCombate,objetivoDelArea, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
 import type {Efecto} from '../lib/creacion';
 import type {TiradaVisual} from './AnimacionDados';
 import {BarraVital} from './ui/Juego';
@@ -40,7 +42,7 @@ function useSegundoClic():[boolean,(v:boolean)=>void]{
  return [valor,v=>{guardarSegundoClic(v);setValor(v);if(typeof window!=='undefined')window.dispatchEvent?.(new Event(EVENTO_SEGUNDO_CLIC));}];
 }
 const editable=(t:EventTarget|null)=>typeof HTMLElement!=='undefined'&&t instanceof HTMLElement&&(t.isContentEditable||!!t.closest('input,select,textarea'));
-export type FichaTablero={vfx?:AnimacionEtapa;id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion};
+export type FichaTablero={vfx?:AnimacionEtapa;id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion;huella?:Huella;huella_reserva?:Huella};
 export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,mapa,perspectiva,onEjecutar,puedeEjecutar=false,ocular,turnoPropio=false}:{ocular?:VistaOcular|null;turnoPropio?:boolean;fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;mapa?:MapaCombate;perspectiva?:string;
   /** Si existe, un clic sobre un objetivo válido ejecuta la acción (con «segundo clic» activo, el primero solo previsualiza). */
   onEjecutar?:(sel:{objetivo?:string;centro?:Posicion})=>void;puedeEjecutar?:boolean}){
@@ -62,21 +64,32 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  useEffect(()=>{const v=habilidad?.vfx;precargarVFX([v?.lanzamiento,v?.recorrido,v?.impacto,...(habilidad?.transformacion?.etapas.flatMap(e=>[e.vfx?.entrada,e.vfx?.aura])||[])]);},[habilidad?.id,habilidad?.vfx,habilidad?.transformacion]);
  const origen=fichas.find(f=>f.id===lanzador),t=!moviendo?habilidad?.tablero:undefined;
  const blancas=useMemo(()=>{
-  if(habilidad?.efecto==='desplazamiento'&&t&&origen)return new Set(Object.keys(distanciasMovimiento(origen.posicion,fichas.map(f=>f.posicion),columnas,filas,mapa,t.alcance,capaDe(origen.estados)==='aire')));
-  return new Set((t&&origen?alcanceDesde(origen.posicion,t,{columnas,filas}).filter(p=>lineaVisible(origen.posicion,p,mapa)):[]).map(p=>`${p.x},${p.y}`));},[habilidad,t,origen,fichas,columnas,filas,mapa]);
+  if(habilidad?.efecto==='desplazamiento'&&t&&origen)return new Set(Object.keys(distanciasFicha(origen,origen.posicion,fichas,columnas,filas,mapa,t.alcance)));
+  return new Set((t&&origen?alcanceDesdeFicha(origen,origen.posicion,t,{columnas,filas}).filter(p=>alcanceVisibleEntreFichas(origen,origen.posicion,{},p,t.alcance,mapa)):[]).map(p=>`${p.x},${p.y}`));},[habilidad,t,origen,fichas,columnas,filas,mapa]);
  const punto=t?.origen_area==='lanzador'?origen?.posicion:centro||hover;
- const area=useMemo(()=>t&&origen&&punto?areaDesde(origen.posicion,punto,t,{columnas,filas}):[],[t,origen?.posicion.x,origen?.posicion.y,punto?.x,punto?.y,columnas,filas]);
+ const area=useMemo(()=>t&&origen&&punto?areaDesdeFicha(origen,origen.posicion,punto,t,{columnas,filas}):[],[t,origen?.posicion.x,origen?.posicion.y,origen?.huella?.ancho,origen?.huella?.alto,punto?.x,punto?.y,columnas,filas]);
  const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
- const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&afectadas.has(`${f.posicion.x},${f.posicion.y}`)&&objetivoDelArea(origen,f,habilidad!)):[],[fichas,origen,t,afectadas,habilidad]);
+ const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&casillasHuella(f,f.posicion).some(p=>afectadas.has(`${p.x},${p.y}`))&&objetivoDelArea(origen,f,habilidad!)):[],[fichas,origen,t,afectadas,habilidad]);
  const pixelArt=!!(evento?.vfx?.lanzamiento||evento?.vfx?.recorrido||evento?.vfx?.impacto);
  const fichaObjetivo=fichas.find(f=>f.id===objetivo);
- const porCasilla=useMemo(()=>new Map(fichas.map(f=>[`${f.posicion.x},${f.posicion.y}`,f])),[fichas]);
+ const porCasilla=useMemo(()=>new Map(fichas.flatMap(f=>casillasHuella(f,f.posicion).map(p=>[claveCasilla(p),f] as const))),[fichas]);
  const casillas=useMemo(()=>Array.from({length:columnas*filas},(_,i)=>({x:i%columnas,y:Math.floor(i/columnas)})),[columnas,filas]);
  // Vista previa: ruta hasta la casilla bajo el cursor (o el destino elegido) y franja que quedaría al alcance cuerpo a cuerpo.
  const mueve=fichas.find(f=>f.id===lanzador)||fichas.find(f=>f.id===actual);
  const metaRuta=!moviendo?null:destino&&alcanzables[`${destino.x},${destino.y}`]?destino:cursor&&alcanzables[`${cursor.x},${cursor.y}`]?cursor:null;
- const ruta=useMemo(()=>mueve&&metaRuta?rutaVisual(mueve.posicion,metaRuta,columnas,filas,fichas.filter(f=>f.id!==mueve.id).map(f=>f.posicion),mapa):[],[mueve?.id,mueve?.posicion.x,mueve?.posicion.y,metaRuta?.x,metaRuta?.y,columnas,filas,fichas,mapa]);
- const amenaza=useMemo(()=>{const s=new Set<string>();if(!moviendo||!mueve)return s;const origenK=`${mueve.posicion.x},${mueve.posicion.y}`;for(const k of [origenK,...Object.keys(alcanzables)]){const [x,y]=k.split(',').map(Number);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy,q=`${xx},${yy}`;if(xx<0||yy<0||xx>=columnas||yy>=filas||alcanzables[q]||q===origenK||mapa?.celdas[q]==='muro'||porCasilla.get(q)?.bando===mueve.bando)continue;s.add(q);}}return s;},[moviendo,mueve?.posicion.x,mueve?.posicion.y,mueve?.bando,alcanzables,columnas,filas,mapa,porCasilla]);
+ const ruta=useMemo(()=>mueve&&metaRuta?rutaFicha(mueve,mueve.posicion,metaRuta,fichas,columnas,filas,mapa,alcanzables):[],[mueve,metaRuta,columnas,filas,fichas,mapa,alcanzables]);
+ const huellaDestino=useMemo(()=>new Set(mueve&&metaRuta?casillasHuella(mueve,metaRuta).map(claveCasilla):[]),[mueve,metaRuta]);
+ const amenaza=useMemo(()=>{
+  const s=new Set<string>();if(!moviendo||!mueve)return s;
+  const anclas=[mueve.posicion,...Object.keys(alcanzables).map(k=>{const [x,y]=k.split(',').map(Number);return {x,y};})];
+  const base=(metaRuta?[metaRuta]:anclas).flatMap(p=>casillasHuella(mueve,p)),huella=new Set(base.map(claveCasilla));
+  for(const p of base)for(const q of vecinosCasilla(p)){
+   const k=claveCasilla(q);
+   if(q.x<0||q.y<0||q.x>=columnas||q.y>=filas||huella.has(k)||alcanzables[k]||mapa?.celdas[k]==='muro'||porCasilla.get(k)?.bando===mueve.bando)continue;
+   s.add(k);
+  }
+  return s;
+ },[moviendo,mueve,metaRuta,alcanzables,columnas,filas,mapa,porCasilla]);
  // Quien golpea embiste hacia el objetivo; se deduce del evento confirmado, sin reglas nuevas.
  const atacante=evento?.desde&&evento.hasta&&!evento.movimientos?.length&&(evento.desde.x!==evento.hasta.x||evento.desde.y!==evento.hasta.y)&&cambios.some(c=>c.delta<0)?porCasilla.get(`${evento.desde.x},${evento.desde.y}`):undefined;
  const enfocadaBruta=(cursor&&porCasilla.get(`${cursor.x},${cursor.y}`))||fichaObjetivo||fichas.find(f=>f.id===actual),turno=fichas.find(f=>f.id===actual);
@@ -132,8 +145,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  function pulsar(p:Posicion,f?:FichaTablero){
   const k=`${p.x},${p.y}`,disponible=moviendo&&!!alcanzables[k];
   if(moviendo){
-   if(f){onObjetivo(f.id);return;}
-   if(!disponible||ocupado)return;
+   if(!disponible||ocupado||(f&&f.id!==mueve?.id)){if(f)onObjetivo(f.id);return;}
    setDestino(p);ejecutarSi('mov:'+k,()=>{onMover(p);setDestino(null);});return;
   }
   if(t){
@@ -170,19 +182,19 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
   <div className="tactical-scroll"><div ref={tableroRef} onMouseMove={e=>{const r=e.currentTarget.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*columnas),y=Math.floor((e.clientY-r.top)/r.height*filas);if(x>=0&&y>=0&&x<columnas&&y<filas&&(cursor?.x!==x||cursor?.y!==y))setCursor({x,y});}} onMouseLeave={()=>{setHover(null);setCursor(null);}} className={`tactical-board ${vistaCompleta?"arena-vista-completa":""} ${mapa?.procedural?'has-procedural-map':''}`} style={{gridTemplateColumns:`repeat(${columnas}, minmax(${vistaCompleta?0:48}px, 1fr))`,'--cols':columnas,'--rows':filas} as React.CSSProperties}>
    {mapa?.procedural&&<FondoMapaProcedural mapa={mapa} techos={mostrarTechos}/>}
    {ocular&&turnoPropio&&ocular.visiones[0].apariencia.velo>0&&<div className="ocular-velo" aria-hidden="true"/>}
-   {casillas.map(p=>{const k=`${p.x},${p.y}`,f=porCasilla.get(k),disponible=moviendo&&!!alcanzables[k],enRango=blancas.has(k),enArea=afectadas.has(k),elegida=!!destino&&destino.x===p.x&&destino.y===p.y,esCentro=centro?.x===p.x&&centro?.y===p.y,capa=f?capas.get(f.id)||'suelo':'suelo',oculta=capa==='subsuelo'&&!!bandoPropio&&f?.bando!==bandoPropio&&!ocular?.objetivos[f?.id||'']?.revela_oculto,enEspera=pendiente===(moviendo?'mov:'+k:t?'cel:'+k:f?'obj:'+f.id:''),sombraObjetivo=!moviendo&&!!f&&f.id===objetivo&&capa==='aire';
-    return <button type="button" key={k} disabled={!f&&(ocupado||(!disponible&&!(t&&enRango&&puedeApuntar)))} aria-pressed={t?esCentro:f?objetivo===f.id:elegida} title={mapa?.celdas[k]} aria-label={f?oculta?`Marca en el suelo de algo bajo tierra, casilla ${p.x+1}, ${p.y+1}`:`${f.nombre}, ${f.bando==='jugador'?'aliado':'enemigo'}${capa!=='suelo'?`, en ${CAPAS[capa].nombre.toLowerCase()}`:''}${f.vida!==undefined?`, vida ${f.vida}/${f.max_vida}`:''}${f.id===actual?', turno actual':''}${t?enRango?', dentro del alcance':', fuera de alcance':''}`:`Casilla ${p.x+1}, ${p.y+1}${debiles.has(k)?`, punto débil de ${debiles.get(k)}`:''}${disponible?`, ${alcanzables[k]} pasos`:enRango?', dentro del alcance':''}`} className={`tactical-cell terrain-${mapa?.celdas[k]||'libre'} ${evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y?'animation-'+(evento.animacion||'impacto'):''} ${enRango?'spell-range':''} ${enArea?'spell-area':''} ${esCentro?'spell-center':''} ${f?.id===lanzador&&t?'spell-origin':''} ${disponible?'reachable':''} ${amenaza.has(k)?'threat':''} ${cursor?.x===p.x&&cursor?.y===p.y?'cursor':''} ${elegida&&disponible?'destination':''} ${f?`occupied ${f.bando==='jugador'?'ally':'enemy'} ${f.id===actual?'current':''} ${!t&&objetivo===f.id?'target':''} ${f.vida===0?'down':''} capa-${capa} ${oculta?'capa-oculta':''}`:''} ${enEspera?'pending':''} ${sombraObjetivo?'shadow-target':''}`} onMouseEnter={()=>{if(!centro)setHover(t&&enRango?p:null);}} onFocus={()=>{setCursor(p);if(t&&enRango&&!centro)setHover(p);}} onPointerDown={e=>{if(e.pointerType!=='touch')return;clearTimeout(presion.current.timer);presion.current.larga=false;presion.current.timer=setTimeout(()=>{presion.current.larga=true;setCursor(p);if(t&&enRango&&!centro)setHover(p);if(moviendo&&disponible)setDestino(p);},450);}}
-     onPointerUp={()=>clearTimeout(presion.current.timer)} onPointerLeave={()=>clearTimeout(presion.current.timer)} onContextMenu={e=>{if(presion.current.larga)e.preventDefault();}}
+   {casillas.map(p=>{const k=`${p.x},${p.y}`,f=porCasilla.get(k),disponible=moviendo&&!!alcanzables[k],enRango=blancas.has(k),enArea=afectadas.has(k),elegida=!!destino&&destino.x===p.x&&destino.y===p.y,esCentro=centro?.x===p.x&&centro?.y===p.y,capa=f?capas.get(f.id)||'suelo':'suelo',oculta=capa==='subsuelo'&&!!bandoPropio&&f?.bando!==bandoPropio&&!ocular?.objetivos[f?.id||'']?.revela_oculto,enEspera=pendiente===(moviendo?'mov:'+k:t?'cel:'+k:f?'obj:'+f.id:''),sombraObjetivo=!moviendo&&!!f&&f.id===objetivo&&capa==='aire',ancla=!!f&&f.posicion.x===p.x&&f.posicion.y===p.y,huellaAncha=!!f&&((f.huella?.ancho??1)>1||(f.huella?.alto??1)>1);
+    return <button type="button" key={k} disabled={!f&&(ocupado||(!disponible&&!(t&&enRango&&puedeApuntar)))} aria-pressed={disponible?elegida:t?esCentro:f?objetivo===f.id:elegida} title={mapa?.celdas[k]} aria-label={f?oculta?`Marca en el suelo de algo bajo tierra, casilla ${p.x+1}, ${p.y+1}`:`${f.nombre}, ${f.bando==='jugador'?'aliado':'enemigo'}${capa!=='suelo'?`, en ${CAPAS[capa].nombre.toLowerCase()}`:''}${huellaAncha?`, huella ${f.huella?.ancho??1} por ${f.huella?.alto??1}, casilla ${p.x+1}, ${p.y+1}`:''}${f.vida!==undefined?`, vida ${f.vida}/${f.max_vida}`:''}${f.id===actual?', turno actual':''}${t?enRango?', dentro del alcance':', fuera de alcance':''}`:`Casilla ${p.x+1}, ${p.y+1}${debiles.has(k)?`, punto débil de ${debiles.get(k)}`:''}${disponible?`, ${alcanzables[k]} pasos`:enRango?', dentro del alcance':''}`} className={`tactical-cell terrain-${mapa?.celdas[k]||'libre'} ${evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y?'animation-'+(evento.animacion||'impacto'):''} ${enRango?'spell-range':''} ${enArea?'spell-area':''} ${esCentro?'spell-center':''} ${f?.id===lanzador&&t?'spell-origin':''} ${disponible?'reachable':''} ${amenaza.has(k)?'threat':''} ${cursor?.x===p.x&&cursor?.y===p.y?'cursor':''} ${ancla&&f?.id===bajoCursor?.id?'footprint-hover':''} ${elegida&&disponible?'destination':''} ${f?`occupied ${f.bando==='jugador'?'ally':'enemy'} ${f.id===actual?'current':''} ${!t&&objetivo===f.id?'target':''} ${f.vida===0?'down':''} capa-${capa} ${oculta?'capa-oculta':''}`:''} ${enEspera?'pending':''} ${sombraObjetivo?'shadow-target':''} ${huellaAncha&&ancla?'footprint-anchor':''} ${huellaAncha?'footprint-occupied':''} ${huellaDestino.size>1&&huellaDestino.has(k)?'footprint-destination':''}`} onMouseEnter={()=>{if(!centro)setHover(t&&enRango?p:null);}} onFocus={()=>{setCursor(p);if(t&&enRango&&!centro)setHover(p);}} onPointerDown={e=>{if(e.pointerType!=='touch')return;clearTimeout(presion.current.timer);presion.current.larga=false;presion.current.timer=setTimeout(()=>{presion.current.larga=true;setCursor(p);if(t&&enRango&&!centro)setHover(p);if(moviendo&&disponible)setDestino(p);},450);}}
+     onPointerCancel={()=>{clearTimeout(presion.current.timer);presion.current.larga=false;}} onPointerUp={()=>clearTimeout(presion.current.timer)} onPointerLeave={()=>clearTimeout(presion.current.timer)} onContextMenu={e=>{if(presion.current.larga)e.preventDefault();}}
      onClick={()=>{if(presion.current.larga){presion.current.larga=false;return;}pulsar(p,f);}}>
-    {f&&capa!=='suelo'&&<><span className="capa-sombra" aria-hidden="true"/>{transiciones[f.id]&&<span key={transiciones[f.id]} className={`capa-transicion capa-transicion-${capa}`} aria-hidden="true"><i/><i/><i/></span>}</>}
-    {sombraObjetivo&&<span className="capa-punto" aria-hidden="true"><Crosshair size={16}/></span>}
+    {f&&capa!=='suelo'&&<><span className="capa-sombra" aria-hidden="true"/>{ancla&&transiciones[f.id]&&<span key={transiciones[f.id]} className={`capa-transicion capa-transicion-${capa}`} aria-hidden="true"><i/><i/><i/></span>}</>}
+    {ancla&&sombraObjetivo&&<span className="capa-punto" aria-hidden="true"><Crosshair size={16}/></span>}
     {evento?.hasta?.x===p.x&&evento?.hasta?.y===p.y&&evento.animacion!=='ninguna'&&!pixelArt&&<span key={'spell:'+evento.id} aria-hidden="true" className={`confirmed-spell spell-${evento.animacion||'impacto'}`}/>}
-    {f&&cambios.filter(c=>c.id===f.id).map(c=><span key={`${evento?.id}:${f.id}`} aria-hidden="true" className={`tactical-life-float ${c.delta<0?'damage':'healing'}`}>{c.delta>0?'+':'−'}{Number(Math.abs(c.delta).toFixed(2))}</span>)}
+    {f&&ancla&&cambios.filter(c=>c.id===f.id).map(c=><span key={`${evento?.id}:${f.id}`} aria-hidden="true" className={`tactical-life-float ${c.delta<0?'damage':'healing'}`}>{c.delta>0?'+':'−'}{Number(Math.abs(c.delta).toFixed(2))}</span>)}
     {debiles.has(k)&&<span className="ocular-celda" title={`Punto débil de ${debiles.get(k)}`} aria-hidden="true"/>}
     {verAmenazas&&amenazaOcular.has(k)&&<span className="ocular-amenaza" aria-hidden="true"/>}
-    {f&&!oculta&&<MarcasOculares objetivo={ocular?.objetivos[f.id]}/>}
-    {f?<FichaAnimada key={f.id} ficha={f} fichas={fichas} evento={evento} columnas={columnas} filas={filas} mapa={mapa}>{(()=>{const golpe=cambios.some(c=>c.id===f.id&&c.delta<0),cura=cambios.some(c=>c.id===f.id&&c.delta>0),embiste=atacante?.id===f.id,ref=embiste?evento?.hasta:evento?.desde,signo=embiste?1:-1,vida=`${Math.max(0,Math.min(100,100*(f.vida||0)/Math.max(1,f.max_vida||1)))}%`;
-     return <><span key={golpe||cura||embiste?evento?.id:'reposo'} className={`ficha-cuerpo ${golpe?'golpeada':''} ${cura?'curada':''} ${embiste?'embiste':''}`} style={{'--lx':ref?signo*Math.sign(ref.x-f.posicion.x):0,'--ly':ref?signo*Math.sign(ref.y-f.posicion.y):0} as React.CSSProperties}>{f.vida!==0&&<AuraTransformacion id={f.vfx?.aura} escala={f.vfx?.escala}/>}<RetratoCombate nombre={f.nombre} src={f.imagen_url} circular/></span><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span className="estela" style={{width:vida}}/><span style={{width:vida}}/></span>}</>;})()}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.some(e=>e.includes('Derribado'))?'↘':`${f.estados.length} ✦`}</span>}{cambios.some(c=>c.id===f.id&&c.delta<0)&&<span key={evento?.id} className="tactical-hit-flash" aria-hidden="true"/>}<span className="tactical-token-danger" style={{opacity:intensidadHerida(f.vida,f.max_vida)}} aria-hidden="true"/></FichaAnimada>:disponible?<span>{elegida?'✓':alcanzables[k]}</span>:esCentro?<Crosshair size={18}/>:<span className="tactical-coordinate">{mapa?.celdas[k]==='muro'?'■':mapa?.celdas[k]==='peligro'?'⚠':`${p.x+1}·${p.y+1}`}</span>}
+    {f&&ancla&&!oculta&&<MarcasOculares objetivo={ocular?.objetivos[f.id]}/>}
+    {f&&ancla?<FichaAnimada key={f.id} ficha={f} fichas={fichas} evento={evento} columnas={columnas} filas={filas} mapa={mapa}>{(()=>{const golpe=cambios.some(c=>c.id===f.id&&c.delta<0),cura=cambios.some(c=>c.id===f.id&&c.delta>0),embiste=atacante?.id===f.id,ref=embiste?evento?.hasta:evento?.desde,signo=embiste?1:-1,vida=`${Math.max(0,Math.min(100,100*(f.vida||0)/Math.max(1,f.max_vida||1)))}%`;
+     return <><span key={golpe||cura||embiste?evento?.id:'reposo'} className={`ficha-cuerpo ${golpe?'golpeada':''} ${cura?'curada':''} ${embiste?'embiste':''}`} style={{'--lx':ref?signo*Math.sign(ref.x-f.posicion.x):0,'--ly':ref?signo*Math.sign(ref.y-f.posicion.y):0} as React.CSSProperties}>{f.vida!==0&&<AuraTransformacion id={f.vfx?.aura} escala={f.vfx?.escala}/>}<RetratoCombate nombre={f.nombre} src={f.imagen_url} circular/></span><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span className="estela" style={{width:vida}}/><span style={{width:vida}}/></span>}</>;})()}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.some(e=>e.includes('Derribado'))?'↘':`${f.estados.length} ✦`}</span>}{cambios.some(c=>c.id===f.id&&c.delta<0)&&<span key={evento?.id} className="tactical-hit-flash" aria-hidden="true"/>}<span className="tactical-token-danger" style={{opacity:intensidadHerida(f.vida,f.max_vida)}} aria-hidden="true"/></FichaAnimada>:disponible?<span className="tactical-move-step">{elegida?'✓':alcanzables[k]}</span>:esCentro?<Crosshair size={18}/>:f?null:<span className="tactical-coordinate">{mapa?.celdas[k]==='muro'?'■':mapa?.celdas[k]==='peligro'?'⚠':`${p.x+1}·${p.y+1}`}</span>}
     </button>;
    })}
   {ruta.length>1&&<svg className="campo-ruta" viewBox={`0 0 ${columnas*100} ${filas*100}`} preserveAspectRatio="none" aria-hidden="true"><polyline points={ruta.map(p=>`${p.x*100+50},${p.y*100+50}`).join(' ')}/>{(()=>{const a=ruta[ruta.length-2],b=ruta[ruta.length-1],g=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;return <polygon points="-4,-26 34,0 -4,26" transform={`translate(${b.x*100+50} ${b.y*100+50}) rotate(${g})`}/>;})()}</svg>}

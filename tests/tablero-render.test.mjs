@@ -11,8 +11,13 @@ function tablero(){
  const react={useRef:inicial=>{const n=cursor++;hooks[n]??={current:inicial};return hooks[n];},useState:inicial=>{const n=cursor++;hooks[n]??={valor:inicial};return [hooks[n].valor,v=>hooks[n].valor=typeof v==='function'?v(hooks[n].valor):v];},useMemo:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps))hooks[n]={deps,valor:fn()};return hooks[n].valor;},useEffect:(fn,deps)=>{const n=cursor++;if(!igual(hooks[n]?.deps,deps)){hooks[n]={deps};efectos.push(fn);}}};
  const cuentas={alcance:0,area:0},exports={};
  const jsx=(type,props,key)=>({type,props,key});
- const require=nombre=>nombre==='react'?react:nombre==='react/jsx-runtime'?{jsx,jsxs:jsx}:nombre==='../lib/movimiento-visual'?cargarDependencia('movimiento-visual'):nombre==='./CapaOcular'?{casillasDebiles:()=>new Map(),estiloOcular:()=>undefined,lineaOcular:()=>null,HudOcular:()=>null,MarcasOculares:()=>null,PanelOcular:()=>null}:nombre==='../lib/combate'?{...motor,alcanceDesde:(...a)=>{cuentas.alcance++;return motor.alcanceDesde(...a);},areaDesde:(...a)=>{cuentas.area++;return motor.areaDesde(...a);}}:nombre==='../lib/combate-interfaz'?cargarDependencia('combate-interfaz'):nombre==='../lib/precarga-vfx'?{precargarVFX:()=>{}}:nombre==='../lib/descripciones'?{describirEfecto:()=>({resumen:'',detalles:[]}),describirRegla:()=>({resumen:'',detalles:[]})}:nombre==='lucide-react'?new Proxy({},{get:(_,k)=>k}):()=>null;
- vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../components/TableroCombate.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require,setTimeout:()=>1,clearTimeout:()=>{}});
+ const cargarComponente=(archivo,exports={})=>{
+  vm.runInNewContext(ts.transpileModule(readFileSync(new URL(`../components/${archivo}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require,setTimeout:()=>1,clearTimeout:()=>{}});
+  return exports;
+ };
+ let huellasTablero;
+ const require=nombre=>nombre==='react'?react:nombre==='react/jsx-runtime'?{jsx,jsxs:jsx}:nombre==='../lib/movimiento-visual'?cargarDependencia('movimiento-visual'):nombre==='../lib/huellas-combate'?cargarDependencia('huellas-combate'):nombre==='./huellas-tablero'?(huellasTablero??=cargarComponente('huellas-tablero.ts')):nombre==='./CapaOcular'?{casillasDebiles:()=>new Map(),estiloOcular:()=>undefined,lineaOcular:()=>null,HudOcular:()=>null,MarcasOculares:()=>null,PanelOcular:()=>null}:nombre==='../lib/combate'?{...motor,alcanceDesdeFicha:(...a)=>{cuentas.alcance++;return motor.alcanceDesdeFicha(...a);},areaDesdeFicha:(...a)=>{cuentas.area++;return motor.areaDesdeFicha(...a);}}:nombre==='../lib/combate-interfaz'?cargarDependencia('combate-interfaz'):nombre==='../lib/precarga-vfx'?{precargarVFX:()=>{}}:nombre==='../lib/descripciones'?{describirEfecto:()=>({resumen:'',detalles:[]}),describirRegla:()=>({resumen:'',detalles:[]})}:nombre==='lucide-react'?new Proxy({},{get:(_,k)=>k}):()=>null;
+ cargarComponente('TableroCombate.tsx',exports);
  return {cuentas,render:props=>{cursor=0;const vista=exports.TableroCombate(props);efectos.splice(0).forEach(fn=>fn());return vista;}};
 }
 function nodos(n){return Array.isArray(n)?n.flatMap(nodos):n&&typeof n==='object'?[n,...nodos(n.props?.children)]:[];}
@@ -85,4 +90,18 @@ test('quien está bajo tierra y es enemigo solo deja una marca',()=>{
  const v=h.render(p),marca=nodos(v).find(n=>n.type==='button'&&n.props['aria-label']?.startsWith('Marca en el suelo'));
  assert.ok(marca);assert.ok(marca.props.className.includes('capa-oculta'));
  assert.ok(!nodos(v).some(n=>n.type==='button'&&n.props['aria-label']?.startsWith('b, enemigo')));
+});
+
+test('las cuatro casillas de una huella 2×2 seleccionan el mismo objetivo y solo el ancla tiene retrato',()=>{
+ const h=tablero(),hechas=[],p={...base(),fichas:[ficha('a',1),{...ficha('b',3),huella:{ancho:2,alto:2}}],habilidad:ataque,onEjecutar:s=>hechas.push(s),puedeEjecutar:true};
+ const ocupadas=nodos(h.render(p)).filter(n=>n.type==='button'&&n.props['aria-label']?.startsWith('b, enemigo'));
+ assert.equal(ocupadas.length,4);
+ assert.equal(ocupadas.filter(n=>n.props.className.includes('footprint-anchor')).length,1);
+ ocupadas.forEach(n=>n.props.onClick());
+ assert.deepEqual(hechas.map(h=>h.objetivo),['b','b','b','b']);
+});
+test('un área que toca solo el borde de una huella cuenta un único objetivo',()=>{
+ const h=tablero(),p={...base(),centro:{x:4,y:2},fichas:[ficha('a',1),{...ficha('b',3),huella:{ancho:2,alto:2}}]};
+ const v=h.render({...p,habilidad:{...p.habilidad,tablero:{...p.habilidad.tablero,forma:'individual',tamano:0}}});
+ assert.ok(nodos(v).some(n=>typeof n.props?.children==='string'&&n.props.children.includes('1 objetivos: b')));
 });

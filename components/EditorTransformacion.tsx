@@ -7,6 +7,7 @@ import {validarPortada} from "../lib/imagenes-creacion";
 import {publicarArchivoImagen} from "../lib/imagenes-storage";
 import {EditorReglas} from "./EditorReglas";
 import type {Efecto} from "../lib/creacion";
+import EditorHuella from './EditorHuella';
 import SelectorVFX from './SelectorVFX';
 import EditorVision from './yunque/editores/EditorVision';
 import {nuevaVision} from '../lib/vision';
@@ -104,6 +105,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
         {(errorImagen||(etapa.imagen_url&&validarPortada(etapa.imagen_url)))&&<p role="alert" className="text-xs text-red-300">{errorImagen||validarPortada(etapa.imagen_url||"")}</p>}
       </fieldset>
 
+      <EditorHuella titulo="Tamaño durante esta etapa" valor={etapa.huella} defecto="Conservar el tamaño base del combatiente" onChange={huella=>onChange({...etapa,huella})}/>
       <SelectorVFX transformacion valor={etapa.vfx} onChange={vfx=>onChange({...etapa,vfx})}/>
       <div className="space-y-2">
         <h4 className="font-semibold">Estadísticas de esta etapa</h4>
