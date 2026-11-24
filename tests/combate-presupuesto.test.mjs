@@ -91,9 +91,14 @@ test('legendaria imposible',()=>{
  assert.throws(()=>c.actuar(loco,'a','hab:h:leg','b',dados),/fuera de control/);
  const pausa=structuredClone(base);pausa.reaccion_pendiente={oferta:{defensor:'b'},orden:{turno:'siguiente'},tiradas:[],respuestas:[]};
  assert.throws(()=>c.actuar(pausa,'a','hab:h:leg','b',dados),/reacción pendiente/);
- for(const x of [caido,loco,pausa])assert.equal(m(x,'a').gasto_acciones,undefined);
  const fuera=structuredClone(base);fuera.fase='finalizado';
  assert.throws(()=>c.actuar(fuera,'a','hab:h:leg','b',dados),/no puede usar acciones legendarias/);
+ // Los intentos fallidos no tocan el combate: sigue el turno de b y la acción de a no cambia.
+ for(const x of [caido,loco,pausa,fuera]){
+  const usada=m(x,'a').accion_usada;
+  assert.throws(()=>c.actuar(x,'a','hab:h:leg','b',dados));
+  assert.equal(x.actual,'b');assert.equal(m(x,'a').accion_usada,usada);
+ }
 });
 
 test('principal 2',()=>{
@@ -130,4 +135,29 @@ test('las acciones propias repetidas en configuracion.efectos no duplican un ojo
  const x=campo({propias:[ojo]});
  const a=m(x,'a');a.configuracion.efectos=[ojo];
  assert.equal(c.visionesActivas(a).length,1);
+});
+
+test('principal 0: el motor coincide con presupuestoRestante',()=>{
+ const x=campo({stats:{acciones_principal:-1}});
+ assert.equal(c.presupuestoRestante(x,m(x,'a')).principal,0);
+ assert.throws(()=>c.actuar(x,'a','ataque','b',dados),/No le quedan acciones principales este turno\./);
+ assert.throws(()=>c.actuar(x,'a','guardia','a',dados),/No le quedan acciones principales este turno\./);
+});
+
+test('una legendaria en el turno de un aliado acredita a su dueño',()=>{
+ // a (jugador, legendaria) y c (aliado) contra b (enemigo con poca vida). Turno de c.
+ const aliado={...personaje('c'),posicion:{x:1,y:2},stats:{...personaje('c').stats,iniciativa:5}};
+ const enemigo=personaje('b',{stats:{vida:3}});
+ let x=c.agregar(c.agregar(c.agregar(c.nuevoCombate(),personaje('a',{stats:{acciones_legendaria:1},efectos:[golpe('leg',{presupuesto:'legendaria',cantidad:1,caras:6,modificador:10})]}),'jugador',()=>10),aliado,'jugador',()=>10),enemigo,'enemigo',()=>1);
+ x=c.iniciar(x);
+ while(x.actual!=='c')x=c.siguiente(x);
+ const y=c.actuar(x,'a','hab:h:leg','b',dados);
+ assert.ok(m(y,'b').vida<=0);
+ assert.equal(y.eventos.find(e=>e.tipo==='enemigo_derrotado').actor,'a');
+ assert.ok((m(y,'a').contribucion||0)>0);
+ assert.equal(m(y,'c').contribucion||0,0);
+ // Con reacciones (resolverGolpe vuelve a llamar a actuar) se acredita igual.
+ const z=c.actuarConReacciones(x,'a','hab:h:leg','b',dados);
+ assert.equal(z.eventos.find(e=>e.tipo==='enemigo_derrotado').actor,'a');
+ assert.ok((m(z,'a').contribucion||0)>0);
 });

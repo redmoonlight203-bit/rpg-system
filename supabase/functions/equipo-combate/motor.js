@@ -2677,7 +2677,9 @@ function siguienteInterno(c, rng) {
     cerrarEncuentro(n, 'Sin combatientes activos', null);
     return n;
 }
-function registrar(c, fn, rng = dadoSeguro) {
+/** `autor`: a quién se acreditan derrotas y contribución; por defecto, quien tiene el turno.
+ *  Una acción legendaria fuera de turno pasa a su dueño. */
+function registrar(c, fn, rng = dadoSeguro, autor = c.actual) {
     if (c.reaccion_pendiente)
         throw Error('Hay una reacción pendiente de respuesta.');
     const { historial: _historial, ...sinHistorial } = c;
@@ -2691,10 +2693,10 @@ function registrar(c, fn, rng = dadoSeguro) {
             if (anterior && anterior.vida > 0 && m.vida <= 0 && !m.invocacion) {
                 const id = `derrota:${m.id}`;
                 if (!(n.eventos || []).some(e => e.id === id))
-                    (n.eventos ||= []).push({ id, tipo: 'enemigo_derrotado', actor: c.actual || undefined, objetivo: m.id, ronda: n.ronda });
+                    (n.eventos ||= []).push({ id, tipo: 'enemigo_derrotado', actor: autor || undefined, objetivo: m.id, ronda: n.ronda });
             }
         }
-        const a = n.miembros.find(m => m.id === c.actual);
+        const a = n.miembros.find(m => m.id === autor);
         if (a)
             a.contribucion = (a.contribucion || 0) + n.miembros.reduce((t, m) => { const antes = c.miembros.find(v => v.id === m.id); return t + (antes ? Math.max(0, m.bando !== a.bando ? antes.vida - m.vida : m.vida - antes.vida) : 0); }, 0);
     }
@@ -3187,6 +3189,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         return base(c);
     const tipo = /^(hab|equipo):/.test(accionId) ? acciones(actor).find(v => v.id === accionId)?.presupuesto || 'principal' : 'principal';
     if (tipo === 'principal') {
+        if (!actor.accion_usada && presupuestoRestante(c, actor).principal <= 0)
+            throw Error('No le quedan acciones principales este turno.');
         const n = base(c), a = n.miembros.find(m => m.id === actorId);
         if (a && a.accion_usada && !((a.rafaga?.restantes || 0) > 0) && presupuestoDe(a).principal > 1) {
             anotarGasto(n, a, 'principal');
@@ -4039,7 +4043,7 @@ function potenciadoresDisponibles(m, e, rasgos) {
     });
 }
 export function actuar(c, actorId, accionId, objetivoId, rng = dadoSeguro, forzar = false, centro, potenciadores = []) {
-    const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, false, potenciadores), rng);
+    const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, false, potenciadores), rng, actorId);
     const actor = c.miembros.find(m => m.id === actorId), accion = actor ? acciones(actor).find(a => a.id === accionId) : undefined, efecto = accion?.efecto;
     const animado = animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro);
     // El gesto del arma sale de su esqueleto (o del concepto desarmado); el nombre solo para datos antiguos.
