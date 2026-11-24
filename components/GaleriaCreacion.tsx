@@ -1,24 +1,27 @@
 "use client";
 import {marcoDe,rangoDe} from "../lib/cartas";
 import {duenoDe,duenosConPersonales,filtrarAmbito,type FiltroAmbito} from "../lib/creaciones-personales";
-import {mensajeError} from '../lib/errores';
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Search, ImagePlus, Upload, Link2, Save, ImageOff, X, Swords, Shield, Users, Sparkles, Package, Crown, Shapes, Pencil, Trash2 } from "lucide-react";
-import { TIPOS, EFECTOS_NOMBRE, efectosDe, formula, type TipoCreacion, type Efecto } from "../lib/creacion";
-import { EVENTOS, EFECTOS_REGLA, DESTINOS, type CondicionRegla, type EfectoRegla, type ValorRegla, type Regla } from "../lib/reglas";
+import { ArrowLeft, Search, ImagePlus, X, Swords, Shield, Users, Package, Crown, Shapes, Settings2 } from "lucide-react";
+import { TIPOS, efectosDe, type TipoCreacion, type Efecto } from "../lib/creacion";
+import { type Regla } from "../lib/reglas";
 import { type ReglaPasiva } from "../lib/pasivas";
 import { validarPortada } from "../lib/imagenes-creacion";
 import { imagenCreacion } from "../lib/arte-creacion";
-import { publicarArchivoImagen } from "../lib/imagenes-storage";
 import FotoEncuadrada from "./FotoEncuadrada";
 import IconoYugen from "./IconoYugen";
-import SelectorIconoYugen from "./SelectorIconoYugen";
 import {describirEfecto,describirRegla,type AyudaClara} from "../lib/descripciones";
 import ContenidoAyuda from "./ContenidoAyuda";
 import "./galeria-creacion.css";
-import {useDialogo} from "./Dialogo";
-import {useRouter} from "next/navigation";
+import VistaCodice from "./codices/VistaCodice";
+import {useConfigCodices} from "./codices/useConfigCodices";
+import {avanzarRastro, type Codice} from "../lib/codices";
+import TallerCodices from "./codices/TallerCodices";
+import type {ConfiguracionMonstruo} from "../lib/monstruos";
+import type {ConfiguracionArtefacto} from "../lib/artefactos";
+import type {RequisitosUso} from "../lib/combate";
+import type {VinculoNaturaleza} from "../lib/yunque-borrador";
+import type {InvocacionEditor} from "./EditorInvocacion";
 
 export type PiezaGaleria = {
   formas_historia?: import("./FormasHistoria").FormaHistoria[];
@@ -30,8 +33,15 @@ export type PiezaGaleria = {
   stats_rango: Record<string, { min: number; max: number }>;
   habilidades: string[]; pasivas: string[]; equipamiento: Record<string, string>;
   configuracion_dados: Efecto[]; reglas_pasivas: ReglaPasiva[]; reglas: Regla[];
+  configuracion_monstruo?: ConfiguracionMonstruo | null;
+  configuracion_artefacto?: ConfiguracionArtefacto | null;
+  configuracion_invocacion?: InvocacionEditor | null;
+  requisitos_uso?: RequisitosUso;
+  naturaleza_vinculo?: VinculoNaturaleza;
+  consumible?: boolean;
+  nivel_maximo?: number;
 };
-type Props<T extends PiezaGaleria> = {
+export type PropsGaleria<T extends PiezaGaleria> = {
   esMonstruo?:(item:T)=>boolean;
   items: T[]; cargando: boolean; iconoDe: (item:T)=>string;
   tipoDe: (item: T) => TipoCreacion; clasificacion: (clave: string) => string;
@@ -43,13 +53,13 @@ type Props<T extends PiezaGaleria> = {
   onNueva: () => void; onImagen: (id: string, value: string, icono: string) => Promise<void>;
 };
 const iconos = { personaje: Users, habilidad: Swords, pasiva: Shield, objeto: Package, titulo: Crown, otro: Shapes };
-function Portada({ src, tipo, icono, circular }: { src?: string; tipo: TipoCreacion; icono: string; circular?: boolean }) {
+export function Portada({ src, tipo, icono, circular }: { src?: string; tipo: TipoCreacion; icono: string; circular?: boolean }) {
   return <span className={`cg-art cg-art-${tipo}`}>
     <FotoEncuadrada src={src && !validarPortada(src) ? src : undefined} circular={circular}
       fallback={<span className="cg-placeholder"><IconoYugen id={icono} size={62}/><span>{src ? "Imagen no disponible" : "Emblema de Yugen"}</span></span>} />
   </span>;
 }
-function atributos(item: PiezaGaleria) {
+export function atributos(item: PiezaGaleria) {
   return Object.entries(item.es_grupo ? item.stats_rango || {} : item.stats || {}).filter(([key]) => !["dados_dano", "caras_dano"].includes(key));
 }
 function ayudaCreacion(item:PiezaGaleria):AyudaClara {
@@ -58,9 +68,9 @@ function ayudaCreacion(item:PiezaGaleria):AyudaClara {
  const resumen=item.descripcion?.trim()||efectos[0]?.resumen||reglas[0]?.resumen||"Abre esta creación para consultar sus atributos, equipo y reglas.";
  return {resumen,detalles:[...efectos.map(e=>e.resumen),...reglas.map(r=>r.resumen)].filter(r=>r!==resumen).slice(0,3)};
 }
-function valor(value: number | { min: number; max: number }) { return typeof value === "object" && value !== null ? `${value.min}–${value.max}` : String(value); }
+export function valor(value: number | { min: number; max: number }) { return typeof value === "object" && value !== null ? `${value.min}–${value.max}` : String(value); }
 
-export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>) {
+export default function GaleriaCreacion<T extends PiezaGaleria>(props: PropsGaleria<T>) {
   const [busqueda, setBusqueda] = useState("");
   const [tipo, setTipo] = useState("todos");
   const [clasificacion, setClasificacion] = useState("todos");
@@ -69,11 +79,23 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
   const [ambito, setAmbito] = useState<FiltroAmbito>("generales");
   const duenos = duenosConPersonales(props.items);
   const dueno = (i: T) => duenoDe(i, props.items);
-  const [seleccion, setSeleccion] = useState<string | null>(null);
+  // Rastro de creaciones abiertas: la última es la que se lee; las anteriores son las migas.
+  const [rastro, setRastro] = useState<string[]>([]);
+  const seleccion = rastro[rastro.length - 1] ?? null;
+  const codices = useConfigCodices();
+  // Taller de códices abierto (opcionalmente en un códice concreto).
+  const [taller, setTaller] = useState<{ codice?: Codice } | null>(null);
   const volverRef = useRef<HTMLButtonElement>(null);
   const seleccionada = props.items.find((i) => i.id === seleccion);
-  const abrir = (id: string) => { setSeleccion(id); };
-  const volver = () => { setSeleccion(null); requestAnimationFrame(() => volverRef.current?.focus()); };
+  const abrir = (id: string) => {
+    setRastro((r) => avanzarRastro(r, id, codices.config.rastro.max));
+    requestAnimationFrame(() => {
+      const reducido = matchMedia("(prefers-reduced-motion: reduce)").matches || !codices.config.movimiento.activo;
+      document.querySelector(".cx-codice")?.scrollIntoView({ block: "start", behavior: reducido ? "auto" : "smooth" });
+    });
+  };
+  const volver = () => { setRastro([]); requestAnimationFrame(() => volverRef.current?.focus()); };
+  const irA = (i: number) => setRastro((r) => r.slice(0, i + 1));
   const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const coincide = (i: T) => (tipo === "todos" || (tipo === "monstruo" ? props.esMonstruo?.(i) : props.tipoDe(i) === tipo && (tipo!=="personaje"||!props.esMonstruo?.(i)))) && (clasificacion === "todos" || i.tipo === clasificacion) && norm(`${i.nombre} ${i.descripcion || ""} ${props.clasificacion(i.tipo)} ${dueno(i) || ""}`).includes(norm(busqueda));
   const enAmbito = filtrarAmbito(props.items, ambito);
@@ -81,9 +103,10 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
   // Vista de baraja: el filtro de ámbito es el id de un personaje con creaciones personales.
   const baraja = duenos.find((d) => d.id === ambito) || null;
   const personalesOcultas = ambito === "generales" && busqueda.trim() ? props.items.filter((i) => i.personal_de && coincide(i)).length : 0;
-  if (seleccionada) return <Detalle key={seleccionada.id} item={seleccionada} props={props} volver={volver} />;
+  if (taller) return <TallerCodices config={codices.config} origen={codices.origen} error={codices.error} guardando={codices.guardando} props={props} codiceInicial={taller.codice} onGuardar={codices.guardar} onCerrar={() => setTaller(null)} />;
+  if (seleccionada) return <VistaCodice key={seleccionada.id} item={seleccionada} props={props} volver={volver} abrir={abrir} rastro={rastro} irA={irA} config={codices.config} onVerComo={(id, codice) => { void codices.verComo(id, codice); }} onConfigurar={(codice) => setTaller({ codice })} avisoConfig={codices.error} />;
   return <section className="cg-gallery" aria-label="Galería de La creación">
-    <header className="cg-gallery-head"><div><span className="cg-eyebrow">TU COLECCIÓN</span><h2>La creación</h2><p>Personajes, objetos y todo lo que da vida a tu mundo.</p></div><button className="cg-button cg-primary" onClick={props.onNueva}><ImagePlus size={17} />Nueva creación</button></header>
+    <header className="cg-gallery-head"><div><span className="cg-eyebrow">TU COLECCIÓN</span><h2>La creación</h2><p>Personajes, objetos y todo lo que da vida a tu mundo.</p></div><div className="cg-gallery-acciones"><button type="button" className="cg-button" onClick={() => setTaller({})}><Settings2 size={16} />Configurar códices</button><button className="cg-button cg-primary" onClick={props.onNueva}><ImagePlus size={17} />Nueva creación</button></div></header>
     <div className="cg-search"><Search size={19} /><input aria-label="Buscar creaciones" placeholder="Busca una creación por nombre o descripción…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} /></div>
     <div className="cg-types" role="group" aria-label="Filtrar por tipo"><button ref={volverRef} onClick={() => setTipo("todos")} aria-pressed={tipo === "todos"}>Todo <span>{enAmbito.length}</span></button>{TIPOS.map((t) => { const Icono = iconos[t.valor] || Shapes; return <button key={t.valor} aria-pressed={tipo === t.valor} onClick={() => setTipo(t.valor)}><Icono size={15} />{t.nombre}<span>{enAmbito.filter((i) => props.tipoDe(i) === t.valor && (t.valor!=="personaje"||!props.esMonstruo?.(i))).length}</span></button>; })}{props.esMonstruo&&<button aria-pressed={tipo==="monstruo"} onClick={()=>setTipo("monstruo")}>Monstruos <span>{enAmbito.filter(i=>props.esMonstruo?.(i)).length}</span></button>}</div>
     <div className="cg-filter-row"><label>Ámbito<select aria-label="Ámbito" value={ambito} onChange={(e) => setAmbito(e.target.value)}><option value="generales">Generales</option><option value="personales">Personales ({props.items.filter((i) => i.personal_de).length})</option>{duenos.map((d) => <option key={d.id} value={d.id}>Personales de {d.nombre} ({d.cantidad})</option>)}<option value="todas">Todas</option></select></label><label>Clasificación<select value={clasificacion} onChange={(e) => setClasificacion(e.target.value)}><option value="todos">Todas</option>{props.clasificaciones.map((c) => <option key={c.clave} value={c.clave}>{c.nombre}</option>)}</select></label><label>Ordenar<select value={orden} onChange={(e) => setOrden(e.target.value)}><option value="recientes">Más recientes</option><option value="nombre">Nombre A–Z</option></select></label><span aria-live="polite">{visibles.length} creaciones</span></div>
@@ -104,7 +127,7 @@ export default function GaleriaCreacion<T extends PiezaGaleria>(props: Props<T>)
  * Al pasar el ratón (o al pulsar «Baraja» en pantallas táctiles) se abre en abanico con las cartas boca arriba,
  * y cada una se puede abrir sin entrar en la baraja.
  */
-function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEntrar, children }: { dueno: T; mazo: T[]; props: Props<T>; onAbrirCarta: (id: string) => void; onEntrar: () => void; children: React.ReactNode }) {
+function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEntrar, children }: { dueno: T; mazo: T[]; props: PropsGaleria<T>; onAbrirCarta: (id: string) => void; onEntrar: () => void; children: React.ReactNode }) {
   const [abierta, setAbierta] = useState(false), [lado, setLado] = useState<"derecha" | "izquierda">("derecha");
   const caja = useRef<HTMLDivElement>(null), espera = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Grosor total de la baraja: 18 px como máximo, repartidos entre todas sus cartas (cabe en el hueco entre cartas).
@@ -141,7 +164,7 @@ function Baraja<T extends PiezaGaleria>({ dueno, mazo, props, onAbrirCarta, onEn
 }
 
 /** Carta de La creación: marco propio de su tipo, teñido según su rango. */
-function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir, mini }: { item: T; props: Props<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir?: () => void; mini?: boolean }) {
+export function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onAbrir, mini }: { item: T; props: PropsGaleria<T>; dueno: string | null; orden: number; portada?: boolean; onAbrir?: () => void; mini?: boolean }) {
   const tipoItem = props.tipoDe(item), monstruo = !!props.esMonstruo?.(item), rango = rangoDe(item.clase);
   const tipoCarta = monstruo ? "monstruo" : tipoItem;
   const chips = atributos(item).slice(0, 2);
@@ -168,117 +191,3 @@ function Carta<T extends PiezaGaleria>({ item, props, dueno, orden, portada, onA
     </Cara>
   </Etiqueta>;
 }
-
-function Detalle<T extends PiezaGaleria>({ item, props, volver }: { item: T; props: Props<T>; volver: () => void }) {
-  const {confirmar}=useDialogo();
-  const router=useRouter();
-  const [indiceForma, cambiarForma] = useState(0);
-  const formas = item.formas_historia || [];
-  const forma = formas[indiceForma] || formas[0];
-  const [imagen, setImagen] = useState(item.imagen_url || "");
-  const [icono,setIcono]=useState(item.icono||"");
-  const [procesando, setProcesando] = useState(false);
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState("");
-  const [aviso, setAviso] = useState("");
-  const [editando, setEditando] = useState(false);
-  const bloqueo = useRef(false);
-  const titulo = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { titulo.current?.focus(); }, []);
-  const dirty = imagen !== (item.imagen_url || "") || icono !== (item.icono || "");
-  const ocupado = procesando || guardando;
-  useEffect(() => {
-    if (!dirty) return;
-    const salir = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
-    window.addEventListener("beforeunload", salir);
-    return () => window.removeEventListener("beforeunload", salir);
-  }, [dirty]);
-  function navegar(fn: () => void) { if (ocupado) return; if (!dirty) { fn(); return; } void confirmar({titulo:"Imagen sin guardar",mensaje:"Tienes una imagen sin guardar. ¿Descartar el cambio?",aceptar:"Descartar",cancelar:"Seguir editando",peligro:true}).then((si) => { if (si) fn(); }); }
-  async function archivo(file?: File) {
-    if (!file || bloqueo.current) return;
-    bloqueo.current = true; setProcesando(true); setError(""); setAviso("");
-    try { setImagen(await publicarArchivoImagen(file)); } catch (e) { setError(mensajeError(e,"No se pudo leer la imagen.")); }
-    finally { bloqueo.current = false; setProcesando(false); }
-  }
-  async function guardar() {
-    if (bloqueo.current) return;
-    const value = imagen.trim(), fallo = validarPortada(value);
-    if (fallo) { setError(fallo); return; }
-    bloqueo.current = true; setGuardando(true); setError(""); setAviso("");
-    try { await props.onImagen(item.id, value, icono); setImagen(value); setAviso("Presentación guardada en la creación."); setEditando(false); }
-    catch (e) { setError(mensajeError(e,"No se pudo guardar la imagen.")); }
-    finally { bloqueo.current = false; setGuardando(false); }
-  }
-  const tipo = props.tipoDe(item);
-  const imagenVisible = imagenCreacion(item.id, editando ? imagen : forma?.imagen || imagen);
-  const iconoVisible = props.iconoDe({...item,icono});
-  const acciones = efectosDe(item);
-  const relaciones = [...(item.habilidades || []), ...(item.pasivas || []), ...Object.values(item.equipamiento || {})];
-  return <section className="cg-detail" aria-label={`Detalles de ${item.nombre}`}>
-    <button className="cg-back" disabled={ocupado} onClick={() => navegar(volver)}><ArrowLeft size={17} />Volver a la colección</button>
-    <div className="cg-detail-grid"><aside className="cg-detail-visual">
-      {formas.length > 0 && <label className="grid gap-1 mb-3 font-semibold">Cambiar forma
-        <select className="w-full rounded-lg border border-neutral-600 bg-neutral-900 p-3 text-white" value={forma ? formas.indexOf(forma) : 0} onChange={e=>cambiarForma(Number(e.target.value))}>
-          {formas.map((f,i)=><option key={i} value={i}>{f.nombre}</option>)}
-        </select>
-      </label>}
-      <div className="cg-detail-cover"><Portada src={imagenVisible} tipo={tipo} icono={iconoVisible} /><span className="cg-rank">{item.clase || "D"}</span></div>
-      <button className="cg-button cg-image-toggle" disabled={ocupado} onClick={() => setEditando(!editando)} aria-expanded={editando}><ImagePlus size={16} />{imagenCreacion(item.id, item.imagen_url) ? "Cambiar imagen o icono" : "Elegir imagen o icono"}</button>
-      {editando && <div className="cg-image-editor"><h3>Imagen o emblema</h3>
-        <div className="cg-encuadres">
-          <figure><Carta item={{...item, imagen_url: imagen, icono}} props={props} dueno={null} orden={0} /><figcaption>Tarjeta</figcaption></figure>
-          <figure><div className="cg-vista-ficha"><Portada src={imagenVisible} tipo={tipo} icono={iconoVisible} circular /></div><figcaption>Ficha circular</figcaption></figure>
-        </div>
-        <fieldset disabled={ocupado}>
-        <div className="cg-symbol-editor"><h4>Icono de Yugen</h4><p>Se usa cuando no hay imagen o no se puede cargar. Automático utiliza el símbolo de la raza o categoría.</p><SelectorIconoYugen value={icono} onChange={setIcono} automatico={props.iconoDe({...item,icono:null})} disabled={ocupado}/></div>
-        <label><Link2 size={14} />URL de la imagen<input type="text" placeholder="https://…" value={imagen.startsWith("data:") ? "" : imagen} onChange={(e) => { setImagen(e.target.value); setError(""); }} /></label>
-        <span className="cg-or">o selecciona un archivo</span>
-        <label className="cg-upload"><Upload size={20} /><strong>Publicar imagen</strong><span>PNG, JPG o WebP · visible mediante enlace público</span><input aria-label="Insertar imagen desde archivo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { void archivo(e.target.files?.[0]); e.target.value = ""; }} /></label>
-        {imagen.startsWith("data:") && <p className="cg-local-image">Imagen de archivo lista para guardar.</p>}
-        <div className="cg-image-actions"><button className="cg-button" disabled={!imagen} onClick={() => { setImagen(""); setError(""); }}><ImageOff size={14} />{imagenCreacion(item.id) ? "Restaurar ilustración" : "Quitar imagen"}</button><button className="cg-button" onClick={() => { setImagen(item.imagen_url || ""); setIcono(item.icono||""); setError(""); setEditando(false); }}>Cancelar</button></div>
-        <button className="cg-button cg-primary" disabled={!dirty} onClick={() => void guardar()}><Save size={16} />Guardar presentación</button>
-      </fieldset><small>Los archivos se optimizan y publican en Storage; cualquiera con el enlace podrá verlos.</small></div>}
-      {ocupado && <p role="status">{procesando ? "Preparando imagen…" : "Guardando imagen…"}</p>}{error && <p className="cg-error" role="alert">{error}</p>}{aviso && <p className="cg-success" role="status">{aviso}</p>}{dirty && <p className="cg-unsaved">Presentación sin guardar</p>}
-    </aside>
-    <div className="cg-detail-content"><div className="cg-detail-heading"><span className="cg-eyebrow">{TIPOS.find((t) => t.valor === tipo)?.nombre} / {props.clasificacion(item.tipo)}</span><h2 tabIndex={-1} ref={titulo}>{item.nombre}</h2><p>{item.descripcion || "Sin descripción."}</p><div className="cg-detail-tags"><span>Clase {item.clase || "D"}</span><span>{item.es_grupo ? "Malla · valores por rango" : "Único · valores fijos"}</span>{item.ligado_al_alma && <span>Ligado al alma</span>}</div></div>
-      <div className="cg-detail-actions"><button className="cg-button cg-primary" disabled={ocupado} onClick={() => navegar(() => props.onEditar(item))}><Pencil size={15} />Editar ficha</button><button className="cg-button" disabled={ocupado||!!item.alma_en_uso} onClick={() => props.onEntregar(item)}>{item.ligado_al_alma?(item.alma_en_uso?"Ya entregada · Restablece para recuperar":"Entregar única al baúl"):"Entregar"}</button>{tipo === "personaje" && !item.ligado_al_alma && <button className="cg-button" disabled={ocupado} onClick={() => props.onBatalla(item)}><Swords size={15} />Preparar batalla</button>}<Link className="cg-button" href={`${tipo === "personaje" ? "/dm/tienda-almas" : "/dm/mercado"}?forja=${item.id}`} onClick={(e) => { if (!ocupado && !dirty) return; e.preventDefault(); const destino = e.currentTarget.href; if (!ocupado) void confirmar({titulo:"Imagen sin guardar",mensaje:"¿Salir sin guardar la imagen?",aceptar:"Salir",cancelar:"Seguir editando",peligro:true}).then((si) => { if (si) router.push(destino); }); }}>Publicar en tienda</Link></div>
-      {!!atributos(item).length && <section className="cg-detail-section"><h3>Atributos</h3><dl className="cg-attribute-grid">{atributos(item).map(([key, value]) => <div key={key}><dt>{props.etiqueta(item, key)}</dt><dd>{valor(value)}</dd></div>)}</dl></section>}
-      {!!acciones.length && <section className="cg-detail-section"><h3>Acciones y efectos</h3>{acciones.map((e) => <div className="cg-rule cg-action-help" key={e.id} tabIndex={0} aria-describedby={`efecto-ayuda-${e.id}`}><strong>{e.nombre || EFECTOS_NOMBRE[e.efecto]}</strong><p>{describirEfecto(e).resumen}</p><span className="cg-effect-tooltip" role="tooltip" id={`efecto-ayuda-${e.id}`}><ContenidoAyuda ayuda={describirEfecto(e)}/></span></div>)}</section>}
-      {!!item.reglas_pasivas?.length && <section className="cg-detail-section"><h3>Pasivas</h3>{item.reglas_pasivas.map((r) => <div className="cg-rule" key={r.id}><strong>{r.nombre}</strong><p>{{ permanente: "Siempre activa", inicio_turno: "Al iniciar turno", recibir_ataque: "Al recibir ataque", recibir_impacto: "Al recibir impacto", recibir_dano: "Al recibir daño" }[r.evento]} · {{ siempre: "Siempre", vida_mitad: "Vida a la mitad", sin_arma: "Sin arma", ataque_magico: "Ataque mágico", ataque_natural: "Ataque natural", ataque_elemental: "Ataque elemental" }[r.condicion]}</p><p>{[r.reduccion_pct ? `Reduce ${r.reduccion_pct}% de daño` : "", r.curacion ? `Cura ${r.curacion}` : "", r.recuperar_ph ? `Recupera ${r.recuperar_ph} PH` : "", r.reducir_fatiga ? `Reduce ${r.reducir_fatiga} Fatiga` : "", r.represalia_dados ? `Represalia ${r.represalia_dados}d${r.represalia_caras}` : ""].filter(Boolean).join(" · ")}</p><p>{Object.entries(r.bonos || {}).filter(([, v]) => v).map(([key, v]) => `${props.etiqueta(item, key)} ${v > 0 ? "+" : ""}${v}`).join(" · ")}</p></div>)}</section>}
-      {!!item.reglas?.length && <section className="cg-detail-section"><h3>Reglas de la creación</h3>{item.reglas.map((r, i) => <div className="cg-rule" key={r.id || i}><strong>{r.nombre || `Regla ${i + 1}`}</strong><p>{describirRegla(r).resumen}</p><p>{EVENTOS[r.evento]}</p><p>Si: {resumenCondicion(r.condicion)}</p><ul>{r.efectos.map((efecto, j) => <li key={j}><ResumenEfecto efecto={efecto} /></li>)}</ul><p>{r.coste_ph || 0} PH · {r.coste_fatiga || 0} Fatiga{r.enfriamiento ? ` · Enfriamiento: ${r.enfriamiento} turnos` : ""}{r.usos ? ` · ${r.usos} usos` : ""}</p></div>)}</section>}
-      {!!relaciones.length && <section className="cg-detail-section"><h3>Habilidades, pasivas y equipo</h3><div className="cg-related">{[...new Set(relaciones)].map((id) => <span key={id}><Sparkles size={14} />{props.items.find((v) => v.id === id)?.nombre || "Creación no disponible"}</span>)}</div></section>}
-      {forma && <section className="cg-detail-section" aria-live="polite"><h3>{forma.nombre}</h3><p className="cg-prose">{forma.historia}</p></section>}
-      {[['Historia', item.historia], ['Requisitos', item.requisitos], ['Limitaciones y defectos', item.defectos]].map(([label, value]) => value ? <section className="cg-detail-section" key={label}><h3>{label}</h3><p className="cg-prose">{value}</p></section> : null)}
-      {item.ligado_al_alma&&props.onRestablecer&&<aside className="yunque-resumen"><strong>Una sola pertenencia del alma</strong><p>Se entrega al baúl de una cuenta. Restablecer la retira de los jugadores y la deja únicamente en La creación. Termina cualquier encuentro activo antes de hacerlo.</p><button className="cg-button" disabled={ocupado} onClick={async()=>{setGuardando(true);try{await props.onRestablecer!(item);}finally{setGuardando(false);}}}>Restablecer y devolver a La creación</button></aside>}<footer className="cg-danger-zone"><p>Las copias existentes conservan sus valores.</p><button className="cg-button" disabled={ocupado} onClick={() => navegar(() => { void props.onEliminar(item).catch((e) => setError(mensajeError(e,"No se pudo eliminar."))); })}><Trash2 size={14} />Eliminar creación</button></footer>
-    </div></div>
-  </section>;
-}
-
-function resumenValor(v?: ValorRegla): string {
-  if (v === undefined) return "";
-  if (typeof v === "number") return String(v);
-  return [v.dados ? `${v.dados}d${v.caras}` : "", v.atributo ? `${v.atributo}${v.escala ? ` × ${v.escala}` : ""}` : "", v.evento ? "valor del evento" : "", v.bono ? `${v.bono > 0 ? "+" : ""}${v.bono}` : ""].filter(Boolean).join(" ") || "0";
-}
-function resumenCondicion(c: CondicionRegla): string {
-  switch (c.tipo) {
-    case "siempre": return "Siempre";
-    case "estado_terminado": return `Al terminar ${c.clave}`;
-    case "todas": return c.condiciones.map(resumenCondicion).join(" y ");
-    case "alguna": return c.condiciones.map(resumenCondicion).join(" o ");
-    case "no": return `No (${resumenCondicion(c.condicion)})`;
-    case "estado": return `${DESTINOS[c.sujeto]} tiene ${c.estado}`;
-    case "comparar": return `${DESTINOS[c.sujeto]}: ${c.atributo} ${c.operador} ${c.valor}${c.porcentaje ? "%" : ""}`;
-    case "elemento": return `Elemento ${c.elemento}`;
-    case "probabilidad": return `Probabilidad ${c.porcentaje}%`;
-  }
-}
-function ResumenEfecto({ efecto: e, depth = 0 }: { efecto: EfectoRegla; depth?: number }) {
-  if (depth > 8) return null;
-  return <div className="cg-effect-summary"><span>{EFECTOS_REGLA[e.tipo]} · {DESTINOS[e.destino]}{e.atributo ? ` · ${e.atributo}` : ""}{e.operacion ? ` · ${{ sumar: "sumar", fijar: "fijar", multiplicar: "multiplicar" }[e.operacion]}` : ""}{e.valor !== undefined ? ` ${resumenValor(e.valor)}` : ""}{e.nombre || e.clave ? ` · ${e.nombre || e.clave}` : ""}{e.cd ? ` · CD ${e.cd}` : ""}{e.permanente ? " · Permanente" : e.duracion ? ` · ${e.duracion} turnos` : ""}{e.acumular ? " · Acumulable" : ""}</span>
-    {e.condicion && <p>Si: {resumenCondicion(e.condicion)}</p>}
-    {e.cambios?.map((c, i) => <p key={i}>{c.atributo}: {c.operacion} {resumenValor(c.valor)}</p>)}
-    {e.accion && <p>{e.accion.nombre} · {formula(e.accion)}</p>}
-    {([['Éxito', e.exito], ['Fallo', e.fallo]] as const).map(([label, efectos]) => efectos?.length ? <div className="cg-effect-branch" key={label}><b>{label}</b>{efectos.map((efecto, i) => <ResumenEfecto key={i} efecto={efecto} depth={depth + 1} />)}</div> : null)}
-  </div>;
-}
-
