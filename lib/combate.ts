@@ -1,3 +1,4 @@
+import {patronDesde,validarPatron} from './patron-area';
 import {huellaDe,casillasHuella,claveHuella,cabeHuella,distanciaHuellas,validarHuella,type Huella,type FuenteHuella} from "./huellas-combate";
 import type {ConfiguracionVFX} from "./vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
@@ -1284,7 +1285,11 @@ function resolverTurnoDescontrolado(c:Combate,actorId:string,rng:RNG){
     .sort((u,v)=>Number(v.id.startsWith('hab:'))-Number(u.id.startsWith('hab:'))||(v.efecto.cantidad||0)*(v.efecto.caras||0)-(u.efecto.cantidad||0)*(u.efecto.caras||0));
   for(const t of otros())for(const ac of posibilidades){
    const p=posicionesTablero(c),area=ac.efecto.tablero;
-   if(!area||!alcanceVisibleEntreFichas(actor!,p[actorId],t,p[t.id],area.origen_area==='lanzador'?area.tamano:area.alcance,c.mapa))continue;
+   if(!area)continue;
+   if(area.forma==='personalizada'){
+    const celdas=new Set(areaDesdeFicha(actor!,p[actorId],p[t.id],area,dimensionesTablero(c),c.mapa).map(claveHuella));
+    if(!casillasHuella(t,p[t.id]).some(q=>celdas.has(claveHuella(q))))continue;
+   }else if(!alcanceVisibleEntreFichas(actor!,p[actorId],t,p[t.id],area.origen_area==='lanzador'?area.tamano:area.alcance,c.mapa))continue;
    try{
     if(area.movimiento_lanzador&&!['aterrizaje','recorrido'].includes(area.origen_area||''))destinoAtaqueMovil(c,actor!,t,area.movimiento_lanzador);
     const n=actuarInterno(c,actorId,ac.id,t.id,rng,false,undefined,true);
@@ -1518,11 +1523,14 @@ function actuarInterno(
   const objetivoEnAlcance=t&&tactica&&casillasHuella(t,posiciones[t.id])
     .filter(q=>alcanceVisibleEntreFichas(a,origen,{},q,tactica.alcance,n.mapa))
     .sort((p,q)=>distanciaEntreFichas(a,origen,{},p)-distanciaEntreFichas(a,origen,{},q))[0];
-  const apuntado=tactica?.origen_area==='lanzador'?origen:centro || objetivoEnAlcance || (t?posiciones[t.id]:undefined);
+  const patron=tactica?.forma==='personalizada';
+  const apuntaPatron=patron&&tactica.patron?.orientacion==='apuntar';
+  const apuntado=apuntaPatron?(centro||(t&&t.id!==a.id?posiciones[t.id]:undefined))
+    :tactica?.origen_area==='lanzador'?origen:centro || objetivoEnAlcance || (t?posiciones[t.id]:undefined);
   const dimensiones=dimensionesTablero(n);
   const requiereAreaMovil=tactica?.origen_area==='aterrizaje'||tactica?.origen_area==='recorrido';
   const plan=requiereAreaMovil&&tactica?.movimiento_lanzador&&apuntado?planearAtaqueDeArea(n,a,apuntado,tactica.movimiento_lanzador):undefined;
-  const punto=tactica?.origen_area==='aterrizaje'&&plan?plan.destino:apuntado;
+  const punto=patron?origen:tactica?.origen_area==='aterrizaje'&&plan?plan.destino:apuntado;
   let objetivos=t?[t]:[];
   if(e.portal && tactica && apuntado){
     if(!alcanceVisibleEntreFichas(a,origen,{},apuntado,tactica.alcance,n.mapa)||!cabeFichaEn(n,a,apuntado,posiciones))throw Error('El umbral necesita una casilla libre visible dentro del alcance.');
@@ -1537,16 +1545,18 @@ function actuarInterno(
   const dash=e.efecto==='desplazamiento';
   if(dash&&(!centro||!tactica||!Number.isInteger(tactica.alcance)||tactica.alcance<1||tactica.alcance>30||!casillasAlcanzables(n,a.id,tactica.alcance)[centro.x+','+centro.y]))throw Error('Elige una casilla libre y alcanzable para el dash.');
   if(tactica&&!dash){
-    if(!apuntado||!cabeHuella({},apuntado,dimensiones,()=>false)||distanciaEntreFichas(a,origen,{},apuntado)>tactica.alcance)throw Error('El destino está fuera del alcance de la habilidad.');
-    if(!alcanceVisibleEntreFichas(a,origen,{},apuntado,tactica.alcance,n.mapa))throw Error('Un muro bloquea la trayectoria.');
+    if(apuntaPatron&&(!apuntado||!origen||(apuntado.x===origen.x&&apuntado.y===origen.y)||!cabeHuella({},apuntado,dimensiones,()=>false)))throw Error('Elige una casilla para orientar el patrón desde el lanzador.');
+    if(!apuntado||(!patron&&(!cabeHuella({},apuntado,dimensiones,()=>false)||distanciaEntreFichas(a,origen,{},apuntado)>tactica.alcance)))throw Error('El destino está fuera del alcance de la habilidad.');
+    if(!patron&&!alcanceVisibleEntreFichas(a,origen,{},apuntado,tactica.alcance,n.mapa))throw Error('Un muro bloquea la trayectoria.');
     if(!punto||requiereAreaMovil&&!plan)throw Error('No hay un destino válido para el movimiento ofensivo.');
     const area=tactica.origen_area==='recorrido'&&plan
       ?[...areaDeRecorrido(plan.trayecto.flatMap(p=>casillasHuella(a,p)),tactica.movimiento_lanzador?.ancho||0,dimensiones),...(distanciaCasillas(plan.trayecto[plan.trayecto.length-1],apuntado)<=(tactica.movimiento_lanzador?.alcance_golpe||0)?[apuntado]:[])]
-      :areaDesdeFicha(a,origen,punto,tactica,dimensiones);
+      :areaDesdeFicha(a,origen,patron?apuntado:punto,tactica,dimensiones,n.mapa);
+    const celdas=new Set(area.map(claveHuella));
     objetivos=n.miembros.filter(m=>{
       const p=m.id===a.id&&plan?plan.destino:posiciones[m.id];
       return !(e.suelo&&tiene(m,'vuelo'))&&(m.vida>0||e.efecto==='curacion'&&situacionCombatiente(m)!=='muerto')
-        &&objetivoDelArea(a,m,e)&&casillasHuella(m,p).some(q=>area.some(v=>v.x===q.x&&v.y===q.y));
+        &&objetivoDelArea(a,m,e)&&casillasHuella(m,p).some(q=>celdas.has(claveHuella(q)));
     });
     if(!objetivos.length)throw Error('No hay objetivos válidos en el área.');
     for(const m of n.miembros)m.posicion=posiciones[m.id];
@@ -1690,7 +1700,7 @@ function actuarInterno(
     if(a.vida<=0)break;
     resolverEfecto(n,a,objetivo,e,act,rng,punto);
   }
-  if(tactica&&punto)log(n,`${act.nombre}: ${tactica.origen_area==='recorrido'?'recorrido':'centro'} (${punto.x+1}, ${punto.y+1}), ${objetivos.length} objetivos afectados.`);
+  if(tactica&&punto)log(n,`${act.nombre}: ${patron?'patrón desde':tactica.origen_area==='recorrido'?'recorrido':'centro'} (${punto.x+1}, ${punto.y+1}), ${objetivos.length} objetivos afectados.`);
   return n;
 }
 function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accion,rng:RNG,centro?:Posicion){
@@ -2136,8 +2146,13 @@ function animarAccion(c:Combate,n:Combate,actorId:string,efecto:Efecto|undefined
   const pos=posicionesTablero(c);
   const propio=efecto?.efecto==='transformacion'||efecto?.tablero?.afecta==='yo'||accionId==='volver_forma'||efecto?.vision?.modo==='abrir';
   const final=n.objetivo_final;delete n.objetivo_final;
-  const hasta=propio?pos[actorId]:centro||pos[final||objetivoId]||pos[actorId];
-  const area=efecto?.tablero&&hasta?areaDesde(pos[actorId],hasta,efecto.tablero,dimensionesTablero(c)):undefined;
+  const desde=pos[actorId],patron=efecto?.tablero?.forma==='personalizada';
+  const apuntaPatron=patron&&efecto?.tablero?.patron?.orientacion==='apuntar';
+  const orientacion=apuntaPatron?centro||pos[objetivoId]||desde:desde;
+  const hasta=patron||propio?desde:centro||pos[final||objetivoId]||desde;
+  const area=efecto?.tablero&&hasta?(patron
+    ?areaDesdeFicha(c.miembros.find(m=>m.id===actorId)||{},desde,orientacion,efecto.tablero,dimensionesTablero(c),c.mapa)
+    :areaDesde(desde,hasta,efecto.tablero,dimensionesTablero(c))):undefined;
   n.evento_visual={...n.evento_visual,id:n.evento_visual?.id||crypto.randomUUID(),nombre:efecto?.nombre||accionId,dados:n.evento_visual?.dados||[],animacion:efecto?.animacion||'impacto',vfx:efecto?.vfx,desde:pos[actorId],hasta,area,
     movimientos:n.evento_visual?.movimientos?.map(m=>({...m,tipo:m.id===actorId?efecto?.tablero?.movimiento_lanzador?.tipo||m.tipo:m.tipo}))};
   return n;
@@ -2590,7 +2605,11 @@ export const distanciaEntreFichas=distanciaHuellas;
 export const distanciaCasillas=(a:Posicion,b:Posicion)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 export function validarTactica(e:Efecto):string|null {
  const t=e.tablero;if(!t)return null;
- if(typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!['enemigos','aliados','todos','yo'].includes(t.afecta)||e.efecto==='crear_arma')return 'Configuración de tablero inválida.';
+ if(typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||!['individual','personalizada'].includes(t.forma)&&t.tamano<1||!['individual','circulo','cuadrado','linea','cono','cruz','personalizada'].includes(t.forma)||!['enemigos','aliados','todos','yo'].includes(t.afecta)||e.efecto==='crear_arma')return 'Configuración de tablero inválida.';
+ if(t.forma==='personalizada'){
+  const error=validarPatron(t.patron);if(error)return error;
+  if(t.origen_area!=='lanzador'||t.alcance!==0||t.tamano!==0||t.movimiento_lanzador||e.portal||e.efecto==='desplazamiento')return 'El área personalizada nace del lanzador y no puede moverlo.';
+ }
  const avance=t.movimiento_lanzador;
  if(t.origen_area&&!['objetivo','lanzador','aterrizaje','recorrido'].includes(t.origen_area))return 'Origen del efecto inválido.';
  if(t.origen_area==='lanzador'&&t.alcance!==0)return 'Los rugidos y auras deben tener alcance 0.';
@@ -2614,7 +2633,15 @@ export function alcanceDesdeFicha(m:FuenteHuella,origen:Posicion,t:AlcanceHabili
  for(let y=0;y<d.filas;y++)for(let x=0;x<d.columnas;x++)if(distanciaEntreFichas(m,origen,{},{x,y})<=t.alcance)resultado.push({x,y});
  return resultado;
 }
-export function areaDesdeFicha(m:FuenteHuella,origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{columnas:number;filas:number}):Posicion[]{
+export function areaDesdeFicha(m:FuenteHuella,origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{columnas:number;filas:number},mapa?:MapaCombate,espejado=false):Posicion[]{
+ if(t.forma==='personalizada'){
+  const espejo=(p:Posicion)=>({x:d.columnas-1-p.x,y:p.y});
+  // La vista espejada conserva la esquina superior izquierda como referencia de la ficha,
+  // pero el origen real del dibujo se ve en el extremo derecho de su primera fila.
+  const desde=espejado?{x:origen.x+huellaDe(m).ancho-1,y:origen.y}:origen;
+  const celdas=espejado?areaDesde(espejo(desde),espejo(centro),t,d).map(espejo):areaDesde(desde,centro,t,d);
+  return celdas.filter(p=>lineaVisible(desde,p,mapa));
+ }
  if(t.origen_area!=='lanzador'||['linea','cono'].includes(t.forma))return areaDesde(origen,centro,t,d);
  return [...new Map(casillasHuella(m,origen).flatMap(q=>areaDesde(q,q,t,d)).map(q=>[claveHuella(q),q])).values()];
 }
@@ -2626,6 +2653,7 @@ export function alcanceVisibleEntreFichas(a:FuenteHuella,pa:Posicion,b:FuenteHue
 }
 /** Círculo/cruz usan radio; cuadrado usa lado; línea/cono usan longitud desde el lanzador. */
 export function areaDesde(origen:Posicion,centro:Posicion,t:AlcanceHabilidad,d:{columnas:number;filas:number}):Posicion[]{
+ if(t.forma==='personalizada')return t.patron?patronDesde(t.patron,origen,centro,d):[];
  const resultado:Posicion[]=[],n=t.tamano;
  const vx=centro.x-origen.x,vy=centro.y-origen.y;
  const horizontal=Math.abs(vx)>=Math.abs(vy),signo=Math.sign(horizontal?vx:vy)||1;
