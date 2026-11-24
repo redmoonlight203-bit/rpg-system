@@ -1,6 +1,6 @@
 "use client";
 import {useState} from 'react';
-import {buscarVFX,CATALOGO_VFX,type ConfiguracionVFX,type AnimacionEtapa} from '../lib/vfx';
+import {buscarVFX,CATALOGO_VFX,type ConfiguracionVFX,type AnimacionEtapa,type AnimacionRegla} from '../lib/vfx';
 import './vfx.css';
 
 function ElegirAnimacion({titulo,valor,onChange}:{titulo:string;valor?:string;onChange:(id?:string)=>void}){
@@ -10,6 +10,13 @@ function ElegirAnimacion({titulo,valor,onChange}:{titulo:string;valor?:string;on
  const query=busqueda.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const lista=CATALOGO_VFX.filter(v=>(categoria==='Todas'||v.categoria===categoria)&&`${v.nombre} ${v.paquete}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(query));
  return <div className="vfx-choice"><strong>{titulo}</strong><button type="button" className="vfx-selected" aria-expanded={abierto} onClick={()=>setAbierto(!abierto)}>{elegida&&<picture><source media="(prefers-reduced-motion: reduce)" srcSet={elegida.poster}/><img src={elegida.bucle} alt="" loading="lazy"/></picture>}<span>{elegida?.nombre||'Sin animación pixel art'}<small>{elegida?`${elegida.categoria} · Cambiar`:'Abrir galería'}</small></span></button>{abierto&&<div className="vfx-picker"><div className="vfx-filters"><input aria-label={`Buscar ${titulo}`} placeholder="Buscar fuego, aura, polvo…" value={busqueda} onChange={e=>{setBusqueda(e.target.value);setPagina(0);}}/><select aria-label="Familia de animaciones" value={categoria} onChange={e=>{setCategoria(e.target.value);setPagina(0);}}>{categorias.map(c=><option key={c}>{c}</option>)}</select><button type="button" onClick={()=>{onChange(undefined);setAbierto(false);}}>Quitar</button><button type="button" onClick={()=>setAbierto(false)}>Cerrar</button></div><p>{lista.length} animaciones · Elige una vista previa</p><div className="vfx-gallery">{lista.slice(pagina*12,pagina*12+12).map(v=><button type="button" key={v.id} aria-pressed={valor===v.id} onClick={()=>{onChange(v.id);setAbierto(false);}}><picture><source media="(prefers-reduced-motion: reduce)" srcSet={v.poster}/><img src={v.bucle} alt="" loading="lazy"/></picture><strong>{v.nombre}</strong><small>{v.categoria} · {v.paquete}</small></button>)}</div>{!lista.length&&<p>No hay animaciones con esa búsqueda.</p>}<div className="vfx-pages"><button type="button" disabled={!pagina} onClick={()=>setPagina(p=>p-1)}>Anterior</button><span>{pagina+1} / {Math.max(1,Math.ceil(lista.length/12))}</span><button type="button" disabled={(pagina+1)*12>=lista.length} onClick={()=>setPagina(p=>p+1)}>Siguiente</button></div></div>}</div>;
+}
+export function SelectorAnimacionRegla({valor,onChange}:{valor?:AnimacionRegla;onChange:(v?:AnimacionRegla)=>void}){
+ return <fieldset className="vfx-editor"><legend>Animación</legend>
+  <p>Se reproduce una vez en el centro de la ficha del portador cada vez que se activa la regla, sin cambiar sus efectos.</p>
+  <ElegirAnimacion titulo="Al activarse la regla" valor={valor?.id} onChange={id=>onChange(id?{id,escala:valor?.escala}:undefined)}/>
+  {valor&&<label>Tamaño visual: {valor.escala??'según la ficha'}<input aria-label="Tamaño de la animación de la regla" type="range" min="0.5" max="4" step="0.5" value={valor.escala??1.5} onChange={e=>onChange({...valor,escala:Number(e.target.value)})}/><button type="button" onClick={()=>onChange({id:valor.id})}>Ajustar a la ficha automáticamente</button></label>}
+ </fieldset>;
 }
 export default function SelectorVFX({valor,onChange,transformacion=false}:{valor?:ConfiguracionVFX&AnimacionEtapa;onChange:(v:ConfiguracionVFX&AnimacionEtapa)=>void;transformacion?:boolean}){
  const v=valor||{};

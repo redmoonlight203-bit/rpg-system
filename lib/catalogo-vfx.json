@@ -2390,5 +2390,18 @@
     "ancho": 80,
     "alto": 80,
     "repetible": true
+  },
+  {
+    "id": "yugen-onda-carmesi",
+    "nombre": "Onda carmesí",
+    "categoria": "Magia y áreas",
+    "paquete": "YUGEN",
+    "url": "/vfx/yugen/onda-carmesi.png",
+    "bucle": "/vfx/yugen/onda-carmesi-loop.png",
+    "duracion": 960,
+    "ancho": 128,
+    "alto": 128,
+    "repetible": false,
+    "poster": "/vfx/yugen/onda-carmesi-preview.png"
   }
 ]

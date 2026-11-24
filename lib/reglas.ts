@@ -1,4 +1,5 @@
 import type { Efecto } from './creacion';
+import {buscarVFX,type AnimacionRegla} from './vfx';
 export const EVENTOS = {
  equipar: 'Al equipar', desequipar: 'Al desequipar', fin_efecto: 'Al terminar un estado o forma', usar: 'Al activar / usar', inicio_combate: 'Al iniciar combate', inicio_turno: 'Al iniciar mi turno', fin_turno: 'Al terminar mi turno',
  atacar: 'Antes de mi ataque', impactar: 'Al impactar', fallar: 'Al fallar', recibir_dano: 'Al recibir daño', causar_dano: 'Al causar daño', matar: 'Al matar a un enemigo', morir: 'Al caer a 0 de vida', fin_combate: 'Al terminar combate',
@@ -38,6 +39,7 @@ export type EfectoRegla = {
 };
 export type Regla = {
  id: string; nombre: string; descripcion?: string; evento: EventoRegla; condicion: CondicionRegla; efectos: EfectoRegla[];
+ animacion?:AnimacionRegla;
  coste_ph: number; coste_fatiga: number; enfriamiento: number; usos: number; prioridad: number; limite_por_turno?:number;
 };
 export function nuevaRegla(): Regla {
@@ -87,6 +89,11 @@ export function validarReglas(input: unknown): string | null {
    if(r.descripcion!==undefined&&(typeof r.descripcion!=='string'||r.descripcion.length>2000))fallo('Descripción: máximo 2000 caracteres.');
    if(typeof r.nombre!=='string'||!r.nombre.trim()||r.nombre.length>120||!Object.hasOwn(EVENTOS,String(r.evento)))fallo('Nombre o evento inválido.');
    for(const k of ['coste_ph','coste_fatiga','enfriamiento','usos'])if(!entero(r[k]))fallo('Costes, usos y enfriamiento inválidos.');if(r.limite_por_turno!==undefined&&!entero(r.limite_por_turno,0,20))fallo('Límite por turno: de 0 a 20.');if(!entero(r.prioridad,-1000,1000))fallo('Prioridad inválida.');
+   if(r.animacion!==undefined){
+    const a=objeto(r.animacion);
+    if(typeof a.id!=='string'||!buscarVFX(a.id))fallo('Selecciona una animación del catálogo.');
+    if(a.escala!==undefined&&(typeof a.escala!=='number'||!Number.isFinite(a.escala)||a.escala<0.5||a.escala>4))fallo('El tamaño de la animación debe estar entre 0.5 y 4 casillas.');
+   }
    condicion(r.condicion);efectos(r.efectos);if(!(r.efectos as unknown[]).length)fallo('Añade al menos un efecto.');
   }return null;
  }catch(e){return e instanceof Error?e.message:'Reglas inválidas.';}

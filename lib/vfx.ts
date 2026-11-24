@@ -7,6 +7,7 @@ export type ConfiguracionVFX = {
  impacto?:string;
  escala?:number;
 };
+export type AnimacionRegla = {id:string;escala?:number};
 export type AnimacionEtapa = {entrada?:string;aura?:string;escala?:number};
 export const CATALOGO_VFX = catalogo;
 const indice=new Map(CATALOGO_VFX.map(a=>[a.id,a]));
@@ -56,6 +57,11 @@ export function planificarVFX(evento:EventoVisual):ClipVFX[]{
  for(const t of evento.transformaciones||[]){
   agregar('etapa-'+t.id,t.animacion,t.posicion);
   const clip=clips[clips.length-1];if(clip?.id==='etapa-'+t.id)clip.escala=t.escala||1.5;
+ }
+ for(const a of evento.activaciones||[]){
+  const anterior=clips.length;
+  agregar('regla-'+a.id,a.animacion,a.posicion);
+  if(clips.length>anterior)clips[anterior].escala=a.escala||1.5;
  }
  return clips;
 }

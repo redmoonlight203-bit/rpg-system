@@ -255,6 +255,10 @@ function proyectarVista(vista, propio, o) {
             v.alcanzables = Object.fromEntries(Object.entries(v.alcanzables).map(([k, n]) => { const [x, y] = k.split(',').map(Number), p = reflejar({ x, y }, d, ancho); return [p.x + ',' + p.y, n]; }));
         if (v.mapa?.celdas)
             v.mapa.celdas = Object.fromEntries(Object.entries(v.mapa.celdas).map(([k, t]) => [clave(k, d), t]));
+        for (const evento of [v.evento_visual, v.recibo?.evento]) {
+            if (evento?.activaciones)
+                evento.activaciones = evento.activaciones.map(a => ({ ...a, posicion: reflejar(a.posicion, d) }));
+        }
         const ev = v.evento_visual;
         if (ev) {
             if (ev.desde)
@@ -2566,10 +2570,15 @@ function iniciarInterno(c, rng) {
     entrar(n, vivo, rng);
     return n;
 }
+// En cola solo durante la resolución. Nunca copiamos una animación del turno anterior.
+const activacionesPendientes = new WeakMap();
 function siguienteInterno(c, rng) {
     if (c.fase !== "en_curso")
         throw Error("Inicia el combate.");
     const n = copia(c), a = n.miembros.find((m) => m.id === n.actual);
+    const pendientes = activacionesPendientes.get(c);
+    if (pendientes)
+        activacionesPendientes.set(n, pendientes);
     delete n.resultado;
     if (a && combatienteActivo(a))
         dispararReacciones(n, n.miembros.filter(w => w.id !== a.id && w.bando !== a.bando), "fin_de_turno", rng, { cerca: a, victima: a, hasta: () => a.vida <= 0 });
@@ -2683,7 +2692,7 @@ export function deshacer(c) {
         throw Error("El progreso ya fue aplicado a las fichas.");
     if (!previo)
         throw Error("No hay una acción anterior.");
-    return registrarCambiosVida(c, { ...copia(previo), historial: h });
+    return registrarCambiosVida(c, { ...copia(previo), evento_visual: undefined, historial: h });
 }
 export function situacionCombatiente(m) { return m.situacion && m.situacion !== 'activo' ? m.situacion : m.vida <= 0 ? 'inconsciente' : 'activo'; }
 export function combatienteActivo(m) { return situacionCombatiente(m) === 'activo' && !m.neutral; }
@@ -4165,6 +4174,17 @@ function ejecutarRegla(c, yo, clave, r, actor, objetivo, rng, efecto, cantidad =
     if (!r.enfriamiento)
         m.proximos[clave] = yo.turnos;
     log(c, `${yo.nombre} · ${r.nombre}`);
+    // Tras comprobar y pagar la regla, antes de que sus efectos cambien la posición o la forma.
+    if (typeof r.animacion?.id === 'string' && /^[a-z0-9_-]{1,120}$/.test(r.animacion.id)) {
+        const p = posicionesTablero(c)[yo.id], h = huellaDe(yo);
+        const activaciones = activacionesPendientes.get(c) || [];
+        if (p && activaciones.length < 24) {
+            const escala = r.animacion.escala;
+            activaciones.push({ id: String(activaciones.length), animacion: r.animacion.id, posicion: { x: p.x + (h.ancho - 1) / 2, y: p.y + (h.alto - 1) / 2 },
+                escala: typeof escala === 'number' && Number.isFinite(escala) && escala >= .5 && escala <= 4 ? escala : Math.min(4, Math.max(1.5, h.ancho, h.alto) + 1) });
+            activacionesPendientes.set(c, activaciones);
+        }
+    }
     efectosMotor(r.efectos, ctx, clave);
 }
 function efectosMotor(efectos, ctx, origen) {
@@ -4846,7 +4866,9 @@ export function registrarCambiosVida(antes, despues) {
         if (m.ultima_defensa && m.ultima_defensa.id !== antes.miembros.find(p => p.id === m.id)?.ultima_defensa?.id)
             transformaciones.push({ id: m.id, animacion: m.ultima_defensa.animacion, posicion: actuales[m.id], escala: 2.8 });
     }
-    return { ...despues, evento_visual: { id: crypto.randomUUID(), creado_en: Date.now(), nombre: despues.miembros.find(m => m.id === despues.actual)?.nombre || 'Combate', dados: [], resultado: despues.resultado, cambios_vida: cambiosVida(antes, despues), movimientos, transformaciones } };
+    const activaciones = activacionesPendientes.get(despues);
+    activacionesPendientes.delete(despues);
+    return { ...despues, evento_visual: { ...(activaciones?.length ? { activaciones } : {}), id: crypto.randomUUID(), creado_en: Date.now(), nombre: despues.miembros.find(m => m.id === despues.actual)?.nombre || 'Combate', dados: [], resultado: despues.resultado, cambios_vida: cambiosVida(antes, despues), movimientos, transformaciones } };
 }
 /** Obstáculos y terrenos del encuentro; los identificadores no representan navegación mundial. */
 export function configurarMapa(c, mapa) {

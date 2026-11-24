@@ -1,5 +1,5 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import vm from 'node:vm';import ts from 'typescript';
-function cargar(n){const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/'+n+'.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:p=>cargar(p.replace('./','')),crypto,JSON,Array,Object,Math,Number,Set});return exports;}
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {cargarDependencia as cargar} from './helpers/cargar-ts.mjs';
 const m=cargar('monstruos');const v=(nombre='Asesino')=>({id:nombre,nombre,peso:1,bonos:{agilidad:2},habilidades:[],pasivas:[],equipamiento:{}});
 const item=(id,slot='mano',stats={armadura:2})=>({id,nombre:id,tipo_creacion:'objeto',slot_tipo:slot,stats});
 const ficha=()=>({nombre:'Goblin',stats:{vida:20,armadura:25,nivel:3},configuracion:{tipo_creacion:'personaje',raza:'monstruos',stats_base:{vida:20,armadura:5,nivel:3},bonos_equipamiento:{armadura:20},equipamiento:{pechera:item('vieja','pechera',{armadura:20})},habilidades:[],pasivas:[]}});
