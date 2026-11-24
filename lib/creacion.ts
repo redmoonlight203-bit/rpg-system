@@ -121,6 +121,8 @@ export type Reaccion = {
 /** Componente de daño (Apéndice C): una técnica combinada suma varios, cada uno con su elemento. */
 export type ComponenteDano = { id: string; elemento: Elemento; cantidad: number; caras: number; origen: "base" | "potenciador"; nombre?: string };
 export type Efecto = {
+  /** Imagen propia de la acción para el combate (ranura de la barra). Sin ella se usa la de la creación. */
+  imagen?: string;
   /** Varios componentes elementales en un mismo efecto (máx. 3). Sin esta lista se usa elemento + dados. */
   componentes?: ComponenteDano[];
   /** Etiquetas de técnica (lista cerrada): deciden qué potenciadores acepta. */
@@ -339,6 +341,7 @@ export function validarReaccion(r: unknown): string | null {
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
+    if(e.imagen!==undefined){if(typeof e.imagen!=="string")return "La imagen de la acción no es válida.";const error=validarPortada(e.imagen);if(error)return `${e.nombre||"Acción"}: ${error}`;}
     const errorVFX=validarAnimacion(e.vfx);if(errorVFX)return errorVFX;
     const errorVision=validarVision(e.vision);if(errorVision)return errorVision;
     if(e.vision&&e.vision.modo==='abrir'&&e.tablero&&e.tablero.afecta!=='yo')return 'Un ojo que se abre con su propia acción no apunta a otros: quita el alcance o usa «Se abre al usar la acción».';

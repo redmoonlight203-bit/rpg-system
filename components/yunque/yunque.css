@@ -680,3 +680,14 @@
    encogía el bloque y hacía que su contenido se desbordara encima del resto de la etapa. Las reglas de .yq-legado
    (etiquetas en bloque, botones, campos) tampoco entran: convertían cada interruptor en un trazo de 2 px bajo el texto. */
 .yq-taller.yq-taller-anidado,.forja-yunque .yq-taller .yq-taller.yq-taller-anidado{display:block;height:auto;min-height:0;border:0;background:transparent}
+
+/* Imagen propia de una acción (ImagenAccion.tsx): la vista previa tiene la proporción de la ranura de combate (104×66). */
+.yq-taller .yq-imagen-accion{border:1px solid var(--color-line);padding:0 10px}
+.yq-taller .yq-imagen-accion>summary{padding:8px 0;font:600 11.5px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-muted);cursor:pointer}
+.yq-taller .yq-imagen-accion[open]{padding-bottom:10px}
+.yq-taller .yq-imagen-accion-cuerpo{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;align-items:start}
+.yq-taller .yq-imagen-accion-vista{position:relative;display:block;width:104px;height:66px;overflow:hidden;border-radius:4px;border:1px solid var(--color-line-strong);background:#17131a}
+.yq-taller .yq-imagen-accion-vacia{display:grid;place-items:center;height:100%;font:12px var(--font-sans);color:var(--color-text-muted)}
+.yq-taller .yq-imagen-accion-campos{display:grid;gap:8px;min-width:0}
+.yq-taller .yq-imagen-accion .yq-nota{margin:8px 0 0}
+@media(max-width:520px){.yq-taller .yq-imagen-accion-cuerpo{grid-template-columns:1fr}}
