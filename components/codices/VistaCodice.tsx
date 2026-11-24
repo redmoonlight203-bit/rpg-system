@@ -35,11 +35,13 @@ export type PropsVistaCodice<T extends PiezaGaleria>={
   onVerComo?:(id:string,codice:Codice|null)=>void;
   /** Abre el Taller de códices en el códice que se está leyendo. */
   onConfigurar?:(codice:Codice)=>void;
+  /** Aviso sobre dónde quedó guardada la configuración (p. ej. solo en este navegador). */
+  avisoConfig?:string;
   /** Vista previa del Taller: sin acciones reales, sin editor de imagen ni volver. */
   vistaPrevia?:boolean;
 };
 
-export default function VistaCodice<T extends PiezaGaleria>({item,props,volver,abrir,config:configuracion,codiceForzado,rastro=[],irA,onVerComo,onConfigurar,vistaPrevia=false}:PropsVistaCodice<T>){
+export default function VistaCodice<T extends PiezaGaleria>({item,props,volver,abrir,config:configuracion,codiceForzado,rastro=[],irA,onVerComo,onConfigurar,avisoConfig,vistaPrevia=false}:PropsVistaCodice<T>){
   const config=useMemo(()=>configuracion||configuracionBase(),[configuracion]);
   const {confirmar}=useDialogo();
   const presentacion=usePresentacion(item,props);
@@ -82,7 +84,7 @@ export default function VistaCodice<T extends PiezaGaleria>({item,props,volver,a
         <option value="">Automático ({config.codices[resolverCodice({...item,id:""},tipo,monstruo,config)].nombre})</option>
         {CODICES.map(c=><option key={c} value={c}>{config.codices[c].nombre}</option>)}
       </select>
-    </label>}{onConfigurar&&<button type="button" className="cg-button cx-configurar" disabled={ocupado} onClick={()=>navegar(()=>onConfigurar(codice))}><Settings2 size={15} aria-hidden="true"/>Configurar «{config.codices[codice].nombre}»</button>}</div>:null,
+    </label>}{onConfigurar&&<button type="button" className="cg-button cx-configurar" disabled={ocupado} onClick={()=>navegar(()=>onConfigurar(codice))}><Settings2 size={15} aria-hidden="true"/>Configurar «{config.codices[codice].nombre}»</button>}{avisoConfig&&<p className="cx-aviso-config" role="status">{avisoConfig}</p>}</div>:null,
   }};
   const Vista=(VISTAS[codice]||Pergamino) as ComponentType<VistaProps<T>>;
   const estilo={"--cx-pagina-ms":`${config.movimiento.pagina_ms}ms`,"--cx-volteo-ms":`${config.movimiento.volteo_ms}ms`} as CSSProperties;

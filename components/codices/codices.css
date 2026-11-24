@@ -357,3 +357,4 @@
 .cx-taller-escenario .cx-lateral{position:static}
 @media (max-width:1100px){.cx-taller-cuerpo{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.cx-taller{animation:none}}
+.cx-aviso-config{flex-basis:100%;margin:0;font-size:13px;color:var(--color-arcane)}

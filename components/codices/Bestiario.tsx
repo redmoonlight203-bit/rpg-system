@@ -98,18 +98,18 @@ export default function Bestiario<T extends PiezaGaleria>({ctx}:VistaProps<T>){
   if(porVista===2){
     if(girando==="adelante"){
       base=<>{pagina(indice,"izquierda")}{pagina(destino+1,"derecha")}</>;
-      hoja=<div className="cx-hoja is-adelante" onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(indice+1,"derecha")}</div><div className="cx-hoja-dorso">{pagina(destino,"izquierda")}</div></div>;
+      hoja=<div className="cx-hoja is-adelante" aria-hidden="true" inert onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(indice+1,"derecha")}</div><div className="cx-hoja-dorso">{pagina(destino,"izquierda")}</div></div>;
     }else if(girando==="atras"){
       base=<>{pagina(destino,"izquierda")}{pagina(indice+1,"derecha")}</>;
-      hoja=<div className="cx-hoja is-atras" onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(indice,"izquierda")}</div><div className="cx-hoja-dorso">{pagina(destino+1,"derecha")}</div></div>;
+      hoja=<div className="cx-hoja is-atras" aria-hidden="true" inert onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(indice,"izquierda")}</div><div className="cx-hoja-dorso">{pagina(destino+1,"derecha")}</div></div>;
     }else base=<>{pagina(indice,"izquierda")}{pagina(indice+1,"derecha")}</>;
   }else{
     if(girando==="adelante"){
       base=pagina(destino,"unica");
-      hoja=<div className="cx-hoja is-adelante is-sola" onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(indice,"unica")}</div><div className="cx-hoja-dorso"><div className="cx-pagina is-unica"/></div></div>;
+      hoja=<div className="cx-hoja is-adelante is-sola" aria-hidden="true" inert onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(indice,"unica")}</div><div className="cx-hoja-dorso"><div className="cx-pagina is-unica"/></div></div>;
     }else if(girando==="atras"){
       base=pagina(indice,"unica");
-      hoja=<div className="cx-hoja is-atras is-sola" onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(destino,"unica")}</div><div className="cx-hoja-dorso"><div className="cx-pagina is-unica"/></div></div>;
+      hoja=<div className="cx-hoja is-atras is-sola" aria-hidden="true" inert onAnimationEnd={libro.terminar}><div className="cx-hoja-cara">{pagina(destino,"unica")}</div><div className="cx-hoja-dorso"><div className="cx-pagina is-unica"/></div></div>;
     }else base=pagina(indice,"unica");
   }
 

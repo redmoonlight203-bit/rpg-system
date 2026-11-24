@@ -165,3 +165,8 @@ test('taller de códices: pestañas, reglas editables, vista previa y guardado',
  assert.match(html,/cx-codice--tarot/,'la vista previa usa el borrador');
  assert.doesNotMatch(html,/Eliminar creación/,'la vista previa no ofrece acciones reales');
 });
+
+test('la ficha avisa cuando la configuración solo se guardó en este navegador',()=>{
+ const html=vista(fixture('habilidad'),undefined,{onVerComo:()=>{},avisoConfig:'Solo en este navegador.'});
+ assert.match(html,/role="status"[^>]*>Solo en este navegador\.</);
+});
