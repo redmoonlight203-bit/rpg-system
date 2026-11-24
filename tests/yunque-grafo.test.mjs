@@ -205,3 +205,12 @@ test('estabilizar distingue un cambio de plantilla',()=>{
  assert.equal(por(g2,id).plantilla.huerfana,true);
  assert.equal(estabilizar(g1,aGrafo(json(b),{creaciones:[]})),g1);
 });
+test('el núcleo de un personaje ofrece «Acciones del personaje»',()=>{
+ const nucleo=g=>por(g,'nucleo').puertos.find(p=>p.id==='acciones');
+ assert.equal(nucleo(aGrafo(F.personaje,ctx)).etiqueta,'Acciones del personaje');
+ assert.equal(nucleo(aGrafo(F.objeto,ctx)).etiqueta,'Acciones');
+ const b=clon(F.personaje);b.efectos=[clon(F.objeto.efectos[0])];
+ const g=aGrafo(b,ctx);
+ assert.ok(por(g,'accion:'+b.efectos[0].id));assert.ok(conectado(g,'nucleo','accion:'+b.efectos[0].id));
+ assert.ok(por(g,'vinculo:habilidad:'+F.habilidad.id));
+});

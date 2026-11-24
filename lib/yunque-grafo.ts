@@ -53,7 +53,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  const ofertaRequisitos=b.tipo!=='personaje'||Object.keys(b.requisitos_uso||{}).length>0;
  // Núcleo
  nodo('nucleo','nucleo',[],String(b.nombre??'').trim()||'Sin nombre',`${b.tipo}${b.clasificacion?' · '+b.clasificacion:''}`,null,[
-  salida('acciones',['accion'],'Acciones'),salida('reglas',['cuando'],'Reglas'),salida('pasivas',['pasiva'],'Pasivas'),
+  salida('acciones',['accion'],b.tipo==='personaje'?'Acciones del personaje':'Acciones'),salida('reglas',['cuando'],'Reglas'),salida('pasivas',['pasiva'],'Pasivas'),
   salida('vinculos',['vinculo'],'Vínculos'),salida('invocacion',['invocacion'],'Invocación'),salida('requisitos',['requisitos'],'Requisitos')]);
  // Acciones y módulos
  b.efectos.forEach((e:Efecto,i)=>{

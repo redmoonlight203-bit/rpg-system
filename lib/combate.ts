@@ -80,6 +80,8 @@ export type Config = {
   tipo_creacion?: string;
   bonos_equipamiento?: Record<string, number>;
   efectos?: Efecto[];
+  /** Acciones propias del personaje (columna `configuracion_dados`); nunca se mezclan con `habilidades`. */
+  acciones_personaje?: Efecto[];
   stats_base?: Record<string, number>;
   rangos_malla?:Record<string,{min:number;max:number}>;nivel_maximo?:number;
   equipamiento?: Record<string, Fuente>;

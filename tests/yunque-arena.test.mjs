@@ -472,3 +472,10 @@ test('la Arena usa el empuje de la etapa y la Arena registra una sola tirada 1d4
  assert.notDeepEqual(m(siguiente,'saco').posicion,saco.posicion);
  assert.equal(m(siguiente,'doll').transformacion.etapa_id,'enorme');
 });
+test('el portador de un personaje lleva sus acciones propias',()=>{
+ const {nuevoEfecto}=cargarDependencia('creacion');
+ const b=clon(F.personaje);b.efectos=[{...nuevoEfecto(),nombre:'Zarpazo',cantidad:1,caras:6}];
+ const c=arena(b),cfg=m(c,'doll').configuracion;
+ assert.deepEqual(cfg.acciones_personaje.map(e=>e.nombre),['Zarpazo']);
+ assert.ok(!cfg.habilidades.some(h=>h.nombre==='Zarpazo'||(h.efectos||[]).some(e=>e.nombre==='Zarpazo')));
+});
