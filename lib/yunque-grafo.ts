@@ -57,7 +57,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   salida('vinculos',['vinculo'],'Vínculos'),salida('invocacion',['invocacion'],'Invocación'),salida('requisitos',['requisitos'],'Requisitos')]);
  if(b.tipo==='personaje'){
   const n=nodos[nodos.length-1];let p:ReturnType<typeof presupuestoDeStats>|null=null;
-  try{p=presupuestoDeStats(b.stats||{});}catch{p=null;}
+  try{const s:Record<string,number>={...(b.stats||{})};if(b.malla)for(const [k,r] of Object.entries(b.rangos||{}))if(k.startsWith('acciones_')&&r)s[k]=r.max;p=presupuestoDeStats(s);}catch{p=null;}
   if(p)n.insignia=`Acciones: ${p.principal} principal · ${p.adicional} ${p.adicional===1?'adicional':'adicionales'} · ${p.legendaria} ${p.legendaria===1?'legendaria':'legendarias'}`;
  }
  // Acciones y módulos

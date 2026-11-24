@@ -233,6 +233,7 @@ export default function CampoCombate() {
   const [forzar, setForzar] = useState(false);
   /** Legendaria fuera de turno: el actor temporal y la acción que el GM eligió (el objetivo sale de `destino`). */
   const [legendaria, setLegendaria] = useState<{actor:string;accion:string}|null>(null);
+  const [legendariaObjetivo, setLegendariaObjetivo] = useState("");
   async function avanzar() {
     await ejecutar(async () => {
       const dados: TiradaVisual[] = [];
@@ -319,27 +320,33 @@ export default function CampoCombate() {
   }
   // Un clic ejecuta: el tablero y la barra pasan la acción, el objetivo y el centro elegidos en ese mismo clic.
   async function resolver(objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}) {
-    // Con una legendaria elegida actúa su dueño (no es su turno); si no, quien tiene el turno.
-    const temporal = legendariaActual ? legendariaActual.m : undefined;
-    const actor = temporal || c.miembros.find((m) => m.id === c.actual);
     if (!actor) return;
-    const lista = temporal ? acciones(temporal) : listaTurno;
-    const elegida = temporal ? legendaria!.accion : opciones?.accion || elegidaActual, efecto = lista.find((a) => a.id === elegida)?.efecto;
+    await actuar(actor, listaTurno, opciones?.accion || elegidaActual, objetivoId, opciones);
+  }
+  /** Legendaria fuera de turno: solo la dispara el botón «Usar legendaria», con su propio objetivo. */
+  async function usarLegendaria() {
+    const sel = legendariaActual;
+    if (!sel || !legendaria) return;
+    await actuar(sel.m, acciones(sel.m), legendaria.accion, legendariaObjetivo || undefined, undefined, () => setLegendaria(null));
+  }
+  async function actuar(actor: Combatiente, lista: ReturnType<typeof acciones>, elegida: string, objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}, alExito?: () => void) {
+    const efecto = lista.find((a) => a.id === elegida)?.efecto;
     if (!elegida) return;
     await ejecutar(async () => {
+     try {
       const dados: TiradaVisual[] = [];
       const next = actuarConReacciones(
         c,
         actor.id,
         elegida,
-        objetivoId || (elegida === "guardia" || ["crear_arma","transformacion"].includes(efecto?.efecto||"")||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir' ? actor.id : destino),
+        objetivoId || (elegida === "guardia" || ["crear_arma","transformacion"].includes(efecto?.efecto||"")||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir' ? actor.id : alExito ? "" : destino),
         (caras) => {
           const valor = dadoSeguro(caras);
           dados.push({ caras, valor });
           return valor;
         },
         forzar,
-        opciones?.centro||(objetivoId?posicionesTablero(c)[objetivoId]:centro)||undefined,
+        opciones?.centro||(objetivoId?posicionesTablero(c)[objetivoId]:alExito?null:centro)||undefined,
       );
       next.evento_visual={...(next.evento_visual?.id!==c.evento_visual?.id?next.evento_visual:undefined),id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado,
         // La animación sale del esqueleto del arma o del concepto (el nombre solo para datos antiguos).
@@ -350,7 +357,12 @@ export default function CampoCombate() {
       if (next.resultado)
         setFlotante({ texto: next.resultado, id: crypto.randomUUID() });
       setResumen(next.registro.slice(0, 4).reverse().join(" "));
-      if (temporal) setLegendaria(null);
+      alExito?.();
+     } catch (e) {
+      // Una legendaria fallida no queda armada para el siguiente clic.
+      if (alExito) setLegendaria(null);
+      throw e;
+     }
     });
   }
   async function confirmarProgreso() {
@@ -599,7 +611,7 @@ export default function CampoCombate() {
     return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:fotoDe(m),estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
   },[c,fotoDe]);
   const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
-  useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
+  useEffect(()=>{setModoMovimiento(false);setCentro(null);setLegendaria(null);setLegendariaObjetivo('');},[c.actual]);
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
     const atajo = (event: KeyboardEvent) => {
@@ -1141,8 +1153,8 @@ export default function CampoCombate() {
                 {acs.map(a=><button type="button" key={a.id} aria-pressed={legendaria?.actor===m.id&&legendaria.accion===a.id} disabled={ocupado} onClick={()=>setLegendaria(legendaria?.actor===m.id&&legendaria.accion===a.id?null:{actor:m.id,accion:a.id})}>{a.nombre}</button>)}
               </div>)}
               {legendariaActual&&<p>{legendariaActual.m.nombre} actúa fuera de turno. Elige el objetivo y confirma.
-                {' '}<select aria-label="Objetivo de la acción legendaria" value={destino} onChange={e=>setObjetivo(e.target.value)}><option value="">Sin objetivo</option>{c.miembros.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select>
-                {' '}<button type="button" disabled={ocupado} onClick={()=>void resolver(destino||undefined)}>Usar legendaria</button>
+                {' '}<select aria-label="Objetivo de la acción legendaria" value={legendariaObjetivo} onChange={e=>setLegendariaObjetivo(e.target.value)}><option value="">Sin objetivo</option>{c.miembros.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select>
+                {' '}<button type="button" disabled={ocupado} onClick={()=>void usarLegendaria()}>Usar legendaria</button>
                 {' '}<button type="button" onClick={()=>setLegendaria(null)}>Cancelar</button></p>}
             </>:<p>Nadie tiene una legendaria a mano. Kuroi calla hasta la próxima ronda.</p>}
           </section>}

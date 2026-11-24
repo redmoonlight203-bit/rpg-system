@@ -221,3 +221,11 @@ test('el núcleo de un personaje muestra su presupuesto',()=>{
  assert.equal(por(aGrafo({...base,stats:{acciones_adicional:1,acciones_legendaria:1}},ctx),'nucleo').insignia,'Acciones: 1 principal · 1 adicional · 1 legendaria');
  assert.equal(por(aGrafo(F.objeto,ctx),'nucleo').insignia,undefined);
 });
+
+test('el núcleo de un monstruo muestra su presupuesto y un objeto no',()=>{
+ const mon={...clon(F.objeto),tipo:'personaje',ramaMonstruo:true,stats:{acciones_legendaria:3}};
+ assert.equal(por(aGrafo(mon,ctx),'nucleo').insignia,'Acciones: 1 principal · 0 adicionales · 3 legendarias');
+ const malla={...mon,malla:true,stats:{},rangos:{acciones_legendaria:{min:2,max:2}}};
+ assert.equal(por(aGrafo(malla,ctx),'nucleo').insignia,'Acciones: 1 principal · 0 adicionales · 2 legendarias');
+ assert.equal(por(aGrafo({...clon(F.objeto),stats:{acciones_legendaria:3}},ctx),'nucleo').insignia,undefined);
+});

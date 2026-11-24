@@ -43,6 +43,11 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
   const c=clasificacionesPara('personaje',ctx.categorias).find(c=>esMonstruo(ctx.categorias,c.clave));
   reemplazar({...base,...(c?cambiosClasificacion(base,ctx,c.clave):{})},'Nueva especie de monstruo en un borrador limpio. Ctrl+Z vuelve a la creación anterior.');
  }
+ // En una especie con malla los atributos viven en `rangos`: el presupuesto es el mismo en todos los niveles.
+ function fijarPresupuesto(clave:string,n:number){
+  if(malla){const rangos={...b.rangos};if(n)rangos[clave]={min:n,max:n};else delete rangos[clave];fijar({rangos});return;}
+  const stats={...b.stats};if(n)stats[clave]=n;else delete stats[clave];fijar({stats});
+ }
  const valorFijo=(clave:string,defecto:number)=>b.stats[clave]??defecto;
  const rango=(clave:string,defecto:number)=>b.rangos[clave]??{min:defecto,max:defecto};
  return <div className="yq-editor yq-editor--nucleo">
@@ -96,7 +101,7 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
   {b.tipo==='personaje'&&<section className="yq-atributos yq-presupuesto" aria-label="Acciones por turno">
    <header><span>Acciones por turno</span></header>
    <div className="yq-medallones">
-    {PRESUPUESTOS.map(x=><Medallon key={x.tipo} etiqueta={x.etiqueta} detalle={x.detalle} valor={<Rueda nombre={'presupuesto_'+x.tipo} etiqueta={x.etiqueta} valor={b.stats[CLAVE_PRESUPUESTO[x.tipo]]??0} min={0} max={10} onChange={n=>{const stats={...b.stats};if(n)stats[CLAVE_PRESUPUESTO[x.tipo]]=n;else delete stats[CLAVE_PRESUPUESTO[x.tipo]];fijar({stats});}} compacta/>}/>)}
+    {PRESUPUESTOS.map(x=><Medallon key={x.tipo} etiqueta={x.etiqueta} detalle={x.detalle} valor={<Rueda nombre={'presupuesto_'+x.tipo} etiqueta={x.etiqueta} valor={(malla?b.rangos[CLAVE_PRESUPUESTO[x.tipo]]?.max:b.stats[CLAVE_PRESUPUESTO[x.tipo]])??0} min={0} max={10} onChange={n=>fijarPresupuesto(CLAVE_PRESUPUESTO[x.tipo],n)} compacta/>}/>)}
    </div>
    <p className="yq-nota">Lo propio del personaje. La raza, el clan, la especie y el equipo suman las suyas en combate.</p>
   </section>}
