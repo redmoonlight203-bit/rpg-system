@@ -27,6 +27,8 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
  const set=(p:Partial<Vision>)=>onChange(limpio({...v,...p}) as Vision);
  const ap=(p:Partial<Vision['apariencia']>)=>set({apariencia:limpio({...v.apariencia,...p})});
  const rev=(k:keyof RevelarOcular,x:boolean)=>set({revelar:limpio({...v.revelar,[k]:x||undefined})});
+ const usaFatiga=v.mantenimiento_fatiga!==undefined;
+ const costeMantenimiento=usaFatiga?v.mantenimiento_fatiga??0:v.mantenimiento_ph??0;
  const pd=v.puntos_debiles;
  const premio=(p:Partial<RecompensaPunto>)=>pd&&set({puntos_debiles:{...pd,recompensa:limpio({...pd.recompensa,...p})}});
  const error=validarVision(v);
@@ -55,7 +57,12 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
   {v.modo==='abrir'&&<Interruptor etiqueta="Abrirlo no gasta la acción del turno" valor={!!v.sin_accion} onChange={x=>set({sin_accion:x||undefined})}/>}
   {v.modo!=='permanente'&&<div className="yq-costes">
    <label><span>Turnos abierto (0 = todo el combate)</span><Rueda nombre="duracion" etiqueta="Turnos que permanece abierto" valor={v.duracion} min={0} max={99} onChange={duracion=>set({duracion:Math.round(duracion)})} compacta/></label>
-   <label><span>PH por turno para mantenerlo</span><Rueda nombre="mantenimiento" etiqueta="PH por turno de mantenimiento" valor={v.mantenimiento_ph||0} min={0} max={100} onChange={x=>set({mantenimiento_ph:Math.round(x)||undefined})} compacta/></label>
+   <div>
+    <Fichas etiqueta="Recurso de mantenimiento" opciones={[{valor:'ph',nombre:'PH'},{valor:'fatiga',nombre:'Fatiga'}]} valor={usaFatiga?'fatiga':'ph'}
+     onChange={recurso=>set(recurso==='fatiga'?{mantenimiento_ph:undefined,mantenimiento_fatiga:costeMantenimiento}:{mantenimiento_ph:costeMantenimiento||undefined,mantenimiento_fatiga:undefined})}/>
+    <label><span>{usaFatiga?'Fatiga':'PH'} por turno para mantenerlo</span><Rueda nombre="mantenimiento" etiqueta={`${usaFatiga?'Fatiga':'PH'} por turno de mantenimiento`}
+     valor={costeMantenimiento} min={0} max={100} onChange={x=>set(usaFatiga?{mantenimiento_fatiga:Math.round(x)}:{mantenimiento_ph:Math.round(x)||undefined})} compacta/></label>
+   </div>
   </div>}
   </>}
 

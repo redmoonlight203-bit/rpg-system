@@ -136,3 +136,48 @@ test('ojo por fases: cada etapa trae su ojo y el poder personal exige la fase 2'
  assert.ok(c.acciones(yo(x)).some(a=>a.efecto.id===poder.id),'la fase 2 desbloquea el poder propio');
  assert.ok(!yo(x).estados.some(e=>e.id.startsWith('vision:fase:')),'el ojo de fase no deja estados sueltos');
 });
+
+test('mantenimiento con Fatiga no toca los PH ni se recupera en ese turno; cierra si no alcanza la capacidad',()=>{
+ const vision=ojoBase({duracion:0,mantenimiento_ph:undefined,mantenimiento_fatiga:2});
+ assert.equal(v.validarVision(vision),null);
+ assert.match(v.describirVision(vision).detalles.join(' '),/2 de Fatiga al inicio/);
+ assert.match(v.validarVision({...vision,mantenimiento_ph:3}),/no ambos/);
+ assert.match(v.validarVision({...vision,mantenimiento_fatiga:101}),/0 a 100 de Fatiga/);
+ let x=c.actuar(campo(vision),'a','hab:h:ojo','a',()=>10);
+ const vuelta=y=>c.siguiente(c.siguiente(c.siguiente(y,()=>10),()=>10),()=>10);
+ assert.equal(yo(x).fatiga,0);
+ x=vuelta(x);
+ assert.equal(yo(x).fatiga,2);
+ assert.equal(yo(x).ph,17);
+ assert.equal(yo(x).uso_fatiga,true);
+ assert.ok(yo(x).estados.some(e=>e.id==='vision:ojo'));
+ const trasAtaque=c.actuar(conPos(x,'a',{x:4,y:2}),'a','ataque','b',()=>1);
+ assert.equal(yo(trasAtaque).uso_fatiga,true,'una acción gratis posterior no borra el gasto del turno');
+ x=vuelta(x);
+ assert.equal(yo(x).fatiga,4);
+ assert.equal(!!yo(x).agotado,false);
+ assert.ok(yo(x).estados.some(e=>e.id==='vision:ojo'));
+ x=vuelta(x);
+ assert.equal(yo(x).fatiga,4);
+ assert.equal(yo(x).ph,17);
+ assert.ok(!yo(x).estados.some(e=>e.id==='vision:ojo'));
+});
+
+test('si la Fatiga del ojo supera el máximo, se cierra sin cobrar parcialmente ni recurrir a PH',()=>{
+ const vision=ojoBase({duracion:0,mantenimiento_ph:0,mantenimiento_fatiga:11});
+ let x=c.actuar(campo(vision),'a','hab:h:ojo','a',()=>10);
+ x=c.siguiente(c.siguiente(c.siguiente(x,()=>10),()=>10),()=>10);
+ assert.equal(yo(x).ph,17);
+ assert.equal(yo(x).fatiga,0);
+ assert.ok(!yo(x).estados.some(e=>e.id==='vision:ojo'));
+});
+
+test('el motor compartido de Edge puede pagar exactamente el máximo de Fatiga y se marca agotado',async()=>{
+ const edge=await import('../supabase/functions/equipo-combate/motor.js');
+ const vision=ojoBase({duracion:0,mantenimiento_ph:0,mantenimiento_fatiga:5});
+ let x=edge.actuar(campo(vision),'a','hab:h:ojo','a',()=>10);
+ x=edge.siguiente(edge.siguiente(edge.siguiente(x,()=>10),()=>10),()=>10);
+ assert.equal(yo(x).fatiga,5);
+ assert.equal(yo(x).agotado,true);
+ assert.ok(yo(x).estados.some(e=>e.id==='vision:ojo'));
+});
