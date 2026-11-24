@@ -3,6 +3,8 @@ import {validarPatron,type PatronArea} from './patron-area';
 import {validarHuella} from './huellas-combate';
 import type {ConfiguracionVFX} from "./vfx";
 import {validarEmpujeHuella,type DefinicionTransformacion} from "./transformaciones";
+import {validarGrafo} from "./transformaciones-grafo";
+import {migrarTransformacion} from "./transformaciones-migracion";
 import {validarPortada} from "./imagenes-creacion";
 import {validarReglas} from "./reglas";
 import {validarVision,type Vision} from "./vision";
@@ -385,6 +387,10 @@ export function validarEfectos(efectos: Efecto[]): string | null {
         if(etapa.descontrolada!==undefined&&typeof etapa.descontrolada!=='boolean')return 'Control de etapa inválido.';
         if(etapa.curacion_entrada!==undefined&&(!Number.isInteger(etapa.curacion_entrada)||etapa.curacion_entrada<0||etapa.curacion_entrada>1000000))return 'Curación de posesión inválida.';
         if(etapa.vida_maxima_posesion!==undefined&&(!Number.isInteger(etapa.vida_maxima_posesion)||etapa.vida_maxima_posesion<1||etapa.vida_maxima_posesion>1000000))return 'HP máximos de posesión inválidos.';
+      }
+      if(d.transiciones!==undefined){
+        if(!Array.isArray(d.transiciones)||d.transiciones.some(t=>!t||typeof t!=='object'||typeof t.desde!=='string'||typeof t.hasta!=='string'))return 'Las transiciones entre formas no son válidas.';
+        const error=validarGrafo(migrarTransformacion(d));if(error)return error;
       }
       if(d.posesion){
         const p=d.posesion;

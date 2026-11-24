@@ -86,7 +86,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
     <EditorReaccion valor={r??undefined} costeAccion={e.coste_ph||0} onPlantilla={k=>operar({op:'desplegar',plantilla:k})} onChange={v=>{if(v)patch({reaccion:v,defensa:undefined});else operar({op:'quitar',nodo:nodo.id});}}/>
    </div>;
   }
-  case 'transformacion':return e.transformacion?<div className="yq-editor yq-legado"><EditorTransformacion efecto={e} acciones={b.efectos} onChange={transformacion=>patch({transformacion})}/></div>
+  case 'transformacion':return e.transformacion?<div className="yq-editor yq-legado"><EditorTransformacion key={e.transformacion.id} efecto={e} acciones={b.efectos} onChange={transformacion=>patch({transformacion})}/></div>
    :<p className="yq-nota">Esta transformación aún no tiene etapas.</p>;
   case 'recurso':{
    const r=e.recurso;if(!r)return null;
