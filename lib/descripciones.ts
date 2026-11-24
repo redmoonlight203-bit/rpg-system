@@ -22,6 +22,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
   case 'estado':resumen=e.estado_def?`Aplica ${describirEstado(e.estado_def)}`:`Aplica ${e.estado||'un estado'} al objetivo.`;break;
   case 'crear_arma':resumen=e.tabla_armas?`Lanza 1d${e.tabla_armas.caras} y crea el arma asignada al resultado.`:`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
  }
+ if(e.efecto==='dano'&&e.rafaga&&!e.solo_pasivo)resumen=`Ataque múltiple: ${e.cantidad} disparos de 1d${e.caras}, cada uno con su propia tirada para impactar; al mismo enemigo o a otros. Tras el primero solo puedes seguir disparando o moverte.`;
  if(e.solo_pasivo)resumen=`Rasgo siempre activo. ${e.inmunidades?.length?describirInmunidades(e.inmunidades):''}`.trim();
  const detalles:string[]=[];
  if(e.transformacion){detalles.push('Una activación por encuentro. Cambiar etapa consume una acción, sin repetir el coste de activación.');for(const etapa of e.transformacion.etapas)detalles.push(`${etapa.nombre}: ${etapa.descripcion?etapa.descripcion+' ':''}${Object.entries(etapa.stats).map(([k,v])=>`${atributo(k)} ${v}`).join(', ')}.`);}

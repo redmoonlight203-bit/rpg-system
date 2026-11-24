@@ -90,13 +90,19 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
   {dados&&<div className="yq-dados" aria-label={`Dados: ${formula(e)}`}>
    <span className="yq-dados-etiqueta">{e.efecto==='crear_arma'?'Daño del arma':'Dados'}</span>
    <div className="yq-dados-linea">
-    <Rueda nombre="cantidad" etiqueta="Cuántos dados" valor={e.cantidad} min={0} max={100} onChange={cantidad=>patch({cantidad})}/>
+    <Rueda nombre="cantidad" etiqueta={e.rafaga?'Cuántos disparos (un dado cada uno)':'Cuántos dados'} valor={e.cantidad} min={e.rafaga?2:0} max={e.rafaga?20:100} onChange={cantidad=>patch({cantidad})}/>
     <b aria-hidden="true">d</b>
     <Rueda nombre="caras" etiqueta="Caras del dado" valor={e.caras} valores={CARAS} onChange={caras=>patch({caras})}/>
     <b aria-hidden="true">+</b>
     <Rueda nombre="modificador" etiqueta="Cantidad que se suma" valor={e.modificador} min={-999} max={999} onChange={modificador=>patch({modificador})}/>
    </div>
   </div>}
+  {e.efecto==='dano'&&!e.tabla_armas&&<>
+   <Interruptor etiqueta="Ataque múltiple: cada dado es un disparo" valor={!!e.rafaga} onChange={v=>patch(v
+    ?{rafaga:true,cantidad:Math.max(2,Math.min(20,e.cantidad)),componentes:undefined,...(e.tablero&&e.tablero.forma!=='individual'?{tablero:{...e.tablero,forma:'individual',tamano:0}}:{})}
+    :{rafaga:undefined})}/>
+   {e.rafaga&&<p className="yq-nota">{e.cantidad} disparos de 1d{e.caras}{e.modificador?` ${e.modificador>0?'+':'−'} ${Math.abs(e.modificador)}`:''}: cada uno tira para impactar por separado y puede ir al mismo enemigo o a otro. El coste se paga una vez. Tras el primer disparo solo se puede seguir disparando o moverse; los que queden se pierden al terminar el turno.</p>}
+  </>}
   {e.efecto==='estado'&&<>
    <Fichas etiqueta="Comportamiento" opciones={ESTADOS} valor={e.estado_def?'propio':e.estado_tipo||'narrativo'} onChange={tipo=>tipo==='propio'?patch({estado_tipo:'narrativo',estado_def:e.estado_def||estadoVacio(),estado:''}):patch({estado_tipo:tipo,estado_def:undefined,estado:definicionBase(tipo)?.nombre.split(':')[0]||e.estado,categoria:definicionBase(tipo)?.categoria==='mental'?'mental':e.categoria,subcategoria:definicionBase(tipo)?.subcategoria})} tono="arcano" columnas={3}/>
    {e.estado_def?<EditorEstados valor={e.estado_def} onChange={estado_def=>patch({estado_def,estado:estado_def.nombre})}/>

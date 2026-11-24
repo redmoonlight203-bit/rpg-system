@@ -64,6 +64,7 @@ import {
   type Combatiente,
   type Bando,
   type Fuente,
+  accionDisponible,
 } from "../../../lib/combate";
 import {EditorEquipoCombate,consultarEquipo,type ContextoEquipo} from "../../../components/EditorEquipoCombate";
 import { formula } from "../../../lib/creacion";
@@ -585,7 +586,7 @@ export default function CampoCombate() {
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
     const atajo = (event: KeyboardEvent) => {
-      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || ocupado || biblioteca || pendiente || !actor || actor.accion_usada || c.fase !== "en_curso") return;
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || ocupado || biblioteca || pendiente || !actor || !accionDisponible(actor) || c.fase !== "en_curso") return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input,select,textarea,button,summary"))) return;
       const index = "qwer".indexOf(event.key.toLowerCase());
@@ -605,7 +606,7 @@ export default function CampoCombate() {
       <article
         key={m.id}
         className={`battle-unit ${actor && destino === m.id ? "is-target" : ""} ${c.actual === m.id ? "is-current" : ""} ${m.vida <= 0 ? "is-down" : ""} ${c.actual === m.id && m.vida > 0 && m.vida / maxVida(m) <= 0.25 ? "is-critical" : ""}`}
-        onClick={(e) => {if(c.fase==='en_curso'&&!ocupado&&actor&&!actor.accion_usada&&!(e.target as HTMLElement).closest('button,input,select,textarea,a,summary'))setObjetivo(m.id);}}
+        onClick={(e) => {if(c.fase==='en_curso'&&!ocupado&&actor&&accionDisponible(actor)&&!(e.target as HTMLElement).closest('button,input,select,textarea,a,summary'))setObjetivo(m.id);}}
         draggable={!ocupado && c.fase === "preparacion"}
         onDragStart={(e) =>
           e.dataTransfer.setData(
@@ -639,7 +640,7 @@ export default function CampoCombate() {
           <button
             className={`battle-target-name ${destino === m.id ? "target-selected" : ""}`}
             disabled={
-              ocupado || !actor || actor.accion_usada || c.fase !== "en_curso"
+              ocupado || !actor || !accionDisponible(actor) || c.fase !== "en_curso"
             }
             title={
               efecto?.efecto === "dano"
@@ -1108,7 +1109,7 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
-          {c.miembros.length>0&&<TableroCombate ocular={actor&&c.fase==='en_curso'?vistaOcular(c,actor.id):null} turnoPropio={c.fase==='en_curso'&&!!actor&&c.actual===actor.id} mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&!actor.accion_usada&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}} puedeEjecutar={!!actor&&actor.vida>0&&!actor.accion_usada&&c.fase==='en_curso'} onEjecutar={sel=>{if(sel.objetivo)setObjetivo(sel.objetivo);if(sel.centro)setCentro(sel.centro);void resolver(sel.objetivo,{centro:sel.centro});}}/>}
+          {c.miembros.length>0&&<TableroCombate ocular={actor&&c.fase==='en_curso'?vistaOcular(c,actor.id):null} turnoPropio={c.fase==='en_curso'&&!!actor&&c.actual===actor.id} mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&accionDisponible(actor)&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}} puedeEjecutar={!!actor&&actor.vida>0&&accionDisponible(actor)&&c.fase==='en_curso'} onEjecutar={sel=>{if(sel.objetivo)setObjetivo(sel.objetivo);if(sel.centro)setCentro(sel.centro);void resolver(sel.objetivo,{centro:sel.centro});}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (

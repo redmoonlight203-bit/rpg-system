@@ -14,7 +14,7 @@ import type {TiradaVisual} from '../AnimacionDados';
 import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,
  type PausaArena,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
 import {estadosVisibles,recursosVisibles,vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
- type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
+ accionDisponible,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
 import MenuReaccion,{ListaReacciones} from '../MenuReaccion';
 import MenuPotenciador from '../MenuPotenciador';
 import type {EleccionPotenciador} from '../../lib/rasgos';
@@ -206,7 +206,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  function resolver(sel:{accion?:string;objetivo?:string;centro?:Posicion}={},potenciadores?:EleccionPotenciador[]){
   const id=sel.accion||elegida,ef=lista.find(a=>a.id===id)?.efecto;
   // Técnica con potenciadores compatibles: primero el menú (cancelar no gasta nada).
-  if(potenciadores===undefined&&lista.find(a=>a.id===id)?.potenciadores?.length){setPotenciando({accion:id,sel});return;}
+  if(potenciadores===undefined&&!portador?.rafaga&&lista.find(a=>a.id===id)?.potenciadores?.length){setPotenciando({accion:id,sel});return;}
   // Igual que la página de combate: guardia, armas creadas, transformaciones y rugidos se lanzan sobre uno mismo.
   const propio=id==='guardia'||['crear_arma','transformacion'].includes(ef?.efecto||'')||ef?.tablero?.origen_area==='lanzador'||ef?.vision?.modo==='abrir';
   paso((x,rng)=>usar(x,id,propio?DOLL:(sel.objetivo??destino),rng,forzar,sel.centro||centro||undefined,potenciadores),'Esa acción no se pudo usar.',()=>{setCentro(null);setObjetivo('');setMoviendo(false);});
@@ -267,12 +267,12 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    {/* El aviso de reinicio flota sobre el tablero: no empuja la barra ni los botones mientras se juega. */}
    {reinicio&&<p key={reinicio.n} role="status" className="yq-arena-reinicio">{reinicio.texto}</p>}
    <TableroCombate ocular={colocando?null:vistaOcular(c,DOLL)} turnoPropio={enCurso&&c.actual===DOLL} mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?elegido:DOLL}
-    centro={colocando?null:centro} puedeApuntar={enCurso&&(colocando||!portador?.accion_usada)} onApuntar={alApuntar}
+    centro={colocando?null:centro} puedeApuntar={enCurso&&(colocando||!portador||accionDisponible(portador))} onApuntar={alApuntar}
     evento={c.evento_visual} fichas={fichas} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino}
     moviendo={moviendo&&enCurso&&!colocando} alcanzables={alcanzables} ocupado={!enCurso}
     onObjetivo={id=>{if(colocando&&esSaco(id))setSacoElegido(id);else setObjetivo(id);}}
     onMover={p=>paso(x=>mover(x,p),'El doll no puede moverse ahí.')}
-    puedeEjecutar={enCurso&&!colocando&&!!portador&&portador.vida>0&&!portador.accion_usada&&c.actual===DOLL} onEjecutar={colocando?undefined:sel=>resolver(sel)}/>
+    puedeEjecutar={enCurso&&!colocando&&!!portador&&portador.vida>0&&accionDisponible(portador)&&c.actual===DOLL} onEjecutar={colocando?undefined:sel=>resolver(sel)}/>
    {caido&&<div className="yq-arena-fin" role="status"><strong>El doll cayó</strong><span>Deshaz el golpe o reinicia para seguir probando.</span>
     <div className="yq-arena-fin-botones">
      {deshacible&&<button type="button" className="yq-arena-reiniciar is-grande is-secundario" onClick={atras}><Undo2 size={16} aria-hidden="true"/>Deshacer el golpe</button>}

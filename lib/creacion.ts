@@ -121,6 +121,9 @@ export type Reaccion = {
 /** Componente de daño (Apéndice C): una técnica combinada suma varios, cada uno con su elemento. */
 export type ComponenteDano = { id: string; elemento: Elemento; cantidad: number; caras: number; origen: "base" | "potenciador"; nombre?: string };
 export type Efecto = {
+  /** Ataque múltiple: cada dado es un disparo con su propia tirada para impactar y su propio objetivo (puede repetirse).
+   *  Tras el primer disparo solo se puede seguir disparando o moverse; los disparos que queden se pierden al acabar el turno. */
+  rafaga?: boolean;
   /** Imagen propia de la acción para el combate (ranura de la barra). Sin ella se usa la de la creación. */
   imagen?: string;
   /** Varios componentes elementales en un mismo efecto (máx. 3). Sin esta lista se usa elemento + dados. */
@@ -341,6 +344,15 @@ export function validarReaccion(r: unknown): string | null {
 export function validarEfectos(efectos: Efecto[]): string | null {
   if (efectos.length > 20) return "Máximo 20 acciones por creación.";
   for (const e of efectos) {
+    if(e.rafaga!==undefined){
+      if(typeof e.rafaga!=="boolean")return "Ataque múltiple inválido.";
+      if(e.rafaga){
+        if(e.efecto!=="dano")return `${e.nombre||"Acción"}: el ataque múltiple solo es para acciones de daño.`;
+        if(!Number.isInteger(e.cantidad)||e.cantidad<2||e.cantidad>20)return `${e.nombre||"Acción"}: el ataque múltiple necesita entre 2 y 20 dados (un disparo por dado).`;
+        if(e.componentes?.length)return `${e.nombre||"Acción"}: el ataque múltiple usa un solo tipo de daño, sin componentes elementales.`;
+        if(e.tablero&&e.tablero.forma!=="individual")return `${e.nombre||"Acción"}: cada disparo va a un solo objetivo; usa alcance individual.`;
+      }
+    }
     if(e.imagen!==undefined){if(typeof e.imagen!=="string")return "La imagen de la acción no es válida.";const error=validarPortada(e.imagen);if(error)return `${e.nombre||"Acción"}: ${error}`;}
     const errorVFX=validarAnimacion(e.vfx);if(errorVFX)return errorVFX;
     const errorVision=validarVision(e.vision);if(errorVision)return errorVision;

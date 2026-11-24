@@ -1600,6 +1600,14 @@ function ilustracionFuente(fuente) {
     const forja_id = fuente.forja_id || fuente.id;
     return forja_id || fuente.imagen_url ? { forja_id, imagen_url: fuente.imagen_url } : undefined;
 }
+/** Disparos de un ataque múltiple: cada dado es un ataque con su propia tirada para impactar (2–20). */
+export function disparosRafaga(e) {
+    return e.rafaga && e.efecto === "dano" ? e.cantidad : 0;
+}
+/** ¿Le queda algo por hacer con su acción? También durante una ráfaga a medias. */
+export function accionDisponible(m) {
+    return !m.accion_usada || (m.rafaga?.restantes || 0) > 0;
+}
 export function dadoSeguro(caras) {
     if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
         throw Error("El dado requiere caras enteras entre 2 y 4294967296.");
@@ -2289,6 +2297,7 @@ function entrar(c, m, rng) {
         }
     }
     m.accion_usada = false;
+    delete m.rafaga;
     m.uso_fatiga = false;
     m.estados = m.estados.filter((e) => !e.inicio);
     for (const k of Object.keys(m.cooldowns))
@@ -2992,7 +3001,13 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     const ojo = accionId.startsWith('hab:') || accionId.startsWith('equipo:') ? acciones(a).find(v => v.id === accionId) : undefined;
     if (ojo?.efecto.vision?.modo === 'abrir')
         return abrirOjo(n, a, ojo);
-    if (a.accion_usada)
+    // Ráfaga a medias: solo se puede seguir disparando (o moverse, que no pasa por aquí).
+    const continua = !!a.rafaga && a.rafaga.restantes > 0;
+    if (continua && accionId !== a.rafaga.accion)
+        throw Error(`Ráfaga en curso (${a.rafaga.nombre}): dispara de nuevo o muévete.`);
+    if (continua && potenciadores.length)
+        throw Error('Los potenciadores se eligen en el primer disparo.');
+    if (a.accion_usada && !continua)
         throw Error("Ya utilizó su acción.");
     if (accionId.startsWith('regla:')) {
         const clave = accionId.slice(6), entrada = reglasMotor(a).find(r => r.clave === clave);
@@ -3049,7 +3064,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         throw Error('La voz del artefacto te lo niega.');
     if (!act)
         throw Error("La acción no existe.");
-    if ((a.cooldowns[act.id] || 0) > 0)
+    if (!continua && (a.cooldowns[act.id] || 0) > 0)
         throw Error("Habilidad en enfriamiento.");
     if (act.efecto.efecto === "transformacion") {
         const d = act.efecto.transformacion;
@@ -3095,6 +3110,17 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         return n;
     }
     let e = act.efecto;
+    const disparos = disparosRafaga(e);
+    if (e.rafaga && !disparos)
+        throw Error("El ataque múltiple solo es para acciones de daño.");
+    if (disparos) {
+        if (!Number.isInteger(disparos) || disparos < 2 || disparos > 20)
+            throw Error("Un ataque múltiple necesita entre 2 y 20 dados (uno por disparo).");
+        if (e.tablero && e.tablero.forma !== "individual")
+            throw Error("Cada disparo de un ataque múltiple va a un solo objetivo: usa alcance individual.");
+        // Cada disparo es un ataque de un dado con su propia tirada para impactar.
+        e = { ...e, cantidad: 1 };
+    }
     // Potenciadores de rasgos (Apéndice C): el coste se paga una vez; los componentes se suman a la técnica.
     let extra = { ph: 0, fatiga: 0, recursos: [] };
     if (potenciadores.length) {
@@ -3109,7 +3135,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
                 throw Error(`${p.nombre}: saldo insuficiente.`);
         }
     }
-    const s = estadisticas(a), coste = (e.coste_ph || 0) + extra.ph, fatiga = (e.coste_fatiga || 0) + extra.fatiga, t = n.miembros.find((m) => m.id === objetivoId);
+    const s = estadisticas(a), coste = continua ? 0 : (e.coste_ph || 0) + extra.ph, fatiga = continua ? 0 : (e.coste_fatiga || 0) + extra.fatiga, t = n.miembros.find((m) => m.id === objetivoId);
     if (coste > 0 && (s.silencio_ph || 0) > 0)
         throw Error('Silencio del Núcleo impide gastar PH.');
     const tactica = e.tablero;
@@ -3182,7 +3208,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     const forzando = fatiga > 0 && (a.agotado || a.fatiga + fatiga > (s.fatiga || 0));
     if (forzando && !forzar)
         throw Error("Agotamiento: activa Forzar natural para usarla sufriendo 1d4 de daño.");
-    if (e.recurso) {
+    if (e.recurso && !continua) {
         const { nombre, inicial, cambio } = e.recurso;
         if (!nombre.trim() || !Number.isSafeInteger(inicial) || inicial < 0 || !Number.isSafeInteger(cambio))
             throw Error('Recurso inválido.');
@@ -3221,8 +3247,17 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
     a.accion_usada = true;
     if (fatiga && a.fatiga >= (s.fatiga || 0))
         a.agotado = true;
-    if (act.enfriamiento)
+    if (act.enfriamiento && !continua)
         a.cooldowns[act.id] = act.enfriamiento + 1;
+    if (disparos) {
+        const restantes = continua ? a.rafaga.restantes - 1 : disparos - 1;
+        const numero = disparos - restantes;
+        if (restantes > 0)
+            a.rafaga = { accion: act.id, nombre: act.nombre, total: disparos, restantes };
+        else
+            delete a.rafaga;
+        log(n, `${act.nombre}: disparo ${numero} de ${disparos}${t ? ` contra ${t.nombre}` : ""}.`);
+    }
     if (forzando) {
         const v = dados(n, 1, 4, rng, "Daño por agotamiento");
         Object.assign(a, danarTransformado(a, v).actor);
@@ -3231,7 +3266,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             return n;
         }
     }
-    log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
+    if (!continua)
+        log(n, `${act.nombre}: coste ${coste} PH y ${fatiga} Fatiga.`);
     // Misma frase que la vista previa del menú de potenciadores: lo previsto y lo registrado coinciden.
     if (potenciadores.length)
         log(n, `Técnica potenciada: ${describirPotenciado(e.nombre || act.nombre, e, extra)}.`);
@@ -3992,6 +4028,7 @@ function efectosMotor(efectos, ctx, origen) {
                 }
                 case 'perder_accion':
                     t.accion_usada = true;
+                    delete t.rafaga;
                     log(ctx.c, `${t.nombre} pierde su acción del turno.`);
                     break;
                 case 'mensaje':
