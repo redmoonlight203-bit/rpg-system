@@ -1,0 +1,85 @@
+/* Evolución y legado · identidad YUGEN (tinta, oro y arcano). */
+.evo{display:grid;gap:14px;color:var(--color-text)}
+.evo-cab{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.evo-cab h3{font:600 15px var(--font-display);letter-spacing:.08em;color:var(--color-gold-bright);margin:0}
+.evo-pestanas{display:flex;gap:4px;flex-wrap:wrap}
+.evo-pestanas button,.evo-boton{border:1px solid var(--color-line);background:var(--color-well);color:var(--color-text);padding:6px 11px;border-radius:2px;font:600 12px var(--font-sans);letter-spacing:.06em;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.evo-pestanas button[aria-pressed=true],.evo-boton.is-primario{border-color:var(--color-gold);color:var(--color-gold-bright);box-shadow:0 0 0 1px color-mix(in srgb,var(--color-gold) 35%,transparent),0 0 18px color-mix(in srgb,var(--color-gold) 18%,transparent)}
+.evo-boton:hover:not(:disabled),.evo-pestanas button:hover{border-color:var(--color-arcane)}
+.evo-boton:disabled{opacity:.45;cursor:not-allowed}
+.evo-boton.is-peligro{color:var(--color-danger-text)}
+.evo-acciones{display:flex;flex-wrap:wrap;gap:6px}
+.evo-nota{font-size:12px;color:var(--color-text-muted);margin:0}
+.evo-aviso{font-size:12px;color:var(--color-danger-text);margin:0}
+
+/* Línea temporal */
+.evo-tiempo{display:flex;gap:0;overflow-x:auto;padding:6px 2px 12px;scroll-snap-type:x mandatory}
+.evo-hito{position:relative;flex:0 0 150px;scroll-snap-align:start;display:grid;justify-items:center;gap:6px;padding:0 6px;background:none;border:0;color:inherit;cursor:pointer;text-align:center}
+.evo-hito::before{content:"";position:absolute;top:44px;left:-50%;width:100%;height:2px;background:linear-gradient(90deg,var(--color-line),var(--color-gold-soft))}
+.evo-hito:first-child::before{display:none}
+.evo-retrato{position:relative;z-index:1;width:88px;height:88px;border-radius:50%;overflow:hidden;border:2px solid var(--color-line-strong);background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--color-arcane) 35%,var(--color-ink)),var(--color-ink));display:grid;place-items:center;font:600 28px var(--font-display);color:var(--color-gold-soft)}
+.evo-retrato img{width:100%;height:100%;object-fit:cover}
+.evo-hito[aria-current=true] .evo-retrato{border-color:var(--color-gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-gold) 30%,transparent),0 0 26px color-mix(in srgb,var(--color-gold) 45%,transparent);animation:evo-latido 2.6s ease-in-out infinite}
+.evo-hito[aria-pressed=true] .evo-retrato{outline:2px solid var(--color-arcane);outline-offset:3px}
+.evo-hito.is-bloqueada .evo-retrato{filter:grayscale(1) brightness(.55)}
+.evo-hito.is-bloqueada .evo-sello{color:var(--color-text-muted)}
+.evo-hito.is-bloqueada .evo-retrato::after{content:"🔒";position:absolute;font-size:22px}
+.evo-hito strong{font:600 13px var(--font-display);letter-spacing:.04em}
+.evo-hito small{font-size:11px;color:var(--color-text-muted)}
+.evo-sello{font:600 10px var(--font-sans);letter-spacing:.14em;text-transform:uppercase;padding:2px 6px;border:1px solid currentColor;border-radius:2px}
+.evo-sello.is-actual{color:var(--color-gold-bright)}
+.evo-sello.is-vida{color:var(--color-arcane)}
+.evo-sello.is-evolucion{color:var(--color-ember)}
+@keyframes evo-latido{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--color-gold) 18%,transparent),0 0 40px color-mix(in srgb,var(--color-gold) 55%,transparent)}}
+@media (prefers-reduced-motion:reduce){.evo-hito[aria-current=true] .evo-retrato{animation:none}}
+
+/* Árbol */
+.evo-arbol{position:relative;border:1px solid var(--color-line);border-radius:2px;background:radial-gradient(ellipse at top,color-mix(in srgb,var(--color-arcane) 12%,transparent),transparent 60%),var(--color-ink);overflow:auto;max-height:560px;touch-action:none}
+.evo-arbol svg{display:block}
+.evo-arista{fill:none;stroke:var(--color-line-strong);stroke-width:2}
+.evo-arista.is-secreta{stroke-dasharray:6 5}
+.evo-arista.is-elegida{stroke:var(--color-gold);stroke-width:3}
+.evo-arista.is-cerrada{opacity:.3}
+.evo-arista-zona{fill:none;stroke:transparent;stroke-width:14;cursor:pointer}
+.evo-nodo{cursor:grab}
+.evo-nodo:active{cursor:grabbing}
+.evo-nodo rect{fill:var(--color-raised);stroke:var(--color-line-strong);stroke-width:1.5;rx:6}
+.evo-nodo.is-seleccion rect{stroke:var(--color-arcane);stroke-width:2.5}
+.evo-nodo.is-actual rect{stroke:var(--color-gold);stroke-width:3;filter:drop-shadow(0 0 8px color-mix(in srgb,var(--color-gold) 60%,transparent))}
+.evo-nodo.is-origen rect{stroke:var(--color-ember);stroke-dasharray:5 3}
+.evo-nodo.is-bloqueada{opacity:.55}
+.evo-nodo text{fill:var(--color-text);font:600 12px var(--font-sans)}
+.evo-nodo .evo-nodo-tipo{fill:var(--color-text-muted);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.evo-nodo:focus-visible rect{stroke:var(--color-arcane);stroke-width:3}
+
+/* Paneles */
+.evo-panel{display:grid;gap:12px;border:1px solid var(--color-line);border-radius:2px;padding:12px;background:color-mix(in srgb,var(--color-raised) 70%,transparent)}
+.evo-panel h4{margin:0;font:600 13px var(--font-display);letter-spacing:.06em;color:var(--color-gold-soft)}
+.evo-rejilla{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.evo-campo{display:grid;gap:4px;font-size:12px}
+.evo-campo>span{font:600 11px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted)}
+.evo-campo input,.evo-campo select,.evo-campo textarea{width:100%;padding:7px 10px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px var(--font-sans)}
+.evo-check{display:flex;align-items:center;gap:6px;font-size:13px}
+.evo-stats{width:100%;border-collapse:collapse;font-size:13px}
+.evo-stats th,.evo-stats td{padding:5px 8px;border-top:1px solid var(--color-line);text-align:left}
+.evo-stats input{width:90px;padding:4px 6px;border:1px solid var(--color-line);background:var(--color-well);color:var(--color-text)}
+.evo-sube{color:var(--color-success-text)}.evo-baja{color:var(--color-danger-text)}
+
+/* Requisitos */
+.evo-req{display:grid;gap:6px;border-left:2px solid var(--color-arcane);padding:6px 0 6px 10px}
+.evo-req.is-grupo{border-left-color:var(--color-gold)}
+.evo-req.is-no{border-left-color:var(--color-crimson)}
+.evo-req-fila{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.evo-req-fila select,.evo-req-fila input{padding:5px 8px;border:1px solid var(--color-line);background:var(--color-well);color:var(--color-text);font-size:13px;border-radius:2px;max-width:100%}
+
+/* Animación de evolución (previsualización y combate) */
+.evo-previa{position:relative;display:grid;place-items:center;height:180px;overflow:hidden;border:1px solid var(--color-line);background:var(--color-ink)}
+.evo-previa img,.evo-previa .evo-retrato{position:absolute;width:120px;height:120px}
+.evo-previa .is-antes{animation:evo-salida 1.6s ease-in forwards}
+.evo-previa .is-despues{opacity:0;animation:evo-entrada 1.6s .8s ease-out forwards}
+.evo-previa::after{content:"";position:absolute;inset:0;background:radial-gradient(circle,color-mix(in srgb,var(--color-gold-bright) 70%,transparent),transparent 55%);opacity:0;animation:evo-destello 1.6s .4s ease-in-out}
+@keyframes evo-salida{60%{filter:brightness(4)}100%{opacity:0;transform:scale(.6)}}
+@keyframes evo-entrada{0%{opacity:0;transform:scale(1.4);filter:brightness(4)}100%{opacity:1;transform:none;filter:none}}
+@keyframes evo-destello{50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.evo-previa .is-antes,.evo-previa .is-despues,.evo-previa::after{animation-duration:.01s}}
+@media (max-width:640px){.evo-hito{flex-basis:118px}.evo-retrato{width:72px;height:72px}.evo-hito::before{top:36px}}

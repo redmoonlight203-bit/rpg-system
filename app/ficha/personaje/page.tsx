@@ -27,6 +27,7 @@ import CelebracionNivel from "../../../components/CelebracionNivel";
 import { Marco, BarraVital, Medallon } from "../../../components/ui/Juego";
 import { experienciaParaNivel, NIVEL_MAXIMO } from "../../../lib/progresion";
 import IconoYugen from "../../../components/IconoYugen";
+import LegadoPersonaje from "../../../components/LegadoPersonaje";
 import "../../../components/personajes.css";
 export default function FichaPersonaje() {
   const router = useRouter();
@@ -195,6 +196,10 @@ export default function FichaPersonaje() {
               </Marco>
             )}
           </div>
+
+          <Marco titulo="Evolución y legado">
+            <LegadoPersonaje personajeId={p.id} nombre={p.nombre} />
+          </Marco>
 
           <section aria-labelledby="caminos-titulo">
             <h2 id="caminos-titulo" className="y3-display y3-seccion-titulo">Tus caminos</h2>

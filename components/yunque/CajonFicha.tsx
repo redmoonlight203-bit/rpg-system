@@ -6,7 +6,8 @@ import {useEffect,useRef,useSyncExternalStore} from 'react';
 import {createPortal} from 'react-dom';
 import {X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
-import FormasHistoria from '../FormasHistoria';
+import EvolucionLegado,{type OpcionCatalogo} from '../EvolucionLegado';
+import ClaseEtapa from './ClaseEtapa';
 import EditorHuella from '../EditorHuella';
 import EditorMonstruo from '../EditorMonstruo';
 import {Interruptor} from './Controles';
@@ -14,7 +15,7 @@ import NaturalezaAdquirida from './NaturalezaAdquirida';
 import EditorArtefacto from './editores/EditorArtefacto';
 import {pestanasArtefacto} from './editores/pestanas-artefacto';
 import PruebaBalance, {type useBalanceBorrador} from './PruebaBalance';
-import {activas,atributosVisibles,esMonstruoB,type ContextoTaller} from './contexto';
+import {activas,atributosVisibles,esMonstruoB,valoresBorrador,type ContextoTaller} from './contexto';
 import type {FuenteMonstruo} from '../../lib/monstruos';
 import type {Borrador} from '../../lib/yunque-borrador';
 
@@ -66,7 +67,12 @@ export default function CajonFicha({b,patch,ctx,abierto,onCerrar,ancla,balance}:
    </section>
    <label className="yq-campo"><span>Descripción</span><textarea rows={3} maxLength={5000} value={b.descripcion} onChange={e=>patch({descripcion:e.target.value})} placeholder="Qué es, a simple vista."/></label>
    <label className="yq-campo"><span>Historia</span><textarea rows={5} value={b.historia} onChange={e=>patch({historia:e.target.value})} placeholder="Su origen, sus hazañas y su lugar en Yugen…"/></label>
-   {b.tipo==='personaje'&&<section className="yq-ficha-seccion"><h3 className="yq-ficha-titulo">Formas de su historia</h3><FormasHistoria formas={b.formas} cambiar={formas=>patch({formas})}/></section>}
+   {b.tipo==='personaje'&&<section className="yq-ficha-seccion" id="yq-ficha-evolucion"><h3 className="yq-ficha-titulo">Evolución y legado</h3>
+    <EvolucionLegado linea={b.linea??null} onChange={linea=>patch({linea})} nombre={b.nombre} formasAntiguas={b.formas}
+     catalogo={activas(ctx) as OpcionCatalogo[]} atributos={atributosVisibles(b,ctx)} statsBase={valoresBorrador(b,ctx)}
+     claseEtapa={(etapa,registrar)=>abierto?<ClaseEtapa b={b} ctx={ctx} etapa={etapa} registrar={registrar}/>:null}/>
+    {monstruo&&<p className="yq-nota">Variante: configuración alternativa de la especie. Evolución: cambio permanente de una criatura concreta. Transformación: cambio temporal (habilidad).</p>}
+   </section>}
    {b.tipo==='personaje'&&<section className="yq-ficha-seccion"><EditorHuella titulo={monstruo?'Tamaño base de la especie':'Tamaño en combate'} valor={b.huella} defecto="Normal (1 × 1)" onChange={huella=>patch({huella})}/></section>}
    {b.tipo==='personaje'&&<NaturalezaAdquirida valor={b.naturalezaVinculo} onChange={naturalezaVinculo=>patch({naturalezaVinculo})} catalogo={ctx.naturalezas??[]} clases={NATURALEZA}/>}
    {b.tipo==='objeto'&&<EditorArtefacto valor={b.artefacto} onChange={artefacto=>patch({artefacto})} atributos={atributosVisibles(b,ctx)} pestanas={pestanasArtefacto(b.id)}/>}

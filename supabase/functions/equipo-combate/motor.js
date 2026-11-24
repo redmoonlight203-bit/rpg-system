@@ -4624,6 +4624,114 @@ export function configurarHuellaParticipante(c, id, huella) {
         throw Error('No hay espacio para ese tamaño. Mueve la ficha antes de agrandarla.');
     return n;
 }
+const ID_PASIVA_ETAPA = 'etapa-evolutiva';
+/**
+ * Evolución permanente dentro del encuentro: el mismo combatiente (mismo id y mismo turno) cambia de etapa.
+ * Conserva enfriamientos, estados y recursos actuales (solo se limitan al nuevo máximo salvo recuperación configurada).
+ * Si hay una transformación temporal activa, su referencia pasa a ser la nueva etapa permanente.
+ * Idempotente por `action_id`. En práctica (`entrenamiento`) o en una recreación histórica no se marca para guardar.
+ */
+export function evolucionarEnCombate(c, actorId, etapa, opciones) {
+    if (c.fase === 'finalizado')
+        throw Error('El encuentro ya terminó.');
+    const previo = c.miembros.find(a => a.id === actorId);
+    if (!previo)
+        throw Error('No existe ese participante.');
+    if (previo.evolucion?.action_id === opciones.action_id)
+        return c;
+    if (previo.evolucion?.etapa_id === etapa.id)
+        throw Error(`${previo.nombre} ya está en ${etapa.nombre}.`);
+    if (previo.vida <= 0)
+        throw Error('Un combatiente caído no puede evolucionar.');
+    const rng = opciones.rng || dadoSeguro;
+    // Mismo registro que cualquier acción: se puede deshacer y comparte el evento visual del encuentro.
+    return registrar(c, () => {
+        const n = copia(c), m = n.miembros.find(a => a.id === actorId);
+        const bonos = m.configuracion.bonos_equipamiento || {};
+        // Sin stats_base, las estadísticas ya incluyen el equipo: se descuenta para no sumarlo dos veces.
+        const origen = m.configuracion.stats_base || Object.fromEntries(Object.entries(m.stats).map(([k, v]) => [k, v - (bonos[k] || 0)]));
+        const base = { ...origen, ...etapa.stats };
+        if (m.stats.nivel !== undefined)
+            base.nivel = m.stats.nivel;
+        const permanentes = { ...base };
+        for (const [k, v] of Object.entries(bonos))
+            permanentes[k] = (permanentes[k] || 0) + v;
+        const maximoAntes = maxVida(m), phAntes = Math.max(0, estadisticas(m).ph || 0);
+        const forma = { ...m, stats: permanentes, configuracion: { ...m.configuracion, stats_base: base } };
+        if (m.transformacion) {
+            // La transformación conserva sus cambios propios y vuelve, al terminar, a la etapa nueva.
+            const t = m.transformacion, propios = Object.fromEntries(Object.entries(m.stats).filter(([k, v]) => t.stats_originales[k] !== v));
+            forma.stats = { ...permanentes, ...propios };
+            forma.transformacion = { ...t, stats_originales: permanentes, vida_original: t.tipo === 'forma' ? Math.min(t.vida_original, Math.max(1, Math.trunc(permanentes.vida ?? permanentes.hp ?? 1))) : t.vida_original };
+        }
+        const config = forma.configuracion;
+        if (etapa.retrato || etapa.sprite)
+            config.imagen_url = etapa.sprite || etapa.retrato;
+        if (etapa.huella)
+            config.huella = { ...etapa.huella };
+        if (etapa.raza)
+            config.raza = etapa.raza;
+        if (etapa.inmunidades)
+            config.inmunidades = copia(etapa.inmunidades);
+        const anteriores = m.evolucion || { habilidades: [], pasivas: [] };
+        const catalogo = opciones.catalogo || [];
+        const fuente = (id) => catalogo.find(f => f.id === id || f.forja_id === id);
+        const nuevasHab = [...new Set([...etapa.habilidades, ...(etapa.habilidades_naturales || []), ...(etapa.magia || [])])].filter(fuente);
+        const conocidas = (config.habilidades || []).filter(h => !anteriores.habilidades.includes(h.forja_id || h.id || ''));
+        config.habilidades = [...conocidas, ...nuevasHab.filter(id => !conocidas.some(h => (h.forja_id || h.id) === id)).map(id => copia(fuente(id)))];
+        const pasivasEtapa = etapa.pasivas.filter(fuente);
+        config.pasivas = [...(config.pasivas || []).filter(p => p.id !== ID_PASIVA_ETAPA && !anteriores.pasivas.includes(p.id || '')),
+            ...pasivasEtapa.filter(id => !(config.pasivas || []).some(p => p.id === id && !anteriores.pasivas.includes(id))).map(id => { const f = fuente(id); return { id, nombre: f.nombre, requisitos_uso: f.requisitos_uso, reglas: f.reglas_pasivas || [], reglas_motor: f.reglas || [] }; }),
+            ...(etapa.reglas?.length ? [{ id: ID_PASIVA_ETAPA, nombre: `Etapa · ${etapa.nombre}`, reglas: [], reglas_motor: copia(etapa.reglas) }] : [])];
+        if (!aplicarFormaConEspacio(n, m, forma, rng, { cantidad: 0, caras: 2 }))
+            throw Error('No hay espacio en el tablero para el nuevo tamaño.');
+        // Recursos: nunca curación gratuita. Solo la recuperación configurada en la transición devuelve vida o PH.
+        const r = opciones.recuperacion || { modo: 'ninguna' };
+        const maximo = maxVida(m), phMax = Math.max(0, estadisticas(m).ph || 0);
+        if (r.modo === 'completa') {
+            m.vida = maximo;
+            m.ph = phMax;
+        }
+        else if (r.modo === 'proporcional') {
+            m.vida = Math.max(1, Math.round(m.vida / maximoAntes * maximo));
+            m.ph = Math.round(m.ph / Math.max(1, phAntes) * phMax);
+        }
+        else if (r.modo === 'fija') {
+            m.vida += r.vida || 0;
+            m.ph += r.ph || 0;
+        }
+        m.evolucion = { etapa_id: etapa.id, nombre: etapa.nombre, desde: previo.evolucion?.etapa_id ?? null, transicion_id: opciones.transicion_id ?? null, action_id: opciones.action_id,
+            persistir: n.politica?.modo !== 'entrenamiento' && !!m.personaje_id && !m.etapa_historica, habilidades: nuevasHab, pasivas: pasivasEtapa };
+        normalizar(m);
+        log(n, `${m.nombre} evoluciona: ${etapa.nombre}.`);
+        const posicion = posicionesTablero(n)[m.id];
+        if (etapa.vfx?.entrada && posicion)
+            activacionesPendientes.set(n, [...(activacionesPendientes.get(n) || []), { id: m.id, animacion: etapa.vfx.entrada, posicion, escala: etapa.vfx.escala }]);
+        return n;
+    }, rng, null);
+}
+/** Evoluciones que deben guardarse en el personaje real al cerrar el encuentro (nunca en práctica). */
+export function evolucionesPendientes(c) {
+    if (c.politica?.modo === 'entrenamiento')
+        return [];
+    return c.miembros.filter(m => m.evolucion?.persistir && m.personaje_id && !m.etapa_historica).map(m => ({ personaje_id: m.personaje_id, etapa_id: m.evolucion.etapa_id, transicion_id: m.evolucion.transicion_id ?? null, action_id: m.evolucion.action_id }));
+}
+/**
+ * Recreación de una etapa histórica en un encuentro aislado: copia efímera sin vínculo con el personaje real,
+ * sin equipo real (el equipo histórico es solo un registro) y sin recompensas.
+ */
+export function prepararEtapaHistorica(f, etapa) {
+    const stats = { ...etapa.stats };
+    const { personaje_id: _omitido, ...resto } = f;
+    void _omitido;
+    const configuracion = { ...copia(f.configuracion), stats_base: { ...stats }, bonos_equipamiento: {}, equipamiento: {}, reserva: [], ...(etapa.retrato ? { imagen_url: etapa.retrato } : {}), ...(etapa.huella ? { huella: { ...etapa.huella } } : {}), ...(etapa.inmunidades ? { inmunidades: copia(etapa.inmunidades) } : {}),
+        pasivas: [...(f.configuracion.pasivas || []), ...(etapa.reglas?.length ? [{ id: ID_PASIVA_ETAPA, nombre: `Etapa · ${etapa.nombre}`, reglas: [], reglas_motor: copia(etapa.reglas) }] : [])] };
+    return { ...resto, nombre: `${f.nombre} · ${etapa.nombre}`, stats, configuracion, etapa_historica: { etapa_id: etapa.id, nombre: etapa.nombre } };
+}
+/** Un encuentro histórico es siempre de práctica: sin EXP, sin botín y sin escribir en fichas reales. */
+export function politicaHistorica(p) {
+    return { ...(p || { automatico: false, limite_rondas: 0, dificultad: 1, reparto: 'replicar', premiar_retirados: false }), modo: 'entrenamiento', exp_base: 0, exp_objetivo: 0 };
+}
 /** Planifica todo sin modificar el encuentro ni tirar dados. Cada desplazamiento usa una ruta ortogonal libre. */
 function planEmpujeDeForma(c, m, forma, pos) {
     const origen = pos[m.id], dims = dimensionesTablero(c), nueva = huellaReserva(forma);
@@ -4685,8 +4793,8 @@ function planEmpujeDeForma(c, m, forma, pos) {
     }
     return buscar(pendientes);
 }
-function aplicarFormaConEspacio(c, m, forma, rng) {
-    const posiciones = posicionesTablero(c), p = posiciones[m.id], empuje = forma.transformacion?.empuje_huella;
+function aplicarFormaConEspacio(c, m, forma, rng, empuje = forma.transformacion?.empuje_huella) {
+    const posiciones = posicionesTablero(c), p = posiciones[m.id];
     const plan = cabeFichaEn(c, forma, p, posiciones) ? [] : rng && empuje ? planEmpujeDeForma(c, m, forma, posiciones) : null;
     if (!plan)
         return false;
