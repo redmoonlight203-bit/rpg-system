@@ -196,3 +196,43 @@ test('quitar transformación o tabla de armas solo vuelve a «daño» la acción
  const t=conModulos('transformacion');assert.equal(aplicar(t,{op:'quitar',nodo:'transformacion:'+t.efectos[0].id}).efectos[0].efecto,'dano');
  const a=conModulos('crear_arma');assert.equal(aplicar(a,{op:'quitar',nodo:'tabla_armas:'+a.efectos[0].id}).efectos[0].efecto,'dano');
 });
+
+// ---- Plantillas vivas: despliegue, marcas y desvincular ----
+test('desplegar inserta todos los fragmentos con ids nuevos y origen',()=>{
+ const r=aplicar(base(),{op:'desplegar',plantilla:'furia-temporal'});
+ assert.equal(r.reglas.length,2);
+ assert.ok(r.reglas.every(x=>x.id!=='plantilla-miasma'&&x.id!=='plantilla-miasma-fin'));
+ assert.notEqual(r.reglas[0].id,r.reglas[1].id);
+ assert.equal(r.reglas[0].origen.version,1);
+ assert.equal(r.reglas[0].origen.fragmento,'plantilla-miasma');
+ assert.throws(()=>aplicar(base(),{op:'desplegar',plantilla:'nada'}),/ya no existe/);
+});
+test('fijar sobre un nodo desplegado marca el campo',()=>{
+ const b=aplicar(base(),{op:'desplegar',plantilla:'golpe-quemadura'});
+ const r=aplicar(b,{op:'fijar',ruta:['efectos',0,'cantidad'],valor:5});
+ assert.deepEqual(json(r.efectos[0].origen.editados),['cantidad']);
+});
+test('cambios estructurales también se marcan',()=>{
+ let b=aplicar(base(),{op:'desplegar',plantilla:'curar-al-matar'});
+ const si=aGrafo(b,ctx).nodos.find(n=>n.tipo==='si');
+ b=aplicar(b,{op:'agregar',tipo:'entonces',padre:si?si.id:'cuando:'+b.reglas[0].id});
+ assert.ok(b.reglas[0].origen.editados.includes('efectos'));
+ let c=aplicar(base(),{op:'desplegar',plantilla:'golpe-quemadura'});
+ const al=aGrafo(c,ctx).nodos.find(n=>n.tipo==='alcance');
+ c=aplicar(c,{op:'quitar',nodo:al.id});
+ assert.ok(c.efectos[0].origen.editados.includes('tablero'));
+});
+test('desvincular quita el origen y nada más',()=>{
+ const b=aplicar(base(),{op:'desplegar',plantilla:'golpe-quemadura'});
+ const r=aplicar(b,{op:'desvincular',nodo:'accion:'+b.efectos[0].id});
+ assert.equal(r.efectos[0].origen,undefined);
+ const {origen,...resto}=b.efectos[0];
+ assert.deepEqual(json(r.efectos[0]),json(resto));
+ assert.throws(()=>aplicar(r,{op:'desvincular',nodo:'accion:'+r.efectos[0].id}),/no viene de una plantilla/);
+});
+test('duplicar conserva el origen',()=>{
+ const b=aplicar(base(),{op:'desplegar',plantilla:'golpe-quemadura'});
+ const r=aplicar(b,{op:'duplicar',nodo:'accion:'+b.efectos[0].id});
+ assert.equal(r.efectos.length,2);
+ assert.deepEqual(json(r.efectos[1].origen),json(b.efectos[0].origen));
+});

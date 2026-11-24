@@ -1,3 +1,4 @@
+import type {OrigenPlantilla} from './yunque-origen';
 import {validarPatron,type PatronArea} from './patron-area';
 import {validarHuella} from './huellas-combate';
 import type {ConfiguracionVFX} from "./vfx";
@@ -125,9 +126,13 @@ export type Reaccion = {
 /** Componente de daño (Apéndice C): una técnica combinada suma varios, cada uno con su elemento. */
 export type ComponenteDano = { id: string; elemento: Elemento; cantidad: number; caras: number; origen: "base" | "potenciador"; nombre?: string };
 export type Efecto = {
+  /** Vínculo con la plantilla viva de la que viene este efecto (Yunque). */
+  origen?: OrigenPlantilla;
   /** Ataque múltiple: cada dado es un disparo con su propia tirada para impactar y su propio objetivo (puede repetirse).
    *  Tras el primer disparo solo se puede seguir disparando o moverse; los disparos que queden se pierden al acabar el turno. */
   rafaga?: boolean;
+  /** Qué acción del turno gasta (sin él, la principal). Las adicionales y legendarias requieren claves de presupuesto en los atributos. */
+  presupuesto?: 'principal'|'adicional'|'legendaria';
   /** Imagen propia de la acción para el combate (ranura de la barra). Sin ella se usa la de la creación. */
   imagen?: string;
   /** Varios componentes elementales en un mismo efecto (máx. 3). Sin esta lista se usa elemento + dados. */
@@ -356,6 +361,10 @@ export function validarEfectos(efectos: Efecto[]): string | null {
         if(e.componentes?.length)return `${e.nombre||"Acción"}: el ataque múltiple usa un solo tipo de daño, sin componentes elementales.`;
         if(e.tablero&&e.tablero.forma!=="individual")return `${e.nombre||"Acción"}: cada disparo va a un solo objetivo; usa alcance individual.`;
       }
+    }
+    if(e.presupuesto!==undefined){
+      if(!['principal','adicional','legendaria'].includes(e.presupuesto))return `${e.nombre||"Acción"}: tipo de acción inválido.`;
+      if(e.rafaga&&e.presupuesto!=='principal')return `${e.nombre||"Acción"}: el ataque múltiple usa la acción principal.`;
     }
     if(e.imagen!==undefined){if(typeof e.imagen!=="string")return "La imagen de la acción no es válida.";const error=validarPortada(e.imagen);if(error)return `${e.nombre||"Acción"}: ${error}`;}
     const errorVFX=validarAnimacion(e.vfx);if(errorVFX)return errorVFX;

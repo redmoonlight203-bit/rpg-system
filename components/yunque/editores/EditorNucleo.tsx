@@ -6,6 +6,7 @@ import {Medallon} from '../../ui/Juego';
 import {Fichas,Rueda,type Opcion} from '../Controles';
 import {TIPOS,clasificacionesPara,tipoDe,type TipoCreacion} from '../../../lib/creacion';
 import {esMonstruo} from '../../../lib/progresion';
+import {CLAVE_PRESUPUESTO,type TipoPresupuesto} from '../../../lib/combate';
 import {vacio,type Borrador} from '../../../lib/yunque-borrador';
 import {atributosVisibles,cambiosClasificacion,esMonstruoB,mallaActiva,type ContextoTaller} from '../contexto';
 import type {EditorNodoProps} from './EditorAccion';
@@ -41,6 +42,11 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
   const base:Borrador={...vacio(),nombre:b.nombre,imagen:b.imagen,icono:b.icono,tipo:'personaje',ramaMonstruo:true,malla:true};
   const c=clasificacionesPara('personaje',ctx.categorias).find(c=>esMonstruo(ctx.categorias,c.clave));
   reemplazar({...base,...(c?cambiosClasificacion(base,ctx,c.clave):{})},'Nueva especie de monstruo en un borrador limpio. Ctrl+Z vuelve a la creación anterior.');
+ }
+ // En una especie con malla los atributos viven en `rangos`: el presupuesto es el mismo en todos los niveles.
+ function fijarPresupuesto(clave:string,n:number){
+  if(malla){const rangos={...b.rangos};if(n)rangos[clave]={min:n,max:n};else delete rangos[clave];fijar({rangos});return;}
+  const stats={...b.stats};if(n)stats[clave]=n;else delete stats[clave];fijar({stats});
  }
  const valorFijo=(clave:string,defecto:number)=>b.stats[clave]??defecto;
  const rango=(clave:string,defecto:number)=>b.rangos[clave]??{min:defecto,max:defecto};
@@ -92,6 +98,13 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
    </div>
    {!atributos.length&&<p className="yq-nota">Esta familia no tiene atributos. Defínelos en Estadísticas.</p>}
   </section>}
+  {b.tipo==='personaje'&&<section className="yq-atributos yq-presupuesto" aria-label="Acciones por turno">
+   <header><span>Acciones por turno</span></header>
+   <div className="yq-medallones">
+    {PRESUPUESTOS.map(x=><Medallon key={x.tipo} etiqueta={x.etiqueta} detalle={x.detalle} valor={<Rueda nombre={'presupuesto_'+x.tipo} etiqueta={x.etiqueta} valor={(malla?b.rangos[CLAVE_PRESUPUESTO[x.tipo]]?.max:b.stats[CLAVE_PRESUPUESTO[x.tipo]])??0} min={0} max={10} onChange={n=>fijarPresupuesto(CLAVE_PRESUPUESTO[x.tipo],n)} compacta/>}/>)}
+   </div>
+   <p className="yq-nota">Lo propio del personaje. La raza, el clan, la especie y el equipo suman las suyas en combate.</p>
+  </section>}
   {b.tipo==='objeto'&&b.slot!=='ninguno'&&<section className="yq-atributos yq-bonos-portador" aria-label="Bonos al portador">
    <header><span>Mientras esté equipado</span></header>
    <div className="yq-medallones">
@@ -101,6 +114,7 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
   </section>}
  </div>;
 }
+const PRESUPUESTOS:{tipo:TipoPresupuesto;etiqueta:string;detalle:string}[]=[{tipo:'principal',etiqueta:'Acciones principales extra',detalle:'además de la 1.ª'},{tipo:'adicional',etiqueta:'Acciones adicionales',detalle:'por turno'},{tipo:'legendaria',etiqueta:'Acciones legendarias por ronda',detalle:'fuera de turno'}];
 /** Atributos de supervivencia que cualquier pieza equipable puede sumar al portador (plan maestro 4.5). */
 const BONOS_PORTADOR=[{clave:'vida',etiqueta:'Vida máxima'},{clave:'ph',etiqueta:'PH máximo'},{clave:'fatiga',etiqueta:'Fatiga máxima'}];
 function frasePortador(b:{nombre:string;slot:string;stats:Record<string,number>}){

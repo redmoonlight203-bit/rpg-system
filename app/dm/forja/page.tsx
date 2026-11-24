@@ -22,6 +22,7 @@ import {validarArtefacto,normalizarArtefacto} from "../../../lib/artefactos";
 import GaleriaCreacion from "../../../components/GaleriaCreacion";
 import {evaluarInvocacion} from "../../../lib/invocaciones";
 import NavyCompanera from "../../../components/NavyCompanera";
+import {actualizarDesdePlantillas,type CambioPlantilla} from "../../../lib/yunque-plantillas-vivas";
 import TallerYunque,{type Suelto} from "../../../components/yunque/TallerYunque";
 import LimiteYunque from "../../../components/yunque/LimiteYunque";
 import {iconoCreacion,iconoValido} from "../../../lib/iconos-yugen";
@@ -71,6 +72,7 @@ export default function Forja(){
  // Conserva los cambios conectados al borrador mientras el usuario recorre el taller.
  const [reservas,setReservas]=useState<Record<string,Borrador>>({});
  const [ruta,setRuta]=useState<string[]>([]);
+ const [cambiosPlantilla,setCambiosPlantilla]=useState<CambioPlantilla[]>([]);
  const [documento,setDocumento]=useState("nuevo-inicial");
  const [mesa]=useState(()=>new Map<string,Suelto[]>());
  const base=useRef<Borrador|null>(b);
@@ -91,8 +93,10 @@ export default function Forja(){
     const anteriores=prev.filter(id=>id!==actual&&id!==destino);
     return b.id||conservar?[...anteriores,actual]:anteriores;
    });
+  // Las plantillas vivas se aplican al abrir; `base` sigue siendo lo guardado, así el GM ve el cambio como pendiente y lo guarda.
+  const {borrador:vivo,cambios}=actualizarDesdePlantillas(borrador);
   base.current=reservas[destino]?null:borrador;
-  nuevaSesion();setDocumento(destino);setB(borrador);setError("");setAviso("");setPestana("yunque");
+  nuevaSesion();setDocumento(destino);setB(vivo);setCambiosPlantilla(cambios);setError("");setAviso("");setPestana("yunque");
  }
  function cambiar(id:string,volver=false){
   const fila=activas.find(c=>c.id===id);
@@ -108,8 +112,8 @@ export default function Forja(){
  const nombreAnterior=anterior&&(reservas[anterior]?.nombre||activas.find(c=>c.id===anterior)?.nombre||"borrador");
  function valoresBorrador(p:Borrador,medio=false){const s={...p.stats};for(const a of atributosEfectivos(categorias,atributos,p.clasificacion)){s[a.clave]=(p.malla||p.tipo==="personaje"&&esMonstruo(categorias,p.clasificacion))?(p.rangos[a.clave]?medio?(p.rangos[a.clave].min+p.rangos[a.clave].max)/2:p.rangos[a.clave].min:a.valor_defecto??0):p.stats[a.clave]??a.valor_defecto??0;}return s;}
  function faltantes(id:string,personaje=b){const item=creaciones.find(f=>f.id===id);return item?faltantesRequisitos(item.requisitos_uso,linaje(categorias,personaje.clasificacion).flatMap(c=>[c.clave,c.nombre]),{...valoresBorrador(personaje),nivel:(personaje.malla||esMonstruo(categorias,personaje.clasificacion))?personaje.nivelMaximo:1},personaje.habilidades):['Creación no disponible.'];}
- function crearDentro(tipo:"objeto"|"titulo"|"habilidad"|"pasiva",slot?:string){nuevaSesion();setPadre({b:structuredClone(b),tipo,slot});const opciones=clasificacionesPara(tipo,categorias);const ranura=SLOTS.find(s=>s.clave===slot);setB({...vacio(),personal_de:b.tipo==='personaje'&&b.id?b.id:'',tipo,clasificacion:opciones.length===1?opciones[0].clave:'',slot:tipo==='titulo'?'titulo':ranura?.tipos[0]||'ninguno'});setError('');setAviso('');}
- function volverPadre(){if(padre){nuevaSesion();setB(padre.b);setPadre(null);setError('');}}
+ function crearDentro(tipo:"objeto"|"titulo"|"habilidad"|"pasiva",slot?:string){nuevaSesion();setCambiosPlantilla([]);setPadre({b:structuredClone(b),tipo,slot});const opciones=clasificacionesPara(tipo,categorias);const ranura=SLOTS.find(s=>s.clave===slot);setB({...vacio(),personal_de:b.tipo==='personaje'&&b.id?b.id:'',tipo,clasificacion:opciones.length===1?opciones[0].clave:'',slot:tipo==='titulo'?'titulo':ranura?.tipos[0]||'ninguno'});setError('');setAviso('');}
+ function volverPadre(){if(padre){nuevaSesion();setCambiosPlantilla([]);setB(padre.b);setPadre(null);setError('');}}
  /**
   * Guarda el borrador en La creación. Resuelve `true` solo si la fila quedó guardada; si la validación o el
   * guardado fallan, deja el motivo en `error` y resuelve `false` (nunca rechaza).
@@ -137,7 +141,7 @@ export default function Forja(){
   bloqueo.current=true;setGuardando(true);const sesionGuardada=sesion.current;
   try{
    if(b.tipo==="personaje" && b.formas.some(f=>!f.nombre.trim()||validarPortada(f.imagen)))throw Error("Revisa el nombre y la imagen de cada forma.");
-   const payload={...(b.personal_de||creaciones.some(c=>"personal_de" in c)?{personal_de:b.tipo==="personaje"?null:b.personal_de||null}:{}),formas_historia:b.tipo==="personaje"?b.formas:[],icono:b.icono||null,naturaleza_vinculo:serializarVinculoNaturaleza(b),configuracion_monstruo:monstruo?b.monstruo:null,...(b.artefacto||creaciones.some(c=>"configuracion_artefacto" in c)?{configuracion_artefacto:b.tipo==="objeto"&&b.artefacto?normalizarArtefacto(b.artefacto):null}:{}),configuracion_invocacion:b.tipo==="habilidad"?b.invocacion:null,requisitos_uso:b.requisitos_uso,consumible:b.tipo==="objeto"&&b.consumible,nombre:b.nombre.trim(),tipo:b.clasificacion,tipo_creacion:b.tipo,descripcion:b.descripcion,historia:b.historia,requisitos:b.requisitos,defectos:b.defectos,imagen_url:b.imagen,es_grupo:mallaActiva,nivel_maximo:b.nivelMaximo,slot_tipo:b.tipo==="objeto"?b.slot:b.tipo==="titulo"?"titulo":"ninguno",stats:mallaActiva?{}:stats,stats_rango:mallaActiva?rangos:{},configuracion_dados:b.tipo==="personaje"?[]:b.efectos,habilidades:b.tipo==="personaje"?b.habilidades:[],pasivas:b.tipo==="personaje"?b.pasivas:[],reglas:b.reglas,reglas_pasivas:b.reglas_pasivas,equipamiento:b.tipo==="personaje"?b.equipamiento:{},ligado_al_alma:b.alma,es_vendible:b.venta,precio_sugerido:b.venta?b.precio:null,ubicacion:b.venta?"mercado":"forja"};
+   const payload={...(b.personal_de||creaciones.some(c=>"personal_de" in c)?{personal_de:b.tipo==="personaje"?null:b.personal_de||null}:{}),formas_historia:b.tipo==="personaje"?b.formas:[],icono:b.icono||null,naturaleza_vinculo:serializarVinculoNaturaleza(b),configuracion_monstruo:monstruo?b.monstruo:null,...(b.artefacto||creaciones.some(c=>"configuracion_artefacto" in c)?{configuracion_artefacto:b.tipo==="objeto"&&b.artefacto?normalizarArtefacto(b.artefacto):null}:{}),configuracion_invocacion:b.tipo==="habilidad"?b.invocacion:null,requisitos_uso:b.requisitos_uso,consumible:b.tipo==="objeto"&&b.consumible,nombre:b.nombre.trim(),tipo:b.clasificacion,tipo_creacion:b.tipo,descripcion:b.descripcion,historia:b.historia,requisitos:b.requisitos,defectos:b.defectos,imagen_url:b.imagen,es_grupo:mallaActiva,nivel_maximo:b.nivelMaximo,slot_tipo:b.tipo==="objeto"?b.slot:b.tipo==="titulo"?"titulo":"ninguno",stats:mallaActiva?{}:stats,stats_rango:mallaActiva?rangos:{},configuracion_dados:b.efectos,habilidades:b.tipo==="personaje"?b.habilidades:[],pasivas:b.tipo==="personaje"?b.pasivas:[],reglas:b.reglas,reglas_pasivas:b.reglas_pasivas,equipamiento:b.tipo==="personaje"?b.equipamiento:{},ligado_al_alma:b.alma,es_vendible:b.venta,precio_sugerido:b.venta?b.precio:null,ubicacion:b.venta?"mercado":"forja"};
    const {data:{session}}=await supabase.auth.getSession();
    if(!session)throw Error("Inicia sesión para guardar.");
    const resultado=await clasificarForja(session.access_token,{tipo:b.tipo,clasificacion:b.clasificacion,stats:valoresBorrador(b,true),efectos:payload.configuracion_dados,reglas:b.reglas,reglas_pasivas:b.reglas_pasivas,habilidades:payload.habilidades,pasivas:payload.pasivas,equipamiento:payload.equipamiento,slot:b.slot,consumible:b.consumible,id:b.id,nombre:b.nombre});
@@ -191,7 +195,7 @@ export default function Forja(){
  onNueva={()=>nuevo()} onEditar={editar} onEntregar={f=>setOperacion({item:f,modo:"inventario"})}
  onBatalla={f=>setOperacion({item:f,modo:"batalla"})} onEliminar={eliminar} onRestablecer={restablecer} onImagen={guardarImagen}
  />:<div ref={yunque} className="forja-yunque">{padre&&<aside className="yunque-resumen"><p>Creando para {padre.b.nombre||"el personaje"}. Su borrador está conservado.</p><button type="button" disabled={guardando} onClick={volverPadre}>Cancelar y volver al personaje</button></aside>}
- <LimiteYunque onVolver={()=>{volverPadre();setPestana("creacion");}}><TallerYunque key={documento+(padre?"-hijo":"")} documento={documento} mesa={mesa} navegacion={<>
+ <LimiteYunque onVolver={()=>{volverPadre();setPestana("creacion");}}><TallerYunque key={documento+(padre?"-hijo":"")} cambiosPlantilla={cambiosPlantilla} onCerrarCambios={()=>setCambiosPlantilla([])} documento={documento} mesa={mesa} navegacion={<>
   {anterior&&<button type="button" className="yq-boton" disabled={!!padre||guardando||imagenProcesando} onClick={()=>cambiar(anterior,true)}>← Volver a {nombreAnterior}</button>}
   <select aria-label="Cambiar creación" className="yq-selector" value="" disabled={!!padre||guardando||imagenProcesando} onChange={e=>cambiar(e.target.value)}>
    <option value="" disabled>Cambiar creación…</option>

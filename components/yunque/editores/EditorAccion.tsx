@@ -3,7 +3,7 @@
 import {useState} from 'react';
 import {EditorDados} from '../../EditorDados';
 import {Fichas,Rueda,type Opcion} from '../Controles';
-import {elementoDe} from '../../../lib/combate';
+import {elementoDe,tipoPresupuesto,type TipoPresupuesto} from '../../../lib/combate';
 import {formula,type Efecto} from '../../../lib/creacion';
 import {CATALOGO_ESTADOS,estadoVacio,definicionBase} from '../../../lib/estados';
 import {Interruptor} from '../Controles';
@@ -45,6 +45,10 @@ const ESTADOS:Opcion<string>[]=[
 ];
 const SUBMENTE:Opcion<string>[]=['control','miedo','ilusion','confusion','memoria','posesion'].map(v=>({valor:v,nombre:v.replace('ilusion','ilusión').replace('confusion','confusión').replace('posesion','posesión')}));
 const IGNORA:Opcion<string>[]=[{valor:'categoria:mental',nombre:'Inmunidad mental'},{valor:'dano:fuego',nombre:'Inmune al fuego'},{valor:'dano:hielo',nombre:'Inmune al hielo'},{valor:'dano:electricidad',nombre:'Inmune al rayo'},{valor:'dano:veneno',nombre:'Inmune al veneno'},{valor:'dano:magico',nombre:'Inmune a la magia'}];
+const PRESUPUESTOS:Opcion<TipoPresupuesto>[]=[
+ {valor:'principal',nombre:'Principal',ayuda:'Gasta la acción del turno.'},
+ {valor:'adicional',nombre:'Adicional',ayuda:'Una extra en tu turno, sin gastar la principal.'},
+ {valor:'legendaria',nombre:'Legendaria',ayuda:'Fuera de tu turno, se recarga cada ronda.'}];
 const CARAS=[2,3,4,6,8,10,12,20,100];
 /** Quita las claves con `undefined` para que el borrador no arrastre campos vacíos. */
 const limpio=(e:Efecto):Efecto=>Object.fromEntries(Object.entries(e).filter(([,v])=>v!==undefined)) as Efecto;
@@ -111,6 +115,10 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
   {e.efecto==='estado'&&<><label className="yq-conmutador"><input type="checkbox" checked={!!e.aterrizar} onChange={v=>patch({aterrizar:v.target.checked||undefined,vuelo:undefined,aprendizaje:undefined})}/> Aterrizar desde la capa de vuelo</label><label className="yq-conmutador"><input type="checkbox" checked={!!e.aprendizaje} onChange={v=>patch({aterrizar:undefined,vuelo:undefined,aprendizaje:v.target.checked?{bono:0,cd:15}:undefined})}/>Aprender el último hechizo observado del objetivo</label>
    {e.aprendizaje&&<div className="yq-costes">{(['bono','cd'] as const).map(k=><label key={k}>{k==='cd'?'CD del GM':'Bono al d20'}<Rueda nombre={k} etiqueta={k==='cd'?'CD de aprendizaje':'Bono de aprendizaje'} valor={e.aprendizaje![k]} min={k==='cd'?1:-100} max={100} onChange={v=>patch({aprendizaje:{...e.aprendizaje!,[k]:v}})}/></label>)}</div>}</>}
   {elemental&&<Fichas etiqueta="Elemento" opciones={ELEMENTOS} valor={elementoDe(e)} onChange={elemento=>patch({elemento})} tono="arcano"/>}
+  {!e.rafaga&&<>
+   <Fichas etiqueta="Presupuesto" opciones={PRESUPUESTOS} valor={tipoPresupuesto(e)} onChange={v=>patch({presupuesto:v==='principal'?undefined:v})}/>
+   <p className="yq-nota">Legendaria: fuera de tu turno, se recarga cada ronda.{tipoPresupuesto(e)!=='principal'&&` Solo se puede usar si quien la tiene cuenta con acciones ${tipoPresupuesto(e)==='adicional'?'adicionales':'legendarias'}: del núcleo, la raza, el clan o la especie.`}</p>
+  </>}
   <Fichas etiqueta="Naturaleza" opciones={NATURALEZAS} valor={e.naturaleza||'automatica'} onChange={cambiarNaturaleza}/>
   <div className="yq-costes">
    <label><span>Coste PH</span><Rueda nombre="coste_ph" etiqueta="PH que gasta" valor={e.coste_ph} min={0} max={999} onChange={coste_ph=>patch({coste_ph})} compacta/></label>
@@ -128,7 +136,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
   </>}
   <label className="yq-conmutador"><input type="checkbox" role="switch" checked={todos} onChange={v=>setTodos(v.target.checked)}/><span aria-hidden="true"/>Todos los campos</label>
   {todos&&<div className="yq-todos yq-desplazable">
-   <EditorDados value={[e]} onChange={lista=>{const efectos=[...b.efectos];efectos.splice(i,1,...lista);operar({op:'fijar',ruta:['efectos'],valor:efectos});}}/>
+   <EditorDados value={[e]} onChange={lista=>{const efectos=[...b.efectos];efectos.splice(i,1,...lista);operar({op:'fijar',ruta:['efectos'],valor:efectos});}} onPlantilla={id=>operar({op:'desplegar',plantilla:id})}/>
   </div>}
  </div>;
 }

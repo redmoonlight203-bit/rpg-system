@@ -78,6 +78,7 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
   const equipo:Record<string,Fuente>={};
   for(const [slot,cid] of Object.entries(b.equipamiento||{})){const c=cid?buscar(cid):undefined;if(c)equipo[slot]=fuenteObjeto(c);}
   config.equipamiento=equipo;
+  config.acciones_personaje=b.efectos;
   config.reglas=b.reglas;config.reglas_pasivas=b.reglas_pasivas;
   const base={...(Object.keys(ctx.stats||{}).length?ctx.stats:b.stats),...doll};
   const {stats,bonos}=conEquipo(base,equipo);

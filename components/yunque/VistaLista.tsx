@@ -74,7 +74,8 @@ const Bloque=memo(function Bloque({n,abierto,encendido,nuevo,guia,icono,pie,edit
   <div className="yq-bloque-cab">
    <button type="button" className="yq-bloque-boton" aria-expanded={abierto} aria-controls={panel} onClick={()=>onAlternar(n.id)}>
     <span className="yq-nodo-icono"><IconoYugen id={icono||ICONO_TIPO[n.tipo]} size={20}/></span>
-    <span className="yq-bloque-titulos"><small>{NOMBRE_TIPO[n.tipo]}</small><strong>{n.titulo}</strong><em>{n.frase||'—'}</em></span>
+    <span className="yq-bloque-titulos"><small>{NOMBRE_TIPO[n.tipo]}</small><strong>{n.titulo}</strong><em>{n.frase||'—'}</em>
+     {n.plantilla&&<em className="yq-nodo-plantilla" data-huerfana={n.plantilla.huerfana||undefined}>{n.plantilla.huerfana?`Plantilla perdida: ${n.plantilla.nombre}`:`Plantilla · ${n.plantilla.nombre} v${n.plantilla.version}`}</em>}</span>
     {n.error&&<span className="yq-nodo-sello" role="img" aria-label={`Error: ${n.error}`}>!</span>}
     <ChevronDown size={16} className="yq-bloque-flecha" aria-hidden="true"/>
    </button>

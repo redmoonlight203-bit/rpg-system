@@ -472,3 +472,19 @@ test('la Arena usa el empuje de la etapa y la Arena registra una sola tirada 1d4
  assert.notDeepEqual(m(siguiente,'saco').posicion,saco.posicion);
  assert.equal(m(siguiente,'doll').transformacion.etapa_id,'enorme');
 });
+test('el portador de un personaje lleva sus acciones propias',()=>{
+ const {nuevoEfecto}=cargarDependencia('creacion');
+ const b=clon(F.personaje);b.efectos=[{...nuevoEfecto(),nombre:'Zarpazo',cantidad:1,caras:6}];
+ const c=arena(b),cfg=m(c,'doll').configuracion;
+ assert.deepEqual(cfg.acciones_personaje.map(e=>e.nombre),['Zarpazo']);
+ assert.ok(!cfg.habilidades.some(h=>h.nombre==='Zarpazo'||(h.efectos||[]).some(e=>e.nombre==='Zarpazo')));
+});
+test('el combate ejecuta la acción propia del personaje',()=>{
+ const {nuevoEfecto}=cargarDependencia('creacion');
+ const b=clon(F.personaje);const golpe={...nuevoEfecto(),nombre:'Zarpazo',cantidad:1,caras:4};b.efectos=[golpe];
+ const c=arena(b),antes=m(c,'saco').vida;
+ const accion=acciones(m(c,'doll')).find(a=>a.id===`hab:propias:${golpe.id}`);
+ assert.ok(accion);assert.equal(accion.nombre,'Zarpazo');
+ const n=A.usar(c,`hab:propias:${golpe.id}`,'saco',()=>4);
+ assert.ok(m(n,'saco').vida<antes);
+});

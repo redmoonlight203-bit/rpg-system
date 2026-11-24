@@ -18,7 +18,7 @@ function inicial(d:DisparadorReaccion,previa?:Reaccion):Reaccion{
  return JSON.parse(JSON.stringify({...base,principal}));
 }
 
-export default function EditorReaccion({valor,onChange,costeAccion=0}:{valor?:Reaccion;onChange:(r:Reaccion|undefined)=>void;costeAccion?:number}){
+export default function EditorReaccion({valor,onChange,costeAccion=0,onPlantilla}:{valor?:Reaccion;onChange:(r:Reaccion|undefined)=>void;costeAccion?:number;onPlantilla?:(id:string)=>void}){
  const r=valor,disparador=r?disparadorDe(r):'despues_ser_atacado',permite=(k:ClaveResultado)=>RESULTADOS_POR_DISPARADOR[disparador].includes(k);
  const principal=!!r?.principal;
  const set=(p:Partial<Reaccion>)=>onChange({...r!,...p});
@@ -34,7 +34,7 @@ export default function EditorReaccion({valor,onChange,costeAccion=0}:{valor?:Re
    <fieldset className="yq-reaccion-disparadores"><legend>Disparador</legend>
     <div role="radiogroup" aria-label="Disparador">{DISPARADORES.map(d=>{const Icono=ICONO[d];return <button key={d} type="button" role="radio" aria-checked={disparador===d} className={disparador===d?'is-elegido':undefined} onClick={()=>{if(d!==disparador)onChange(inicial(d,r));}}><Icono size={18} aria-hidden="true"/><span>{NOMBRE_DISPARADOR[d]}</span></button>;})}</div>
    </fieldset>
-   <label>Plantilla<select value="" onChange={ev=>{const k=ev.target.value;if(k&&PLANTILLAS_REACCION[k])onChange(structuredClone(PLANTILLAS_REACCION[k]));}}><option value="">Rellenar desde una plantilla…</option>{Object.keys(PLANTILLAS_REACCION).map(k=><option key={k} value={k}>{(NOMBRE_PLANTILLA[k]||k)+' (plantilla)'}</option>)}</select></label>
+   <label>Plantilla<select value="" onChange={ev=>{const k=ev.target.value;if(!k||!PLANTILLAS_REACCION[k])return;if(onPlantilla)onPlantilla('kion-'+k);else onChange(structuredClone(PLANTILLAS_REACCION[k]));}}><option value="">{onPlantilla?'Desplegar defensa de Kion…':'Rellenar desde una plantilla…'}</option>{Object.keys(PLANTILLAS_REACCION).map(k=><option key={k} value={k}>{(NOMBRE_PLANTILLA[k]||k)+' (plantilla)'}</option>)}</select></label>
    <fieldset className="yq-reaccion-coste"><legend>Coste</legend>
     <div className="flex flex-wrap gap-3">
      <label>Coste (PH)<input type="number" min={0} max={1000} placeholder={String(costeAccion)} value={r.coste??''} onChange={ev=>set({coste:ev.target.value===''?undefined:numero(ev.target.value,0,1000)})}/></label>

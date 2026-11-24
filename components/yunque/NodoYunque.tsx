@@ -37,7 +37,8 @@ export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=fals
   <svg className="yq-nodo-esquina is-bd" viewBox="0 0 18 18" aria-hidden="true"><path d="M17 1V11Q17 17 11 17H1" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M14.1 11.98 16.22 14.1 14.1 16.22 11.98 14.1Z" fill="currentColor"/></svg>
   <header className="yq-nodo-cab" data-asa="">
    <span className="yq-nodo-icono"><IconoYugen id={icono||ICONO_TIPO[nodo.tipo]} size={22}/></span>
-   <span className="yq-nodo-titulos"><small>{NOMBRE_TIPO[nodo.tipo]}</small><strong>{nodo.titulo}</strong></span>
+   <span className="yq-nodo-titulos"><small>{NOMBRE_TIPO[nodo.tipo]}</small><strong>{nodo.titulo}</strong>
+    {nodo.plantilla&&<em className="yq-nodo-plantilla" data-huerfana={nodo.plantilla.huerfana||undefined} title={nodo.plantilla.huerfana?'La plantilla ya no existe en el catálogo.':'Este nodo sigue a su plantilla.'}>{nodo.plantilla.huerfana?`Plantilla perdida: ${nodo.plantilla.nombre}`:`Plantilla · ${nodo.plantilla.nombre} v${nodo.plantilla.version}`}</em>}</span>
    {seleccionado&&editable&&onOperar&&<span className="yq-nodo-herramientas">
     {duplicable&&<button type="button" title="Duplicar" aria-label="Duplicar nodo" onClick={()=>onOperar({op:'duplicar',nodo:nodo.id})}><Copy size={14}/></button>}
     <button type="button" title="Quitar" aria-label="Quitar nodo" className="is-peligro" onClick={()=>onOperar({op:'quitar',nodo:nodo.id})}><Trash2 size={14}/></button>

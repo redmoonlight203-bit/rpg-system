@@ -47,7 +47,7 @@ import {
   iniciar,
   siguiente,
   actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,estadosVisibles,recursosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto,
-  acciones,
+  acciones,presupuestoRestante,situacionCombatiente,
   estadisticas,
   maxVida,
   reglas,
@@ -64,7 +64,7 @@ import {
   type Combatiente,
   type Bando,
   type Fuente,
-  accionDisponible,
+  accionUsableAhora,
   huellaReserva,
 } from "../../../lib/combate";
 import EditorHuella from "../../../components/EditorHuella";
@@ -231,6 +231,9 @@ export default function CampoCombate() {
   const [vitales, setVitales] = useState<Record<string, number>>({});
   const [resumen, setResumen] = useState("");
   const [forzar, setForzar] = useState(false);
+  /** Legendaria fuera de turno: el actor temporal y la acción que el GM eligió (el objetivo sale de `destino`). */
+  const [legendaria, setLegendaria] = useState<{actor:string;accion:string}|null>(null);
+  const [legendariaObjetivo, setLegendariaObjetivo] = useState("");
   async function avanzar() {
     await ejecutar(async () => {
       const dados: TiradaVisual[] = [];
@@ -318,22 +321,32 @@ export default function CampoCombate() {
   // Un clic ejecuta: el tablero y la barra pasan la acción, el objetivo y el centro elegidos en ese mismo clic.
   async function resolver(objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}) {
     if (!actor) return;
-    const elegida = opciones?.accion || elegidaActual, efecto = lista.find((a) => a.id === elegida)?.efecto;
+    await actuar(actor, listaTurno, opciones?.accion || elegidaActual, objetivoId, opciones);
+  }
+  /** Legendaria fuera de turno: solo la dispara el botón «Usar legendaria», con su propio objetivo. */
+  async function usarLegendaria() {
+    const sel = legendariaActual;
+    if (!sel || !legendaria) return;
+    await actuar(sel.m, acciones(sel.m), legendaria.accion, legendariaObjetivo || undefined, undefined, () => setLegendaria(null));
+  }
+  async function actuar(actor: Combatiente, lista: ReturnType<typeof acciones>, elegida: string, objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}, alExito?: () => void) {
+    const efecto = lista.find((a) => a.id === elegida)?.efecto;
     if (!elegida) return;
     await ejecutar(async () => {
+     try {
       const dados: TiradaVisual[] = [];
       const next = actuarConReacciones(
         c,
         actor.id,
         elegida,
-        objetivoId || (elegida === "guardia" || ["crear_arma","transformacion"].includes(efecto?.efecto||"")||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir' ? actor.id : destino),
+        objetivoId || (elegida === "guardia" || ["crear_arma","transformacion"].includes(efecto?.efecto||"")||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir' ? actor.id : alExito ? "" : destino),
         (caras) => {
           const valor = dadoSeguro(caras);
           dados.push({ caras, valor });
           return valor;
         },
         forzar,
-        opciones?.centro||(objetivoId?posicionesTablero(c)[objetivoId]:centro)||undefined,
+        opciones?.centro||(objetivoId?posicionesTablero(c)[objetivoId]:alExito?null:centro)||undefined,
       );
       next.evento_visual={...(next.evento_visual?.id!==c.evento_visual?.id?next.evento_visual:undefined),id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado,
         // La animación sale del esqueleto del arma o del concepto (el nombre solo para datos antiguos).
@@ -344,6 +357,12 @@ export default function CampoCombate() {
       if (next.resultado)
         setFlotante({ texto: next.resultado, id: crypto.randomUUID() });
       setResumen(next.registro.slice(0, 4).reverse().join(" "));
+      alExito?.();
+     } catch (e) {
+      // Una legendaria fallida no queda armada para el siguiente clic.
+      if (alExito) setLegendaria(null);
+      throw e;
+     }
     });
   }
   async function confirmarProgreso() {
@@ -561,15 +580,23 @@ export default function CampoCombate() {
   }
   const actor = c.miembros.find((m) => m.id === c.actual),
     lista = useMemo(()=>actor ? acciones(actor) : [],[actor]),
+    restante = actor && c.fase === "en_curso" ? presupuestoRestante(c, actor) : null,
+    // Quien no tiene el turno, sigue en pie y conserva legendarias, con sus acciones legendarias.
+    legendarias = c.fase === "en_curso" ? c.miembros.filter((m) => m.id !== c.actual && situacionCombatiente(m) === "activo" && presupuestoRestante(c, m).legendaria > 0).map((m) => ({m, restantes: presupuestoRestante(c, m).legendaria, acciones: acciones(m).filter((a) => a.presupuesto === "legendaria")})).filter((x) => x.acciones.length) : [],
+    legendariaActual = legendaria && legendarias.find((x) => x.m.id === legendaria.actor && x.acciones.some((a) => a.id === legendaria.accion)),
     elegida =
       lista.some((a) => a.id === accion) || accion === "guardia" || accion === ""
         ? accion
         : lista[0]?.id || "ataque",
-    efecto = lista.find((a) => a.id === elegida)?.efecto,
+    accionElegida = lista.find((a) => a.id === elegida),
+    efecto = accionElegida?.efecto,
+    // La barra y el tablero se habilitan según el presupuesto de la acción elegida (la guardia gasta la principal).
+    puedeAccion = !!actor && accionUsableAhora(accionElegida?.presupuesto, actor, restante),
     destino = c.miembros.some((m) => m.id === objetivo)
       ? objetivo
       : "";
   const elegidaActual = elegida;
+  const listaTurno = lista;
   // Consumibles de la mochila del actor en la barra (fijados por quien dirige el turno, solo en este navegador).
   const presupuestos=useMemo(()=>presupuestoEncuentro(c.miembros,catalogo),[c.miembros,catalogo]);
   const [fijados,setFijados]=useState<string[]>([]);
@@ -587,16 +614,16 @@ export default function CampoCombate() {
     return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:fotoDe(m),estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
   },[c,fotoDe]);
   const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
-  useEffect(()=>{setModoMovimiento(false);setCentro(null);},[c.actual]);
+  useEffect(()=>{setModoMovimiento(false);setCentro(null);setLegendaria(null);setLegendariaObjetivo('');},[c.actual]);
   const opciones = [...lista, { id: "guardia", nombre: "Guardia", efecto: null, enfriamiento: 0, regla: undefined }];
   useEffect(() => {
     const atajo = (event: KeyboardEvent) => {
-      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || ocupado || biblioteca || pendiente || !actor || !accionDisponible(actor) || c.fase !== "en_curso") return;
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || ocupado || biblioteca || pendiente || !actor || c.fase !== "en_curso") return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input,select,textarea,button,summary"))) return;
       const index = "qwer".indexOf(event.key.toLowerCase());
       const a = index >= 0 ? opciones[index] : undefined;
-      if (!a || actor.cooldowns[a.id]) return;
+      if (!a || actor.cooldowns[a.id] || !accionUsableAhora(lista.find((x) => x.id === a.id)?.presupuesto, actor, restante)) return;
       const e = a.efecto;
       if (e && (phDisponibles(actor) < e.coste_ph || (!forzar && (e.coste_fatiga || 0) > 0 && (actor.agotado || actor.fatiga + (e.coste_fatiga || 0) > (estadisticas(actor).fatiga || 0))))) return;
       event.preventDefault();
@@ -604,14 +631,14 @@ export default function CampoCombate() {
     };
     window.addEventListener("keydown", atajo);
     return () => window.removeEventListener("keydown", atajo);
-  }, [actor, opciones, ocupado, biblioteca, pendiente, c.fase, forzar]);
+  }, [actor, lista, opciones, ocupado, biblioteca, pendiente, c.fase, forzar, restante]);
   function tarjeta(m: Combatiente) {
     const s = estadisticas(m);
     return (
       <article
         key={m.id}
         className={`battle-unit ${actor && destino === m.id ? "is-target" : ""} ${c.actual === m.id ? "is-current" : ""} ${m.vida <= 0 ? "is-down" : ""} ${c.actual === m.id && m.vida > 0 && m.vida / maxVida(m) <= 0.25 ? "is-critical" : ""}`}
-        onClick={(e) => {if(c.fase==='en_curso'&&!ocupado&&actor&&accionDisponible(actor)&&!(e.target as HTMLElement).closest('button,input,select,textarea,a,summary'))setObjetivo(m.id);}}
+        onClick={(e) => {if(c.fase==='en_curso'&&!ocupado&&actor&&puedeAccion&&!(e.target as HTMLElement).closest('button,input,select,textarea,a,summary'))setObjetivo(m.id);}}
         draggable={!ocupado && c.fase === "preparacion"}
         onDragStart={(e) =>
           e.dataTransfer.setData(
@@ -645,7 +672,7 @@ export default function CampoCombate() {
           <button
             className={`battle-target-name ${destino === m.id ? "target-selected" : ""}`}
             disabled={
-              ocupado || !actor || !accionDisponible(actor) || c.fase !== "en_curso"
+              ocupado || !puedeAccion || c.fase !== "en_curso"
             }
             title={
               efecto?.efecto === "dano"
@@ -1100,7 +1127,7 @@ export default function CampoCombate() {
                     ? "FINALIZADO"
                     : "TURNO ACTUAL"}
               </span>
-              {c.fase === "finalizado" && <Hanko estado="finalizado"/>}<h2>{actor?.nombre || (c.fase === "finalizado" ? "Encuentro finalizado" : "Forma los bandos")}</h2>
+              {c.fase === "finalizado" && <Hanko estado="finalizado"/>}<h2>{actor?.nombre || (c.fase === "finalizado" ? "Encuentro finalizado" : "Forma los bandos")}</h2>{restante&&<p className="battle-presupuesto" aria-label="Acciones restantes">Le quedan: {restante.principal} principal{restante.principal===1?'':'es'} · {restante.adicional} adicional{restante.adicional===1?'':'es'} · {restante.legendaria} legendaria{restante.legendaria===1?'':'s'}</p>}
             </div>
             <div className="battle-initiative" aria-label="Orden de iniciativa">
               <span>INICIATIVA · D20</span>
@@ -1121,7 +1148,20 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
-          {c.miembros.length>0&&<TableroCombate ocular={actor&&c.fase==='en_curso'?vistaOcular(c,actor.id):null} turnoPropio={c.fase==='en_curso'&&!!actor&&c.actual===actor.id} mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&accionDisponible(actor)&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}} puedeEjecutar={!!actor&&actor.vida>0&&accionDisponible(actor)&&c.fase==='en_curso'} onEjecutar={sel=>{if(sel.objetivo)setObjetivo(sel.objetivo);if(sel.centro)setCentro(sel.centro);void resolver(sel.objetivo,{centro:sel.centro});}}/>}
+          {c.fase==='en_curso'&&<section className="battle-action battle-legendarias" aria-label="Acciones legendarias">
+            <h3>Acciones legendarias</h3>
+            {legendarias.length?<>
+              {legendarias.map(({m,restantes,acciones:acs})=><div key={m.id} className="battle-legendaria">
+                <strong>{m.nombre} · {restantes} por ronda</strong>
+                {acs.map(a=><button type="button" key={a.id} aria-pressed={legendaria?.actor===m.id&&legendaria.accion===a.id} disabled={ocupado} onClick={()=>setLegendaria(legendaria?.actor===m.id&&legendaria.accion===a.id?null:{actor:m.id,accion:a.id})}>{a.nombre}</button>)}
+              </div>)}
+              {legendariaActual&&<p>{legendariaActual.m.nombre} actúa fuera de turno. Elige el objetivo y confirma.
+                {' '}<select aria-label="Objetivo de la acción legendaria" value={legendariaObjetivo} onChange={e=>setLegendariaObjetivo(e.target.value)}><option value="">Sin objetivo</option>{c.miembros.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select>
+                {' '}<button type="button" disabled={ocupado} onClick={()=>void usarLegendaria()}>Usar legendaria</button>
+                {' '}<button type="button" onClick={()=>setLegendaria(null)}>Cancelar</button></p>}
+            </>:<p>Nadie tiene una legendaria a mano. Kuroi calla hasta la próxima ronda.</p>}
+          </section>}
+          {c.miembros.length>0&&<TableroCombate ocular={actor&&c.fase==='en_curso'?vistaOcular(c,actor.id):null} turnoPropio={c.fase==='en_curso'&&!!actor&&c.actual===actor.id} mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={puedeAccion&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}} puedeEjecutar={!!actor&&actor.vida>0&&puedeAccion&&c.fase==='en_curso'} onEjecutar={sel=>{if(sel.objetivo)setObjetivo(sel.objetivo);if(sel.centro)setCentro(sel.centro);void resolver(sel.objetivo,{centro:sel.centro});}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">
             {(["jugador", "enemigo"] as Bando[]).map((b) => (
@@ -1158,7 +1198,7 @@ export default function CampoCombate() {
             ))}
           </div>
           </details>
-          <>{c.fase==='en_curso'&&actor&&<BarraCombate onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(actor),recursos:recursosVisibles(actor,true),guardia:{nombre:conceptosDe(actor).guardia.nombre,frase:describirConcepto(conceptosDe(actor).guardia)},ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:fotoDe(actor)}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
+          <>{c.fase==='en_curso'&&actor&&<BarraCombate restante={restante||undefined} onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(actor),recursos:recursosVisibles(actor,true),guardia:{nombre:conceptosDe(actor).guardia.nombre,frase:describirConcepto(conceptosDe(actor).guardia)},ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:fotoDe(actor)}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
           {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select

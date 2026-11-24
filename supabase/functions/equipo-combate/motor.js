@@ -1772,6 +1772,43 @@ export function disparosRafaga(e) {
 export function accionDisponible(m) {
     return !m.accion_usada || (m.rafaga?.restantes || 0) > 0;
 }
+/** ¿Puede ejecutarse ahora una acción de este presupuesto? La principal sigue su regla de siempre; adicional y legendaria dependen de lo que quede de su propio presupuesto (antes o después de la principal). */
+export function accionUsableAhora(presupuesto, m, restante) {
+    const t = presupuesto || 'principal';
+    return t === 'principal' ? accionDisponible(m) : (restante?.[t] || 0) > 0;
+}
+/** Atributos que suman acciones al turno (sobre 1 principal, 0 adicionales y 0 legendarias). Varias fuentes se suman en `estadisticas`. */
+export const CLAVE_PRESUPUESTO = { principal: 'acciones_principal', adicional: 'acciones_adicional', legendaria: 'acciones_legendaria' };
+/** Fuente sintética con las acciones propias del personaje (`configuracion.acciones_personaje`). */
+export const FUENTE_PROPIAS = 'propias';
+/** Habilidades del combatiente más sus acciones propias (primero), como una fuente más. Solo lectura: no se guarda en `habilidades`. */
+export function habilidadesDe(m) {
+    const propias = m.configuracion.acciones_personaje;
+    return [...(Array.isArray(propias) && propias.length ? [{ id: FUENTE_PROPIAS, nombre: 'Acciones del personaje', stats: {}, efectos: propias }] : []), ...(m.configuracion.habilidades || [])];
+}
+export function presupuestoDeStats(s) {
+    const extra = (t) => { const v = Math.floor(s[CLAVE_PRESUPUESTO[t]] || 0); return Number.isFinite(v) ? v : 0; };
+    return { principal: Math.max(0, 1 + extra('principal')), adicional: Math.max(0, extra('adicional')), legendaria: Math.max(0, extra('legendaria')) };
+}
+/** Estimación para vistas que solo conocen las estadísticas (jugador): no sabe lo ya gastado en adicional/legendaria, y el motor rechaza lo que sobre. */
+export function presupuestoEstimado(stats, accion_usada) {
+    return { ...presupuestoDeStats(stats), principal: accion_usada ? 0 : 1 };
+}
+export function presupuestoDe(m) { return presupuestoDeStats(estadisticas(m)); }
+/** Se recarga sola: lo gastado solo cuenta en el turno propio (`m.turnos`) o la ronda (`c.ronda`) en que se anotó. */
+export function presupuestoRestante(c, m) {
+    const p = presupuestoDe(m), g = m.gasto_acciones, turno = g?.turno === m.turnos, ronda = g?.ronda === c.ronda;
+    return { principal: m.accion_usada ? 0 : Math.max(0, p.principal - (turno ? g.principal : 0)), adicional: Math.max(0, p.adicional - (turno ? g.adicional : 0)), legendaria: Math.max(0, p.legendaria - (ronda ? g.legendaria : 0)) };
+}
+export function tipoPresupuesto(e) {
+    return e.presupuesto === 'adicional' || e.presupuesto === 'legendaria' ? e.presupuesto : 'principal';
+}
+/** Anota una acción gastada; lo de otro turno u otra ronda se descarta. */
+function anotarGasto(c, m, tipo) {
+    const g = m.gasto_acciones, turno = g?.turno === m.turnos, ronda = g?.ronda === c.ronda;
+    m.gasto_acciones = { turno: m.turnos, principal: turno ? g.principal : 0, adicional: turno ? g.adicional : 0, ronda: c.ronda, legendaria: ronda ? g.legendaria : 0 };
+    m.gasto_acciones[tipo]++;
+}
 export function dadoSeguro(caras) {
     if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
         throw Error("El dado requiere caras enteras entre 2 y 4294967296.");
@@ -2029,7 +2066,7 @@ export function inmunidadesDe(m) {
     const sumar = (l, origen) => { for (const i of l || [])
         r.push({ ...i, origen: i.origen || origen }); };
     sumar(m.configuracion.inmunidades, m.nombre);
-    for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length))
+    for (const h of habilidadesDe(m).filter(h => !requisitosFuente(m, h).length))
         for (const e of h.efectos || [])
             sumar(e.inmunidades, h.nombre);
     for (const p of Object.values(piezas(m)))
@@ -2125,7 +2162,7 @@ function activarReglas(c, a, t, rs, rng) {
 }
 export function reaccionDe(e) { return e.reaccion; }
 /** Efectos del combatiente con las defensas antiguas normalizadas a `reaccion` (sin escribir en el estado). */
-function efectosConReaccion(m) { return (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).map(normalizarReaccion); }
+function efectosConReaccion(m) { return habilidadesDe(m).flatMap(h => h.efectos || []).map(normalizarReaccion); }
 /** Coste, usos y enfriamiento: null si ahora no se puede ofrecer. */
 function disponibilidad(c, t, p, r) {
     if (!permiteReacciones(t.estados.map(definicionDe)))
@@ -2441,7 +2478,7 @@ function entrar(c, m, rng) {
     // Posesión: se revisa cada turno mientras la vida esté en el umbral, incluso
     // en estado normal. No consume acción ni PH y respeta el resultado del dado.
     if (m.vida > 0 && !m.transformacion?.descontrolada) {
-        const activaciones = (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).filter(e => !!e.transformacion?.posesion);
+        const activaciones = habilidadesDe(m).flatMap(h => h.efectos || []).filter(e => !!e.transformacion?.posesion);
         for (const e of activaciones) {
             const d = e.transformacion, p = d.posesion;
             if (m.transformacion && m.transformacion.definicion_id !== d.id)
@@ -2677,7 +2714,9 @@ function siguienteInterno(c, rng) {
     cerrarEncuentro(n, 'Sin combatientes activos', null);
     return n;
 }
-function registrar(c, fn, rng = dadoSeguro) {
+/** `autor`: a quién se acreditan derrotas y contribución; por defecto, quien tiene el turno.
+ *  Una acción legendaria fuera de turno pasa a su dueño. */
+function registrar(c, fn, rng = dadoSeguro, autor = c.actual) {
     if (c.reaccion_pendiente)
         throw Error('Hay una reacción pendiente de respuesta.');
     const { historial: _historial, ...sinHistorial } = c;
@@ -2691,10 +2730,10 @@ function registrar(c, fn, rng = dadoSeguro) {
             if (anterior && anterior.vida > 0 && m.vida <= 0 && !m.invocacion) {
                 const id = `derrota:${m.id}`;
                 if (!(n.eventos || []).some(e => e.id === id))
-                    (n.eventos ||= []).push({ id, tipo: 'enemigo_derrotado', actor: c.actual || undefined, objetivo: m.id, ronda: n.ronda });
+                    (n.eventos ||= []).push({ id, tipo: 'enemigo_derrotado', actor: autor || undefined, objetivo: m.id, ronda: n.ronda });
             }
         }
-        const a = n.miembros.find(m => m.id === c.actual);
+        const a = n.miembros.find(m => m.id === autor);
         if (a)
             a.contribucion = (a.contribucion || 0) + n.miembros.reduce((t, m) => { const antes = c.miembros.find(v => v.id === m.id); return t + (antes ? Math.max(0, m.bando !== a.bando ? antes.vida - m.vida : m.vida - antes.vida) : 0); }, 0);
     }
@@ -2840,7 +2879,7 @@ export function conAlcance(e, contexto = '') {
 export function conceptosDe(m) {
     const r = { desarmado: DESARMADO_BASE, guardia: GUARDIA_BASE };
     const fuentes = [...(m.configuracion.conceptos || []), ...Object.values(piezas(m)).flatMap(p => (p.efectos || []).flatMap(e => e.concepto ? [e.concepto] : [])),
-        ...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length).flatMap(h => (h.efectos || []).flatMap(e => e.concepto ? [e.concepto] : []))];
+        ...habilidadesDe(m).filter(h => !requisitosFuente(m, h).length).flatMap(h => (h.efectos || []).flatMap(e => e.concepto ? [e.concepto] : []))];
     for (const id of ['desarmado', 'guardia']) {
         const c = fuentes.find(x => x.id === id);
         if (c)
@@ -2920,12 +2959,12 @@ export function acciones(m) {
     }
     if ((m.arma || lista.some(a => a.id === 'ataque' && a.efecto.id !== 'basico')) && (manosLibres(m) > 0 || conceptosDe(m).desarmado.requiere_mano === false))
         lista.push({ id: 'desarmado', nombre: `${conceptosDe(m).desarmado.nombre} · ${conceptosDe(m).desarmado.requiere_mano === false ? 'arma natural' : 'mano libre'}`, efecto: desarmadoDe(m), enfriamiento: 0 });
-    for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length))
+    for (const h of habilidadesDe(m).filter(h => !requisitosFuente(m, h).length))
         for (const e of h.efectos || [])
             lista.push({
                 id: `hab:${h.id}:${e.id}`,
-                nombre: `${h.nombre} · ${e.nombre}`,
-                ilustracion: ilustracionFuente(h),
+                nombre: h.id === FUENTE_PROPIAS ? e.nombre : `${h.nombre} · ${e.nombre}`,
+                ilustracion: h.id === FUENTE_PROPIAS ? undefined : ilustracionFuente(h),
                 efecto: e,
                 enfriamiento: Math.max(0, h.stats.enfriamiento || h.stats.cooldown || 0),
             });
@@ -2948,7 +2987,8 @@ export function acciones(m) {
     const exclusivos = new Set(definiciones.flatMap(d => d.etapas.flatMap(e => e.habilidades || [])));
     const permitidos = new Set(definiciones.find(d => d.id === m.transformacion?.definicion_id)?.etapas.find(e => e.id === m.transformacion?.etapa_id)?.habilidades || []);
     // Un ojo permanente sin dados propios es una pasiva: no aparece como acción.
-    return lista.filter(a => !a.efecto.solo_pasivo).filter(a => !reaccionDe(normalizarReaccion(a.efecto))).filter(a => !(a.efecto.vision?.modo === 'permanente' && !(a.efecto.cantidad > 0))).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
+    // Solo habilidad y equipo eligen presupuesto; un ataque múltiple siempre es la acción principal.
+    return lista.map((a) => ({ ...a, presupuesto: /^(hab|equipo):/.test(a.id) && !disparosRafaga(a.efecto) ? tipoPresupuesto(a.efecto) : 'principal' })).filter(a => !a.efecto.solo_pasivo).filter(a => !reaccionDe(normalizarReaccion(a.efecto))).filter(a => !(a.efecto.vision?.modo === 'permanente' && !(a.efecto.cantidad > 0))).filter(a => !exclusivos.has(a.efecto.id) || permitidos.has(a.efecto.id)).filter(a => !a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo] || 0) >= a.efecto.requisito_forma.minimo).map(a => {
         const d = a.efecto.transformacion;
         if (d && m.transformacion?.definicion_id === d.id) {
             const i = d.etapas.findIndex(e => e.id === m.transformacion?.etapa_id);
@@ -3173,10 +3213,48 @@ function areaDeRecorrido(trayecto, ancho, dim) {
             }
     return resultado;
 }
+/** Presupuesto de acciones por turno alrededor de `actuarBase`.
+ *  - Principal: la de siempre. Si el combatiente tiene más de una, al gastarla entera (sin ráfaga pendiente) se anota y,
+ *    si le queda otra, `accion_usada` vuelve a `false`. Con una sola no se anota nada: los datos antiguos no cambian.
+ *  - Adicional: solo en su turno, antes o después de la principal. Legendaria: dentro o fuera de su turno.
+ *    Ninguna de las dos gasta la principal. */
 function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, autonomo = false, potenciadores = []) {
+    const base = (entrada, fueraDeTurno = false) => actuarBase(entrada, actorId, accionId, objetivoId, rng, forzar, centro, autonomo, potenciadores, fueraDeTurno);
+    const actor = c.miembros.find(m => m.id === actorId);
+    // El turno automático de una criatura descontrolada no lleva cuentas de presupuesto.
+    if (!actor || autonomo)
+        return base(c);
+    const tipo = /^(hab|equipo):/.test(accionId) ? acciones(actor).find(v => v.id === accionId)?.presupuesto || 'principal' : 'principal';
+    if (tipo === 'principal') {
+        if (!actor.accion_usada && presupuestoRestante(c, actor).principal <= 0)
+            throw Error('No le quedan acciones principales este turno.');
+        const n = base(c), a = n.miembros.find(m => m.id === actorId);
+        if (a && a.accion_usada && !((a.rafaga?.restantes || 0) > 0) && presupuestoDe(a).principal > 1) {
+            anotarGasto(n, a, 'principal');
+            if (presupuestoRestante(n, { ...a, accion_usada: false }).principal > 0)
+                a.accion_usada = false;
+        }
+        return n;
+    }
+    if (tipo === 'adicional' && (c.fase !== 'en_curso' || c.actual !== actorId))
+        throw Error('Solo puede actuar el personaje de turno.');
+    if (tipo === 'legendaria' && (c.fase !== 'en_curso' || !combatienteActivo(actor)))
+        throw Error(`${actor.nombre} no puede usar acciones legendarias ahora.`);
+    const quedan = presupuestoRestante(c, actor)[tipo];
+    if (quedan <= 0)
+        throw Error(tipo === 'adicional' ? 'No le quedan acciones adicionales este turno.' : 'No le quedan acciones legendarias esta ronda.');
+    // Se ejecuta como si la principal estuviera libre y luego se restaura: ninguna de las dos la gasta.
+    const n = base({ ...c, miembros: c.miembros.map(m => m.id === actorId ? { ...m, accion_usada: false } : m) }, tipo === 'legendaria');
+    const a = n.miembros.find(m => m.id === actorId);
+    a.accion_usada = actor.accion_usada;
+    anotarGasto(n, a, tipo);
+    log(n, `${a.nombre} usa una acción ${tipo} (quedan ${quedan - 1}).`);
+    return n;
+}
+function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, autonomo, potenciadores, fueraDeTurno) {
     const n = copia(c), a = n.miembros.find((m) => m.id === actorId);
     delete n.resultado;
-    if (n.fase !== "en_curso" || n.actual !== actorId || !a || !combatienteActivo(a))
+    if (n.fase !== "en_curso" || (!fueraDeTurno && n.actual !== actorId) || !a || !combatienteActivo(a))
         throw Error("Solo puede actuar el personaje de turno.");
     if (a.transformacion?.descontrolada && !autonomo)
         throw Error('La criatura está fuera de control: su turno es automático.');
@@ -3511,11 +3589,11 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             log(n, 'No logra aprender el hechizo.');
         return n;
     }
-    const magia = (a.configuracion.habilidades || []).find(h => accionId === 'hab:' + h.id + ':' + e.id);
+    const magia = habilidadesDe(a).find(h => h.id !== FUENTE_PROPIAS && accionId === 'hab:' + h.id + ':' + e.id);
     const claveMagia = magia?.forja_id || magia?.id;
     if (claveMagia && (e.naturaleza === 'magica' || coste > 0) && !normalizarReaccion(e).reaccion) {
         for (const testigo of n.miembros) {
-            if (testigo.id === a.id || !combatienteActivo(testigo) || tiene(testigo, 'ciego') || !testigo.configuracion.habilidades?.some(h => h.efectos?.some(ef => ef.aprendizaje)))
+            if (testigo.id === a.id || !combatienteActivo(testigo) || tiene(testigo, 'ciego') || !habilidadesDe(testigo).some(h => h.efectos?.some(ef => ef.aprendizaje)))
                 continue;
             if (lineaVisible(posiciones[testigo.id], origen, n.mapa))
                 testigo.hechizos_observados = { ...testigo.hechizos_observados, [a.id]: claveMagia };
@@ -3701,7 +3779,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     else if (n.regla === "impacto") {
         let d = rng(20);
         if (e.naturaleza === 'magica' && a.ronda_asistida !== n.ronda) {
-            const apoyo = a.configuracion.habilidades?.flatMap(h => h.efectos || []).find(p => p.companero_magico)?.companero_magico;
+            const apoyo = habilidadesDe(a).flatMap(h => h.efectos || []).find(p => p.companero_magico)?.companero_magico;
             if (apoyo) {
                 const segundo = rng(20);
                 log(n, apoyo + ' concede ventaja: ' + d + ' y ' + segundo);
@@ -3953,7 +4031,7 @@ function danoPorComponentes(n, a, t, e, act, rng, o) {
 /** Rasgos del combatiente (habilidades —incluidas las heredadas— y objetos equipados), sin duplicar por id. */
 export function rasgosDe(m) {
     const vistos = new Map();
-    for (const h of (m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length))
+    for (const h of habilidadesDe(m).filter(h => !requisitosFuente(m, h).length))
         for (const e of h.efectos || [])
             if (e.rasgo && !vistos.has(e.rasgo.id))
                 vistos.set(e.rasgo.id, e.rasgo);
@@ -4002,7 +4080,7 @@ function potenciadoresDisponibles(m, e, rasgos) {
     });
 }
 export function actuar(c, actorId, accionId, objetivoId, rng = dadoSeguro, forzar = false, centro, potenciadores = []) {
-    const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, false, potenciadores), rng);
+    const n = registrar(c, () => actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, false, potenciadores), rng, actorId);
     const actor = c.miembros.find(m => m.id === actorId), accion = actor ? acciones(actor).find(a => a.id === accionId) : undefined, efecto = accion?.efecto;
     const animado = animarAccion(c, n, actorId, efecto, accionId, objetivoId, centro);
     // El gesto del arma sale de su esqueleto (o del concepto desarmado); el nombre solo para datos antiguos.
@@ -4105,7 +4183,7 @@ export function retirar(c, id) {
 }
 function motor(m) { return m.motor ||= { modificadores: [], habilidades: [], usos: {}, proximos: {}, progreso: [] }; }
 function definicionEnCombate(m) {
-    const activacion = (m.configuracion.habilidades || []).flatMap(h => h.efectos || []).find(e => e.transformacion?.id === m.transformacion?.definicion_id);
+    const activacion = habilidadesDe(m).flatMap(h => h.efectos || []).find(e => e.transformacion?.id === m.transformacion?.definicion_id);
     return activacion?.transformacion;
 }
 function pasivasEtapaActiva(m) {
@@ -4448,7 +4526,7 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
         if (!slot)
             (m.configuracion.habilidades ||= []).push({ ...p, id: temporal });
         const id = efectoId.startsWith('regla:') ? `regla:${slot ? 'equipo:' + p.id : 'hab:' + temporal}:${efectoId.slice(6)}` : slot ? `equipo:${slot}:${efectoId}` : `hab:${temporal}:${efectoId}`;
-        const resultado = actuarInterno(n, m.id, id, objetivoId, rng, false), actor = resultado.miembros.find(v => v.id === actorId);
+        const resultado = actuarBase(n, m.id, id, objetivoId, rng, false, undefined, false, [], false), actor = resultado.miembros.find(v => v.id === actorId);
         actor.configuracion.habilidades = actor.configuracion.habilidades?.filter(h => h.id !== temporal);
         if (p.consumible) {
             actor.configuracion.reserva = actor.configuracion.reserva?.filter(v => v.id !== p.id);
@@ -4962,7 +5040,8 @@ export function visionesActivas(m) {
     if (m.vida <= 0)
         return [];
     const lista = m.estados.filter(e => e.vision).map(e => ({ clave: e.id, vision: e.vision, restantes: e.vision.duracion && e.vision.modo !== 'permanente' ? e.restantes : null }));
-    const fuentes = [...(m.configuracion.habilidades || []).filter(h => !requisitosFuente(m, h).length), ...Object.values(piezas(m))];
+    const fuentes = [...habilidadesDe(m).filter(h => !requisitosFuente(m, h).length), ...Object.values(piezas(m))];
+    // El snapshot de un personaje repite sus acciones propias en `efectos`; los ojos se deduplican por `vision:<id>` abajo.
     const efectos = [...fuentes.flatMap(f => f.efectos || []), ...(m.configuracion.efectos || [])];
     // Ojo de la fase actual de una transformación: va primero para que la interfaz muestre ese ojo.
     if (m.transformacion) {

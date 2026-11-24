@@ -1,4 +1,5 @@
 import type { Efecto } from './creacion';
+import type {OrigenPlantilla} from './yunque-origen';
 import {buscarVFX,type AnimacionRegla} from './vfx';
 export const EVENTOS = {
  equipar: 'Al equipar', desequipar: 'Al desequipar', fin_efecto: 'Al terminar un estado o forma', usar: 'Al activar / usar', inicio_combate: 'Al iniciar combate', inicio_turno: 'Al iniciar mi turno', fin_turno: 'Al terminar mi turno',
@@ -40,6 +41,7 @@ export type EfectoRegla = {
 export type Regla = {
  id: string; nombre: string; descripcion?: string; evento: EventoRegla; condicion: CondicionRegla; efectos: EfectoRegla[];
  animacion?:AnimacionRegla;
+ origen?:OrigenPlantilla;
  coste_ph: number; coste_fatiga: number; enfriamiento: number; usos: number; prioridad: number; limite_por_turno?:number;
 };
 export function nuevaRegla(): Regla {

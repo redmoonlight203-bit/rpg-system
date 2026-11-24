@@ -1,0 +1,82 @@
+{
+ "ojo-eclipse": {
+  "version": 1,
+  "huella": "8489a0373098697f35c03f1a729264ea26d0725fc5722fa72a2c792c736e3cf5"
+ },
+ "mirada-cazador": {
+  "version": 1,
+  "huella": "041208857a6c003e74c1837a06cb5d89bf0a8f466610584a0155928ef1261c87"
+ },
+ "ojo-verdad": {
+  "version": 1,
+  "huella": "16bf52acf0373a7c888f3228f4c5bbae64e03a51818493697bbed1972883d9bf"
+ },
+ "ojo-clan-fases": {
+  "version": 1,
+  "huella": "e463006d539ba2aaa40b5d43346ebe64fefcfeba739a1bd781fa5263ae27e116"
+ },
+ "golpe-quemadura": {
+  "version": 1,
+  "huella": "c8d49b4b3ae70bcdfcc0f9fbbe9d071439215a7db61892263cbc407be906ed1d"
+ },
+ "escudo-astral": {
+  "version": 1,
+  "huella": "94b9a1562c6c442155f8e3f0e9c6d7d1d6ad4bae54542ce42fc3ccd806c2985e"
+ },
+ "barrera-hechizos": {
+  "version": 1,
+  "huella": "e63ed1eefbb5a93465dd84cc0e53350e6f3501de38b8623a385be2b5f7f5f30c"
+ },
+ "curar-al-matar": {
+  "version": 1,
+  "huella": "f658158c89ea1b55f085912f3f35e573d253a076037766f8ee477d49a0d87591"
+ },
+ "furia-temporal": {
+  "version": 1,
+  "huella": "3f0dc674a3e5da75f98cb2da61027f81c80a448a7a47fdaf0d87e771171b0cba"
+ },
+ "despertar": {
+  "version": 1,
+  "huella": "5ba014d473fa750eb478a28e428d7ad0430bb341cec42ee7a52c5bd9d1008d22"
+ },
+ "teletransporte": {
+  "version": 1,
+  "huella": "16cc0d26ba651593f606123fb7480c9644a8c8d54f7bdcc61fd454cd9cb8e64f"
+ },
+ "kion-inercia": {
+  "version": 1,
+  "huella": "3450f59107182ed5f53f42690fe6f6e151098074b4c0c1c454c9899638dd40da"
+ },
+ "kion-absorcion": {
+  "version": 1,
+  "huella": "be90af489f6bdf3637ed496a174873f55aae863f88e314c5f07e930be3b1f9d1"
+ },
+ "kion-reflejo": {
+  "version": 1,
+  "huella": "af94658b666ae90b6af551b56119be726f29d2ef1951d9231e0e9707e162ea1e"
+ },
+ "kion-reciproco": {
+  "version": 1,
+  "huella": "ceb020ad90f4a1da65cc59f4e34c33e1cc82156771ddaee1950e14e307224233"
+ },
+ "kion-ancla": {
+  "version": 1,
+  "huella": "c113469be473178b54c796ddd61aae10f91e87f74201e477c014690323ed5b6d"
+ },
+ "embestida": {
+  "version": 1,
+  "huella": "2f8b9cccc3b7bcaf365674c37a6c3d8ce403b61d0d65588f92036f427f4411c3"
+ },
+ "salto-impacto": {
+  "version": 1,
+  "huella": "6288be6c57d3a2c1b5fe49f9fec9476b82c3c97ba06f1ab6487f178b2ed224b2"
+ },
+ "carrera-arrasadora": {
+  "version": 1,
+  "huella": "4170edf7f9cc209d17500d0afe1d374bcfc4a140297de64059485579446e8004"
+ },
+ "rugido": {
+  "version": 1,
+  "huella": "01ef9940523f028d66121e1d473360f279e8ad52694893e60abac5ba09e1d604"
+ }
+}
