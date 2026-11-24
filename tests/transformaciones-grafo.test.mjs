@@ -71,3 +71,29 @@ test('cambio libre en ambos sentidos y cadena en un solo sentido', () => {
   assert.deepEqual([...formasAlcanzables(g,'e1').sort()],['e2','r']);
   assert.deepEqual([...formasAlcanzables(g,'e2')],['r']);
 });
+
+const {quitarForma,quitarTransicion,actualizarTransicion,disposicion}=cargarDependencia('transformaciones-grafo');
+test('quitar una forma quita sus transiciones; la realidad no se puede quitar', () => {
+  const f=(id,extra={})=>({id,nombre:id,estadisticas:{},poderes:[],...extra});
+  const g={formas:[f('r',{es_realidad:true}),f('a'),f('b')],transiciones:[{id:'1',desde:'r',hasta:'a',sentido:'ambos'},{id:'2',desde:'a',hasta:'b',sentido:'uno'}]};
+  const r=quitarForma(g,'a');
+  assert.equal(r.ok,true);
+  assert.deepEqual(r.grafo.formas.map(x=>x.id),['r','b']);
+  assert.equal(r.grafo.transiciones.length,0);
+  assert.equal(quitarForma(g,'r').ok,false);
+  assert.equal(quitarTransicion(g,'1').grafo.transiciones.length,1);
+  const c=actualizarTransicion(g,'2',{sentido:'ambos',coste:{ph:3}});
+  assert.equal(c.grafo.transiciones[1].sentido,'ambos');
+  assert.equal(c.grafo.transiciones[1].coste.ph,3);
+  assert.equal(actualizarTransicion(g,'2',{coste:{}}).grafo.transiciones[1].coste,undefined);
+});
+test('disposición: columnas por distancia a la realidad, sin celdas repetidas', () => {
+  const f=(id,extra={})=>({id,nombre:id,estadisticas:{},poderes:[],...extra});
+  const g={formas:[f('r',{es_realidad:true}),f('a'),f('b'),f('c'),f('suelta')],transiciones:[{id:'1',desde:'r',hasta:'a',sentido:'ambos'},{id:'2',desde:'r',hasta:'b',sentido:'uno'},{id:'3',desde:'b',hasta:'c',sentido:'uno'}]};
+  const d=disposicion(g);
+  assert.deepEqual({...d.r},{columna:0,fila:0});
+  assert.equal(d.a.columna,1);assert.equal(d.b.columna,1);assert.equal(d.c.columna,2);
+  assert.equal(d.suelta.columna,3);
+  const celdas=Object.values(d).map(p=>p.columna+','+p.fila);
+  assert.equal(new Set(celdas).size,celdas.length);
+});

@@ -123,3 +123,47 @@ export function formasAlcanzables(grafo: Grafo, desde: string): string[] {
 export function transicionEntre(grafo: Grafo, desde: string, hasta: string): Transicion | undefined {
   return grafo.transiciones.find(t => (t.desde === desde && t.hasta === hasta) || (t.sentido === 'ambos' && t.desde === hasta && t.hasta === desde));
 }
+
+export function quitarForma(grafo: Grafo, id: string): Resultado<object> {
+  const forma = grafo.formas.find(f => f.id === id);
+  if (!forma) return {ok: false, error: 'La forma no existe.'};
+  if (forma.es_realidad) return {ok: false, error: 'La forma base no se puede quitar: siempre hay vuelta a la realidad.'};
+  return {ok: true, grafo: {formas: grafo.formas.filter(f => f.id !== id), transiciones: grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id)}};
+}
+export function quitarTransicion(grafo: Grafo, id: string): Resultado<object> {
+  if (!grafo.transiciones.some(t => t.id === id)) return {ok: false, error: 'La conexión no existe.'};
+  return {ok: true, grafo: {...grafo, transiciones: grafo.transiciones.filter(t => t.id !== id)}};
+}
+/** Cambia sentido o coste de una transición. Un coste vacío (o a cero) se elimina. */
+export function actualizarTransicion(grafo: Grafo, id: string, cambio: Partial<Pick<Transicion, 'sentido' | 'coste'>>): Resultado<object> {
+  if (!grafo.transiciones.some(t => t.id === id)) return {ok: false, error: 'La conexión no existe.'};
+  return {ok: true, grafo: {...grafo, transiciones: grafo.transiciones.map(t => {
+    if (t.id !== id) return t;
+    const siguiente: Transicion = {...t, ...cambio};
+    const coste = Object.fromEntries(Object.entries(siguiente.coste || {}).filter(([, v]) => typeof v === 'number' && v > 0));
+    if (Object.keys(coste).length) siguiente.coste = coste; else delete siguiente.coste;
+    return siguiente;
+  })}};
+}
+/** Celda de cada forma en el lienzo: columna = pasos desde la realidad; las que no
+ * se alcanzan van a una columna final. Ninguna celda se repite. */
+export function disposicion(grafo: Grafo): Record<string, {columna: number; fila: number}> {
+  const realidad = grafo.formas.find(f => f.es_realidad)?.id;
+  const nivel = new Map<string, number>();
+  if (realidad) {
+    nivel.set(realidad, 0);
+    const cola = [realidad];
+    while (cola.length) {
+      const actual = cola.shift()!;
+      for (const s of salidas(grafo, actual)) if (!nivel.has(s)) { nivel.set(s, nivel.get(actual)! + 1); cola.push(s); }
+    }
+  }
+  const ultima = Math.max(0, ...nivel.values()) + 1;
+  const filas = new Map<number, number>(), celdas: Record<string, {columna: number; fila: number}> = {};
+  for (const f of grafo.formas) {
+    const columna = nivel.get(f.id) ?? ultima, fila = filas.get(columna) ?? 0;
+    filas.set(columna, fila + 1);
+    celdas[f.id] = {columna, fila};
+  }
+  return celdas;
+}
