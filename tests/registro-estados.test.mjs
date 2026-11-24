@@ -77,3 +77,21 @@ test('no modifica las reglas e ignora datos dañados', () => {
   assert.deepEqual([...lista.map(e=>e.id)], ['veneno']);
   assert.equal(JSON.stringify(reglas), copia);
 });
+
+const {opcionesSelector}=cargarDependencia('registro-estados');
+test('añade la clave huérfana como Sin registrar', () => {
+  const o=opcionesSelector([{id:'furia',nombre:'Furia'}], 'veneno');
+  assert.ok(o.some(x=>x.valor==='veneno'&&x.huerfano===true&&x.nombre==='Sin registrar'));
+});
+test('sin valor no añade huérfanos', () => {
+  assert.equal(opcionesSelector([{id:'furia',nombre:'Furia'}], undefined).length, 1);
+});
+test('un valor registrado no se duplica y conserva su nombre', () => {
+  const o=opcionesSelector([{id:'furia',nombre:'Rabia'}], 'furia');
+  assert.equal(o.length,1);
+  assert.equal(o[0].nombre,'Rabia');
+  assert.equal(o[0].huerfano,false);
+});
+test('valor vacío no añade huérfanos', () => {
+  assert.equal(opcionesSelector([], '').length, 0);
+});

@@ -90,3 +90,11 @@ export function registrarClavesExistentes(lista:RegistroEstado[],reglas:unknown[
  }
  return out;
 }
+
+export type OpcionEstado={valor:string;nombre:string;huerfano:boolean};
+/** Opciones del registro; si `valor` no está registrado se añade como «Sin registrar» para que el nodo lo siga mostrando. */
+export function opcionesSelector(lista:RegistroEstado[],valor:string|undefined):OpcionEstado[]{
+ const out:OpcionEstado[]=lista.map(e=>({valor:e.id,nombre:e.nombre,huerfano:false}));
+ if(valor&&!buscarEstado(lista,valor))out.push({valor,nombre:'Sin registrar',huerfano:true});
+ return out;
+}
