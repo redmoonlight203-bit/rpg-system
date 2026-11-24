@@ -108,3 +108,12 @@ test('conectar al revés una transición de un solo sentido la convierte en camb
   assert.equal(r.grafo.transiciones[0].coste.ph,2);
   assert.equal(r.id,'1');
 });
+
+test('quitar un eslabón de una cadena une el anterior con el siguiente', () => {
+  const f=(id,extra={})=>({id,nombre:id,estadisticas:{},poderes:[],...extra});
+  const g={formas:[f('r',{es_realidad:true}),f('a'),f('b'),f('c')],transiciones:[
+    {id:'1',desde:'r',hasta:'a',sentido:'uno'},{id:'2',desde:'a',hasta:'b',sentido:'uno'},{id:'3',desde:'b',hasta:'c',sentido:'uno'}]};
+  const r=quitarForma(g,'b');
+  assert.deepEqual(r.grafo.transiciones.map(t=>`${t.desde}>${t.hasta}:${t.sentido}`),['r>a:uno','a>c:uno']);
+  assert.equal(validarGrafo(r.grafo),null);
+});

@@ -141,3 +141,56 @@ test('el GM puede devolver a la realidad una forma que toma el control', () => {
  assert.equal(actor(b).transformacion,null);
  assert.equal(c.estadisticas(actor(b)).armadura,6);
 });
+
+// Revisión final · I1: la vida de cada forma se conserva durante el encuentro.
+function campoForma(extra={}){
+ const def={id:'sangre',nombre:'Sangre',tipo:'forma',etapas:[{id:'dragon',nombre:'Dragón',stats:{vida:100}},{id:'humano',nombre:'Humano',stats:{vida:20}}],
+  transiciones:[{id:'a',desde:'_realidad',hasta:'dragon',sentido:'ambos'},{id:'b',desde:'dragon',hasta:'humano',sentido:'ambos'}]};
+ const t={...cambiar,coste_ph:3,transformacion:def,...extra};
+ let b=c.nuevoCombate();
+ b=c.agregar(b,{id:'a',nombre:'Vyr',forja_id:null,posicion:{x:1,y:1},stats:{vida:30,ph:20,fatiga:10},
+  configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre:'S',stats:extra.enfriamiento?{enfriamiento:extra.enfriamiento}:{},efectos:[t]}]}},'jugador',()=>20);
+ b=c.agregar(b,{id:'e',nombre:'E',forja_id:null,posicion:{x:8,y:6},stats:{vida:25,ph:0,fatiga:3},configuracion:{tipo_creacion:'personaje'}},'enemigo',()=>1);
+ b.regla='directo'; return c.iniciar(b,()=>1);
+}
+test('cambiar de forma y volver conserva la vida que le quedaba a cada forma', () => {
+ let b=campoForma();
+ b=c.actuar(b,'a','hab:h:cambiar>dragon','a',()=>20);
+ assert.equal(actor(b).vida,100);
+ actor(b).vida=40;
+ b=turno(b); b=c.actuar(b,'a','hab:h:cambiar>humano','a',()=>20);
+ assert.equal(actor(b).vida,20);
+ b=turno(b); b=c.actuar(b,'a','hab:h:cambiar>dragon','a',()=>20);
+ assert.equal(actor(b).vida,40,'el dragón vuelve con la vida que tenía');
+ b=turno(b); b=c.actuar(b,'a','volver_forma','a',()=>20);
+ assert.equal(actor(b).vida,30);
+ b=turno(b); b=c.actuar(b,'a','hab:h:cambiar>dragon','a',()=>20);
+ assert.equal(actor(b).vida,40,'salir a la realidad no rellena la forma');
+});
+test('una forma rota no se puede volver a usar en el encuentro', () => {
+ const def={id:'sangre',nombre:'Sangre',tipo:'forma',etapas:[{id:'dragon',nombre:'Dragón',stats:{vida:100}}],
+  transiciones:[{id:'a',desde:'_realidad',hasta:'dragon',sentido:'ambos'}]};
+ const golpe=ataque('golpe','Golpe',{cantidad:10,caras:6,modificador:100});
+ let b=c.nuevoCombate();
+ b=c.agregar(b,{id:'a',nombre:'Vyr',forja_id:null,posicion:{x:1,y:1},stats:{vida:30,ph:20,fatiga:10},
+  configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre:'S',stats:{},efectos:[{...cambiar,transformacion:def}]}]}},'jugador',()=>20);
+ b=c.agregar(b,{id:'e',nombre:'E',forja_id:null,posicion:{x:2,y:1},stats:{vida:25,ph:0,fatiga:3},
+  configuracion:{tipo_creacion:'personaje',habilidades:[{id:'g',nombre:'G',stats:{},efectos:[golpe]}]}},'enemigo',()=>1);
+ b.regla='directo'; b=c.iniciar(b,()=>1);
+ b=c.actuar(b,'a','hab:h:cambiar>dragon','a',()=>20);
+ b=c.siguiente(b,()=>20);
+ b=c.actuar(b,'e','hab:g:golpe','a',()=>20,true);
+ assert.equal(actor(b).transformacion,null,'la forma se rompe');
+ assert.equal(actor(b).vida,30);
+ b=c.siguiente(b,()=>20);
+ const opcion=c.acciones(actor(b)).find(a=>a.id==='hab:h:cambiar>dragon');
+ assert.match(opcion.bloqueada||'',/rota/i);
+ assert.throws(()=>c.actuar(b,'a','hab:h:cambiar>dragon','a',()=>20),/rota/i);
+});
+// Revisión final · M2: el enfriamiento es de la acción, no de cada destino.
+test('el enfriamiento de la transformación vale para todos los destinos', () => {
+ let b=campoForma({enfriamiento:3});
+ b=c.actuar(b,'a','hab:h:cambiar>dragon','a',()=>20);
+ b=turno(b);
+ assert.throws(()=>c.actuar(b,'a','hab:h:cambiar>humano','a',()=>20),/enfriamiento/i);
+});

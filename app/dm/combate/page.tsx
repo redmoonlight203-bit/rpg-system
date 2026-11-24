@@ -55,6 +55,7 @@ import {
   dadoSeguro,
   elementoDe,
   finalizar,
+  volverALaRealidadGM,
   descansar,
   configurarParticipante, configurarHuellaParticipante,
   usarObjeto,
@@ -1006,6 +1007,17 @@ export default function CampoCombate() {
         >
           Deshacer última operación
         </button>
+        {c.fase === "en_curso" && c.miembros.filter(m => m.transformacion?.descontrolada).map(m => (
+          <button
+            key={`realidad-${m.id}`}
+            className="battle-button"
+            disabled={bloqueado}
+            title="Solo el GM puede devolver a su forma base a un personaje que ha perdido el control."
+            onClick={() => void ejecutar(() => guardar(volverALaRealidadGM(c, m.id)))}
+          >
+            Devolver a {m.nombre} a su forma base
+          </button>
+        ))}
         {c.fase === "en_curso" && (
           <button
             className="battle-button"

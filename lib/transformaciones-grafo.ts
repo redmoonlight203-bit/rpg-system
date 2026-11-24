@@ -131,7 +131,16 @@ export function quitarForma(grafo: Grafo, id: string): Resultado<object> {
   const forma = grafo.formas.find(f => f.id === id);
   if (!forma) return {ok: false, error: 'La forma no existe.'};
   if (forma.es_realidad) return {ok: false, error: 'La forma base no se puede quitar: siempre hay vuelta a la realidad.'};
-  return {ok: true, grafo: {formas: grafo.formas.filter(f => f.id !== id), transiciones: grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id)}};
+  const transiciones = grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id);
+  // Un eslabón de cadena (una entrada y una salida «uno») se quita cerrando el hueco.
+  const entradas = grafo.transiciones.filter(t => t.hasta === id || (t.sentido === 'ambos' && t.desde === id));
+  const salen = grafo.transiciones.filter(t => t.desde === id || (t.sentido === 'ambos' && t.hasta === id));
+  if (entradas.length === 1 && salen.length === 1 && entradas[0].sentido === 'uno' && salen[0].sentido === 'uno') {
+    const desde = entradas[0].desde, hasta = salen[0].hasta;
+    if (desde !== hasta && !transiciones.some(t => t.desde === desde && t.hasta === hasta))
+      transiciones.push({id: idLibre(transiciones.map(t => t.id), `${desde}__${hasta}`), desde, hasta, sentido: 'uno'});
+  }
+  return {ok: true, grafo: {formas: grafo.formas.filter(f => f.id !== id), transiciones}};
 }
 export function quitarTransicion(grafo: Grafo, id: string): Resultado<object> {
   if (!grafo.transiciones.some(t => t.id === id)) return {ok: false, error: 'La conexión no existe.'};

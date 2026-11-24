@@ -375,7 +375,16 @@ function quitarForma(grafo, id) {
         return { ok: false, error: 'La forma no existe.' };
     if (forma.es_realidad)
         return { ok: false, error: 'La forma base no se puede quitar: siempre hay vuelta a la realidad.' };
-    return { ok: true, grafo: { formas: grafo.formas.filter(f => f.id !== id), transiciones: grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id) } };
+    const transiciones = grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id);
+    // Un eslabón de cadena (una entrada y una salida «uno») se quita cerrando el hueco.
+    const entradas = grafo.transiciones.filter(t => t.hasta === id || (t.sentido === 'ambos' && t.desde === id));
+    const salen = grafo.transiciones.filter(t => t.desde === id || (t.sentido === 'ambos' && t.hasta === id));
+    if (entradas.length === 1 && salen.length === 1 && entradas[0].sentido === 'uno' && salen[0].sentido === 'uno') {
+        const desde = entradas[0].desde, hasta = salen[0].hasta;
+        if (desde !== hasta && !transiciones.some(t => t.desde === desde && t.hasta === hasta))
+            transiciones.push({ id: idLibre(transiciones.map(t => t.id), `${desde}__${hasta}`), desde, hasta, sentido: 'uno' });
+    }
+    return { ok: true, grafo: { formas: grafo.formas.filter(f => f.id !== id), transiciones } };
 }
 function quitarTransicion(grafo, id) {
     if (!grafo.transiciones.some(t => t.id === id))
@@ -552,7 +561,16 @@ function quitarForma(grafo, id) {
         return { ok: false, error: 'La forma no existe.' };
     if (forma.es_realidad)
         return { ok: false, error: 'La forma base no se puede quitar: siempre hay vuelta a la realidad.' };
-    return { ok: true, grafo: { formas: grafo.formas.filter(f => f.id !== id), transiciones: grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id) } };
+    const transiciones = grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id);
+    // Un eslabón de cadena (una entrada y una salida «uno») se quita cerrando el hueco.
+    const entradas = grafo.transiciones.filter(t => t.hasta === id || (t.sentido === 'ambos' && t.desde === id));
+    const salen = grafo.transiciones.filter(t => t.desde === id || (t.sentido === 'ambos' && t.hasta === id));
+    if (entradas.length === 1 && salen.length === 1 && entradas[0].sentido === 'uno' && salen[0].sentido === 'uno') {
+        const desde = entradas[0].desde, hasta = salen[0].hasta;
+        if (desde !== hasta && !transiciones.some(t => t.desde === desde && t.hasta === hasta))
+            transiciones.push({ id: idLibre(transiciones.map(t => t.id), `${desde}__${hasta}`), desde, hasta, sentido: 'uno' });
+    }
+    return { ok: true, grafo: { formas: grafo.formas.filter(f => f.id !== id), transiciones } };
 }
 function quitarTransicion(grafo, id) {
     if (!grafo.transiciones.some(t => t.id === id))
@@ -2831,6 +2849,8 @@ function recibir(c, a, t, e, total, rs, rng) {
     }
     const perdido = Math.min(t.vida, Math.max(0, total));
     const resultadoDano = danarTransformado(t, perdido);
+    if (resultadoDano.forma_rota)
+        guardarVidaForma(t, 0);
     Object.assign(t, resultadoDano.actor);
     if (resultadoDano.forma_rota)
         log(c, `${t.nombre}: su forma se rompe y recupera su vida anterior.`);
@@ -3224,6 +3244,7 @@ function limpiarFinal(n) { n.miembros = n.miembros.filter(m => !m.invocacion); f
     if (m.transformacion)
         Object.assign(m, terminarTransformacion(m));
     m.transformaciones_usadas = [];
+    delete m.vidas_formas;
     emitirMotor(n, 'fin_combate', m, m, m, dadoSeguro);
     for (const d of recursosDe(m)) {
         if (d.recuperacion === 'vaciar')
@@ -3434,10 +3455,31 @@ function opcionesDeForma(m, a, d) {
         const f = g.formas.find(x => x.id === id), t = transicionEntre(g, desde, id);
         const ph = (activa ? 0 : a.efecto.coste_ph || 0) + Math.max(0, t?.coste?.ph || 0), fatiga = (activa ? 0 : a.efecto.coste_fatiga || 0) + Math.max(0, t?.coste?.fatiga || 0);
         const bloqueada = f.control ? 'Esta forma solo se manifiesta al perder el control.'
-            : !activa && t?.sentido === 'uno' && m.transformaciones_usadas?.includes(d.id) ? 'Ya utilizada en este encuentro.' : undefined;
+            : d.tipo === 'forma' && m.vidas_formas?.[claveVidaForma(d.id, id)] === 0 ? 'Forma rota: no puede volver a ella en este encuentro.'
+                : (m.cooldowns?.[a.id] || 0) > 0 ? 'Habilidad en enfriamiento.'
+                    : !activa && t?.sentido === 'uno' && m.transformaciones_usadas?.includes(d.id) ? 'Ya utilizada en este encuentro.' : undefined;
         return { ...a, id: `${a.id}>${id}`, nombre: activa ? `Cambiar a ${f.nombre}` : `${a.nombre} · ${f.nombre}`, forma_destino: id,
             efecto: { ...a.efecto, coste_ph: ph, coste_fatiga: fatiga }, ...(bloqueada ? { bloqueada } : {}) };
     });
+}
+const claveVidaForma = (defId, etapa) => `${defId}:${etapa}`;
+/** En una transformación por grafo de tipo forma, cada forma tiene su propia barra de vida
+ * durante el encuentro: al salir de ella se guarda lo que le quedaba (0 si se rompió). */
+function guardarVidaForma(m, vida = m.vida) {
+    const activa = m.transformacion;
+    if (!activa || activa.tipo !== 'forma' || !definicionEnCombate(m)?.transiciones?.length)
+        return;
+    m.vidas_formas = { ...m.vidas_formas, [claveVidaForma(activa.definicion_id, activa.etapa_id)]: Math.max(0, vida) };
+}
+/** Al entrar en una forma ya usada, recupera la vida que tenía; una forma nueva empieza llena. */
+function restaurarVidaForma(m, d, destino) {
+    const activa = m.transformacion;
+    if (!activa || activa.tipo !== 'forma')
+        return;
+    const guardada = m.vidas_formas?.[claveVidaForma(d.id, destino)];
+    const max = Math.max(1, Math.trunc(m.stats.vida ?? m.stats.hp ?? 1));
+    m.vida = guardada === undefined ? max : Math.min(max, guardada);
+    activa.vida_forma = m.vida;
 }
 /** Coste de volver a la realidad: solo el que marque una transición directa. */
 function costeVuelta(m) {
@@ -3456,6 +3498,7 @@ export function volverALaRealidadGM(c, actorId) {
             throw Error('El personaje no está en el combate.');
         if (!a.transformacion)
             throw Error('No hay transformación activa.');
+        guardarVidaForma(a);
         Object.assign(a, terminarTransformacion(a));
         normalizar(a);
         log(n, `El GM devuelve a ${a.nombre} a su cuerpo original.`);
@@ -3752,6 +3795,7 @@ function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, auton
             throw Error('Fatiga insuficiente para volver.');
         if (phDisponibles(a) < vuelta.ph)
             throw Error('PH insuficientes para volver.');
+        guardarVidaForma(a);
         Object.assign(a, terminarTransformacion(a));
         a.ph -= vuelta.ph;
         a.fatiga += vuelta.fatiga;
@@ -3791,7 +3835,8 @@ function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, auton
         throw Error('La voz del artefacto te lo niega.');
     if (!act)
         throw Error("La acción no existe.");
-    if (!continua && (a.cooldowns[act.id] || 0) > 0)
+    // Las opciones de una transformación por grafo («accion>forma») comparten el enfriamiento de su acción.
+    if (!continua && (a.cooldowns[act.id.split(">")[0]] || 0) > 0)
         throw Error("Habilidad en enfriamiento.");
     if (act.efecto.efecto === "transformacion") {
         const d = act.efecto.transformacion;
@@ -3806,10 +3851,15 @@ function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, auton
             if (phDisponibles(a) < ph)
                 throw Error("PH insuficientes.");
             const nombre = d.etapas.find(x => x.id === destino)?.nombre || destino;
+            if (d.tipo === 'forma' && a.vidas_formas?.[claveVidaForma(d.id, destino)] === 0)
+                throw Error('Forma rota: no puede volver a ella en este encuentro.');
             if (a.transformacion) {
+                const vidaSaliente = a.vida, origen = a.transformacion.etapa_id;
                 const cambio = cambiarEtapaTransformacion(a, d, destino);
                 if (!aplicarFormaConEspacio(n, a, { ...cambio, ph: cambio.ph - ph }, rng))
                     throw Error('No hay espacio para esa transformación.');
+                a.vidas_formas = { ...a.vidas_formas, ...(d.tipo === 'forma' ? { [claveVidaForma(d.id, origen)]: vidaSaliente } : {}) };
+                restaurarVidaForma(a, d, destino);
                 log(n, `${a.nombre} cambia a ${nombre}.`);
             }
             else {
@@ -3817,6 +3867,7 @@ function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, auton
                 const libre = { ...a, transformaciones_usadas: (a.transformaciones_usadas || []).filter(x => x !== d.id) };
                 if (!aplicarFormaConEspacio(n, a, activarTransformacion(libre, { ...d, coste_ph: ph, duracion_turnos: act.efecto.duracion || d.duracion_turnos }, destino), rng))
                     throw Error('No hay espacio para esa transformación.');
+                restaurarVidaForma(a, d, destino);
                 log(n, `${a.nombre} activa ${d.nombre}: ${nombre}.`);
             }
             a.fatiga += fatiga;
@@ -3860,7 +3911,7 @@ function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, auton
         if (a.transformacion && !a.transformacion.etapa_id)
             throw Error('Etapa inválida.');
         if (act.enfriamiento)
-            a.cooldowns[act.id] = act.enfriamiento + 1;
+            a.cooldowns[act.id.split(">")[0]] = act.enfriamiento + 1;
         a.accion_usada = true;
         normalizar(a);
         return n;
