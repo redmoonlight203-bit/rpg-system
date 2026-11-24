@@ -16,7 +16,7 @@ function tablero(){
   return exports;
  };
  let huellasTablero;
- const require=nombre=>nombre==='react'?react:nombre==='react/jsx-runtime'?{jsx,jsxs:jsx}:nombre==='../lib/movimiento-visual'?cargarDependencia('movimiento-visual'):nombre==='../lib/huellas-combate'?cargarDependencia('huellas-combate'):nombre==='./huellas-tablero'?(huellasTablero??=cargarComponente('huellas-tablero.ts')):nombre==='./CapaOcular'?{casillasDebiles:()=>new Map(),estiloOcular:()=>undefined,lineaOcular:()=>null,HudOcular:()=>null,MarcasOculares:()=>null,PanelOcular:()=>null}:nombre==='../lib/combate'?{...motor,alcanceDesdeFicha:(...a)=>{cuentas.alcance++;return motor.alcanceDesdeFicha(...a);},areaDesdeFicha:(...a)=>{cuentas.area++;return motor.areaDesdeFicha(...a);}}:nombre==='../lib/combate-interfaz'?cargarDependencia('combate-interfaz'):nombre==='../lib/precarga-vfx'?{precargarVFX:()=>{}}:nombre==='../lib/descripciones'?{describirEfecto:()=>({resumen:'',detalles:[]}),describirRegla:()=>({resumen:'',detalles:[]})}:nombre==='lucide-react'?new Proxy({},{get:(_,k)=>k}):()=>null;
+ const require=nombre=>nombre==='react'?react:nombre==='react/jsx-runtime'?{jsx,jsxs:jsx}:nombre==='../lib/patron-area'?cargarDependencia('patron-area'):nombre==='../lib/movimiento-visual'?cargarDependencia('movimiento-visual'):nombre==='../lib/huellas-combate'?cargarDependencia('huellas-combate'):nombre==='./huellas-tablero'?(huellasTablero??=cargarComponente('huellas-tablero.ts')):nombre==='./CapaOcular'?{casillasDebiles:()=>new Map(),estiloOcular:()=>undefined,lineaOcular:()=>null,HudOcular:()=>null,MarcasOculares:()=>null,PanelOcular:()=>null}:nombre==='../lib/combate'?{...motor,alcanceDesdeFicha:(...a)=>{cuentas.alcance++;return motor.alcanceDesdeFicha(...a);},areaDesdeFicha:(...a)=>{cuentas.area++;return motor.areaDesdeFicha(...a);}}:nombre==='../lib/combate-interfaz'?cargarDependencia('combate-interfaz'):nombre==='../lib/precarga-vfx'?{precargarVFX:()=>{}}:nombre==='../lib/descripciones'?{describirEfecto:()=>({resumen:'',detalles:[]}),describirRegla:()=>({resumen:'',detalles:[]})}:nombre==='lucide-react'?new Proxy({},{get:(_,k)=>k}):()=>null;
  cargarComponente('TableroCombate.tsx',exports);
  return {cuentas,render:props=>{cursor=0;const vista=exports.TableroCombate(props);efectos.splice(0).forEach(fn=>fn());return vista;}};
 }
@@ -104,4 +104,25 @@ test('un área que toca solo el borde de una huella cuenta un único objetivo',(
  const h=tablero(),p={...base(),centro:{x:4,y:2},fichas:[ficha('a',1),{...ficha('b',3),huella:{ancho:2,alto:2}}]};
  const v=h.render({...p,habilidad:{...p.habilidad,tablero:{...p.habilidad.tablero,forma:'individual',tamano:0}}});
  assert.ok(nodos(v).some(n=>typeof n.props?.children==='string'&&n.props.children.includes('1 objetivos: b')));
+});
+
+test('patrón: al mover el cursor sobrepasa la dirección anterior y el clic confirma la V mostrada',()=>{
+ const h=tablero(),hechas=[],apuntes=[],vision={x:9,y:1};
+ const patron={orientacion:'apuntar',casillas:[{x:0,y:0},{x:1,y:-1},{x:1,y:1},{x:2,y:-2},{x:2,y:2}]};
+ const p={...base(),fichas:[{...ficha('a',4),posicion:{x:4,y:4}},ficha('b',3)],columnas:12,filas:9,
+  centro:vision,puedeEjecutar:true,onApuntar:(centro,id)=>apuntes.push({centro,id}),onEjecutar:x=>hechas.push(x),
+  habilidad:{id:'v',nombre:'V',efecto:'dano',tablero:{forma:'personalizada',tamano:0,alcance:0,patron,origen_area:'lanzador',afecta:'enemigos',afecta_lanzador:false}}};
+ const botones=v=>nodos(v).filter(n=>n.type==='button'&&n.props.className?.startsWith('tactical-cell'));
+ const celdas=(v)=>botones(v).filter(n=>n.props.className.includes('spell-area')).map(n=>n.key).sort();
+ let v=h.render(p);h.render(p);
+ const alSureste={x:8,y:8};
+ const pulsada=()=>botones(v).find(n=>n.key==='8,8');
+ pulsada().props.onMouseEnter();v=h.render(p);
+ const area=Array.from(motor.areaDesde({x:4,y:4},alSureste,p.habilidad.tablero,p),q=>q.x+','+q.y).sort();
+ assert.deepEqual(celdas(v),area);
+ assert.ok(!pulsada().props.className.includes('spell-area'));
+ pulsada().props.onClick();
+ assert.equal(hechas.length,1);assert.equal(apuntes.length,1);
+ assert.deepEqual(JSON.parse(JSON.stringify(hechas[0])),{centro:alSureste});
+ assert.equal(apuntes[0].id,undefined);
 });

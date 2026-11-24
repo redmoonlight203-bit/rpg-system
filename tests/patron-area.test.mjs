@@ -3,7 +3,10 @@ import {readFile} from 'node:fs/promises';
 import {test} from 'node:test';
 import {PGlite} from '@electric-sql/pglite';
 import * as c from '../supabase/functions/equipo-combate/motor.js';
+import {cargarDependencia} from './helpers/cargar-ts.mjs';
+const {direccionVistaPatron,patronEnV,patronDesde,trazoPatron,DIRECCIONES_PATRON}=cargarDependencia('patron-area');
 
+const clonar=v=>JSON.parse(JSON.stringify(v));
 const p=(x,y)=>({x,y}),dims={columnas:8,filas:8},mapa=celdas=>({id:'prueba',nombre:'Prueba',version:1,...dims,celdas});
 const tablero=(casillas,orientacion='fija')=>({forma:'personalizada',tamano:0,alcance:0,afecta:'enemigos',afecta_lanzador:false,origen_area:'lanzador',patron:{orientacion,casillas}});
 const golpe=t=>({id:'golpe',nombre:'Patrón',efecto:'dano',cantidad:0,caras:6,modificador:5,tipo_dano:'fisico',estado:'',duracion:0,coste_ph:2,coste_fatiga:0,tablero:t});
@@ -21,6 +24,47 @@ test('el patrón conserva huecos, se recorta en el borde y rota desde el ancla, 
  assert.deepEqual(c.areaDesde(origen,p(0,3),t,dims),[p(2,3),p(0,4)]);
  assert.deepEqual(c.areaDesde(origen,p(3,0),t,dims),[p(3,2),p(2,0)]);
  assert.deepEqual(c.areaDesde(p(6,3),p(7,3),t,dims),[p(7,3)]);
+});
+
+test('la V sigue el cursor en ocho direcciones sin mover su vértice; el clic anterior no congela la vista',()=>{
+ const origen=p(10,10),d={columnas:21,filas:21};
+ const patron={orientacion:'apuntar',casillas:patronEnV()};
+ const formas=DIRECCIONES_PATRON.map(({x,y})=>{
+  const cursor=p(10+5*x,10+5*y),extremo=p(10+x,10+y);
+  const vista=patronDesde(patron,origen,direccionVistaPatron(origen,cursor,p(1,10)),d);
+  assert.deepEqual(vista,patronDesde(patron,origen,extremo,d));
+  assert.deepEqual(clonar(vista[0]),origen);
+  assert.equal(vista.length,7);
+  return JSON.stringify(vista);
+ });
+ assert.equal(new Set(formas).size,8);
+ assert.equal(direccionVistaPatron(origen,origen,p(1,10)),null);
+ assert.deepEqual(direccionVistaPatron(origen,null,p(1,10)),p(1,10));
+ assert.deepEqual(clonar(trazoPatron(p(-3,-3),p(0,0))),[p(-3,-3),p(-2,-2),p(-1,-1),p(0,0)]);
+ assert.deepEqual(clonar(trazoPatron(p(0,0),p(0,0))),[p(0,0)]);
+});
+
+test('girar el tablero completo conserva cada casilla y su distancia',()=>{
+ const d={columnas:13,filas:13},origen=p(6,6);
+ const casillas=Array.from({length:169},(_,i)=>p(i%13-6,Math.floor(i/13)-6));
+ for(const {x,y} of DIRECCIONES_PATRON){
+  const área=patronDesde({orientacion:'apuntar',casillas},origen,p(6+x,6+y),d);
+  assert.equal(área.length,casillas.length);
+  área.forEach((q,i)=>assert.equal(Math.max(Math.abs(q.x-6),Math.abs(q.y-6)),Math.max(Math.abs(casillas[i].x),Math.abs(casillas[i].y))));
+ }
+});
+
+test('V diagonal: las celdas previsualizadas son exactamente las que reciben el golpe, no el hueco ni el clic',()=>{
+ const t=tablero(patronEnV(),'apuntar');
+ const b=preparar(golpe(t),[[ficha('este',p(4,2))],[ficha('sur',p(2,4))],[ficha('hueco',p(4,4))],[ficha('puntero',p(6,6))]]);
+ const cursor=p(6,6);
+ const vista=clonar(patronDesde(t.patron,p(2,2),cursor,dims));
+ assert.deepEqual(vista,[p(2,2),p(3,2),p(2,3),p(4,2),p(2,4),p(5,2),p(2,5)]);
+ // Se resuelven dos víctimas en las ramas de la V aunque la casilla pulsada sea otra.
+ const n=ejecutar(b,cursor);
+ for(const id of ['este','sur'])assert.equal(vida(n,id),35);
+ for(const id of ['a','hueco','puntero'])assert.equal(vida(n,id),40);
+ assert.deepEqual(n.evento_visual.area,vista);
 });
 
 test('hit real solo en celdas pintadas: un gigante recibe un golpe aunque coincidan dos casillas, y un aliado no recibe daño',()=>{

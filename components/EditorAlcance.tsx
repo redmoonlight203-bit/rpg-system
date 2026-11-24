@@ -15,7 +15,7 @@ export default function EditorAlcance({efecto:e,onChange}:{efecto:Efecto;onChang
   if(!t||forma===t.forma)return;
   const controles:Partial<AlcanceHabilidad>=t.forma==='personalizada'?{patron:undefined,origen_area:'objetivo',alcance:6}:{};
   if(forma==='personalizada'){
-   patch({forma,tamano:0,alcance:0,origen_area:'lanzador',movimiento_lanzador:undefined,patron:{orientacion:'fija',casillas:[{x:1,y:0}]},afecta_lanzador:false});
+   patch({forma,tamano:0,alcance:0,origen_area:'lanzador',movimiento_lanzador:undefined,patron:{orientacion:'apuntar',casillas:[]},afecta_lanzador:false});
   }else{
    patch({...controles,forma,tamano:forma==='individual'?0:forma==='cuadrado'?3:2});
   }
