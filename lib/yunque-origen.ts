@@ -27,7 +27,7 @@ export function leerOrigen(x:unknown):OrigenPlantilla|null{
  if(typeof plantilla!=='string'||!RE_PLANTILLA.test(plantilla))return null;
  if(typeof fragmento!=='string'||fragmento.length<1||fragmento.length>120)return null;
  if(typeof version!=='number'||!Number.isInteger(version)||version<1||version>100000)return null;
- if(!Array.isArray(editados)||editados.length>64||!editados.every(claveValida)||new Set(editados).size!==editados.length)return null;
+ if(!Array.isArray(editados)||editados.length>128||!editados.every(claveValida)||new Set(editados).size!==editados.length)return null;
  return {plantilla,fragmento,version,editados:[...editados]};
 }
 
@@ -53,6 +53,8 @@ function nuevasClaves(antes:Fragmento,despues:Fragmento,origen:OrigenPlantilla):
  */
 export function anotarEditados(antes:Borrador,despues:Borrador,ruta?:Ruta):Borrador{
  const A=antes as unknown as Record<string,unknown>,D=despues as unknown as Record<string,unknown>;
+ // Un cambio dirigido fuera de las listas con origen (stats, nombre...) no puede marcar nada: evita comparar las tres listas en cada tecla.
+ if(ruta&&ruta.length&&!(LISTAS as readonly unknown[]).includes(ruta[0]))return despues;
  const lista=ruta&&ruta.length>=2&&typeof ruta[1]==='number'&&(LISTAS as readonly unknown[]).includes(ruta[0])?ruta[0] as Lista:null;
  const indice=lista?ruta![1] as number:-1;
  const cambios:Partial<Record<Lista,Map<number,Fragmento>>>={};
@@ -68,7 +70,7 @@ export function anotarEditados(antes:Borrador,despues:Borrador,ruta?:Ruta):Borra
    if(!esObjeto(previo))return;
    const nuevas=nuevasClaves(previo,frag,origen);
    if(!nuevas.length)return;
-   const editados=[...origen.editados,...nuevas].slice(0,64);
+   const editados=[...origen.editados,...nuevas].slice(0,128);
    (cambios[l]??=new Map()).set(i,{...frag,origen:{...origen,editados}});
   });
  }

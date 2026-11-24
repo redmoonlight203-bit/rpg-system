@@ -1744,6 +1744,11 @@ export function disparosRafaga(e) {
 export function accionDisponible(m) {
     return !m.accion_usada || (m.rafaga?.restantes || 0) > 0;
 }
+/** ¿Puede ejecutarse ahora una acción de este presupuesto? La principal sigue su regla de siempre; adicional y legendaria dependen de lo que quede de su propio presupuesto (antes o después de la principal). */
+export function accionUsableAhora(presupuesto, m, restante) {
+    const t = presupuesto || 'principal';
+    return t === 'principal' ? accionDisponible(m) : (restante?.[t] || 0) > 0;
+}
 /** Atributos que suman acciones al turno (sobre 1 principal, 0 adicionales y 0 legendarias). Varias fuentes se suman en `estadisticas`. */
 export const CLAVE_PRESUPUESTO = { principal: 'acciones_principal', adicional: 'acciones_adicional', legendaria: 'acciones_legendaria' };
 /** Fuente sintética con las acciones propias del personaje (`configuracion.acciones_personaje`). */
@@ -1756,6 +1761,10 @@ export function habilidadesDe(m) {
 export function presupuestoDeStats(s) {
     const extra = (t) => { const v = Math.floor(s[CLAVE_PRESUPUESTO[t]] || 0); return Number.isFinite(v) ? v : 0; };
     return { principal: Math.max(0, 1 + extra('principal')), adicional: Math.max(0, extra('adicional')), legendaria: Math.max(0, extra('legendaria')) };
+}
+/** Estimación para vistas que solo conocen las estadísticas (jugador): no sabe lo ya gastado en adicional/legendaria, y el motor rechaza lo que sobre. */
+export function presupuestoEstimado(stats, accion_usada) {
+    return { ...presupuestoDeStats(stats), principal: accion_usada ? 0 : 1 };
 }
 export function presupuestoDe(m) { return presupuestoDeStats(estadisticas(m)); }
 /** Se recarga sola: lo gastado solo cuenta en el turno propio (`m.turnos`) o la ronda (`c.ronda`) en que se anotó. */

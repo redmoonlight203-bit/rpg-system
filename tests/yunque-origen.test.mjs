@@ -71,3 +71,9 @@ test('anotarEditados no muta sus entradas',()=>{
  anotarEditados(antes,despues,['efectos',0,'cantidad']);
  assert.deepEqual(antes,a0);assert.deepEqual(despues,d0);
 });
+
+test('el límite de editados admite todas las claves de un Efecto (nunca se descartan marcas del GM)',()=>{
+ const claves=Array.from({length:128},(_,i)=>`k${i}`);
+ assert.equal(validarOrigen({...origen(),editados:claves}),null);
+ assert.equal(validarOrigen({...origen(),editados:[...claves,'extra']}),MENSAJE_ORIGEN);
+});

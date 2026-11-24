@@ -175,3 +175,26 @@ test('varias fuentes se suman',()=>{
  a.stats.acciones_legendaria=1;
  assert.deepEqual({...c.presupuestoDe(a)},{principal:1,adicional:1,legendaria:3});
 });
+
+test('accionUsableAhora: adicional y legendaria se habilitan por su propio presupuesto, antes o después de la principal',()=>{
+ const gastada={accion_usada:true},libre={accion_usada:false};
+ const resto={principal:0,adicional:1,legendaria:1};
+ assert.equal(c.accionUsableAhora('principal',gastada,resto),false,'la principal gastada sigue bloqueada');
+ assert.equal(c.accionUsableAhora(undefined,libre,{principal:1,adicional:0,legendaria:0}),true);
+ assert.equal(c.accionUsableAhora('principal',{accion_usada:true,rafaga:{restantes:2}},resto),true,'ráfaga a medias');
+ assert.equal(c.accionUsableAhora('adicional',gastada,resto),true,'adicional tras la principal');
+ assert.equal(c.accionUsableAhora('adicional',libre,resto),true,'adicional antes de la principal');
+ assert.equal(c.accionUsableAhora('legendaria',gastada,resto),true,'legendaria en el propio turno');
+ assert.equal(c.accionUsableAhora('adicional',libre,{principal:1,adicional:0,legendaria:0}),false);
+ assert.equal(c.accionUsableAhora('legendaria',libre,null),false);
+ assert.deepEqual({...c.presupuestoEstimado({acciones_adicional:1},true)},{principal:0,adicional:1,legendaria:0});
+});
+
+test('tras la principal el motor sigue admitiendo la adicional y la legendaria del turno, y la ayuda lo refleja',()=>{
+ let x=campo({stats:{acciones_adicional:1,acciones_legendaria:1},efectos:[golpe('ad',{presupuesto:'adicional'}),golpe('leg',{presupuesto:'legendaria'})]});
+ x=c.actuar(x,'a','ataque','b',dados);
+ const a=m(x,'a'),r=c.presupuestoRestante(x,a);
+ assert.equal(a.accion_usada,true);
+ for(const acc of c.acciones(a).filter(v=>v.id.startsWith('hab:')))assert.equal(c.accionUsableAhora(acc.presupuesto,a,r),true,acc.id);
+ assert.equal(c.accionUsableAhora('principal',a,r),false);
+});

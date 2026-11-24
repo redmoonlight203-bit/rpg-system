@@ -247,6 +247,11 @@ export function accionDisponible(m: { accion_usada: boolean; rafaga?: { restante
 }
 export type TipoPresupuesto='principal'|'adicional'|'legendaria';
 export type PresupuestoAcciones=Record<TipoPresupuesto,number>;
+/** ¿Puede ejecutarse ahora una acción de este presupuesto? La principal sigue su regla de siempre; adicional y legendaria dependen de lo que quede de su propio presupuesto (antes o después de la principal). */
+export function accionUsableAhora(presupuesto:TipoPresupuesto|undefined,m:{accion_usada:boolean;rafaga?:{restantes:number}},restante?:Partial<PresupuestoAcciones>|null):boolean{
+  const t=presupuesto||'principal';
+  return t==='principal'?accionDisponible(m):(restante?.[t]||0)>0;
+}
 /** Atributos que suman acciones al turno (sobre 1 principal, 0 adicionales y 0 legendarias). Varias fuentes se suman en `estadisticas`. */
 export const CLAVE_PRESUPUESTO:Record<TipoPresupuesto,string>={principal:'acciones_principal',adicional:'acciones_adicional',legendaria:'acciones_legendaria'};
 /** Fuente sintética con las acciones propias del personaje (`configuracion.acciones_personaje`). */
@@ -259,6 +264,10 @@ export function habilidadesDe(m:Combatiente):Fuente[]{
 export function presupuestoDeStats(s:Record<string,number>):PresupuestoAcciones{
   const extra=(t:TipoPresupuesto)=>{const v=Math.floor(s[CLAVE_PRESUPUESTO[t]]||0);return Number.isFinite(v)?v:0;};
   return {principal:Math.max(0,1+extra('principal')),adicional:Math.max(0,extra('adicional')),legendaria:Math.max(0,extra('legendaria'))};
+}
+/** Estimación para vistas que solo conocen las estadísticas (jugador): no sabe lo ya gastado en adicional/legendaria, y el motor rechaza lo que sobre. */
+export function presupuestoEstimado(stats:Record<string,number>,accion_usada:boolean):PresupuestoAcciones{
+  return {...presupuestoDeStats(stats),principal:accion_usada?0:1};
 }
 export function presupuestoDe(m:Combatiente):PresupuestoAcciones{return presupuestoDeStats(estadisticas(m));}
 /** Se recarga sola: lo gastado solo cuenta en el turno propio (`m.turnos`) o la ronda (`c.ronda`) en que se anotó. */

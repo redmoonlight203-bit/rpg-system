@@ -17,7 +17,7 @@ import {imagenCreacion} from '../lib/arte-creacion';
 import Dado3D from './Dado3D';
 import {describirEfecto,describirRegla} from '../lib/descripciones';
 import {HudOcular,MarcasOculares,PanelOcular,casillasDebiles,estiloOcular,lineaOcular} from './CapaOcular';
-import {alcanceVisibleEntreFichas,alcanceDesdeFicha,areaDesdeFicha, type VistaOcular, type MapaCombate,objetivoDelArea, type Accion, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
+import {alcanceVisibleEntreFichas,alcanceDesdeFicha,areaDesdeFicha, type VistaOcular, type MapaCombate,objetivoDelArea, type Accion, type PresupuestoAcciones, presupuestoEstimado, accionUsableAhora, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
 import type {Efecto} from '../lib/creacion';
 import type {TiradaVisual} from './AnimacionDados';
 import {BarraVital} from './ui/Juego';
@@ -272,7 +272,7 @@ function ArteRanura({src,respaldo}:{src?:string;respaldo:React.ReactNode}){
  return src ? <span className="tactical-slot-arte" aria-hidden="true"><FotoEncuadrada src={src} fallback={respaldo}/></span> : respaldo;
 }
 
-export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras,onLevantarse,inventario,consumibles=[],onConsumible,onSiguiente}:{actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;
+export function BarraCombate({restante,actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras,onLevantarse,inventario,consumibles=[],onConsumible,onSiguiente}:{/** Presupuesto que le queda este turno/ronda. Sin él (vista de jugador) se estima con sus estadísticas y el motor rechaza lo ya gastado. */restante?:PresupuestoAcciones;actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;
  /** Ejecuta la acción indicada (o la seleccionada). Las acciones propias se ejecutan desde la barra; las demás, con un clic en el tablero. */
  onResolver:(accionId?:string)=>void;onPasar:()=>void;onInventario:()=>void;objetivo?:string;puede:boolean;ocupado:boolean;moviendo:boolean;onMovimiento:()=>void;movimiento:number;forzar:boolean;onForzar:(v:boolean)=>void;dados?:TiradaVisual[];resultado?:string;extras?:React.ReactNode;onLevantarse?:()=>void;inventario?:{nombre:string;detalle:string;titulo?:string;oculto?:boolean};
  consumibles?:ConsumibleBarra[];onConsumible?:(id:string)=>void;
@@ -284,11 +284,13 @@ export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,on
  const motivoDe=(a?:Accion)=>a?.bloqueada||((a?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(a?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!a?.regla)?'Fatiga insuficiente.':a?.enfriamiento?`Espera ${a.enfriamiento} turnos`:a&&phReal<a.efecto.coste_ph?'PH insuficientes':'');
  const visibles=acciones.filter(a=>categoria==='axioma'?a.efecto.axioma:!a.efecto.axioma&&(categoria==='todas'||a.id!=='ataque'));
  const libre=puede&&!ocupado&&!actor.accion_usada;
+ const cupo=restante||(actor.stats?presupuestoEstimado(actor.stats,actor.accion_usada):undefined);
+ const usable=(a:Accion)=>puede&&!ocupado&&accionUsableAhora(a.presupuesto,actor,cupo);
  const rafaga=actor.rafaga&&actor.rafaga.restantes>0?actor.rafaga:undefined;
  // Ranuras numeradas (teclas 1–9): acciones, guardia y consumibles, en el orden en que se ven.
  type Ranura={id:string;tipo:'accion'|'guardia'|'consumible';propia:boolean;deshabilitada:boolean};
  const ranuras:Ranura[]=[
-  ...visibles.map(a=>({id:a.id,tipo:'accion' as const,propia:esAccionPropia(a.id,a.efecto),deshabilitada:rafaga?(!puede||!!ocupado||a.id!==rafaga.accion):!libre||a.enfriamiento>0||!!a.bloqueada||phReal<(a.efecto.coste_ph||0)})),
+  ...visibles.map(a=>({id:a.id,tipo:'accion' as const,propia:esAccionPropia(a.id,a.efecto),deshabilitada:rafaga?(!puede||!!ocupado||a.id!==rafaga.accion):!usable(a)||a.enfriamiento>0||!!a.bloqueada||phReal<(a.efecto.coste_ph||0)})),
   {id:'guardia',tipo:'guardia',propia:true,deshabilitada:!libre},
   ...consumibles.map(c=>({id:c.id,tipo:'consumible' as const,propia:true,deshabilitada:!libre||!onConsumible||!!c.enfriamiento||!!c.bloqueada||c.cantidad<1})),
  ];
@@ -329,7 +331,7 @@ export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,on
  const motivo=accionInfo?motivoDe(accionInfo):'';
  const propiaInfo=tipoInfo==='guardia'||tipoInfo==='consumible'||(!!accionInfo&&esAccionPropia(accionInfo.id,accionInfo.efecto));
  const enEspera=pendiente===clave&&!!pendiente;
- const pista=!puede?'Espera tu turno.':rafaga&&tipoInfo!=='mover'?`Ráfaga: ${rafaga.restantes} ${rafaga.restantes===1?'disparo':'disparos'} más. Elige objetivo (el mismo u otro) o muévete.`:actor.accion_usada&&tipoInfo!=='mover'?'Ya usaste tu acción este turno.':motivo?motivo:tipoInfo==='mover'?'Clic en una casilla verde para moverte.':propiaInfo?(enEspera?'Pulsa otra vez para ejecutar.':segundoClic?'Pulsa para previsualizar; otra vez para ejecutar.':'Clic en la ranura para ejecutar.'):accionInfo?(objetivo?`Objetivo: ${objetivo}. Clic sobre él en el tablero para ejecutar.`:'Clic sobre un objetivo en el tablero para ejecutar.'):'';
+ const pista=!puede?'Espera tu turno.':rafaga&&tipoInfo!=='mover'?`Ráfaga: ${rafaga.restantes} ${rafaga.restantes===1?'disparo':'disparos'} más. Elige objetivo (el mismo u otro) o muévete.`:tipoInfo!=='mover'&&(accionInfo?!usable(accionInfo):actor.accion_usada)?(accionInfo&&accionInfo.presupuesto!=='principal'?(accionInfo.presupuesto==='adicional'?'No te quedan acciones adicionales este turno.':'No te quedan acciones legendarias esta ronda.'):'Ya usaste tu acción este turno.'):motivo?motivo:tipoInfo==='mover'?'Clic en una casilla verde para moverte.':propiaInfo?(enEspera?'Pulsa otra vez para ejecutar.':segundoClic?'Pulsa para previsualizar; otra vez para ejecutar.':'Clic en la ranura para ejecutar.'):accionInfo?(objetivo?`Objetivo: ${objetivo}. Clic sobre él en el tablero para ejecutar.`:'Clic sobre un objetivo en el tablero para ejecutar.'):'';
  const titulo=tipoInfo==='mover'?'Mover':tipoInfo==='guardia'?(actor.guardia?.nombre||'Guardia'):consumibleInfo?.nombre||accionInfo?.nombre||'Elige una acción';
  const texto=tipoInfo==='mover'?`Te quedan ${movimiento} casillas. Moverte no consume tu acción.`:tipoInfo==='guardia'?(actor.guardia?.frase||'Te proteges y obtienes +2 ARM hasta tu siguiente turno.'):consumibleInfo?`${consumibleInfo.detalle||'Objeto consumible.'} Quedan ${consumibleInfo.cantidad}.${objetivo?` Se usa sobre ${objetivo}.`:' Se usa sobre ti.'}`:ayuda?.resumen||'Pasa el cursor por una ranura para ver qué hace. Teclas 1–9.';
  const numero=(id:string,tipo:string)=>{const i=ranuras.findIndex(r=>r.id===id&&r.tipo===tipo);return i>=0&&i<9?i+1:null;};
