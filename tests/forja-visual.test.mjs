@@ -31,10 +31,10 @@ test('las reglas se editan visualmente, mantienen el laboratorio y se reutilizan
  const html=render('components/EditorReglas.tsx','EditorReglas',{value,onChange:()=>{}});
  assert.match(html,/Recorrido de la regla/);assert.match(html,/Arrastrar reglas/);assert.match(html,/Abrir reglas guardadas/);assert.match(html,/type="file"/);assert.doesNotMatch(html,/Reglas JSON|Aplicar JSON|font-mono/);assert.match(html,/Laboratorio/);assert.equal(JSON.stringify(value),antes);
 });
-test('acciones y transformaciones muestran controles de orden y conservan su configuración',()=>{
+test('acciones muestran controles de orden, transformaciones su lienzo de formas, y conservan su configuración',()=>{
  const e={...creacion.nuevoEfecto(),nombre:'Etapas del alma',efecto:'transformacion',transformacion:{id:'t',nombre:'Etapas',tipo:'forma',etapas:[{id:'e1',nombre:'Primera',stats:{vida:20}},{id:'e2',nombre:'Segunda',stats:{vida:40}}]}};
  const antes=structuredClone(e),html=render('components/EditorDados.tsx','EditorDados',{value:[e],onChange:()=>{}});
- assert.match(html,/Arrastrar acciones 1/);assert.match(html,/Arrastrar etapas 2/);assert.match(html,/Subir etapas 2/);assert.match(html,/Primera/);assert.match(html,/Segunda/);assert.deepEqual(e,antes);
+ assert.match(html,/Arrastrar acciones 1/);assert.match(html,/data-lienzo-nodo="e2"/);assert.match(html,/Conectar desde Segunda/);assert.match(html,/Primera/);assert.match(html,/Segunda/);assert.deepEqual(e,antes);
 });
 test('la selección de creaciones admite tarjetas, arrastre y alternativas para tocar',()=>{
  const html=render('components/SelectorCreacionVisual.tsx','default',{nombre:'Equipo',items:[{id:'a',nombre:'Espada',clase:'C'},{id:'b',nombre:'Arco'}],value:['a'],onChange:()=>{}});
