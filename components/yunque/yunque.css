@@ -225,7 +225,7 @@
 .yq-taller .yq-costes label{display:grid;gap:4px}
 .yq-taller .yq-conmutador{display:inline-flex;align-items:center;gap:10px;font:13px var(--font-sans);color:var(--color-parchment);cursor:pointer;justify-self:start}
 .yq-taller .yq-conmutador input{position:absolute;opacity:0;pointer-events:none}
-.yq-taller .yq-conmutador>span{position:relative;width:34px;height:18px;border-radius:999px;border:1px solid var(--color-line-strong);background:var(--color-well);transition:background-color .2s ease}
+.yq-taller .yq-conmutador>span{position:relative;flex:none;width:34px;height:18px;border-radius:999px;border:1px solid var(--color-line-strong);background:var(--color-well);transition:background-color .2s ease}
 .yq-taller .yq-conmutador>span::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--color-text-muted);transition:transform .2s ease,background-color .2s ease}
 .yq-taller .yq-conmutador input:checked+span{background:color-mix(in srgb,var(--color-arcane) 35%,var(--color-well));border-color:var(--color-arcane)}
 .yq-taller .yq-conmutador input:checked+span::after{transform:translateX(16px);background:#e4dcff}
@@ -427,15 +427,15 @@
 
 /* ── Editores clásicos dentro de un nodo ── */
 .yq-taller .yq-legado{font:14px/1.45 var(--font-sans);color:var(--color-text)}
-.yq-taller .yq-legado section,.yq-taller .yq-legado details{border-color:var(--color-line)!important;background:transparent!important;padding:0!important;border:0!important}
-.yq-taller .yq-legado h3,.yq-taller .yq-legado h4,.yq-taller .yq-legado legend,.yq-taller .yq-legado summary{font:600 12px var(--font-display);letter-spacing:.14em;text-transform:uppercase;color:var(--color-gold-soft)}
-.yq-taller .yq-legado summary{cursor:pointer;padding:6px 0}
-.yq-taller .yq-legado label{display:block;font-size:13px;color:var(--color-parchment)}
-.yq-taller .yq-legado p,.yq-taller .yq-legado small{font-size:13px;color:var(--color-text-muted)}
-.yugen-page .yq-legado :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea){width:100%;margin-top:4px;padding:6px 9px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px var(--font-sans)}
-.yugen-page .yq-legado :is(input,select,textarea):focus{outline:none;border-color:var(--color-arcane);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-arcane) 22%,transparent)}
-.yq-taller .yq-legado input[type=checkbox]{accent-color:var(--color-arcane);margin-right:6px}
-.yq-taller .yq-legado button:not([aria-pressed]){padding:4px 10px;border:1px solid var(--color-line);background:var(--color-well);color:var(--color-parchment);font:13px var(--font-sans);cursor:pointer}
+.yq-taller .yq-legado section:where(:not(.yq-taller-anidado *)),.yq-taller .yq-legado details:where(:not(.yq-taller-anidado *)){border-color:var(--color-line)!important;background:transparent!important;padding:0!important;border:0!important}
+.yq-taller .yq-legado h3:where(:not(.yq-taller-anidado *)),.yq-taller .yq-legado h4:where(:not(.yq-taller-anidado *)),.yq-taller .yq-legado legend:where(:not(.yq-taller-anidado *)),.yq-taller .yq-legado summary:where(:not(.yq-taller-anidado *)){font:600 12px var(--font-display);letter-spacing:.14em;text-transform:uppercase;color:var(--color-gold-soft)}
+.yq-taller .yq-legado summary:where(:not(.yq-taller-anidado *)){cursor:pointer;padding:6px 0}
+.yq-taller .yq-legado label:where(:not(.yq-taller-anidado *)){display:block;font-size:13px;color:var(--color-parchment)}
+.yq-taller .yq-legado p:where(:not(.yq-taller-anidado *)),.yq-taller .yq-legado small:where(:not(.yq-taller-anidado *)){font-size:13px;color:var(--color-text-muted)}
+.yugen-page .yq-legado :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea):where(:not(.yq-taller-anidado *)){width:100%;margin-top:4px;padding:6px 9px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px var(--font-sans)}
+.yugen-page .yq-legado :is(input,select,textarea):focus:where(:not(.yq-taller-anidado *)){outline:none;border-color:var(--color-arcane);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-arcane) 22%,transparent)}
+.yq-taller .yq-legado input[type=checkbox]:where(:not(.yq-taller-anidado *)){accent-color:var(--color-arcane);margin-right:6px}
+.yq-taller .yq-legado button:not([aria-pressed]):where(:not(.yq-taller-anidado *)){padding:4px 10px;border:1px solid var(--color-line);background:var(--color-well);color:var(--color-parchment);font:13px var(--font-sans);cursor:pointer}
 .yq-taller .yq-legado .yunque-formas{display:flex;flex-wrap:wrap;gap:6px}
 .yq-taller .yq-legado .yunque-formas button{display:inline-flex;gap:6px;padding:5px 10px;border:1px solid var(--color-line);border-radius:999px;background:var(--color-well);color:var(--color-text);font:13px var(--font-sans);cursor:pointer}
 .yq-taller .yq-legado .yunque-formas button[aria-pressed=true]{border-color:var(--color-arcane);color:#e4dcff;background:color-mix(in srgb,var(--color-arcane) 20%,var(--color-well))}
@@ -570,7 +570,7 @@
 .yq-cajon .yq-ficha-alma.is-ligado{border-color:var(--color-arcane);color:#e4dcff;background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--color-arcane) 20%,transparent),transparent 70%),var(--color-well)}
 .yq-cajon .yq-conmutador{display:inline-flex;align-items:center;gap:10px;font:13px var(--font-sans);color:var(--color-parchment);cursor:pointer;justify-self:start}
 .yq-cajon .yq-conmutador input{position:absolute;opacity:0;pointer-events:none}
-.yq-cajon .yq-conmutador>span{position:relative;width:34px;height:18px;border-radius:999px;border:1px solid var(--color-line-strong);background:var(--color-well);transition:background-color .2s ease}
+.yq-cajon .yq-conmutador>span{position:relative;flex:none;width:34px;height:18px;border-radius:999px;border:1px solid var(--color-line-strong);background:var(--color-well);transition:background-color .2s ease}
 .yq-cajon .yq-conmutador>span::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--color-text-muted);transition:transform .2s ease}
 .yq-cajon .yq-conmutador input:checked+span{background:color-mix(in srgb,var(--color-arcane) 35%,var(--color-well));border-color:var(--color-arcane)}
 .yq-cajon .yq-conmutador input:checked+span::after{transform:translateX(16px);background:#e4dcff}
@@ -677,5 +677,6 @@
 
 /* Editores del yunque montados dentro de otro editor (la visión de cada etapa de una transformación): llevan .yq-taller
    solo para heredar los estilos de sus campos, no la rejilla de tres columnas ni el alto de pantalla del taller, que
-   encogía el bloque y hacía que su contenido se desbordara encima del resto de la etapa. */
+   encogía el bloque y hacía que su contenido se desbordara encima del resto de la etapa. Las reglas de .yq-legado
+   (etiquetas en bloque, botones, campos) tampoco entran: convertían cada interruptor en un trazo de 2 px bajo el texto. */
 .yq-taller.yq-taller-anidado,.forja-yunque .yq-taller .yq-taller.yq-taller-anidado{display:block;height:auto;min-height:0;border:0;background:transparent}
