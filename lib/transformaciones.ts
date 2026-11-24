@@ -48,6 +48,9 @@ export type DefinicionTransformacion = {
   etapas:EtapaTransformacion[];
   duracion_turnos?:number;
   coste_ph?:number;
+  /** Grafo de formas: cómo se pasa de una etapa a otra (`_realidad` es el cuerpo
+   * original). Sin transiciones, las etapas son una cadena lineal. */
+  transiciones?:import('./transformaciones-grafo').Transicion[];
   /** Posesión involuntaria comprobada al comienzo de cada turno con HP bajo. */
   posesion?:{umbral_pct:number;cd:number;etapa_id:string};
 };

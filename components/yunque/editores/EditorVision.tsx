@@ -1,7 +1,10 @@
 'use client';
-// Editor del módulo «Visión» del Yunque: cualquier ojo se compone combinando apariencia, activación,
-// mirada, revelación, puntos débiles, anticipación, amenazas y bonos. La vista previa se dibuja con los mismos datos
-// que verá el jugador en combate.
+// Editor del módulo «Visión» del Yunque, por nodos: el nodo del ojo se conecta con sus módulos (apariencia,
+// activación, mirada, revelación, puntos débiles → recompensa, defensa y bonos). Se elige un nodo para editarlo;
+// un módulo sin configurar aparece punteado y se activa conectándolo al ojo. La vista previa se dibuja con los
+// mismos datos que verá el jugador en combate. El modelo `Vision` no cambia.
+import {useState} from 'react';
+import LienzoNodos,{type CableLienzo,type NodoLienzo} from './LienzoNodos';
 import OjoVisual from '../../OjoVisual';
 import ImagenOjo from './ImagenOjo';
 import {Fichas,Interruptor,Rueda,Texto,type Opcion} from '../Controles';
@@ -22,6 +25,14 @@ const REVELAR:[keyof RevelarOcular,string,string][]=[
 const CARAS=[2,3,4,6,8,10,12,20];
 const limpio=<T extends object>(o:T):T=>Object.fromEntries(Object.entries(o).filter(([,v])=>v!==undefined&&v!==false&&!(typeof v==='object'&&v!==null&&!Array.isArray(v)&&!Object.keys(v).length))) as T;
 
+type Modulo='apariencia'|'activacion'|'mirada'|'revelar'|'puntos'|'recompensa'|'defensa'|'bonos';
+const MODULOS:{id:Modulo;titulo:string;icono:string}[]=[
+ {id:'apariencia',titulo:'Apariencia',icono:'ojo'},{id:'activacion',titulo:'Activación',icono:'rayo'},
+ {id:'mirada',titulo:'Mirada',icono:'ojo'},{id:'revelar',titulo:'Revelación',icono:'libro'},
+ {id:'puntos',titulo:'Puntos débiles',icono:'espada'},{id:'defensa',titulo:'Defensa y lectura',icono:'escudo'},{id:'bonos',titulo:'Bonos',icono:'pocion'},
+];
+const NOMBRE_MODO:Record<ModoVision,string>={abrir:'Se abre con la acción',con_accion:'Al usar la acción',permanente:'Siempre abierto'};
+
 /** `fase`: ojo de una etapa de transformación (siempre abierto mientras dure la etapa; sus bonos van en la etapa). */
 export default function EditorVision({vision:v,onChange,efecto,fase=false}:{vision:Vision;onChange:(v:Vision)=>void;efecto?:Efecto;fase?:boolean}){
  const set=(p:Partial<Vision>)=>onChange(limpio({...v,...p}) as Vision);
@@ -33,6 +44,34 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
  const premio=(p:Partial<RecompensaPunto>)=>pd&&set({puntos_debiles:{...pd,recompensa:limpio({...pd.recompensa,...p})}});
  const error=validarVision(v);
  const ayuda=(()=>{try{return describirVision(v);}catch{return null;}})();
+ const [modulo,setModulo]=useState<Modulo|'ojo'>('apariencia');
+ const presente:Record<Modulo,boolean>={apariencia:true,activacion:true,mirada:true,revelar:!!v.revelar&&Object.values(v.revelar).some(Boolean),
+  puntos:!!pd,recompensa:!!pd,defensa:!!v.anticipar||!!v.amenazas,bonos:!!v.bonos&&Object.keys(v.bonos).length>0};
+ const resumen:Partial<Record<Modulo,string>>={apariencia:PATRONES_OJO.find(p=>p.valor===v.apariencia.patron)?.nombre,activacion:NOMBRE_MODO[v.modo],
+  mirada:v.alcance?`${v.alcance} casillas`:'Todo el tablero',revelar:REVELAR.filter(([k])=>v.revelar?.[k]).map(([,n])=>n).join(', ')||undefined,
+  defensa:[v.anticipar&&`+${v.anticipar.armadura} ARM`,v.amenazas&&'amenazas'].filter(Boolean).join(' · ')||undefined,
+  bonos:v.bonos?`${Object.keys(v.bonos).length} bono${Object.keys(v.bonos).length===1?'':'s'}`:undefined,puntos:pd?`${pd.cantidad} dirección${pd.cantidad===1?'':'es'}`:undefined,
+  recompensa:pd?[pd.recompensa.ventaja&&'ventaja',pd.recompensa.critico&&'crítico',pd.recompensa.dano&&`+${pd.recompensa.dano} daño`].filter(Boolean).join(' · ')||'Sin premio':undefined};
+ const visibles=MODULOS.filter(m=>!(fase&&(m.id==='activacion'||m.id==='bonos')));
+ const filaPuntos=visibles.findIndex(m=>m.id==='puntos');
+ const nodos:NodoLienzo[]=[{id:'ojo',titulo:v.nombre||'Ojo',subtitulo:'Visión',icono:'ojo',tono:'oro',columna:0,fila:Math.floor((visibles.length-1)/2)},
+  ...visibles.map((m,fila)=>({id:m.id,titulo:m.titulo,icono:m.icono,columna:1,fila,fantasma:!presente[m.id],subtitulo:presente[m.id]?resumen[m.id]:'Sin conectar'})),
+  {id:'recompensa',titulo:'Recompensa',icono:'yugen',columna:2,fila:filaPuntos,fantasma:!pd,subtitulo:resumen.recompensa||'Sin conectar'}];
+ // El orden de los nodos sigue el de la pantalla: ojo, módulos, y la recompensa tras los puntos débiles.
+ nodos.splice(nodos.findIndex(n=>n.id==='puntos')+1,0,nodos.pop()!);
+ const cables:CableLienzo[]=[...visibles.map(m=>({id:`ojo-${m.id}`,desde:'ojo',hasta:m.id,sentido:'linea' as const,punteado:!presente[m.id]})),
+  {id:'puntos-recompensa',desde:'puntos',hasta:'recompensa',sentido:'linea',punteado:!pd}];
+ /** Conectar un módulo punteado al ojo lo activa con valores iniciales. */
+ const activar=(m:string)=>{
+  if(m==='revelar'&&!presente.revelar)set({revelar:{vida:true}});
+  if((m==='puntos'||m==='recompensa')&&!pd)set({puntos_debiles:{cantidad:1,cambia:'ronda',recompensa:{ventaja:true}}});
+  if(m==='defensa'&&!presente.defensa)set({amenazas:true});
+  if(m==='recompensa'||MODULOS.some(x=>x.id===m))setModulo(m as Modulo);
+ };
+ const desconectar=(m:Modulo)=><button type="button" className="ln-boton is-peligro" onClick={()=>{
+  if(m==='revelar')set({revelar:undefined});if(m==='puntos'||m==='recompensa')set({puntos_debiles:undefined});
+  if(m==='defensa')set({anticipar:undefined,amenazas:undefined});if(m==='bonos')set({bonos:undefined});setModulo('ojo');}}>Desconectar del ojo</button>;
+ const ver=(m:Modulo)=>modulo===m;
  return <div className="yq-editor yq-vision">
   <section className="yq-vision-cabecera">
    <OjoVisual apariencia={v.apariencia} nombre={v.nombre||'Ojo'} size={112}/>
@@ -45,12 +84,18 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
     </div>
    </div>
   </section>
+  <LienzoNodos etiqueta="Módulos del ojo" nodos={nodos} cables={cables} seleccionado={modulo} onSeleccionar={id=>setModulo(id as Modulo|'ojo')}
+   onConectar={(desde,hasta)=>{const a=desde==='ojo'?hasta:hasta==='ojo'?desde:desde==='puntos'?hasta:null;if(a)activar(a);}}
+   puedeConectar={id=>id==='ojo'||(id==='puntos'&&!!pd)}/>
+  {modulo==='ojo'&&<p className="yq-nota">Elige un módulo para configurarlo. Los punteados están sin conectar: arrastra el ◆ del ojo hasta ellos para activarlos.</p>}
+  {ver('apariencia')&&<>
   <Fichas etiqueta="Patrón del iris" opciones={PATRONES_OJO.map(p=>({valor:p.valor,nombre:p.nombre}))} valor={v.apariencia.patron} onChange={patron=>ap({patron})} columnas={4}/>
   <Fichas etiqueta="Velo sobre el tablero en tu turno" opciones={VELOS} valor={v.apariencia.velo} onChange={velo=>ap({velo})}/>
   <ImagenOjo valor={v.apariencia.imagen_url||''} ajuste={v.apariencia.imagen_ajuste}
    onChange={(imagen_url,imagen_ajuste)=>ap({imagen_url:imagen_url||undefined,imagen_ajuste})}/>
+  </>}
 
-  {fase?<p className="yq-nota">Este ojo se abre al entrar en la etapa y se cierra al salir de ella. Sus bonos de atributos se configuran en la propia etapa.</p>:<>
+  {ver('activacion')&&!fase&&(<>
   <Fichas etiqueta="Cómo se activa" opciones={MODOS} valor={v.modo} onChange={modo=>set({modo,sin_accion:modo==='abrir'?v.sin_accion:undefined})} grandes tono="arcano"/>
   {v.modo==='abrir'&&<p className="yq-nota">Esta acción solo abre o cierra el ojo; su daño o efecto propio no se usa. Abrirlo cuesta los PH y la Fatiga de la acción. Cerrarlo es gratis.</p>}
   {v.modo==='permanente'&&!((efecto?.cantidad||0)>0)&&<p className="yq-nota">Un ojo siempre abierto sin dados propios no aparece en la barra de acciones: funciona solo.</p>}
@@ -64,23 +109,28 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
      valor={costeMantenimiento} min={0} max={100} onChange={x=>set(usaFatiga?{mantenimiento_fatiga:Math.round(x)}:{mantenimiento_ph:Math.round(x)||undefined})} compacta/></label>
    </div>
   </div>}
-  </>}
+  </>)}
+  {fase&&ver('apariencia')&&<p className="yq-nota">Este ojo se abre al entrar en la etapa y se cierra al salir de ella. Sus bonos de atributos se configuran en la propia etapa.</p>}
 
-  <fieldset className="yq-vision-grupo"><legend>Mirada</legend>
+  {ver('mirada')&&<fieldset className="yq-vision-grupo"><legend>Mirada</legend>
    <div className="yq-costes"><label><span>Alcance en casillas (0 = todo el tablero)</span><Rueda nombre="alcance" etiqueta="Casillas que alcanza la mirada" valor={v.alcance} min={0} max={100} onChange={alcance=>set({alcance:Math.round(alcance)})} compacta/></label></div>
    <Interruptor etiqueta="Ve a través de muros" valor={!!v.atraviesa_muros} onChange={x=>set({atraviesa_muros:x||undefined})}/>
-  </fieldset>
+  </fieldset>}
 
-  <fieldset className="yq-vision-revelar"><legend>Qué revela de los enemigos que mira</legend>
+  {ver('revelar')&&<fieldset className="yq-vision-revelar"><legend>Qué revela de los enemigos que mira</legend>
    {REVELAR.map(([k,n,a])=><Interruptor key={k} etiqueta={<>{n} <small>· {a}</small></>} valor={!!v.revelar?.[k]} onChange={x=>rev(k,x)}/>)}
-  </fieldset>
+   {presente.revelar&&desconectar('revelar')}
+  </fieldset>}
 
-  <fieldset className="yq-vision-grupo"><legend>Puntos débiles</legend>
-   <Interruptor etiqueta="Ve puntos débiles en cada enemigo" valor={!!pd} onChange={x=>set({puntos_debiles:x?{cantidad:1,cambia:'ronda',recompensa:{ventaja:true}}:undefined})}/>
-   {pd&&<>
+  {(ver('puntos')||ver('recompensa'))&&<fieldset className="yq-vision-grupo"><legend>{ver('puntos')?'Puntos débiles · dirección':'Recompensa del punto débil'}</legend>
+   {!pd&&<Interruptor etiqueta="Ve puntos débiles en cada enemigo" valor={false} onChange={x=>{if(x)activar('puntos');}}/>}
+   {pd&&ver('puntos')&&<>
     <p className="yq-nota">Cada enemigo mostrará direcciones brillantes. Atacar desde esa dirección (estar en ese lado de la ficha) da la recompensa.</p>
     <div className="yq-costes"><label><span>Direcciones por enemigo</span><Rueda nombre="cantidad" etiqueta="Direcciones débiles por enemigo" valor={pd.cantidad} min={1} max={4} onChange={cantidad=>set({puntos_debiles:{...pd,cantidad:Math.round(cantidad)}})} compacta/></label></div>
     <Fichas etiqueta="Cuándo cambian" opciones={CAMBIOS} valor={pd.cambia} onChange={cambia=>set({puntos_debiles:{...pd,cambia}})}/>
+    {desconectar('puntos')}
+   </>}
+   {pd&&ver('recompensa')&&<>
     <div className="yq-vision-revelar">
      <Interruptor etiqueta="Ventaja (dos d20, el mayor)" valor={!!pd.recompensa.ventaja} onChange={x=>premio({ventaja:x||undefined})}/>
      <Interruptor etiqueta="Crítico seguro (salvo un 1 natural)" valor={!!pd.recompensa.critico} onChange={x=>premio({critico:x||undefined})}/>
@@ -93,15 +143,17 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
      <label><span>Perfora ARM %</span><Rueda nombre="perforar" etiqueta="Porcentaje de armadura ignorada" valor={pd.recompensa.perforar||0} min={0} max={100} paso={10} onChange={x=>premio({perforar:Math.round(x)||undefined})} compacta/></label>
     </fieldset>
    </>}
-  </fieldset>
+  </fieldset>}
 
-  <fieldset className="yq-vision-grupo"><legend>Defensa y lectura</legend>
+  {ver('defensa')&&<fieldset className="yq-vision-grupo"><legend>Defensa y lectura</legend>
    <div className="yq-costes"><label><span>Anticipar: + armadura contra quien ve</span><Rueda nombre="anticipar" etiqueta="Armadura contra atacantes que ve" valor={v.anticipar?.armadura||0} min={0} max={50} onChange={x=>set({anticipar:Math.round(x)?{armadura:Math.round(x)}:undefined})} compacta/></label></div>
    <Interruptor etiqueta="Ver hasta dónde llegan los enemigos" valor={!!v.amenazas} onChange={x=>set({amenazas:x||undefined})}/>
-  </fieldset>
+   {presente.defensa&&desconectar('defensa')}
+  </fieldset>}
 
-  {!fase&&<fieldset className="yq-bonos"><legend>Mientras está abierto</legend>
+  {!fase&&ver('bonos')&&<fieldset className="yq-bonos"><legend>Mientras está abierto</legend>
    {ATRIBUTOS_BONO_OCULAR.map(([k,n])=><label key={k} className={v.bonos?.[k]?'is-activo':undefined}><span>{n}</span><Rueda nombre={'ojo_'+k} etiqueta={`${n} mientras el ojo está abierto`} valor={v.bonos?.[k]||0} min={-999} max={999} onChange={x=>{const b={...v.bonos};if(x)b[k]=Math.round(x);else delete b[k];set({bonos:Object.keys(b).length?b:undefined});}} compacta/></label>)}
+   {presente.bonos&&desconectar('bonos')}
   </fieldset>}
 
   {error?<p className="yq-error" role="alert">{error}</p>:ayuda&&<ul className="yq-vision-resumen" aria-label="Así funcionará el ojo">{ayuda.detalles.map((d,i)=><li key={i}>{d}</li>)}</ul>}

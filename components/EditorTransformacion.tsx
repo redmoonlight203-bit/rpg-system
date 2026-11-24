@@ -1,7 +1,7 @@
 "use client";
 
 import {mensajeError} from '../lib/errores';
-import ListaArrastrable from './ListaArrastrable';
+import {EditorFormas} from './yunque/editores/EditorFormas';
 import {useRef,useState} from "react";
 import {validarPortada} from "../lib/imagenes-creacion";
 import {publicarArchivoImagen} from "../lib/imagenes-storage";
@@ -11,6 +11,8 @@ import EditorHuella from './EditorHuella';
 import SelectorVFX from './SelectorVFX';
 import EditorVision from './yunque/editores/EditorVision';
 import {nuevaVision} from '../lib/vision';
+import {ID_REALIDAD,quitarForma} from "../lib/transformaciones-grafo";
+import {grafoADefinicion,migrarTransformacion} from "../lib/transformaciones-migracion";
 import {EMPUJE_HUELLA_INICIAL,validarEmpujeHuella,type DefinicionTransformacion,type EtapaTransformacion,type TipoTransformacion} from "../lib/transformaciones";
 
 const campo = "mt-1 w-full rounded-lg border border-neutral-700 bg-well p-2 text-neutral-100";
@@ -73,9 +75,9 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
   const errorEmpuje=validarEmpujeHuella(empuje);
   const poderes = acciones.filter(a=>a.efecto!=="transformacion");
   return (
-    <fieldset className="space-y-4 rounded-xl border border-neutral-700 bg-black/20 p-3 sm:p-4">
-      <legend className="px-2 font-semibold text-violet-200">Etapa {numero}</legend>
-      <label className="block text-sm">Nombre de la etapa
+    <fieldset className="min-w-0 space-y-4 rounded-xl border border-neutral-700 bg-black/20 p-3 sm:p-4">
+      <legend className="px-2 font-semibold text-violet-200">Forma {numero}</legend>
+      <label className="block text-sm">Nombre de la forma
         <input className={campo} value={etapa.nombre} maxLength={120} onChange={e=>onChange({...etapa,nombre:e.target.value})} placeholder="Ej.: Manifestación parcial"/>
       </label>
       <label className="block text-sm">Descripción de esta etapa para el jugador
@@ -213,10 +215,18 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
         ):<p className="text-sm text-neutral-400">Añade otras acciones a esta habilidad para seleccionarlas aquí. Las que marques solo estarán disponibles en las etapas elegidas.</p>}
       </fieldset>
       <div className="flex justify-end">
-        <button type="button" className={boton+" text-red-200"} disabled={total===1} onClick={onEliminar}>Eliminar etapa</button>
+        <button type="button" className={boton+" text-red-200"} disabled={total===1} onClick={onEliminar}>Eliminar forma</button>
       </div>
     </fieldset>
   );
+}
+
+/** Una forma nueva copia los atributos de la seleccionada (o de la última), como hacía «añadir etapa». */
+function plantillaForma(d:DefinicionTransformacion,elegida?:EtapaTransformacion):Record<string,number>{
+  const stats={...(elegida??d.etapas[d.etapas.length-1])?.stats};
+  if(d.tipo==="forma"&&stats.vida===undefined&&stats.hp===undefined)stats.vida=20;
+  if(!Object.keys(stats).length)stats.armadura=0;
+  return stats;
 }
 
 export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;acciones:Efecto[];onChange:(d:DefinicionTransformacion)=>void}) {
@@ -229,14 +239,14 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
       return {...et,stats};
     })});
   };
-  const actualizar=(id:string,etapa:EtapaTransformacion)=>onChange({...d,etapas:d.etapas.map(e=>e.id===id?etapa:e)});
-  const agregar=()=>{
-    if(d.etapas.length>=12)return;
-    const anterior=d.etapas[d.etapas.length-1];
-    const stats={...anterior?.stats};
-    if(d.tipo==="forma"&&stats.vida===undefined&&stats.hp===undefined)stats.vida=20;
-    onChange({...d,etapas:[...d.etapas,{id:crypto.randomUUID(),nombre:"Etapa "+(d.etapas.length+1),stats,habilidades:[]}]});
-  };
+  const grafo=migrarTransformacion(d);
+  // Las formas se editan sobre la definición normalizada por el grafo: datos antiguos con ids de etapa
+  // repetidos reciben sufijo (x, x_2) y así cada forma se puede seleccionar; al editar se guardan así.
+  const normal=grafoADefinicion(grafo,d);
+  const actualizar=(id:string,etapa:EtapaTransformacion)=>onChange({...normal,etapas:normal.etapas.map(e=>e.id===id?{...etapa,id}:e)});
+  const [seleccion,setSeleccion]=useState<string>(normal.etapas[0]?.id??ID_REALIDAD);
+  const elegida=normal.etapas.find(e=>e.id===seleccion);
+  const indice=elegida?normal.etapas.indexOf(elegida):-1;
   return (
     <div className="space-y-4 rounded-xl border border-violet-700 p-3 sm:p-4">
       <div className="space-y-2">
@@ -246,14 +256,14 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
             <option value="poder">Poder: conserva su vida real</option>
           </select>
         </label>
-        <p className="text-xs text-neutral-400">Forma: al agotar sus HP vuelve al cuerpo original. Poder: los HP no se restauran y puede morir. Solo una activación por encuentro; avanzar de etapa consume una acción, sin pagar de nuevo la activación.</p>
+        <p className="text-xs text-neutral-400">Forma: al agotar sus HP vuelve al cuerpo original. Poder: los HP no se restauran y puede morir. Cambiar de forma consume una acción. Las cadenas (solo hacia delante) se activan una vez por encuentro; el cambio libre con la forma base se puede repetir.</p>
       </div>
-      <ListaArrastrable items={d.etapas} onChange={etapas=>onChange({...d,etapas})} nombre="etapas" render={(etapa,i)=>
-        <EditorEtapa key={etapa.id} etapa={etapa} numero={i+1} tipo={d.tipo} acciones={acciones} total={d.etapas.length}
-          onChange={siguiente=>actualizar(etapa.id,siguiente)}
-          onEliminar={()=>onChange({...d,etapas:d.etapas.filter(e=>e.id!==etapa.id)})}/>
-      }/>
-      <button type="button" className={boton+" w-full"} disabled={d.etapas.length>=12} onClick={agregar}>+ Añadir etapa (copiar atributos de la anterior)</button>
+      <EditorFormas grafo={grafo} seleccionada={seleccion} onSeleccionar={setSeleccion}
+        plantilla={plantillaForma(d,elegida)} onCambiar={g=>onChange(grafoADefinicion(g,d))}/>
+      {elegida?<EditorEtapa key={elegida.id} etapa={elegida} numero={indice+1} tipo={d.tipo} acciones={acciones} total={normal.etapas.length}
+          onChange={siguiente=>actualizar(elegida.id,siguiente)}
+          onEliminar={()=>{const r=quitarForma(grafo,elegida.id);if(r.ok){onChange(grafoADefinicion(r.grafo,d));setSeleccion(ID_REALIDAD);}}}/>
+        :<p className="text-sm text-neutral-400">La forma base es el cuerpo original del personaje, con sus propias estadísticas y poderes. Selecciona otra forma para editarla, o crea una nueva.</p>}
       <div className="space-y-3 rounded-xl border border-rose-800/70 bg-rose-950/10 p-3">
        <label className="flex items-center gap-2 font-semibold">
         <input type="checkbox" checked={!!d.posesion} onChange={e=>onChange({...d,posesion:e.target.checked?{umbral_pct:25,cd:12,etapa_id:d.etapas.find(et=>et.descontrolada)?.id||d.etapas[d.etapas.length-1].id}:undefined})}/>
@@ -277,7 +287,7 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
         {!d.etapas.some(et=>et.id===d.posesion!.etapa_id&&et.descontrolada)&&<p className="text-xs text-amber-300">Activa «Etapa descontrolada» en la etapa seleccionada para guardar.</p>}
        </>}
       </div>
-      <p className="text-xs text-neutral-400">Máximo 12 etapas. Cada una tiene sus propios atributos y poderes; los cambios en una etapa no modifican las demás.</p>
+      <p className="text-xs text-neutral-400">Máximo 12 formas. Cada una tiene sus propios atributos y poderes; al cambiar de forma solo se aplican los de la forma actual.</p>
     </div>
   );
 }

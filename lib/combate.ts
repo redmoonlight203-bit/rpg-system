@@ -1,7 +1,9 @@
 import {patronDesde,validarPatron} from './patron-area';
 import {huellaDe,casillasHuella,claveHuella,cabeHuella,distanciaHuellas,validarHuella,type Huella,type FuenteHuella} from "./huellas-combate";
 import type {ConfiguracionVFX} from "./vfx";
-import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva} from "./transformaciones";
+import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva,type DefinicionTransformacion} from "./transformaciones";
+import {ID_REALIDAD,formasAlcanzables,transicionEntre} from "./transformaciones-grafo";
+import {migrarTransformacion} from "./transformaciones-migracion";
 import type { Regla, EventoRegla, CondicionRegla, EfectoRegla, ValorRegla, Sujeto } from "./reglas";
 import { type Efecto, type Elemento, type AlcanceHabilidad, type Reaccion, type ResultadoReaccion, type ContraataqueReaccion } from "./creacion";
 import {proyectarVista,desproyectar,proyectarRespuesta,type OpcionesEspejo} from "./espejo-mental";
@@ -124,6 +126,8 @@ export type Combatiente = {
   contribucion?: number;
   transformacion?: TransformacionActiva|null;
   transformaciones_usadas?: string[];
+  /** Transformación por grafo de tipo forma: vida que le queda a cada forma en este encuentro («def:forma»; 0 = rota). */
+  vidas_formas?: Record<string, number>;
   posicion?: Posicion;
   movimiento?: { turno: number; gastado: number };
   id: string;
@@ -222,6 +226,8 @@ export type Accion = {
   presupuesto: TipoPresupuesto;
   /** Potenciadores de rasgos compatibles con la técnica (Apéndice C). */
   potenciadores?: PotenciadorDisponible[];
+  /** Transformación por grafo: forma a la que lleva esta acción. */
+  forma_destino?: string;
 };
 export type PotenciadorDisponible={rasgo:string;rasgo_nombre:string;potenciador:string;nombre:string;ph:number;fatiga:number;
   recurso?:{id:string;nombre:string;min:number;max:number;saldo:number};componentes:{elemento:string;cantidad:number;caras:number;por_unidad?:boolean}[]};
@@ -867,6 +873,7 @@ function recibir(
   }
   const perdido = Math.min(t.vida, Math.max(0, total));
   const resultadoDano=danarTransformado(t,perdido);
+  if(resultadoDano.forma_rota)guardarVidaForma(t,0);
   Object.assign(t,resultadoDano.actor);
   if(resultadoDano.forma_rota)log(c,`${t.nombre}: su forma se rompe y recupera su vida anterior.`);
   const cayo = perdido > 0 && resultadoDano.muerto;
@@ -1160,7 +1167,7 @@ export function cambiarSituacion(c:Combate,id:string,situacion:Situacion){
  if(!['activo','inconsciente','muerto','retirado','rendido','capturado'].includes(situacion))throw Error('Situación inválida.');
  return registrar(c,()=>{const n=copia(c),m=n.miembros.find(m=>m.id===id);if(!m)throw Error('Participante no encontrado.');m.situacion=situacion;if(situacion==='muerto')m.vida=0;log(n,`${m.nombre}: ${situacion}.`);return n;});
 }
-function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){if(m.transformacion)Object.assign(m,terminarTransformacion(m));m.transformaciones_usadas=[];emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);for(const d of recursosDe(m)){if(d.recuperacion==='vaciar')m.recursos_especiales={...m.recursos_especiales,[d.id]:0};else if(d.recuperacion!=='conservar'&&m.recursos_especiales)delete m.recursos_especiales[d.id];}m.estados=[];delete m.percepcion_alterada;if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
+function limpiarFinal(n:Combate){n.miembros=n.miembros.filter(m=>!m.invocacion);for(const m of n.miembros){if(m.transformacion)Object.assign(m,terminarTransformacion(m));m.transformaciones_usadas=[];delete m.vidas_formas;emitirMotor(n,'fin_combate',m,m,m,dadoSeguro);for(const d of recursosDe(m)){if(d.recuperacion==='vaciar')m.recursos_especiales={...m.recursos_especiales,[d.id]:0};else if(d.recuperacion!=='conservar'&&m.recursos_especiales)delete m.recursos_especiales[d.id];}m.estados=[];delete m.percepcion_alterada;if(m.motor){m.motor.modificadores=[];m.motor.habilidades=[];}delete m.arma;normalizar(m);}log(n,'Combate terminado: los estados temporales y armas efímeras desaparecen.');}
 export function finalizar(c:Combate){if(c.fase==='finalizado')return copia(c);return registrar(c,()=>{const n=copia(c);cerrarEncuentro(n,'Finalización manual del GM',null);return n;});}
 export function descansar(c: Combate) {
   if (c.fase === "en_curso")
@@ -1304,8 +1311,9 @@ export function acciones(m: Combatiente) {
   const permitidos=new Set(definiciones.find(d=>d.id===m.transformacion?.definicion_id)?.etapas.find(e=>e.id===m.transformacion?.etapa_id)?.habilidades||[]);
   // Un ojo permanente sin dados propios es una pasiva: no aparece como acción.
   // Solo habilidad y equipo eligen presupuesto; un ataque múltiple siempre es la acción principal.
-  return lista.map((a):Accion=>({...a,presupuesto:/^(hab|equipo):/.test(a.id)&&!disparosRafaga(a.efecto)?tipoPresupuesto(a.efecto):'principal'})).filter(a=>!a.efecto.solo_pasivo).filter(a=>!reaccionDe(normalizarReaccion(a.efecto))).filter(a=>!(a.efecto.vision?.modo==='permanente'&&!(a.efecto.cantidad>0))).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).map(a=>{
+  return lista.map((a):Accion=>({...a,presupuesto:/^(hab|equipo):/.test(a.id)&&!disparosRafaga(a.efecto)?tipoPresupuesto(a.efecto):'principal'})).filter(a=>!a.efecto.solo_pasivo).filter(a=>!reaccionDe(normalizarReaccion(a.efecto))).filter(a=>!(a.efecto.vision?.modo==='permanente'&&!(a.efecto.cantidad>0))).filter(a=>!exclusivos.has(a.efecto.id)||permitidos.has(a.efecto.id)).filter(a=>!a.efecto.requisito_forma || (estadisticas(m)[a.efecto.requisito_forma.atributo]||0)>=a.efecto.requisito_forma.minimo).flatMap((a):Accion|Accion[]=>{
    const d=a.efecto.transformacion;
+   if(d?.transiciones?.length)return opcionesDeForma(m,a,d);
    if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':d.etapas[i+1]?.descontrolada?'Esta fase requiere fallar la salvación de posesión.':undefined};}
    if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
    const efecto=m.transformacion?.definicion_id==='limitless' && a.efecto.ley_limitless
@@ -1313,6 +1321,66 @@ export function acciones(m: Combatiente) {
    if(vozNiega(m.voz_artefacto,a))return {...a,efecto:conAlcance(efecto,a.nombre),bloqueada:'La voz del artefacto te lo niega.'};
    const conTablero=conAlcance(efecto,a.nombre),pots=rasgos.length&&efecto.efecto==='dano'?potenciadoresDisponibles(m,conTablero,rasgos):[];
    return {...a,efecto:conTablero,...(pots.length?{potenciadores:pots}:{})};
+  });
+}
+/** Transformación por grafo: una acción por cada forma a la que se puede ir
+ * desde la actual. La vuelta a la realidad es «volver_forma». Cambiar entre formas
+ * solo cuesta lo que marque su transición; entrar desde la realidad, además, el coste
+ * de la acción. Una cadena («uno») sigue siendo de un uso por encuentro; el cambio
+ * libre («ambos») desde la realidad se puede repetir. */
+function opcionesDeForma(m:Combatiente,a:Accion,d:DefinicionTransformacion):Accion[]{
+  const activa=m.transformacion;
+  if(activa&&activa.definicion_id!==d.id)return [{...a,bloqueada:'Otra transformación está activa.'}];
+  const g=migrarTransformacion(d),desde=activa?activa.etapa_id:ID_REALIDAD;
+  // Solo formas guardadas: datos antiguos con ids repetidos se ven con sufijo en el grafo, pero no existen en el motor.
+  const destinos=formasAlcanzables(g,desde).filter(id=>id!==ID_REALIDAD&&d.etapas.some(e=>e.id===id));
+  if(!destinos.length)return activa?[]:[{...a,bloqueada:'No hay ninguna forma conectada a la realidad.'}];
+  return destinos.map(id=>{
+    const f=g.formas.find(x=>x.id===id)!,t=transicionEntre(g,desde,id);
+    const ph=(activa?0:a.efecto.coste_ph||0)+Math.max(0,t?.coste?.ph||0),fatiga=(activa?0:a.efecto.coste_fatiga||0)+Math.max(0,t?.coste?.fatiga||0);
+    const bloqueada=f.control?'Esta forma solo se manifiesta al perder el control.'
+      :d.tipo==='forma'&&m.vidas_formas?.[claveVidaForma(d.id,id)]===0?'Forma rota: no puede volver a ella en este encuentro.'
+      :(m.cooldowns?.[a.id]||0)>0?'Habilidad en enfriamiento.'
+      :!activa&&t?.sentido==='uno'&&m.transformaciones_usadas?.includes(usoCadena(d.id,id))?'Ya utilizada en este encuentro.':undefined;
+    return {...a,id:`${a.id}>${id}`,nombre:activa?`Cambiar a ${f.nombre}`:`${a.nombre} · ${f.nombre}`,forma_destino:id,
+      efecto:{...a.efecto,coste_ph:ph,coste_fatiga:fatiga},...(bloqueada?{bloqueada}:{})};
+  });
+}
+const claveVidaForma=(defId:string,etapa:string)=>`${defId}:${etapa}`;
+/** Marca de uso de una cadena de un grafo: por transformación y forma de entrada. */
+const usoCadena=(defId:string,destino:string)=>`${defId}>${destino}`;
+/** En una transformación por grafo de tipo forma, cada forma tiene su propia barra de vida
+ * durante el encuentro: al salir de ella se guarda lo que le quedaba (0 si se rompió). */
+function guardarVidaForma(m:Combatiente,vida=m.vida){
+  const activa=m.transformacion;
+  if(!activa||activa.tipo!=='forma'||!definicionEnCombate(m)?.transiciones?.length)return;
+  m.vidas_formas={...m.vidas_formas,[claveVidaForma(activa.definicion_id,activa.etapa_id)]:Math.max(0,vida)};
+}
+/** Al entrar en una forma ya usada, recupera la vida que tenía; una forma nueva empieza llena. */
+function restaurarVidaForma(m:Combatiente,d:DefinicionTransformacion,destino:string){
+  const activa=m.transformacion;if(!activa||activa.tipo!=='forma')return;
+  const guardada=m.vidas_formas?.[claveVidaForma(d.id,destino)];
+  const max=Math.max(1,Math.trunc(m.stats.vida??m.stats.hp??1));
+  m.vida=guardada===undefined?max:Math.min(max,guardada);
+  activa.vida_forma=m.vida;
+}
+/** Coste de volver a la realidad: solo el que marque una transición directa. */
+function costeVuelta(m:Combatiente){
+  const d=definicionEnCombate(m);
+  if(!d?.transiciones?.length||!m.transformacion)return {ph:0,fatiga:0};
+  const t=transicionEntre(migrarTransformacion(d),m.transformacion.etapa_id,ID_REALIDAD);
+  return {ph:Math.max(0,t?.coste?.ph||0),fatiga:Math.max(0,t?.coste?.fatiga||0)};
+}
+/** El GM devuelve a un personaje a su cuerpo original, incluso desde una forma
+ * que ha tomado el control. No gasta la acción ni cuesta recursos. */
+export function volverALaRealidadGM(c:Combate,actorId:string){
+  return registrar(c,()=>{
+    const n=copia(c),a=n.miembros.find(m=>m.id===actorId);
+    if(!a)throw Error('El personaje no está en el combate.');
+    if(!a.transformacion)throw Error('No hay transformación activa.');
+    guardarVidaForma(a);Object.assign(a,terminarTransformacion(a));normalizar(a);
+    log(n,`El GM devuelve a ${a.nombre} a su cuerpo original.`);
+    return n;
   });
 }
 /** Encuentra una casilla libre desde la que un ataque con dash/salto/teletransporte alcance al blanco.
@@ -1555,7 +1623,7 @@ function actuarBase(
     a.accion_usada=true;
     return n;
   }
-  if(accionId==='volver_forma'){if(!a.transformacion)throw Error('No hay transformación activa.');Object.assign(a,terminarTransformacion(a));normalizar(a);a.accion_usada=true;log(n,`${a.nombre} vuelve a su cuerpo original.`);return n;}
+  if(accionId==='volver_forma'){if(!a.transformacion)throw Error('No hay transformación activa.');const vuelta=costeVuelta(a),cuerpo={...a,...terminarTransformacion(a)};/* el coste se paga con el cuerpo original: sus límites mandan */if(vuelta.fatiga&&(a.agotado||a.fatiga+vuelta.fatiga>(estadisticas(cuerpo).fatiga||0)))throw Error('Fatiga insuficiente para volver.');if(phDisponibles(cuerpo)<vuelta.ph)throw Error('PH insuficientes para volver.');guardarVidaForma(a);Object.assign(a,terminarTransformacion(a));a.ph-=vuelta.ph;a.fatiga+=vuelta.fatiga;if(vuelta.fatiga)a.uso_fatiga=true;normalizar(a);a.accion_usada=true;log(n,`${a.nombre} vuelve a su cuerpo original.`);return n;}
   if (accionId === "guardia") {
     // Concepto básico «Guardia» (Apéndice D · B): por defecto +2 ARM hasta su siguiente turno, como siempre.
     const g = conceptosDe(a).guardia, manos = Object.values(piezas(a));
@@ -1575,17 +1643,46 @@ function actuarBase(
   const act = acciones(a).find((v) => v.id === accionId);
   if (act && vozNiega(a.voz_artefacto, act)) throw Error('La voz del artefacto te lo niega.');
   if (!act) throw Error("La acción no existe.");
-  if (!continua && (a.cooldowns[act.id] || 0) > 0) throw Error("Habilidad en enfriamiento.");
+  // Las opciones de una transformación por grafo («accion>forma») comparten el enfriamiento de su acción.
+  if (!continua && (a.cooldowns[act.id.split(">")[0]] || 0) > 0) throw Error("Habilidad en enfriamiento.");
   if(act.efecto.efecto==="transformacion"){
     const d=act.efecto.transformacion;
     if(!d)throw Error("Transformación sin configurar.");
+    if(act.forma_destino!==undefined){
+      if(act.bloqueada)throw Error(act.bloqueada);
+      const destino=act.forma_destino,ph=act.efecto.coste_ph||0,fatiga=act.efecto.coste_fatiga||0;
+      if(fatiga&&(a.agotado||a.fatiga+fatiga>(estadisticas(a).fatiga||0)))throw Error("Fatiga insuficiente para transformarse.");
+      if(phDisponibles(a)<ph)throw Error("PH insuficientes.");
+      const nombre=d.etapas.find(x=>x.id===destino)?.nombre||destino;
+      if(d.tipo==='forma'&&a.vidas_formas?.[claveVidaForma(d.id,destino)]===0)throw Error('Forma rota: no puede volver a ella en este encuentro.');
+      if(a.transformacion){
+        const vidaSaliente=a.vida,origen=a.transformacion.etapa_id;
+        const cambio=cambiarEtapaTransformacion(a,d,destino);
+        if(!aplicarFormaConEspacio(n,a,{...cambio,ph:cambio.ph-ph},rng))throw Error('No hay espacio para esa transformación.');
+        a.vidas_formas={...a.vidas_formas,...(d.tipo==='forma'?{[claveVidaForma(d.id,origen)]:vidaSaliente}:{})};
+        restaurarVidaForma(a,d,destino);
+        log(n,`${a.nombre} cambia a ${nombre}.`);
+      }else{
+        // El cambio libre se puede repetir; solo la entrada a una cadena («uno») se marca como usada,
+        // por destino, para que usar una parte del grafo no gaste la otra (ver opcionesDeForma).
+        const usadas=a.transformaciones_usadas||[],libre={...a,transformaciones_usadas:usadas.filter(x=>x!==d.id)};
+        if(!aplicarFormaConEspacio(n,a,activarTransformacion(libre,{...d,coste_ph:ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos},destino),rng))throw Error('No hay espacio para esa transformación.');
+        const entrada=transicionEntre(migrarTransformacion(d),ID_REALIDAD,destino);
+        a.transformaciones_usadas=entrada?.sentido==='uno'?[...usadas.filter(x=>x!==d.id),usoCadena(d.id,destino)]:usadas.filter(x=>x!==d.id);
+        restaurarVidaForma(a,d,destino);
+        log(n,`${a.nombre} activa ${d.nombre}: ${nombre}.`);
+      }
+      a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;
+    }
+    else{
     if(!a.transformacion){const fatiga=act.efecto.coste_fatiga||0;if(fatiga&&(a.agotado||a.fatiga+fatiga>(estadisticas(a).fatiga||0)))throw Error("Fatiga insuficiente para transformarse.");a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;}
     if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");if(d.etapas[indice+1].descontrolada)throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');if(!aplicarFormaConEspacio(n,a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id),rng))throw Error('No hay espacio para esa transformación.');log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
     else{if(a.transformaciones_usadas?.includes(d.id))throw Error("Transformación ya utilizada en esta partida.");if(phDisponibles(a)<(act.efecto.coste_ph||0))throw Error("PH insuficientes.");if(!aplicarFormaConEspacio(n,a,activarTransformacion(a,{...d,coste_ph:act.efecto.coste_ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos}),rng))throw Error('No hay espacio para esa transformación.');log(n,`${a.nombre} activa ${d.nombre}.`);}
+    }
     if(a.transformacion&&!a.transformacion.creado_turno)a.transformacion.creado_turno=a.turnos;
     // Una reacción al daño de crecimiento puede romper la forma ya aplicada.
     if(a.transformacion&&!a.transformacion.etapa_id)throw Error('Etapa inválida.');
-    if(act.enfriamiento)a.cooldowns[act.id]=act.enfriamiento+1;
+    if(act.enfriamiento)a.cooldowns[act.id.split(">")[0]]=act.enfriamiento+1;
     a.accion_usada=true;normalizar(a);return n;
   }
   let e = act.efecto;
