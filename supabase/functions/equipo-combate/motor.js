@@ -20,20 +20,48 @@ function validarPatron(v) {
     }
     return null;
 }
-/** El dibujo apunta hacia la derecha (este). Rotación cardinal con empate horizontal, como línea y cono. */
+const DIRECCIONES_PATRON = [
+    { nombre: 'Este', signo: '→', x: 1, y: 0 }, { nombre: 'Sureste', signo: '↘', x: 1, y: 1 },
+    { nombre: 'Sur', signo: '↓', x: 0, y: 1 }, { nombre: 'Suroeste', signo: '↙', x: -1, y: 1 },
+    { nombre: 'Oeste', signo: '←', x: -1, y: 0 }, { nombre: 'Noroeste', signo: '↖', x: -1, y: -1 },
+    { nombre: 'Norte', signo: '↑', x: 0, y: -1 }, { nombre: 'Noreste', signo: '↗', x: 1, y: -1 },
+];
+const patronEnV = () => [{ x: 0, y: 0 }, ...[1, 2, 3].flatMap(x => [{ x, y: -x }, { x, y: x }])];
+const redondear = (v) => v < 0 ? -Math.round(-v) : Math.round(v);
+/** La derecha es el frente del dibujo. El puntero selecciona el octante más cercano. */
 function girarPatron(c, origen, direccion) {
     const dx = direccion.x - origen.x, dy = direccion.y - origen.y;
-    if (Math.abs(dx) >= Math.abs(dy))
-        return dx < 0 ? { x: -c.x, y: -c.y } : c;
-    return dy > 0 ? { x: -c.y, y: c.x } : { x: c.y, y: -c.x };
+    const giro = (Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8;
+    const { x, y } = c, r = Math.max(Math.abs(x), Math.abs(y));
+    if (!r || !giro)
+        return c;
+    // Desplaza cada casilla dentro de su anillo cuadrado. Una rotación es biyectiva:
+    // al girar en diagonal no se fusionan casillas, no se abren huecos y no aumenta el alcance.
+    const indice = x === r && y >= 0 ? y : y === r ? 2 * r - x : x === -r ? 4 * r - y : y === -r ? 6 * r + x : 8 * r + y;
+    const t = (indice + giro * r) % (8 * r);
+    return t <= r ? { x: r, y: t } : t <= 3 * r ? { x: 2 * r - t, y: r } : t <= 5 * r ? { x: -r, y: 4 * r - t } : t <= 7 * r ? { x: t - 6 * r, y: -r } : { x: r, y: t - 8 * r };
 }
 function patronDesde(p, origen, direccion, d) {
     if (validarPatron(p))
         return [];
-    return p.casillas.map(c => {
+    const resultado = new Map();
+    for (const c of p.casillas) {
         const r = p.orientacion === 'apuntar' ? girarPatron(c, origen, direccion) : c;
-        return { x: origen.x + r.x, y: origen.y + r.y };
-    }).filter(c => c.x >= 0 && c.y >= 0 && c.x < d.columnas && c.y < d.filas);
+        const x = origen.x + r.x, y = origen.y + r.y;
+        if (x >= 0 && y >= 0 && x < d.columnas && y < d.filas)
+            resultado.set(x + ',' + y, { x, y });
+    }
+    return [...resultado.values()];
+}
+/** Prevalece la casilla bajo el puntero; el clic queda como respaldo táctil. */
+function direccionVistaPatron(ancla, hover, confirmada) {
+    const p = hover ?? confirmada;
+    return ancla && p && (ancla.x !== p.x || ancla.y !== p.y) ? p : null;
+}
+/** Conecta muestras sucesivas del arrastre para que un gesto rápido no deje huecos. */
+function trazoPatron(desde, hasta) {
+    const dx = hasta.x - desde.x, dy = hasta.y - desde.y, n = Math.max(Math.abs(dx), Math.abs(dy));
+    return n ? Array.from({ length: n + 1 }, (_, i) => ({ x: desde.x + redondear(dx * i / n), y: desde.y + redondear(dy * i / n) })) : [desde];
 }
 
 return { patronDesde, validarPatron };
