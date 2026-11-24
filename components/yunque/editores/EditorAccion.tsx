@@ -12,6 +12,7 @@ import EditorEstados from './EditorEstados';
 import EditorRasgo,{rasgoVacio} from './EditorRasgo';
 import EditorConcepto from './EditorConcepto';
 import EditorEsqueleto from './EditorEsqueleto';
+import ImagenAccion from './ImagenAccion';
 import {DESARMADO_BASE} from '../../../lib/conceptos-basicos';
 import {ETIQUETAS,NOMBRE_ETIQUETA,etiquetasDe} from '../../../lib/rasgos';
 import type {Borrador} from '../../../lib/yunque-borrador';
@@ -73,6 +74,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
  const pasivo=!!e.solo_pasivo;
  return <div className="yq-editor">
   <label className="yq-campo"><span>Nombre de la acción</span><input maxLength={120} value={e.nombre} placeholder="Tajo, Bola de fuego…" onChange={v=>patch({nombre:v.target.value})}/></label>
+  {!e.solo_pasivo&&<ImagenAccion valor={e.imagen||''} onChange={url=>patch({imagen:url||undefined})}/>}
   <Fichas etiqueta="Uso" opciones={[{valor:'accion',nombre:'Acción en combate',icono:'espada'},{valor:'pasivo',nombre:'Rasgo siempre activo',icono:'escudo',ayuda:'No ocupa el turno: concede defensas, rasgos o conceptos básicos.'}]} valor={pasivo?'pasivo':'accion'} onChange={v=>patch(v==='pasivo'?{solo_pasivo:true,efecto:'estado',estado:e.estado||e.nombre,estado_tipo:'narrativo',cantidad:0,coste_ph:0,coste_fatiga:0,naturaleza:undefined,tablero:undefined,estado_def:undefined}:{solo_pasivo:undefined,inmunidades:undefined})} grandes/>
   {pasivo&&<>
    <h4 className="yq-ficha-titulo">Defensas e inmunidades</h4>

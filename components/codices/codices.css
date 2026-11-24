@@ -267,6 +267,10 @@
 .cx-sello-texto{font:600 13px var(--font-display);letter-spacing:.1em;fill:var(--color-parchment)}
 .cx-sello-icono{position:absolute;inset:0;display:grid;place-items:center;color:var(--color-parchment);pointer-events:none}
 .cx-sello-icono svg{filter:drop-shadow(0 1px 0 color-mix(in srgb,var(--color-well) 60%,transparent))}
+/* Imagen propia dentro del círculo interior del lacre (r=66 de 110 → 60 % del sello). */
+.cx-sello-imagen{position:absolute;left:20%;top:20%;width:60%;height:60%;overflow:hidden;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--color-parchment) 45%,transparent),inset 0 0 18px #0008;pointer-events:none}
+.cx-sello-imagen .cg-art{position:absolute;inset:0;aspect-ratio:auto;height:100%}
+.cx-sello-imagen .cg-placeholder>span{display:none}
 
 /* ---- Edicto ---- */
 .cx-estandarte{position:relative;display:grid;justify-items:center;padding-top:16px}

@@ -1,7 +1,7 @@
 "use client";
 import {rangoDe} from "../../lib/cartas";
 import IconoYugen from "../IconoYugen";
-import type {PiezaGaleria} from "../GaleriaCreacion";
+import {Portada,type PiezaGaleria} from "../GaleriaCreacion";
 import {CabeceraCodice} from "./Comunes";
 import {SeccionesCodice} from "./Secciones";
 import type {VistaProps} from "./tipos";
@@ -29,7 +29,10 @@ export default function Sello<T extends PiezaGaleria>({ctx}:VistaProps<T>){
           <circle className="cx-sello-linea" cx="110" cy="110" r="66"/>
           <text className="cx-sello-texto"><textPath href={`#${anillo}`} textLength="500" lengthAdjust="spacingAndGlyphs">{grabado}</textPath></text>
         </svg>
-        <span className="cx-sello-icono" aria-hidden="true"><IconoYugen id={ctx.iconoVisible} size={64}/></span>
+        {/* Con imagen propia, la imagen ocupa el círculo interior del lacre; sin ella, el icono grabado. */}
+        {ctx.imagenVisible
+          ?<span className="cx-sello-imagen"><Portada src={ctx.imagenVisible} tipo={ctx.tipo} icono={ctx.iconoVisible} circular/></span>
+          :<span className="cx-sello-icono" aria-hidden="true"><IconoYugen id={ctx.iconoVisible} size={64}/></span>}
       </div>
       {ctx.ranuras.formas}
       {ctx.ranuras.presentacion}

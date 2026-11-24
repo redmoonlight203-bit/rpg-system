@@ -55,7 +55,7 @@ export type PropsGaleria<T extends PiezaGaleria> = {
 const iconos = { personaje: Users, habilidad: Swords, pasiva: Shield, objeto: Package, titulo: Crown, otro: Shapes };
 export function Portada({ src, tipo, icono, circular }: { src?: string; tipo: TipoCreacion; icono: string; circular?: boolean }) {
   return <span className={`cg-art cg-art-${tipo}`}>
-    <FotoEncuadrada src={src && !validarPortada(src) ? src : undefined} circular={circular}
+    <FotoEncuadrada src={src && !validarPortada(src) ? src : undefined} circular={circular} enfoque={tipo === "personaje" ? "cara" : "centro"}
       fallback={<span className="cg-placeholder"><IconoYugen id={icono} size={62}/><span>{src ? "Imagen no disponible" : "Emblema de Yugen"}</span></span>} />
   </span>;
 }
