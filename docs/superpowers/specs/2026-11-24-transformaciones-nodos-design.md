@@ -104,12 +104,28 @@ formas.
 - Las transiciones de cadena (`uno`) siguen el orden de la cadena, y no se puede saltar un paso sin una transición libre.
 - Las transformaciones existentes se mantienen como cadenas, para no romper los datos.
 
-## Lo que queda abierto (decisión tuya)
+## Decisiones del usuario (segunda ronda)
 
-1. **Disparadores automáticos:** ¿quieres que alguna transformación cambie sola (por ejemplo, al bajar de cierta
-   vida), o basta con que el jugador lo elija siempre?
-2. **Migración:** ¿las transformaciones que ya tienes se migran a cadenas automáticamente, o prefieres revisarlas una
-   a una?
+- **Referencia: Orin.** Su transformación «Liberar el sello» (`tests/movimiento-posesion.test.mjs:26`) es el caso de
+  control: cambia a `gigante`, queda `descontrolada` y usa el campo `posesion` del motor. Es el modelo para las
+  transformaciones que toman el control del personaje.
+- **Migración automática** de las transformaciones existentes a cadenas, sin revisión una por una. Las que tienen
+  `posesion` se migran con el indicador de control activo (ver siguiente punto).
+- **Disparadores automáticos:** no se piden en esta fase. Se queda como decisión posterior.
+
+## Decisiones tomadas por mí (con las respuestas del usuario)
+
+- **Forma que toma el control** (`posesion`): mantiene el comportamiento que ya tiene Orin. Mientras esté activa,
+  el personaje no actúa por su cuenta. **Mi decisión:** la vuelta a la realidad sigue disponible siempre, también
+  desde una forma que toma el control, porque así lo pediste («siempre con la opción de volver»). Lo que sí se
+  restringe es quién la activa: solo el GM, si la transformación lo marca. Revisable en el plan.
+- **Migración:** cada transformación existente se convierte en una cadena lineal con sus etapas, y el campo
+  `posesion` se traslada tal cual. No cambia ningún valor de Orin ni de otros personajes.
+
+## Lo que queda abierto
+
+Ninguna decisión bloquea el plan. Si quieres que solo el GM pueda volver a la realidad desde una forma que toma el
+control, indícalo en la revisión del plan.
 
 ## Lo que deja el constructor
 
