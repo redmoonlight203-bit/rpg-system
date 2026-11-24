@@ -6,6 +6,8 @@ import {reaccionDe} from "./combate";
 import {nuevaVision} from "./vision";
 import {aGrafo,type Nodo,type Puerto,type Ruta,type TipoNodo} from "./yunque-grafo";
 import {normalizarReaccion} from "./reacciones";
+import {anotarEditados} from "./yunque-origen";
+import {desplegar,plantillaPorId} from "./yunque-plantillas";
 /**
  * Operaciones PURAS sobre el Borrador: cada gesto del lienzo es una `Operacion`.
  * `aplicar` nunca muta su entrada y lanza `Error` con un mensaje claro si no aplica.
@@ -16,7 +18,9 @@ export type Operacion=
  |{op:'agregar';tipo:TipoNodo;padre?:string;rama?:'exito'|'fallo'}
  |{op:'quitar';nodo:string}
  |{op:'duplicar';nodo:string}
- |{op:'pegar';fragmento:Fragmento;padre?:string;rama?:'exito'|'fallo'};
+ |{op:'pegar';fragmento:Fragmento;padre?:string;rama?:'exito'|'fallo'}
+ |{op:'desplegar';plantilla:string}
+ |{op:'desvincular';nodo:string};
 const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision'];
 const PELIGROSAS=['__proto__','constructor','prototype'];
 const uuid=()=>crypto.randomUUID();
@@ -184,7 +188,8 @@ export function copiar(b:Borrador,nodo:string):Fragmento{
   default:return {tipo:n.tipo,datos:clon(v)};
  }
 }
-function regenerar(f:Fragmento):unknown{
+/** Copia de los datos de un fragmento con ids nuevos; conserva `origen`. */
+export function regenerarFragmento(f:Fragmento):unknown{
  switch(f.tipo){
   case 'accion':return nuevosIdsEfecto(f.datos as Efecto);
   case 'cuando':return nuevosIdsRegla(f.datos as Regla);
@@ -195,6 +200,10 @@ function regenerar(f:Fragmento):unknown{
  }
 }
 export function aplicar(b:Borrador,o:Operacion):Borrador{
+ const r=aplicarSinMarcar(b,o);
+ return o.op==='desvincular'?r:anotarEditados(b,r,o.op==='fijar'?o.ruta:undefined);
+}
+function aplicarSinMarcar(b:Borrador,o:Operacion):Borrador{
  const r=clon(b);
  switch(o.op){
   case 'fijar':{
@@ -212,7 +221,19 @@ export function aplicar(b:Borrador,o:Operacion):Borrador{
   case 'agregar':insertar(r,o.tipo,datosNuevos(o.tipo),o.padre,o.rama);return r;
   case 'pegar':{
    if(!o.fragmento||!o.fragmento.tipo)falla('Fragmento inválido.');
-   insertar(r,o.fragmento.tipo,regenerar(o.fragmento),o.padre,o.rama);return r;
+   insertar(r,o.fragmento.tipo,regenerarFragmento(o.fragmento),o.padre,o.rama);return r;
+  }
+  case 'desplegar':{
+   const p=plantillaPorId(o.plantilla)??falla('Esa plantilla ya no existe.');
+   for(const f of desplegar(p))insertar(r,f.tipo,regenerarFragmento(f),'nucleo');
+   return r;
+  }
+  case 'desvincular':{
+   const n=buscar(r,o.nodo);
+   if(!['accion','cuando','pasiva'].includes(n.tipo))falla('Este nodo no viene de una plantilla.');
+   const d=leer(r,n.ruta) as Record<string,unknown>;
+   if(!d||d.origen===undefined)falla('Este nodo no viene de una plantilla.');
+   delete d.origen;return r;
   }
   case 'quitar':{
    if(o.nodo==='nucleo')falla('El núcleo no se puede quitar.');
@@ -257,7 +278,7 @@ export function aplicar(b:Borrador,o:Operacion):Borrador{
    const n=buscar(r,o.nodo);
    if(n.tipo==='vinculo')falla('Usa la colección para enlazar creaciones.');
    if(MODULOS.includes(n.tipo)||n.tipo==='invocacion'||n.tipo==='requisitos'||RAICES_SI(n))falla('Ese nodo es único en su acción o creación y no se puede duplicar.');
-   const f=copiar(r,o.nodo),copia=regenerar(f);
+   const f=copiar(r,o.nodo),copia=regenerarFragmento(f);
    const l=enLista(n)??falla('No se puede duplicar ese nodo.');
    const lista=leer(r,l!.lista) as unknown[];
    // Acciones, reglas y pasivas se añaden al final; condiciones y efectos, justo tras el original.

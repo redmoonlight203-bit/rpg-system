@@ -135,3 +135,9 @@ test('cambiar el tipo de un efecto nunca borra sus ramas en silencio',()=>{
  assert.equal(cambiarTipoEfecto({...s,exito:[],fallo:[]},'curar').tipo,'curar','ramas vacías: se puede');
  assert.equal(cambiarTipoEfecto(s,'salvacion'),s);
 });
+
+test('soltar una plantilla produce una operación desplegar',()=>{
+ const p=PIEZAS.find(x=>x.clave==='plantilla:furia-temporal')??assert.fail('falta la pieza');
+ assert.equal(p.plantilla,'furia-temporal');
+ assert.deepEqual(json(planSoltar(base(),p,null)),[{op:'desplegar',plantilla:'furia-temporal'}]);
+});

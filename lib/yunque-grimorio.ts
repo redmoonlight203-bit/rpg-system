@@ -7,7 +7,7 @@ import type {ReglaPasiva} from "./pasivas";
 import {aGrafo,leerRuta,type Nodo,type Ruta,type TipoNodo} from "./yunque-grafo";
 import {aplicar,type Fragmento,type Operacion} from "./yunque-operaciones";
 import type {Enlazable} from "./yunque-vinculos";
-import {PLANTILLAS} from "./yunque-plantillas";
+import {PLANTILLAS,desplegar} from "./yunque-plantillas";
 /**
  * Piezas del Grimorio del Yunque y qué operaciones produce soltarlas en el lienzo. Puro: nunca toca el Borrador;
  * `planSoltar` devuelve las `Operacion` que el taller pasa a `aplicar` (o `null` si la pieza queda sin conectar).
@@ -25,7 +25,9 @@ export const FAMILIAS_GRIMORIO:{clave:FamiliaGrimorio;nombre:string;ayuda:string
 ];
 export type Pieza={clave:string;familia:FamiliaGrimorio;tipo:TipoNodo;nombre:string;ayuda:string;icono:string;fragmentos:Fragmento[];
  /** Subgrupo dentro de la familia (p. ej. «Personales de Kion», «Generales»). Las piezas llegan ya ordenadas por grupo. */
- grupo?:string};
+ grupo?:string;
+ /** Id de plantilla en las piezas de la familia 'plantillas'. */
+ plantilla?:string};
 const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision'];
 const falla=(m:string):never=>{throw new Error(m);};
 const clon=<T,>(x:T):T=>structuredClone(x);
@@ -124,7 +126,7 @@ const PASIVAS_PIEZAS:Pieza[]=[
  una('pasiva:aliento','pasivas','pasiva','Último aliento','Más daño con poca vida','fuego',pasiva({nombre:'Último aliento',condicion:'vida_mitad',bonos:{dano:2}})),
 ];
 // ---- Plantillas: subgrafos listos para usar (lib/yunque-plantillas.ts) ----
-const PLANTILLAS_PIEZAS:Pieza[]=PLANTILLAS.map(p=>({clave:'plantilla:'+p.id,familia:'plantillas',tipo:p.fragmentos[0].tipo,nombre:p.nombre,ayuda:p.descripcion,icono:p.icono,fragmentos:p.fragmentos}));
+const PLANTILLAS_PIEZAS:Pieza[]=PLANTILLAS.map(p=>({clave:'plantilla:'+p.id,familia:'plantillas',tipo:p.fragmentos[0].tipo,nombre:p.nombre,ayuda:p.descripcion,icono:p.icono,plantilla:p.id,fragmentos:desplegar(p)}));
 
 export const PIEZAS:Pieza[]=[...ACCIONES,...MODULOS_PIEZAS,...EVENTOS_PIEZAS,...CONDICIONES_PIEZAS,...EFECTOS_PIEZAS,...PASIVAS_PIEZAS,...PLANTILLAS_PIEZAS];
 
@@ -209,6 +211,10 @@ export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacio
  if(pieza.tipo==='vinculo')falla('Las creaciones de la colección se enlazan con planEnlazar.');
  const enNucleo=!destino||destino.nodo==='nucleo';
  const n=enNucleo?null:aGrafo(b,{creaciones:[]}).nodos.find(x=>x.id===destino!.nodo)??falla('Ese nodo ya no existe.');
+ if(pieza.plantilla){
+  if(n)falla(`«${pieza.nombre}» se suma al núcleo: suéltala en el vacío o sobre el núcleo.`);
+  return [{op:'desplegar',plantilla:pieza.plantilla}];
+ }
  if(pieza.fragmentos.length!==1||pieza.familia==='plantillas'||pieza.familia==='coleccion'){
   if(n)falla(`«${pieza.nombre}» se suma al núcleo: suéltala en el vacío o sobre el núcleo.`);
   return pieza.fragmentos.map(f=>pegar(f,'nucleo'));
