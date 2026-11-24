@@ -45,3 +45,35 @@ test('crear no modifica la lista original', () => {
   crearEstado(lista,{nombre:'Furia'});
   assert.equal(lista.length,0);
 });
+
+const {registrarClavesExistentes}=cargarDependencia('registro-estados');
+test('registra claves antiguas con su id exacto', () => {
+  const reglas=[{efectos:[{tipo:'transformar',clave:'Furia '}]},{condicion:{tipo:'estado_terminado',clave:'veneno'}}];
+  const lista=registrarClavesExistentes([], reglas);
+  assert.deepEqual([...lista.map(e=>e.id)].sort(), ['Furia ','veneno'].sort());
+});
+test('no duplica claves ya registradas', () => {
+  const lista=registrarClavesExistentes([{id:'furia',nombre:'Furia'}], [{efectos:[{tipo:'transformar',clave:'furia'}]}]);
+  assert.equal(lista.length, 1);
+});
+test('recorre condiciones anidadas, ramas y efectos de estado', () => {
+  const reglas=[{
+    condicion:{tipo:'todas',condiciones:[{tipo:'no',condicion:{tipo:'estado',sujeto:'yo',estado:'sangrado'}}]},
+    efectos:[
+      {tipo:'estado',clave:'aturdido',nombre:'Aturdido'},
+      {tipo:'quitar_estado',clave:'quemado'},
+      {tipo:'salvacion',exito:[],fallo:[{tipo:'condicional',condicion:{tipo:'estado',sujeto:'objetivo',estado:'marca'},exito:[{tipo:'estado',clave:'miedo'}]}]},
+    ],
+  }];
+  const lista=registrarClavesExistentes([], reglas);
+  assert.deepEqual([...lista.map(e=>e.id)].sort(), ['aturdido','marca','miedo','quemado','sangrado']);
+  assert.equal(buscarEstado(lista,'aturdido').nombre,'Aturdido');
+  assert.equal(buscarEstado(lista,'quemado').nombre,'quemado');
+});
+test('no modifica las reglas e ignora datos dañados', () => {
+  const reglas=[{efectos:[{tipo:'estado',clave:'veneno'}]},null,'x',{efectos:'no'},{condicion:{tipo:'estado',estado:'   '}},{efectos:[{tipo:'estado',clave:''}]}];
+  const copia=JSON.stringify(reglas);
+  const lista=registrarClavesExistentes([], reglas);
+  assert.deepEqual([...lista.map(e=>e.id)], ['veneno']);
+  assert.equal(JSON.stringify(reglas), copia);
+});

@@ -46,3 +46,47 @@ export function renombrarEstado(lista:RegistroEstado[],id:string,nombre:string):
  if(error)return {ok:false,error};
  return {ok:true,lista:lista.map(e=>e.id===id?{...e,nombre:nombre.trim()}:e)};
 }
+
+const objeto=(v:unknown):v is Record<string,unknown>=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+const EFECTOS_CON_CLAVE=['estado','quitar_estado','transformar'];
+const MAX_PROFUNDIDAD=12;
+
+/** Claves de estado que usan unas reglas, en orden de aparición, con el nombre visible del efecto si lo tiene. */
+function clavesDeReglas(reglas:unknown[]):{clave:string;nombre?:string}[]{
+ const out:{clave:string;nombre?:string}[]=[];
+ const anotar=(clave:unknown,nombre?:unknown)=>{
+  if(typeof clave!=='string'||!clave.trim())return;
+  out.push({clave,...(typeof nombre==='string'&&nombre.trim()?{nombre:nombre.trim()}:{})});
+ };
+ function condicion(c:unknown,d:number){
+  if(!objeto(c)||d>MAX_PROFUNDIDAD)return;
+  if(c.tipo==='estado')anotar(c.estado);
+  else if(c.tipo==='estado_terminado')anotar(c.clave);
+  else if(c.tipo==='no')condicion(c.condicion,d+1);
+  else if((c.tipo==='todas'||c.tipo==='alguna')&&Array.isArray(c.condiciones))for(const x of c.condiciones)condicion(x,d+1);
+ }
+ function efectos(lista:unknown,d:number){
+  if(!Array.isArray(lista)||d>MAX_PROFUNDIDAD)return;
+  for(const e of lista){
+   if(!objeto(e))continue;
+   if(EFECTOS_CON_CLAVE.includes(String(e.tipo)))anotar(e.clave,e.nombre);
+   if(e.tipo==='condicional')condicion(e.condicion,d+1);
+   efectos(e.exito,d+1);efectos(e.fallo,d+1);
+  }
+ }
+ for(const r of Array.isArray(reglas)?reglas:[]){
+  if(!objeto(r))continue;
+  condicion(r.condicion,0);efectos(r.efectos,0);
+ }
+ return out;
+}
+
+/** Añade al registro las claves que ya usan las reglas, con su id **exacto** (sin normalizar). No toca las reglas. */
+export function registrarClavesExistentes(lista:RegistroEstado[],reglas:unknown[]):RegistroEstado[]{
+ const out=[...lista];
+ for(const {clave,nombre} of clavesDeReglas(reglas)){
+  if(buscarEstado(out,clave))continue;
+  out.push({id:clave,nombre:nombre??clave});
+ }
+ return out;
+}
