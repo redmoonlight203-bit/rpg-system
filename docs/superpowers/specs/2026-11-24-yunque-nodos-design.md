@@ -74,11 +74,12 @@ Las plantillas llevan un número de versión que se sube cuando cambian sus camp
 
 ### 2. Actualización
 
-Al abrir una creación, si hay nodos con `version` menor que la actual de su plantilla, aparece un aviso por nodo:
+Al cambiar una plantilla, todos los nodos desplegados de esa plantilla se actualizan automáticamente:
 
-- Campos no editados: se actualizan solos al aplicar.
-- Campos editados: se conservan. Si la plantilla cambia uno de ellos, se muestra el valor nuevo y se pregunta.
-- Aplicar o ignorar, por nodo. Nunca en bloque sin ver.
+- Campos no editados: se actualizan solos.
+- Campos editados: se conservan. Si la plantilla también cambió uno de ellos, el valor del GM gana y queda
+  anotado en el resumen.
+- Resumen: un aviso al abrir la creación lista qué nodos cambiaron y qué campos. Así nada cambia sin que lo sepas.
 
 ### 3. Desvincular
 
@@ -99,7 +100,25 @@ Botón «Convertir en nodo propio»: quita `origen`. El nodo queda como cualquie
 Los botones de rugido, dash, salto y carrera de `EditorDados.tsx` pasan a ser el selector de plantillas: elegir
 una la despliega en nodos. Desaparecen las opciones que solo rellenaban campos a la vez.
 
+### 6. Presupuesto de acciones por turno
+
+Hoy el combate no tiene un concepto de acciones por turno; solo hay límites por regla. Se añade:
+
+- **Presupuesto en el núcleo de cualquier combatiente**: personaje, monstruo o cualquier cosa que entre al combate.
+  El nodo muestra cuántas acciones tiene de cada tipo:
+  - **Principal**: la acción normal del turno (hoy existe de forma implícita).
+  - **Adicional**: una acción extra en el turno.
+  - **Legendaria**: acciones fuera de turno, con un número fijo por ronda (por ejemplo, 3).
+- **Configurable desde fuentes**: el presupuesto puede venir de una raza, un clan, una especie o cualquier fuente
+  que ya aporta pasivas (mismo mecanismo y mismos requisitos). Se conecta solo al nodo del personaje o monstruo.
+- **Cada acción declara qué presupuesto usa**: principal, adicional o legendaria. Una acción legendaria puede usarse
+  fuera de su turno; una adicional, solo como acción extra en el propio turno.
+- **Varias fuentes**: se suman (decisión mía, ver abajo).
+
 ## Decisiones tomadas por mí (revisables)
+
+- Varias fuentes de presupuesto se suman. Ejemplo: raza +1 adicional y clan +2 legendarias dan 1 adicional y 2 legendarias.
+- Las acciones legendarias se recargan al inicio de cada ronda. Las principales y adicionales, al inicio del turno del dueño.
 
 - Las plantillas siguen en código (`lib/yunque-plantillas.ts`), con un número de versión por plantilla.
 - Las defensas de Kion usan el mismo mecanismo de referencia viva que el resto.
@@ -109,12 +128,17 @@ una la despliega en nodos. Desaparecen las opciones que solo rellenaban campos a
 
 ## Decisiones del usuario (aprobadas en conversación)
 
-1. **Cuando cambia una plantilla:** se pregunta por nodo. Ejemplo: la plantilla «Rugido» pasa de radio 2 a radio 3.
-   Si el GM ya había cambiado el daño de ese nodo, el aviso aparece solo para el radio y el daño no se toca.
+1. **Cuando cambia una plantilla:** se actualiza sola. Ejemplo: la plantilla «Rugido» pasa de radio 2 a radio 3, y
+   los nodos desplegados pasan a radio 3. Si el GM ya había cambiado el daño de un nodo, el daño se conserva.
+   Al final se muestra un resumen de lo que cambió.
 2. **Acciones de un personaje:** sección propia «Acciones del personaje», separada de las habilidades. Motivo: poder
    usar acciones legendarias fuera de su turno o como acción adicional. Esto afecta al motor: el combate debe poder
    ejecutar acciones de esa sección fuera del turno normal. Lo confirmaré al planificar.
 3. **Plantillas de Kion:** vivas, con el mismo mecanismo que el resto.
+
+4. **Actualización de plantillas:** automática, con resumen (ver punto 2 del diseño).
+5. **Presupuesto de acciones por turno:** configurable en cualquier combatiente. Puede venir de raza, clan, especie
+   u otra fuente. Acciones principales, adicionales y legendarias, conectadas al nodo del personaje o monstruo.
 
 Consecuencia de la decisión 2: las acciones de personaje ya no van dentro de `configuracion.habilidades`. Se guardan en
 su propia lista (`configuracion.acciones_personaje`, nombre provisional) y el motor debe leerla con reglas de uso
