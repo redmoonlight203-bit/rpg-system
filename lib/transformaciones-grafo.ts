@@ -97,7 +97,11 @@ export function validarGrafo(grafo: Grafo): string | null {
     if (!ids.has(t.desde) || !ids.has(t.hasta)) return 'Una transición apunta a una forma que no existe.';
     if (t.desde === t.hasta) return 'Una forma no puede conectarse consigo misma.';
     if (t.sentido !== 'ambos' && t.sentido !== 'uno') return 'Sentido de transición inválido.';
+    const coste = t.coste as Record<string, unknown> | undefined;
+    if (coste !== undefined && (!coste || typeof coste !== 'object' || ['ph', 'fatiga'].some(k => coste[k] !== undefined && (!Number.isInteger(coste[k]) || (coste[k] as number) < 0 || (coste[k] as number) > 1000))))
+      return 'El coste de una transición va de 0 a 1000 PH o fatiga.';
   }
+  if (grafo.transiciones.length > 100) return 'Máximo 100 transiciones por transformación.';
   const alcanzables = alcanzablesDesdeRealidad(grafo, realidades[0].id);
   const huerfana = grafo.formas.find(f => !alcanzables.has(f.id));
   if (huerfana) return `${huerfana.nombre}: no hay ninguna transición que lleve a esta forma.`;

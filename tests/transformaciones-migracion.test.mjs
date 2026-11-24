@@ -60,3 +60,14 @@ test('la realidad no choca con una etapa llamada «realidad»', () => {
   assert.equal(new Set(g.formas.map(f=>f.id)).size,2);
   assert.equal(g.formas.find(f=>!f.es_realidad).id,'realidad');
 });
+
+const {validarEfectos}=cargarDependencia('creacion');
+const efectoCon=transformacion=>({id:'t',nombre:'T',efecto:'transformacion',cantidad:0,caras:6,modificador:0,tipo_dano:'fisico',estado:'',duracion:0,coste_ph:0,transformacion});
+const dragon=extra=>({id:'d',nombre:'Dragón',tipo:'poder',etapas:[{id:'dragon',nombre:'Dragón',stats:{armadura:15}}],...extra});
+test('validarEfectos acepta un grafo válido y rechaza una forma huérfana', () => {
+  assert.equal(validarEfectos([efectoCon(dragon({transiciones:[{id:'a',desde:'_realidad',hasta:'dragon',sentido:'ambos'}]}))]),null);
+  assert.match(validarEfectos([efectoCon(dragon({transiciones:[{id:'a',desde:'dragon',hasta:'x',sentido:'ambos'}]}))])||'',/no existe/);
+  const dos=dragon({etapas:[{id:'dragon',nombre:'Dragón',stats:{armadura:15}},{id:'humo',nombre:'Humo',stats:{armadura:1}}],transiciones:[{id:'a',desde:'_realidad',hasta:'dragon',sentido:'ambos'}]});
+  assert.match(validarEfectos([efectoCon(dos)])||'',/Humo/);
+  assert.match(validarEfectos([efectoCon(dragon({transiciones:[{id:'a',desde:'_realidad',hasta:'dragon',sentido:'ambos',coste:{ph:-1}}]}))])||'',/coste/i);
+});
