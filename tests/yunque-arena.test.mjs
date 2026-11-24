@@ -456,3 +456,19 @@ test('la arena reserva las celdas del portador grande y no coloca sacos sobre su
  const n=A.agregarSaco(c,{},{x:pos.x+1,y:pos.y});
  assert.ok(A.sacosDe(n).every(q=>!enDoll(q)));
 });
+
+test('la Arena usa el empuje de la etapa y la Arena registra una sola tirada 1d4 al saco',()=>{
+ const b=clon(F.habilidad);
+ b.efectos=[{
+  id:'gigante',nombre:'Crecer',efecto:'transformacion',cantidad:0,caras:6,modificador:0,
+  tipo_dano:'',estado:'',duracion:0,coste_ph:0,coste_fatiga:0,
+  transformacion:{id:'titan',nombre:'Titán',tipo:'poder',etapas:[{id:'enorme',nombre:'Enorme',stats:{},huella:{ancho:2,alto:2},empuje_huella:{cantidad:1,caras:4}}]}
+ }];
+ const inicial=arena(b),saco=m(inicial,'saco');
+ const numeros=[];
+ const siguiente=A.usar(inicial,`hab:${b.id}:gigante`,'doll',caras=>{numeros.push(caras);return 3;});
+ assert.deepEqual(numeros,[4]);
+ assert.equal(m(siguiente,'saco').vida,saco.vida-3);
+ assert.notDeepEqual(m(siguiente,'saco').posicion,saco.posicion);
+ assert.equal(m(siguiente,'doll').transformacion.etapa_id,'enorme');
+});

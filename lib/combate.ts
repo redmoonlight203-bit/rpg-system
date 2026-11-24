@@ -878,7 +878,7 @@ function entrar(c: Combate, m: Combatiente, rng: RNG) {
       // Ruta especial: solo una inmunidad configurada a la posesión la bloquea (sin decisión por defecto).
       if(puedeAplicar(c,m,'posesion',{id:'posesion',nombre:'la posesión',categoria:'mental',subcategoria:'posesion',duracion:{tipo:'combate'},efectos:[]})==='no')break;
       if(!salvacion(c,m,p.cd,'salvacion',rng)){
-        if(!aplicarFormaConEspacio(c,m,forzarPosesion(m,d,p.etapa_id))){log(c,`${m.nombre}: no hay espacio para la forma de posesión.`);break;}
+        if(!aplicarFormaConEspacio(c,m,forzarPosesion(m,d,p.etapa_id),rng)){log(c,`${m.nombre}: no hay espacio para la forma de posesión.`);break;}
         log(c,`${m.nombre} pierde el control: se manifiesta ${d.etapas.find(et=>et.id===p.etapa_id)?.nombre||d.nombre}.`);
       }else log(c,`${m.nombre} resiste la posesión por este turno.`);
       break;
@@ -1480,11 +1480,11 @@ function actuarInterno(
     const d=act.efecto.transformacion;
     if(!d)throw Error("Transformación sin configurar.");
     if(!a.transformacion){const fatiga=act.efecto.coste_fatiga||0;if(fatiga&&(a.agotado||a.fatiga+fatiga>(estadisticas(a).fatiga||0)))throw Error("Fatiga insuficiente para transformarse.");a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;}
-    if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");if(d.etapas[indice+1].descontrolada)throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');if(!aplicarFormaConEspacio(n,a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id)))throw Error('No hay espacio para esa transformación.');log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
-    else{if(a.transformaciones_usadas?.includes(d.id))throw Error("Transformación ya utilizada en esta partida.");if(phDisponibles(a)<(act.efecto.coste_ph||0))throw Error("PH insuficientes.");if(!aplicarFormaConEspacio(n,a,activarTransformacion(a,{...d,coste_ph:act.efecto.coste_ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos})))throw Error('No hay espacio para esa transformación.');log(n,`${a.nombre} activa ${d.nombre}.`);}
+    if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");if(d.etapas[indice+1].descontrolada)throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');if(!aplicarFormaConEspacio(n,a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id),rng))throw Error('No hay espacio para esa transformación.');log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
+    else{if(a.transformaciones_usadas?.includes(d.id))throw Error("Transformación ya utilizada en esta partida.");if(phDisponibles(a)<(act.efecto.coste_ph||0))throw Error("PH insuficientes.");if(!aplicarFormaConEspacio(n,a,activarTransformacion(a,{...d,coste_ph:act.efecto.coste_ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos}),rng))throw Error('No hay espacio para esa transformación.');log(n,`${a.nombre} activa ${d.nombre}.`);}
     if(a.transformacion&&!a.transformacion.creado_turno)a.transformacion.creado_turno=a.turnos;
-    if(!a.transformacion)throw Error('No se pudo activar la forma.');
-    if(!a.transformacion.etapa_id)throw Error('Etapa inválida.');
+    // Una reacción al daño de crecimiento puede romper la forma ya aplicada.
+    if(a.transformacion&&!a.transformacion.etapa_id)throw Error('Etapa inválida.');
     if(act.enfriamiento)a.cooldowns[act.id]=act.enfriamiento+1;
     a.accion_usada=true;normalizar(a);return n;
   }
@@ -2452,12 +2452,74 @@ export function configurarHuellaParticipante(c:Combate,id:string,huella:Huella|u
  if(!aplicarFormaConEspacio(n,m,{...m,configuracion:config}))throw Error('No hay espacio para ese tamaño. Mueve la ficha antes de agrandarla.');
  return n;
 }
-function aplicarFormaConEspacio(c:Combate,m:Combatiente,forma:Combatiente, posiciones=posicionesTablero(c)) {
- const p=posiciones[m.id];
- if(!cabeFichaEn(c,forma,p,posiciones))return false;
- // Fija las posiciones existentes para que cambiar de forma no reasigne otras fichas.
+/** Planifica todo sin modificar el encuentro ni tirar dados. Cada desplazamiento usa una ruta ortogonal libre. */
+function planEmpujeDeForma(c:Combate,m:Combatiente,forma:Combatiente,pos:Record<string,Posicion>){
+ const origen=pos[m.id],dims=dimensionesTablero(c),nueva=huellaReserva(forma);
+ const muro=(q:Posicion)=>c.mapa?.celdas[claveHuella(q)]==='muro';
+ if(!cabeHuella(nueva,origen,dims,muro))return null;
+ const superficie=new Set(casillasHuella(nueva,origen).map(claveHuella));
+ const miembros=c.miembros.filter(x=>x.id!==m.id&&pos[x.id]);
+ const pendientes=miembros.filter(x=>casillasHuella(huellaReserva(x),pos[x.id]).some(q=>superficie.has(claveHuella(q))));
+ const ubicacion={...pos},visitados=new Set<string>();
+ const actual=huellaReserva(m);
+ let pasosEvaluados=0;
+ const LIMITE_PASOS=120_000;
+ function salidas(t:Combatiente){
+  const ficha=huellaReserva(t),inicio=ubicacion[t.id];
+  const ocupadas=new Set([
+   ...casillasHuella(actual,origen),
+   ...miembros.filter(x=>x.id!==t.id).flatMap(x=>casillasHuella(huellaReserva(x),ubicacion[x.id])),
+  ].map(claveHuella));
+  const cola=[{p:inicio,d:0}],vistas=new Set([claveHuella(inicio)]),r:{p:Posicion;d:number}[]=[];
+  for(let i=0;i<cola.length;i++){
+   const {p,d}=cola[i];
+   if(d&&casillasHuella(ficha,p).every(q=>!superficie.has(claveHuella(q))))r.push({p,d});
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    if(++pasosEvaluados>LIMITE_PASOS)return r;
+    const q={x:p.x+dx,y:p.y+dy},k=claveHuella(q);
+    if(vistas.has(k)||!cabeHuella(ficha,q,dims,x=>muro(x)||ocupadas.has(claveHuella(x))))continue;
+    vistas.add(k);cola.push({p:q,d:d+1});
+   }
+  }
+  return r.sort((a,b)=>a.d-b.d||distanciaEntreFichas(nueva,origen,ficha,b.p)-distanciaEntreFichas(nueva,origen,ficha,a.p)||a.p.y-b.p.y||a.p.x-b.p.x);
+ }
+ type Salida={t:Combatiente;desde:Posicion;hasta:Posicion};
+ function buscar(restan:Combatiente[]):Salida[]|null{
+  if(!restan.length)return [];
+  // Limita la búsqueda en tableros llenos; se rechaza el cambio completo si no hay plan.
+  if(visitados.size>=2048||pasosEvaluados>LIMITE_PASOS)return null;
+  const k=pendientes.map(t=>claveHuella(ubicacion[t.id])).join(';');
+  if(visitados.has(k))return null;
+  visitados.add(k);
+  const opciones=restan.map(t=>({t,r:salidas(t)})).filter(x=>x.r.length).sort((a,b)=>a.r.length-b.r.length||a.t.id.localeCompare(b.t.id));
+  for(const {t,r} of opciones){
+   const desde=ubicacion[t.id];
+   for(const {p:hasta} of r){
+    ubicacion[t.id]=hasta;
+    const resto=buscar(restan.filter(x=>x.id!==t.id));
+    if(resto)return [{t,desde,hasta},...resto];
+    ubicacion[t.id]=desde;
+   }
+  }
+  return null;
+ }
+ return buscar(pendientes);
+}
+function aplicarFormaConEspacio(c:Combate,m:Combatiente,forma:Combatiente,rng?:RNG) {
+ const posiciones=posicionesTablero(c),p=posiciones[m.id],empuje=forma.transformacion?.empuje_huella;
+ const plan=cabeFichaEn(c,forma,p,posiciones)?[]:rng&&empuje?planEmpujeDeForma(c,m,forma,posiciones):null;
+ if(!plan)return false;
+ // Fija primero todos los destinos; ninguna tirada, movimiento ni coste parcial en un plan fallido.
  for(const a of c.miembros)if(posiciones[a.id])a.posicion=posiciones[a.id];
+ for(const {t,hasta} of plan)t.posicion=hasta;
  Object.assign(m,forma,{posicion:p});
+ if(rng&&empuje)for(const {t} of plan){
+  log(c,`${m.nombre} empuja a ${t.nombre} al crecer.`);
+  if(empuje.cantidad&&t.vida>0){
+   const total=dados(c,empuje.cantidad,empuje.caras,rng,`Empuje de ${m.nombre} a ${t.nombre}`);
+   recibir(c,m,t,{...basico(),id:'empuje-forma',naturaleza:'fisica',efecto:'dano'},total,[],rng);
+  }
+ }
  return true;
 }
 export function posicionesTablero(c: Pick<Combate, 'miembros'|'mapa'>): Record<string, Posicion> {

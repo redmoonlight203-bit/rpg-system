@@ -11,7 +11,7 @@ import EditorHuella from './EditorHuella';
 import SelectorVFX from './SelectorVFX';
 import EditorVision from './yunque/editores/EditorVision';
 import {nuevaVision} from '../lib/vision';
-import type {DefinicionTransformacion, EtapaTransformacion, TipoTransformacion} from "../lib/transformaciones";
+import {EMPUJE_HUELLA_INICIAL,validarEmpujeHuella,type DefinicionTransformacion,type EtapaTransformacion,type TipoTransformacion} from "../lib/transformaciones";
 
 const campo = "mt-1 w-full rounded-lg border border-neutral-700 bg-well p-2 text-neutral-100";
 const boton = "rounded-lg border border-neutral-600 px-3 py-2 text-sm hover:border-violet-400 disabled:cursor-not-allowed disabled:opacity-40";
@@ -69,6 +69,8 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
     ...atributos.filter(a=>tipo==="forma"||a.clave!=="vida").map(a=>a.clave),
     ...Object.keys(etapa.stats).filter(k=>k!=="hp"&&(tipo==="forma"||k!=="vida")&&!Object.hasOwn(nombreAtributo,k))
   ];
+  const empuje=etapa.empuje_huella;
+  const errorEmpuje=validarEmpujeHuella(empuje);
   const poderes = acciones.filter(a=>a.efecto!=="transformacion");
   return (
     <fieldset className="space-y-4 rounded-xl border border-neutral-700 bg-black/20 p-3 sm:p-4">
@@ -106,6 +108,26 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
       </fieldset>
 
       <EditorHuella titulo="Tamaño durante esta etapa" valor={etapa.huella} defecto="Conservar el tamaño base del combatiente" onChange={huella=>onChange({...etapa,huella})}/>
+      <fieldset className="space-y-3 rounded-lg border border-violet-900/70 bg-neutral-900/50 p-3">
+        <legend className="px-1 font-semibold text-violet-200">Empuje al crecer</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!empuje} onChange={e=>onChange({...etapa,empuje_huella:e.target.checked?{...EMPUJE_HUELLA_INICIAL}:undefined})}/>
+          Empujar a las fichas que bloqueen el crecimiento
+        </label>
+        <p className="text-xs text-neutral-400">Solo se activa si esta etapa ocupa casillas nuevas. No atraviesa obstáculos ni bordes del mapa.</p>
+        {empuje&&<>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-sm">Dados de daño
+              <input className={campo} type="number" min={0} max={20} step={1} value={empuje.cantidad} onChange={e=>onChange({...etapa,empuje_huella:{...empuje,cantidad:Number(e.target.value)}})}/>
+            </label>
+            <label className="block text-sm">Caras por dado
+              <input className={campo} type="number" min={2} max={100} step={1} value={empuje.caras} onChange={e=>onChange({...etapa,empuje_huella:{...empuje,caras:Number(e.target.value)}})}/>
+            </label>
+          </div>
+          <p className="text-xs text-neutral-400">Con 0 dados, las fichas se desplazan sin recibir daño.</p>
+          {errorEmpuje&&<p role="alert" className="text-xs text-red-300">{errorEmpuje}</p>}
+        </>}
+      </fieldset>
       <SelectorVFX transformacion valor={etapa.vfx} onChange={vfx=>onChange({...etapa,vfx})}/>
       <div className="space-y-2">
         <h4 className="font-semibold">Estadísticas de esta etapa</h4>

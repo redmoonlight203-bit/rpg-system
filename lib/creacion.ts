@@ -1,6 +1,6 @@
 import {validarHuella} from './huellas-combate';
 import type {ConfiguracionVFX} from "./vfx";
-import type { DefinicionTransformacion } from "./transformaciones";
+import {validarEmpujeHuella,type DefinicionTransformacion} from "./transformaciones";
 import {validarPortada} from "./imagenes-creacion";
 import {validarReglas} from "./reglas";
 import {validarVision,type Vision} from "./vision";
@@ -366,7 +366,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       if(d.etapas.some(v=>v.habilidades!==undefined&&(!Array.isArray(v.habilidades)||v.habilidades.some(id=>typeof id!=='string'||!id))))return 'Selecciona poderes de etapa válidos.';
       if(d.tipo==="forma"&&d.etapas.some(v=>!((v.stats.hp??v.stats.vida)>0)))return "Cada forma necesita HP propios.";
       for(const etapa of d.etapas){
-        const errorHuella=validarHuella(etapa.huella);if(errorHuella)return `${etapa.nombre}: ${errorHuella}`;
+        const errorHuella=validarHuella(etapa.huella)||validarEmpujeHuella(etapa.empuje_huella);if(errorHuella)return `${etapa.nombre}: ${errorHuella}`;
         const errorVFX=validarAnimacion(etapa.vfx);if(errorVFX)return errorVFX;
         const errorOjo=validarVision(etapa.vision);if(errorOjo)return `${etapa.nombre}: ${errorOjo}`;
         if(etapa.reglas!==undefined){if(!Array.isArray(etapa.reglas))return 'Las pasivas de etapa deben ser reglas válidas.';const error=validarReglas(etapa.reglas);if(error)return `${etapa.nombre}: ${error}`;}

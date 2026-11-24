@@ -6,10 +6,22 @@ import type {AnimacionEtapa} from "./vfx";
  * internas y NO consumen usos adicionales.
  */
 import type {Regla} from './reglas';
+/** Empuja las fichas cuando esta etapa aumenta las casillas ocupadas. */
+export type EmpujeHuella = {cantidad:number;caras:number};
+export const EMPUJE_HUELLA_INICIAL:Readonly<EmpujeHuella>={cantidad:1,caras:4};
+export function validarEmpujeHuella(valor:unknown):string|null {
+  if(valor===undefined)return null;
+  if(!valor||typeof valor!=='object')return 'Configura el empuje del crecimiento.';
+  const {cantidad,caras}=valor as EmpujeHuella;
+  if(!Number.isInteger(cantidad)||cantidad<0||cantidad>20)return 'El empuje admite de 0 a 20 dados de daño.';
+  if(!Number.isInteger(caras)||caras<2||caras>100)return 'Los dados del empuje deben tener entre 2 y 100 caras.';
+  return null;
+}
 export type TipoTransformacion = 'forma' | 'poder';
 export type EtapaTransformacion = {
   /** Si no se configura, conserva la huella base del actor. */
   huella?:Huella;
+  empuje_huella?:EmpujeHuella;
   descripcion?:string;
   vfx?:AnimacionEtapa;
   id:string;
@@ -41,6 +53,7 @@ export type DefinicionTransformacion = {
 };
 export type TransformacionActiva = {
   huella?:Huella;
+  empuje_huella?:EmpujeHuella;
   vfx?:AnimacionEtapa;
   creado_turno?:number;
   definicion_id:string;
@@ -69,7 +82,7 @@ function maxVidaForma(stats:Record<string,number>):number {
 function comprobarEtapa(d:DefinicionTransformacion,id:string) {
   const e=d.etapas.find(e=>e.id===id);
   if(!e)throw Error('La etapa no pertenece a esta transformación.');
-  const error=validarHuella(e.huella);if(error)throw Error(error);
+  const error=validarHuella(e.huella)||validarEmpujeHuella(e.empuje_huella);if(error)throw Error(error);
   return e;
 }
 export function activarTransformacion<T extends EstadoTransformable>(actor:T,def:DefinicionTransformacion,etapaId=def.etapas[0]?.id):T {
@@ -84,7 +97,7 @@ export function activarTransformacion<T extends EstadoTransformable>(actor:T,def
   const stats={...original,...etapa.stats};
   const forma=def.tipo==='forma';
   const activa:TransformacionActiva={
-    definicion_id:def.id,tipo:def.tipo,etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,huella:etapa.huella,
+    definicion_id:def.id,tipo:def.tipo,etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,huella:etapa.huella,empuje_huella:etapa.empuje_huella,
     stats_originales:original,vida_original:actor.vida,
     vida_forma:forma?maxVidaForma(stats):actor.vida,
     turnos_restantes:def.duracion_turnos&&def.duracion_turnos>0?def.duracion_turnos:null
@@ -101,7 +114,7 @@ export function cambiarEtapaTransformacion<T extends EstadoTransformable>(actor:
   // El avance de etapa no regenera HP. En forma, la vida restante se limita
   // al nuevo máximo; en poder, la vida real permanece intacta.
   const vida=activa.tipo==='forma'?Math.min(actor.vida,maxVidaForma(stats)):actor.vida;
-  return {...actor,stats,vida,transformacion:{...activa,etapa_id:etapaId,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,huella:etapa.huella,vida_forma:vida}};
+  return {...actor,stats,vida,transformacion:{...activa,etapa_id:etapaId,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,huella:etapa.huella,empuje_huella:etapa.empuje_huella,vida_forma:vida}};
 }
 /** Activación automática y forzada por una salvación fallida; ignora el límite
  * de uso manual y los costes, pero no hace que el jugador pierda su ficha base. */
@@ -115,7 +128,7 @@ export function forzarPosesion<T extends EstadoTransformable>(actor:T,def:Defini
  const curacion=Math.max(0,Math.trunc(etapa.curacion_entrada||0));
  const vida=Math.max(1,Math.min(max,actor.vida+curacion));
  const activa:TransformacionActiva={
-   definicion_id:def.id,tipo:'poder',etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,huella:etapa.huella,
+   definicion_id:def.id,tipo:'poder',etapa_id:etapa.id,imagen_etapa:etapa.imagen_url||undefined,vfx:etapa.vfx,huella:etapa.huella,empuje_huella:etapa.empuje_huella,
    descontrolada:true,vida_maxima_alterada:true,
    stats_originales:originales,vida_original:actor.transformacion?.vida_original??actor.vida,
    vida_forma:vida,turnos_restantes:null
