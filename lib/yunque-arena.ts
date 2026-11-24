@@ -60,6 +60,8 @@ function conEquipo(stats:Record<string,number>,equipo:Record<string,Fuente>){
  const total={...stats};for(const [k,v] of Object.entries(bonos))total[k]=(total[k]||0)+v;
  return {stats:total,bonos};
 }
+/** Las inmunidades permanentes de una pasiva se guardan en sus efectos, no en sus reglas. */
+const inmunidadesPasiva=(efectos:Efecto[]|undefined)=>(efectos||[]).flatMap(e=>e.inmunidades||[]);
 /** Portador según el tipo del borrador. Los requisitos de uso de la propia creación se ignoran: es un banco de pruebas. */
 function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  const id=b.id||'borrador',nombre=b.nombre.trim()||'Creación en pruebas';
@@ -69,7 +71,7 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
   const buscar=(cid:string)=>ctx.creaciones.find(c=>c.id===cid&&vigente(c));
   config.raza=b.clasificacion;config.linaje_raza=ctx.linaje;
   config.habilidades=b.habilidades.map(buscar).filter((c):c is PiezaArena=>!!c).map(fuenteObjeto);
-  config.pasivas=b.pasivas.map(buscar).filter((c):c is PiezaArena=>!!c).map(c=>({id:c.id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[]}));
+  config.pasivas=b.pasivas.map(buscar).filter((c):c is PiezaArena=>!!c).map(c=>({id:c.id,nombre:c.nombre,requisitos_uso:c.requisitos_uso,reglas:c.reglas_pasivas||[],reglas_motor:c.reglas||[],inmunidades:inmunidadesPasiva(c.configuracion_dados)}));
   config.pasivas.push(...ctx.raciales||[]);
   const equipo:Record<string,Fuente>={};
   for(const [slot,cid] of Object.entries(b.equipamiento||{})){const c=cid?buscar(cid):undefined;if(c)equipo[slot]=fuenteObjeto(c);}
@@ -82,7 +84,7 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
  }
  const base:Record<string,number>={...DOLL_BASE,...doll};
  if(b.tipo==='habilidad')config.habilidades=[{id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,reglas:b.reglas,tipo_creacion:'habilidad',imagen_url:b.imagen}];
- else if(b.tipo==='pasiva')config.pasivas=[{id,nombre,reglas:b.reglas_pasivas,reglas_motor:b.reglas}];
+ else if(b.tipo==='pasiva')config.pasivas=[{id,nombre,reglas:b.reglas_pasivas,reglas_motor:b.reglas,inmunidades:inmunidadesPasiva(b.efectos)}];
  else{
   // objeto, título u otro: la pieza va en su ranura.
   // El motor solo acepta tipos de pieza en `slot_tipo`: si el borrador guarda la ranura (mano_der), se pasa a su tipo y la ranura queda aparte para volver a equiparla.

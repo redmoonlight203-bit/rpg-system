@@ -404,3 +404,44 @@ test('pasoConReacciones pausa ante una oferta y reanuda con la respuesta, reutil
  const directo=A.pasoConReacciones((x,rng)=>A.golpeame(x,{cantidad:1,caras:4,naturaleza:'fisica'},rng),c,()=>2);
  assert.ok(directo.combate,'sin oferta no hay pausa');
 });
+
+test('Ignífugo conserva sus inmunidades en la Arena como pasiva directa o de un personaje',()=>{
+ const pasiva={...clon(F.pasiva),nombre:'Pulmones de dragón',efectos:[{
+  id:'ignifugo',nombre:'Ignífugo',efecto:'estado',solo_pasivo:true,cantidad:0,caras:6,modificador:0,
+  tipo_dano:'',estado:'Ignífugo',duracion:0,coste_ph:0,
+  inmunidades:[
+   {tipo:'estado',valor:'quemadura',modo:'bloquear_aplicacion',duracion:'permanente'},
+   {tipo:'dano',valor:'fuego',modo:'bloquear_dano',duracion:'permanente'}
+  ],
+ }]};
+ const personaje={...clon(F.personaje),pasivas:[pasiva.id]};
+ const {actuar,siguiente,inmunidadesDe}=cargarDependencia('combate');
+ for(const borrador of [pasiva,personaje]){
+  const r=A.crearArena(borrador,ctx(borrador,[...CREACIONES.filter(c=>c.id!==pasiva.id),creacion(pasiva)]));
+  assert.ok(r.combate,r.error);
+  const inicial=r.combate;
+  const vida=m(inicial,'doll').vida;
+  assert.equal(inmunidadesDe(m(inicial,'doll')).length,2);
+  const golpe=A.golpeame(inicial,{cantidad:1,caras:6,naturaleza:'fisica',elemento:'fuego'},()=>6);
+  assert.equal(m(golpe,'doll').vida,vida);
+  const preparar=c=>{
+   c.actual='saco';
+   m(c,'saco').configuracion.habilidades=[{id:'llama',nombre:'Llama',stats:{},efectos:[{
+    id:'quemar',nombre:'Quemar',efecto:'estado',estado_tipo:'quemadura',estado:'Quemadura',
+    cantidad:1,caras:6,modificador:0,tipo_dano:'',duracion:3,coste_ph:0
+   }]}]; return c;
+  };
+  const quemado=actuar(preparar(clon(inicial)),'saco','hab:llama:quemar','doll',()=>1);
+  assert.ok(!m(quemado,'doll').estados.some(e=>(e.tipo||e.id)==='quemadura'));
+  assert.equal(m(siguiente(quemado,()=>6),'doll').vida,vida);
+  // La inmunidad elemental sola deja aplicar Quemadura, pero bloquea su daño periódico.
+  const soloFuego=preparar(clon(inicial));
+  m(soloFuego,'doll').configuracion.pasivas.find(p=>p.id===pasiva.id).inmunidades=
+   inmunidadesDe(m(soloFuego,'doll')).filter(i=>i.tipo==='dano');
+  const conQuemadura=actuar(soloFuego,'saco','hab:llama:quemar','doll',()=>1);
+  assert.ok(m(conQuemadura,'doll').estados.some(e=>(e.tipo||e.id)==='quemadura'));
+  const turnoDoll=siguiente(conQuemadura,()=>6);
+  assert.equal(turnoDoll.actual,'doll');
+  assert.equal(m(siguiente(turnoDoll,()=>6),'doll').vida,vida);
+ }
+});
