@@ -62,6 +62,8 @@ export type Vision = {
   duracion: number;
   /** PH que cuesta mantenerlo al inicio de cada turno propio; si no se pagan, se cierra. */
   mantenimiento_ph?: number;
+  /** Fatiga por turno como alternativa al mantenimiento de PH. Cero conserva la elección. */
+  mantenimiento_fatiga?: number;
   /** Casillas que alcanza la mirada; 0 = todo el tablero. */
   alcance: number;
   /** Ve a través de muros. */
@@ -171,6 +173,8 @@ export function validarVision(v: unknown): string | null {
   if (o.sin_accion !== undefined && typeof o.sin_accion !== 'boolean') return 'Configuración de acción inválida.';
   if (!entero(o.duracion, 0, 99)) return 'La duración del ojo va de 0 (todo el combate) a 99 turnos.';
   if (o.mantenimiento_ph !== undefined && !entero(o.mantenimiento_ph, 0, 100)) return 'El mantenimiento va de 0 a 100 PH por turno.';
+  if (o.mantenimiento_fatiga !== undefined && !entero(o.mantenimiento_fatiga, 0, 100)) return 'El mantenimiento va de 0 a 100 de Fatiga por turno.';
+  if (o.mantenimiento_ph && o.mantenimiento_fatiga !== undefined) return 'Elige PH o Fatiga para el mantenimiento, no ambos.';
   if (!entero(o.alcance, 0, 100)) return 'El alcance de la mirada va de 0 (todo el tablero) a 100 casillas.';
   if (o.atraviesa_muros !== undefined && typeof o.atraviesa_muros !== 'boolean') return 'Configuración de muros inválida.';
   const a = o.apariencia;
@@ -207,7 +211,9 @@ export function describirVision(v: Vision): { resumen: string; detalles: string[
   const revela = [r.vida && 'vida', r.atributos && 'atributos', r.acciones && 'acciones', r.pasivas && 'pasivas', r.estados && 'estados', r.ocultos && 'lo oculto'].filter(Boolean) as string[];
   const detalles = [
     `${activacion}${tiempo}.`,
-    v.mantenimiento_ph ? `Mantenerlo cuesta ${v.mantenimiento_ph} PH al inicio de cada turno.` : '',
+    v.modo === 'permanente' ? '' : v.mantenimiento_fatiga !== undefined
+      ? (v.mantenimiento_fatiga ? `Mantenerlo cuesta ${v.mantenimiento_fatiga} de Fatiga al inicio de cada turno.` : '')
+      : (v.mantenimiento_ph ? `Mantenerlo cuesta ${v.mantenimiento_ph} PH al inicio de cada turno.` : ''),
     `Mirada: ${v.alcance ? `${v.alcance} casillas` : 'todo el tablero'}${v.atraviesa_muros ? ', atraviesa muros' : ''}.`,
     revela.length ? `Revela de los enemigos: ${revela.join(', ')}.` : '',
     v.puntos_debiles ? `Ve ${v.puntos_debiles.cantidad} punto${v.puntos_debiles.cantidad === 1 ? '' : 's'} débil${v.puntos_debiles.cantidad === 1 ? '' : 'es'} por enemigo (${v.puntos_debiles.cambia === 'ronda' ? 'cambian cada ronda' : 'fijos todo el combate'}); atacar desde esa dirección da ${describirRecompensa(v.puntos_debiles.recompensa)}.` : '',

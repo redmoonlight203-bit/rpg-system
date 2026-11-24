@@ -1459,7 +1459,7 @@ function actuarInterno(
   if(act.efecto.efecto==="transformacion"){
     const d=act.efecto.transformacion;
     if(!d)throw Error("Transformación sin configurar.");
-    if(!a.transformacion){const fatiga=act.efecto.coste_fatiga||0;if(fatiga&&(a.agotado||a.fatiga+fatiga>(estadisticas(a).fatiga||0)))throw Error("Fatiga insuficiente para transformarse.");a.fatiga+=fatiga;a.uso_fatiga=fatiga>0;}
+    if(!a.transformacion){const fatiga=act.efecto.coste_fatiga||0;if(fatiga&&(a.agotado||a.fatiga+fatiga>(estadisticas(a).fatiga||0)))throw Error("Fatiga insuficiente para transformarse.");a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;}
     if(a.transformacion){if(a.transformacion.definicion_id!==d.id)throw Error("Otra transformación está activa.");const indice=d.etapas.findIndex(x=>x.id===a.transformacion?.etapa_id);if(indice<0||indice===d.etapas.length-1)throw Error("No hay otra etapa.");if(d.etapas[indice+1].descontrolada)throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');Object.assign(a,cambiarEtapaTransformacion(a,d,d.etapas[indice+1].id));log(n,`${a.nombre} avanza a ${d.etapas[indice+1].nombre}.`);}
     else{if(a.transformaciones_usadas?.includes(d.id))throw Error("Transformación ya utilizada en esta partida.");if(phDisponibles(a)<(act.efecto.coste_ph||0))throw Error("PH insuficientes.");Object.assign(a,activarTransformacion(a,{...d,coste_ph:act.efecto.coste_ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos}));log(n,`${a.nombre} activa ${d.nombre}.`);}
     if(a.transformacion&&!a.transformacion.creado_turno)a.transformacion.creado_turno=a.turnos;
@@ -1568,7 +1568,7 @@ function actuarInterno(
     if(a.vida<=0){a.accion_usada=true;return n;}
   }
   a.fatiga = Math.min(s.fatiga || 0, a.fatiga + fatiga);
-  a.uso_fatiga = fatiga > 0;
+  if (fatiga) a.uso_fatiga = true;
   a.accion_usada = true;
   if (fatiga && a.fatiga >= (s.fatiga || 0)) a.agotado = true;
   if (act.enfriamiento) a.cooldowns[act.id] = act.enfriamiento + 1;
@@ -2375,7 +2375,7 @@ export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,p
  return registrar(c,()=>{
   const temporal={...c,fase:"preparacion" as const};
   const n=agregar(temporal,{...preparado,id:crypto.randomUUID()},actor.bando,rng);n.fase=c.fase;
-  const a=n.miembros.find(m=>m.id===actorId)!;a.ph=phDisponibles(a)-ph;a.fatiga+=fatiga;a.uso_fatiga=fatiga>0;a.accion_usada=true;
+  const a=n.miembros.find(m=>m.id===actorId)!;a.ph=phDisponibles(a)-ph;a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;a.accion_usada=true;
   const criatura=n.miembros[n.miembros.length-1];criatura.invocacion={invocador:actorId,habilidad:habilidad.id!,restantes:duracion};
   log(n,`${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);return n;
  });
@@ -2627,10 +2627,23 @@ function mantenerVisiones(c: Combate, m: Combatiente) {
     activarVision(c, m, { ...basico(), id, vision: x.vision });
   }
   for (const e of [...m.estados]) {
-    const coste = e.vision && e.vision.modo !== 'permanente' ? e.vision.mantenimiento_ph || 0 : 0;
-    if (!coste) continue;
-    if (phDisponibles(m) >= coste) { m.ph -= coste; log(c, `${m.nombre}: mantener ${e.nombre} cuesta ${coste} PH.`); }
-    else { quitarEstado(m, e.id); log(c, `${m.nombre}: sin PH para mantener ${e.nombre}; el ojo se cierra.`); }
+    if (!e.vision || e.vision.modo === 'permanente') continue;
+    const usaFatiga = e.vision.mantenimiento_fatiga !== undefined;
+    const coste = e.vision.mantenimiento_fatiga ?? e.vision.mantenimiento_ph ?? 0;
+    if (coste <= 0) continue;
+    const maxFatiga = estadisticas(m).fatiga || 0;
+    const recurso = usaFatiga ? 'Fatiga' : 'PH';
+    if (usaFatiga ? m.agotado || m.fatiga + coste > maxFatiga : phDisponibles(m) < coste) {
+      quitarEstado(m, e.id);
+      log(c, `${m.nombre}: sin ${recurso} para mantener ${e.nombre}; el ojo se cierra.`);
+      continue;
+    }
+    if (usaFatiga) {
+      m.fatiga += coste;
+      m.uso_fatiga = true;
+      if (m.fatiga >= maxFatiga) m.agotado = true;
+    } else m.ph -= coste;
+    log(c, `${m.nombre}: mantener ${e.nombre} cuesta ${coste} ${recurso}.`);
   }
   normalizar(m);
 }
