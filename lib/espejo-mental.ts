@@ -41,7 +41,7 @@ type Ocular={objetivos?:Record<string,{puntos?:string[]}>;amenaza?:string[]}|nul
  * Respuesta completa para el jugador afectado: proyecta la vista, la vista ocular y todo lo que lleve nombres o
  * bandos reales (registro, turno, quién decide una reacción). Sin espejo devuelve la respuesta tal cual.
  */
-export function proyectarRespuesta<V extends Parameters<typeof proyectarVista>[0]&{ocular?:Ocular;registro?:string[];actual?:string;actual_id?:string|null;reaccion_esperando?:string}>(real:V,propio:string,e:(OpcionesEspejo&{aviso?:boolean})|null|undefined):V&{espejo?:{aviso?:string;confirmar:boolean}}{
+export function proyectarRespuesta<V extends Parameters<typeof proyectarVista>[0]&{ocular?:Ocular;registro?:string[];actual?:string;actual_id?:string|null;reaccion_esperando?:string}>(real:V,propio:string,e:(OpcionesEspejo&{aviso?:boolean})|null|undefined):V&{espejo?:{aviso?:string;confirmar:boolean;reflejado?:boolean}}{
   if(!e)return real;
   const v=proyectarVista(real,propio,e);
   const d=v.tablero||{columnas:10,filas:10};
@@ -55,5 +55,5 @@ export function proyectarRespuesta<V extends Parameters<typeof proyectarVista>[0
   }
   const confunde=e.ocultar||e.intercambiar;
   return {...v,...(confunde?{registro:['Tu mente se confunde: no distingues lo que ocurre.'],actual:real.actual_id===propio?real.actual:'???',...(real.reaccion_esperando!==undefined?{reaccion_esperando:'???'}:{})}:{}),
-    espejo:{aviso:e.aviso?AVISO_ESPEJO:undefined,confirmar:!!e.confirmar}};
+    espejo:{aviso:e.aviso?AVISO_ESPEJO:undefined,confirmar:!!e.confirmar,...(e.espejar?{reflejado:true}:{})}};
 }

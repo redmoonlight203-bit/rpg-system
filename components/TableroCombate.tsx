@@ -43,7 +43,7 @@ function useSegundoClic():[boolean,(v:boolean)=>void]{
 }
 const editable=(t:EventTarget|null)=>typeof HTMLElement!=='undefined'&&t instanceof HTMLElement&&(t.isContentEditable||!!t.closest('input,select,textarea'));
 export type FichaTablero={vfx?:AnimacionEtapa;id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion;huella?:Huella;huella_reserva?:Huella};
-export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,mapa,perspectiva,onEjecutar,puedeEjecutar=false,ocular,turnoPropio=false}:{ocular?:VistaOcular|null;turnoPropio?:boolean;fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;mapa?:MapaCombate;perspectiva?:string;
+export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,mapa,perspectiva,onEjecutar,puedeEjecutar=false,ocular,turnoPropio=false,reflejado=false}:{reflejado?:boolean;ocular?:VistaOcular|null;turnoPropio?:boolean;fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;mapa?:MapaCombate;perspectiva?:string;
   /** Si existe, un clic sobre un objetivo válido ejecuta la acción (con «segundo clic» activo, el primero solo previsualiza). */
   onEjecutar?:(sel:{objetivo?:string;centro?:Posicion})=>void;puedeEjecutar?:boolean}){
  const [vistaCompleta,setVistaCompleta]=useState(false);
@@ -63,13 +63,21 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const [destino,setDestino]=useState<Posicion|null>(null),[hover,setHover]=useState<Posicion|null>(null),[cursor,setCursor]=useState<Posicion|null>(null),tableroRef=useRef<HTMLDivElement>(null);
  useEffect(()=>{const v=habilidad?.vfx;precargarVFX([v?.lanzamiento,v?.recorrido,v?.impacto,...(habilidad?.transformacion?.etapas.flatMap(e=>[e.vfx?.entrada,e.vfx?.aura])||[])]);},[habilidad?.id,habilidad?.vfx,habilidad?.transformacion]);
  const origen=fichas.find(f=>f.id===lanzador),t=!moviendo?habilidad?.tablero:undefined;
+ const patron=t?.forma==='personalizada',apuntaPatron=patron&&t.patron?.orientacion==='apuntar';
  const blancas=useMemo(()=>{
+  if(patron&&origen){
+   if(!apuntaPatron)return new Set<string>();
+   const seleccionables=new Set<string>();
+   const anclaX=origen.posicion.x+(reflejado?(origen.huella?.ancho??1)-1:0);
+   for(let y=0;y<filas;y++)for(let x=0;x<columnas;x++)if(anclaX!==x||origen.posicion.y!==y)seleccionables.add(x+','+y);
+   return seleccionables;
+  }
   if(habilidad?.efecto==='desplazamiento'&&t&&origen)return new Set(Object.keys(distanciasFicha(origen,origen.posicion,fichas,columnas,filas,mapa,t.alcance)));
-  return new Set((t&&origen?alcanceDesdeFicha(origen,origen.posicion,t,{columnas,filas}).filter(p=>alcanceVisibleEntreFichas(origen,origen.posicion,{},p,t.alcance,mapa)):[]).map(p=>`${p.x},${p.y}`));},[habilidad,t,origen,fichas,columnas,filas,mapa]);
- const punto=t?.origen_area==='lanzador'?origen?.posicion:centro||hover;
- const area=useMemo(()=>t&&origen&&punto?areaDesdeFicha(origen,origen.posicion,punto,t,{columnas,filas}):[],[t,origen?.posicion.x,origen?.posicion.y,origen?.huella?.ancho,origen?.huella?.alto,punto?.x,punto?.y,columnas,filas]);
+  return new Set((t&&origen?alcanceDesdeFicha(origen,origen.posicion,t,{columnas,filas}).filter(p=>alcanceVisibleEntreFichas(origen,origen.posicion,{},p,t.alcance,mapa)):[]).map(p=>`${p.x},${p.y}`));},[habilidad,t,origen,fichas,columnas,filas,mapa,patron,apuntaPatron,reflejado]);
+ const punto=apuntaPatron?(centro||hover):t?.origen_area==='lanzador'?origen?.posicion:centro||hover;
+ const area=useMemo(()=>t&&origen&&punto?areaDesdeFicha(origen,origen.posicion,punto,t,{columnas,filas},mapa,reflejado):[],[t,origen?.posicion.x,origen?.posicion.y,origen?.huella?.ancho,origen?.huella?.alto,punto?.x,punto?.y,columnas,filas,mapa,reflejado]);
  const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
- const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&casillasHuella(f,f.posicion).some(p=>afectadas.has(`${p.x},${p.y}`))&&objetivoDelArea(origen,f,habilidad!)):[],[fichas,origen,t,afectadas,habilidad]);
+ const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&casillasHuella(f,f.posicion).some(p=>afectadas.has(`${p.x},${p.y}`))&&objetivoDelArea(origen,f,habilidad!)&&(!patron||alcanzaCapa(habilidad,capaDe(f.estados)).ok)):[],[fichas,origen,t,afectadas,habilidad,patron]);
  const pixelArt=!!(evento?.vfx?.lanzamiento||evento?.vfx?.recorrido||evento?.vfx?.impacto);
  const fichaObjetivo=fichas.find(f=>f.id===objetivo);
  const porCasilla=useMemo(()=>new Map(fichas.flatMap(f=>casillasHuella(f,f.posicion).map(p=>[claveCasilla(p),f] as const))),[fichas]);
@@ -134,14 +142,14 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
   if(moviendo){const meta=metaRuta;if(!meta)return null;const k=`${meta.x},${meta.y}`;return {titulo:`Mover ${alcanzables[k]} casillas`,lineas:['Conservas tu acción.',...(amenaza.size?['Rojo: casillas que quedarían a tu alcance cuerpo a cuerpo.']:[])],pista:segundoClic?(pendiente==='mov:'+k?'Toca otra vez para moverte.':'Toca para ver la ruta; otra vez para moverte.'):'Clic para moverte.'};}
   if(!habilidad||!origen||!onEjecutar)return null;
   if(t&&habilidad.efecto==='desplazamiento')return {titulo:habilidad.nombre,lineas:[`Hasta ${t.alcance} casillas sin gastar movimiento.`],pista:'Elige una casilla libre resaltada.'};
-  if(t){if(t.origen_area==='lanzador'||!punto)return null;const sobre=porCasilla.get(`${punto.x},${punto.y}`);return previsualizar({accion:habilidad.nombre,efecto:habilidad,victimas:victimas.map(f=>visible(f).nombre),casillas:area.length,capa:sobre?capas.get(sobre.id):undefined,coste:gasto,segundoClic,pendiente:pendiente==='cel:'+`${punto.x},${punto.y}`});}
+  if(t){if((t.origen_area==='lanzador'&&!apuntaPatron)||!punto)return null;const sobre=apuntaPatron?undefined:porCasilla.get(`${punto.x},${punto.y}`);return previsualizar({accion:habilidad.nombre,efecto:habilidad,victimas:victimas.map(f=>visible(f).nombre),casillas:area.length,capa:sobre?capas.get(sobre.id):undefined,coste:gasto,segundoClic,pendiente:pendiente==='cel:'+`${punto.x},${punto.y}`});}
   const f=bajoCursor||(pendiente?.startsWith('obj:')?fichas.find(x=>'obj:'+x.id===pendiente):undefined);
   if(!f||f.id===origen.id||esAccionPropia(habilidad.id||'',habilidad))return null;
   if(!objetivoValido(habilidad,origen,f))return {titulo:habilidad.nombre,lineas:[`${visible(f).nombre} no es un objetivo para esta acción.`],pista:'Clic para seleccionar.'};
   const base=previsualizar({accion:habilidad.nombre,efecto:habilidad,objetivo:visible(f),capa:capas.get(f.id),coste:gasto,segundoClic,pendiente:pendiente==='obj:'+f.id});
   const ojo=habilidad.efecto==='dano'?lineaOcular(ocular,f,origen.posicion):null;
   return ojo?{...base,lineas:[...base.lineas,ojo]}:base;
- },[ocular,moviendo,metaRuta?.x,metaRuta?.y,alcanzables,amenaza,habilidad,origen,onEjecutar,t,punto?.x,punto?.y,victimas,area,capas,segundoClic,pendiente,bajoCursor,fichas,gasto.ph,gasto.fatiga]);
+ },[ocular,moviendo,metaRuta?.x,metaRuta?.y,alcanzables,amenaza,habilidad,origen,onEjecutar,t,apuntaPatron,punto?.x,punto?.y,victimas,area,capas,segundoClic,pendiente,bajoCursor,fichas,gasto.ph,gasto.fatiga]);
  function pulsar(p:Posicion,f?:FichaTablero){
   const k=`${p.x},${p.y}`,disponible=moviendo&&!!alcanzables[k];
   if(moviendo){
@@ -150,8 +158,9 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
   }
   if(t){
    if(!blancas.has(k)||!puedeApuntar)return;
-   onApuntar?.(p,f?.id);
-   if(directo&&t.origen_area!=='lanzador'&&!(f&&!alcanzaCapa(habilidad,capas.get(f.id)||'suelo').ok))ejecutarSi('cel:'+k,()=>onEjecutar!({centro:p,objetivo:f?.id}));
+   const id=apuntaPatron?undefined:f?.id;
+   onApuntar?.(p,id);
+   if(directo&&(apuntaPatron||(t.origen_area!=='lanzador'&&!(f&&!alcanzaCapa(habilidad,capas.get(f.id)||'suelo').ok))))ejecutarSi('cel:'+k,()=>onEjecutar!({centro:p,objetivo:id}));
    return;
   }
   if(!f)return;
@@ -165,7 +174,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
   const tecla=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!editable(e.target)){setPendiente(null);setDestino(null);}};
   window.addEventListener?.('keydown',tecla);return()=>window.removeEventListener?.('keydown',tecla);
  },[pendiente]);
- const ayuda=moviendo?(segundoClic?'Toca una casilla verde para ver la ruta; otra vez para moverte.':'Pasa el cursor para ver la ruta y haz clic para moverte.'):t?.origen_area==='lanzador'?`Rugido: nace de ${origen?.nombre||'tu personaje'} y afecta alrededor. Ejecútalo desde la barra.`:t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}. ${onEjecutar?(segundoClic?'Toca para apuntar; otra vez para lanzar.':'Clic para lanzar.'):''}`:habilidad&&onEjecutar?(segundoClic?`${habilidad.nombre}: toca un objetivo para previsualizar; otra vez para ejecutar.`:`${habilidad.nombre}: clic sobre un objetivo para ejecutar.`):'Toca un retrato para elegir objetivo';
+ const ayuda=moviendo?(segundoClic?'Toca una casilla verde para ver la ruta; otra vez para moverte.':'Pasa el cursor para ver la ruta y haz clic para moverte.'):patron?(apuntaPatron?(segundoClic?'Toca para orientar el patrón; otra vez para lanzar.':'Elige una dirección para lanzar el patrón. Nuevo dibujo al apuntar.'):'Patrón fijo: se dibuja desde tu ficha. Ejecútalo desde la barra.'):t?.origen_area==='lanzador'?`Rugido: nace de ${origen?.nombre||'tu personaje'} y afecta alrededor. Ejecútalo desde la barra.`:t?`Alcance blanco: ${t.alcance} casillas desde ${origen?.nombre||'el personaje'}. ${onEjecutar?(segundoClic?'Toca para apuntar; otra vez para lanzar.':'Clic para lanzar.'):''}`:habilidad&&onEjecutar?(segundoClic?`${habilidad.nombre}: toca un objetivo para previsualizar; otra vez para ejecutar.`:`${habilidad.nombre}: clic sobre un objetivo para ejecutar.`):'Toca un retrato para elegir objetivo';
  return <section style={{'--herida':herida,...estiloOcular(ocular)} as React.CSSProperties} className={`tactical-field campo area-${t?.color||'azul'}`} aria-label="Tablero de combate">
   {perspectiva&&<div className="tactical-danger-border" aria-hidden="true"/>}
   {golpePropio&&<span key={evento?.id} className="tactical-player-hit" aria-hidden="true"/>}
@@ -178,7 +187,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
    </div></header>
   <div className="campo-escenario">
   {ocular&&<HudOcular vista={ocular} turnoPropio={turnoPropio} verAmenazas={verAmenazas} onAmenazas={()=>setVerAmenazas(v=>!v)}/>}
-  {t&&!vista&&<div className="tactical-area-summary" role="status"><strong>{habilidad?.nombre}</strong><span>{punto?`${area.length} casillas · ${victimas.length} objetivos: ${victimas.map(f=>visible(f).nombre).join(', ')||'ninguno'}`:t?.origen_area==='lanzador'?'Ejecútalo desde la barra: el área nace del atacante.':'Toca una casilla blanca para centrar el efecto.'}</span>{centro&&<button onClick={()=>onApuntar?.(centro)}>Centro: {centro.x+1}, {centro.y+1}</button>}</div>}
+  {t&&!vista&&<div className="tactical-area-summary" role="status"><strong>{habilidad?.nombre}</strong><span>{punto?`${area.length} casillas · ${victimas.length} objetivos: ${victimas.map(f=>visible(f).nombre).join(', ')||'ninguno'}`:apuntaPatron?'Elige hacia dónde orientar el patrón.':t?.origen_area==='lanzador'?'Ejecútalo desde la barra: el área nace del atacante.':'Toca una casilla blanca para centrar el efecto.'}</span>{centro&&<button onClick={()=>onApuntar?.(centro)}>{apuntaPatron?'Dirección':'Centro'}: {centro.x+1}, {centro.y+1}</button>}</div>}
   <div className="tactical-scroll"><div ref={tableroRef} onMouseMove={e=>{const r=e.currentTarget.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*columnas),y=Math.floor((e.clientY-r.top)/r.height*filas);if(x>=0&&y>=0&&x<columnas&&y<filas&&(cursor?.x!==x||cursor?.y!==y))setCursor({x,y});}} onMouseLeave={()=>{setHover(null);setCursor(null);}} className={`tactical-board ${vistaCompleta?"arena-vista-completa":""} ${mapa?.procedural?'has-procedural-map':''}`} style={{gridTemplateColumns:`repeat(${columnas}, minmax(${vistaCompleta?0:48}px, 1fr))`,'--cols':columnas,'--rows':filas} as React.CSSProperties}>
    {mapa?.procedural&&<FondoMapaProcedural mapa={mapa} techos={mostrarTechos}/>}
    {ocular&&turnoPropio&&ocular.visiones[0].apariencia.velo>0&&<div className="ocular-velo" aria-hidden="true"/>}

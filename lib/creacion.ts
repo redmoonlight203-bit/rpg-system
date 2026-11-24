@@ -1,3 +1,4 @@
+import {validarPatron,type PatronArea} from './patron-area';
 import {validarHuella} from './huellas-combate';
 import type {ConfiguracionVFX} from "./vfx";
 import {validarEmpujeHuella,type DefinicionTransformacion} from "./transformaciones";
@@ -59,7 +60,9 @@ export type ArmaResultado = {
 };
 export type AlcanceHabilidad = {
   alcance: number;
-  forma: 'individual'|'circulo'|'cuadrado'|'linea'|'cono'|'cruz';
+  forma: 'individual'|'circulo'|'cuadrado'|'linea'|'cono'|'cruz'|'personalizada';
+  /** Dibujo sobre casillas relativas al ancla del lanzador. */
+  patron?:PatronArea;
   tamano: number;
   afecta: 'enemigos'|'aliados'|'todos'|'yo';
   color?: 'azul'|'rojo'|'verde'|'dorado'|'violeta';
@@ -381,6 +384,11 @@ export function validarEfectos(efectos: Efecto[]): string | null {
     }
     const t=e.tablero;
     if(t!==undefined){
+      if(!t||typeof t!=='object')return 'Configuración de tablero inválida.';
+      if(t.forma==='personalizada'){
+        const error=validarPatron(t.patron);if(error)return error;
+        if(t.origen_area!=='lanzador'||t.alcance!==0||t.tamano!==0||t.movimiento_lanzador||e.portal||e.efecto==='desplazamiento')return 'El área personalizada nace del lanzador y no puede moverlo.';
+      }
       const avance=t.movimiento_lanzador;
       if(t.origen_area&&!['objetivo','lanzador','aterrizaje','recorrido'].includes(t.origen_area))return 'Origen del efecto inválido.';
       if(t.afecta_lanzador!==undefined&&typeof t.afecta_lanzador!=='boolean')return 'Configura correctamente si el área alcanza al lanzador.';
@@ -389,7 +397,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       if(t.origen_area==='aterrizaje'&&(!avance||avance.tipo==='carrera'))return 'Un impacto de aterrizaje necesita un salto, dash o teletransporte.';
       if(t.origen_area==='recorrido'&&(!avance||avance.tipo!=='carrera'))return 'Un ataque de recorrido necesita una carrera.';
       if(avance?.tipo==='carrera'&&t.origen_area!=='recorrido')return 'Una carrera debe dañar las casillas del recorrido.';
-      if(!t||typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!['individual','circulo','cuadrado','linea','cono','cruz'].includes(t.forma)||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||t.forma!=='individual'&&t.tamano<1||!['enemigos','aliados','todos','yo'].includes(t.afecta))return 'Configura alcance de 0 a 60 y tamaño de 1 a 12 casillas (individual: 0).';
+      if(!t||typeof t!=='object'||!Number.isInteger(t.alcance)||t.alcance<0||t.alcance>60||!['individual','circulo','cuadrado','linea','cono','cruz','personalizada'].includes(t.forma)||!Number.isInteger(t.tamano)||t.tamano<0||t.tamano>12||!['individual','personalizada'].includes(t.forma)&&t.tamano<1||!['enemigos','aliados','todos','yo'].includes(t.afecta))return 'Configura alcance de 0 a 60 y tamaño de 1 a 12 casillas (individual: 0).';
       if(t.color&&!['azul','rojo','verde','dorado','violeta'].includes(t.color))return 'Color de área inválido.';
       if(e.efecto==='crear_arma')return 'Crear un arma no utiliza un área en el tablero.';
       if(t.desplazamiento&&(!['atraer','empujar'].includes(t.desplazamiento.tipo)||!Number.isInteger(t.desplazamiento.casillas)||t.desplazamiento.casillas<1||t.desplazamiento.casillas>12||!['siempre','fallo_salvacion'].includes(t.desplazamiento.cuando)))return 'Configura un desplazamiento de 1 a 12 casillas.';
