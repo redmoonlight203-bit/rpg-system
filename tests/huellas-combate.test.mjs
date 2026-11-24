@@ -149,3 +149,73 @@ test('invocar una ficha grande sin espacio no gasta recursos ni modifica el mapa
  assert.deepEqual(c.posicionesTablero(n)[n.miembros.at(-1).id],punto(1,0));
  assert.equal(blanco(n,'a').ph,5);
 });
+
+const formaConEmpuje=(cantidad=2,caras=6)=>{
+ const t=forma.transformacion;
+ return {...forma,transformacion:{...t,etapas:t.etapas.map(e=>({...e,empuje_huella:{cantidad,caras}}))}};
+};
+function prepararEmpuje(efecto,enemigo,aliado,celdas={},anchor=punto(2,2)){
+ let b=preparar(prisma('a',anchor.x,anchor.y,huella(1,1),[efecto]),[enemigo],celdas);
+ if(aliado)b=c.agregar(b,aliado,'jugador',()=>1);
+ return c.iniciar(b,()=>1);
+}
+function celdasRectangulo(p,{ancho=1,alto=1}={}){
+ return Array.from({length:ancho*alto},(_,i)=>(p.x+i%ancho)+','+(p.y+Math.floor(i/ancho)));
+}
+
+test('empuje de transformación mueve tanto al aliado como al enemigo grande y tira daño una vez por criatura',()=>{
+ const enemigo=prisma('grande',4,3,huella(2,2));
+ const aliado=prisma('aliado',3,2);
+ const b=prepararEmpuje(formaConEmpuje(),enemigo,aliado);
+ const valores=[2,4,2,4], tiradas=[];
+ const n=c.actuar(b,'a','hab:h:forma','a',caras=>{
+  tiradas.push(caras);
+  return valores.shift()??1;
+ });
+ const despues=c.posicionesTablero(n);
+ assert.deepEqual(despues.a,punto(2,2));
+ assert.notDeepEqual(despues.grande,enemigo.posicion);
+ assert.notDeepEqual(despues.aliado,aliado.posicion);
+ const ocupadas=new Set;
+ for(const [id,tamano] of [['a',huella(3,3)],['grande',huella(2,2)],['aliado',huella(1,1)]]){
+  for(const k of celdasRectangulo(despues[id],tamano)){
+   const [x,y]=k.split(',').map(Number);
+   assert.ok(x>=0&&y>=0&&x<8&&y<8,'el destino debe estar completamente dentro del mapa');
+   assert.ok(!ocupadas.has(k),'no se solapan las huellas finales');
+   ocupadas.add(k);
+  }
+ }
+ assert.deepEqual(tiradas,[6,6,6,6]);
+ assert.equal(blanco(n,'grande').vida,34);
+ assert.equal(blanco(n,'aliado').vida,34);
+ assert.equal(blanco(n,'a').vida,40);
+ assert.equal(blanco(n,'a').ph,5);
+});
+
+test('cantidad cero desplaza sin tirar ni causar daño',()=>{
+ const b=prepararEmpuje(formaConEmpuje(0),prisma('e',3,2));
+ const n=c.actuar(b,'a','hab:h:forma','a',()=>assert.fail('sin dados de daño'));
+ assert.notDeepEqual(c.posicionesTablero(n).e,c.posicionesTablero(b).e);
+ assert.equal(blanco(n,'e').vida,40);
+});
+
+test('empuje sin destinos para todos no desplaza al primero ni tira daño ni gasta recursos',()=>{
+ // El anillo solo tiene una salida de una casilla. El aliado cabe por allí; el
+ // enemigo 2×2 no cabe por ninguna, ni puede saltar los muros a un destino libre.
+ const celdas={};
+ for(let i=1;i<=5;i++)for(const k of [i+',1',i+',5','1,'+i,'5,'+i])celdas[k]='muro';
+ delete celdas['5,2'];
+ const b=prepararEmpuje(formaConEmpuje(),prisma('grande',3,3,huella(2,2)),prisma('aliado',4,2),celdas);
+ const antes=JSON.stringify(b);
+ assert.throws(()=>c.actuar(b,'a','hab:h:forma','a',()=>assert.fail('la geometría debe validarse antes de tirar')),/espacio|casilla|huella|cabe|forma|empuj|destino/i);
+ assert.equal(JSON.stringify(b),antes);
+});
+
+test('activar empuje no permite atravesar muros ni ampliar fuera del tablero',()=>{
+ for(const [celdas,ancla] of [[{'4,4':'muro'},punto(2,2)],[{},punto(6,6)]]){
+  const b=prepararEmpuje(formaConEmpuje(),prisma('e',ancla.x+1,ancla.y),null,celdas,ancla);
+  const antes=JSON.stringify(b);
+  assert.throws(()=>c.actuar(b,'a','hab:h:forma','a',()=>assert.fail('la geometría debe validarse antes de tirar')),/espacio|casilla|huella|cabe|forma|empuj|destino/i);
+  assert.equal(JSON.stringify(b),antes);
+ }
+});

@@ -76,6 +76,19 @@ function distanciaHuellas(a, pa, b, pb) {
 
 return { validarHuella };
 })();
+const EMPUJE_HUELLA_INICIAL = { cantidad: 1, caras: 4 };
+function validarEmpujeHuella(valor) {
+    if (valor === undefined)
+        return null;
+    if (!valor || typeof valor !== 'object')
+        return 'Configura el empuje del crecimiento.';
+    const { cantidad, caras } = valor;
+    if (!Number.isInteger(cantidad) || cantidad < 0 || cantidad > 20)
+        return 'El empuje admite de 0 a 20 dados de daño.';
+    if (!Number.isInteger(caras) || caras < 2 || caras > 100)
+        return 'Los dados del empuje deben tener entre 2 y 100 caras.';
+    return null;
+}
 function maxVidaForma(stats) {
     return Math.max(1, Math.trunc(stats.vida ?? stats.hp ?? 1));
 }
@@ -83,7 +96,7 @@ function comprobarEtapa(d, id) {
     const e = d.etapas.find(e => e.id === id);
     if (!e)
         throw Error('La etapa no pertenece a esta transformación.');
-    const error = validarHuella(e.huella);
+    const error = validarHuella(e.huella) || validarEmpujeHuella(e.empuje_huella);
     if (error)
         throw Error(error);
     return e;
@@ -105,7 +118,7 @@ function activarTransformacion(actor, def, etapaId = def.etapas[0]?.id) {
     const stats = { ...original, ...etapa.stats };
     const forma = def.tipo === 'forma';
     const activa = {
-        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella,
+        definicion_id: def.id, tipo: def.tipo, etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella, empuje_huella: etapa.empuje_huella,
         stats_originales: original, vida_original: actor.vida,
         vida_forma: forma ? maxVidaForma(stats) : actor.vida,
         turnos_restantes: def.duracion_turnos && def.duracion_turnos > 0 ? def.duracion_turnos : null
@@ -124,7 +137,7 @@ function cambiarEtapaTransformacion(actor, def, etapaId) {
     // El avance de etapa no regenera HP. En forma, la vida restante se limita
     // al nuevo máximo; en poder, la vida real permanece intacta.
     const vida = activa.tipo === 'forma' ? Math.min(actor.vida, maxVidaForma(stats)) : actor.vida;
-    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella, vida_forma: vida } };
+    return { ...actor, stats, vida, transformacion: { ...activa, etapa_id: etapaId, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella, empuje_huella: etapa.empuje_huella, vida_forma: vida } };
 }
 /** Activación automática y forzada por una salvación fallida; ignora el límite
  * de uso manual y los costes, pero no hace que el jugador pierda su ficha base. */
@@ -140,7 +153,7 @@ function forzarPosesion(actor, def, etapaId) {
     const curacion = Math.max(0, Math.trunc(etapa.curacion_entrada || 0));
     const vida = Math.max(1, Math.min(max, actor.vida + curacion));
     const activa = {
-        definicion_id: def.id, tipo: 'poder', etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella,
+        definicion_id: def.id, tipo: 'poder', etapa_id: etapa.id, imagen_etapa: etapa.imagen_url || undefined, vfx: etapa.vfx, huella: etapa.huella, empuje_huella: etapa.empuje_huella,
         descontrolada: true, vida_maxima_alterada: true,
         stats_originales: originales, vida_original: actor.transformacion?.vida_original ?? actor.vida,
         vida_forma: vida, turnos_restantes: null
@@ -2368,7 +2381,7 @@ function entrar(c, m, rng) {
             if (puedeAplicar(c, m, 'posesion', { id: 'posesion', nombre: 'la posesión', categoria: 'mental', subcategoria: 'posesion', duracion: { tipo: 'combate' }, efectos: [] }) === 'no')
                 break;
             if (!salvacion(c, m, p.cd, 'salvacion', rng)) {
-                if (!aplicarFormaConEspacio(c, m, forzarPosesion(m, d, p.etapa_id))) {
+                if (!aplicarFormaConEspacio(c, m, forzarPosesion(m, d, p.etapa_id), rng)) {
                     log(c, `${m.nombre}: no hay espacio para la forma de posesión.`);
                     break;
                 }
@@ -3172,7 +3185,7 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
                 throw Error("No hay otra etapa.");
             if (d.etapas[indice + 1].descontrolada)
                 throw Error('Esta etapa solo puede activarse tras fallar la salvación de posesión.');
-            if (!aplicarFormaConEspacio(n, a, cambiarEtapaTransformacion(a, d, d.etapas[indice + 1].id)))
+            if (!aplicarFormaConEspacio(n, a, cambiarEtapaTransformacion(a, d, d.etapas[indice + 1].id), rng))
                 throw Error('No hay espacio para esa transformación.');
             log(n, `${a.nombre} avanza a ${d.etapas[indice + 1].nombre}.`);
         }
@@ -3181,15 +3194,14 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
                 throw Error("Transformación ya utilizada en esta partida.");
             if (phDisponibles(a) < (act.efecto.coste_ph || 0))
                 throw Error("PH insuficientes.");
-            if (!aplicarFormaConEspacio(n, a, activarTransformacion(a, { ...d, coste_ph: act.efecto.coste_ph, duracion_turnos: act.efecto.duracion || d.duracion_turnos })))
+            if (!aplicarFormaConEspacio(n, a, activarTransformacion(a, { ...d, coste_ph: act.efecto.coste_ph, duracion_turnos: act.efecto.duracion || d.duracion_turnos }), rng))
                 throw Error('No hay espacio para esa transformación.');
             log(n, `${a.nombre} activa ${d.nombre}.`);
         }
         if (a.transformacion && !a.transformacion.creado_turno)
             a.transformacion.creado_turno = a.turnos;
-        if (!a.transformacion)
-            throw Error('No se pudo activar la forma.');
-        if (!a.transformacion.etapa_id)
+        // Una reacción al daño de crecimiento puede romper la forma ya aplicada.
+        if (a.transformacion && !a.transformacion.etapa_id)
             throw Error('Etapa inválida.');
         if (act.enfriamiento)
             a.cooldowns[act.id] = act.enfriamiento + 1;
@@ -4429,15 +4441,87 @@ export function configurarHuellaParticipante(c, id, huella) {
         throw Error('No hay espacio para ese tamaño. Mueve la ficha antes de agrandarla.');
     return n;
 }
-function aplicarFormaConEspacio(c, m, forma, posiciones = posicionesTablero(c)) {
-    const p = posiciones[m.id];
-    if (!cabeFichaEn(c, forma, p, posiciones))
+/** Planifica todo sin modificar el encuentro ni tirar dados. Cada desplazamiento usa una ruta ortogonal libre. */
+function planEmpujeDeForma(c, m, forma, pos) {
+    const origen = pos[m.id], dims = dimensionesTablero(c), nueva = huellaReserva(forma);
+    const muro = (q) => c.mapa?.celdas[claveHuella(q)] === 'muro';
+    if (!cabeHuella(nueva, origen, dims, muro))
+        return null;
+    const superficie = new Set(casillasHuella(nueva, origen).map(claveHuella));
+    const miembros = c.miembros.filter(x => x.id !== m.id && pos[x.id]);
+    const pendientes = miembros.filter(x => casillasHuella(huellaReserva(x), pos[x.id]).some(q => superficie.has(claveHuella(q))));
+    const ubicacion = { ...pos }, visitados = new Set();
+    const actual = huellaReserva(m);
+    let pasosEvaluados = 0;
+    const LIMITE_PASOS = 120_000;
+    function salidas(t) {
+        const ficha = huellaReserva(t), inicio = ubicacion[t.id];
+        const ocupadas = new Set([
+            ...casillasHuella(actual, origen),
+            ...miembros.filter(x => x.id !== t.id).flatMap(x => casillasHuella(huellaReserva(x), ubicacion[x.id])),
+        ].map(claveHuella));
+        const cola = [{ p: inicio, d: 0 }], vistas = new Set([claveHuella(inicio)]), r = [];
+        for (let i = 0; i < cola.length; i++) {
+            const { p, d } = cola[i];
+            if (d && casillasHuella(ficha, p).every(q => !superficie.has(claveHuella(q))))
+                r.push({ p, d });
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                if (++pasosEvaluados > LIMITE_PASOS)
+                    return r;
+                const q = { x: p.x + dx, y: p.y + dy }, k = claveHuella(q);
+                if (vistas.has(k) || !cabeHuella(ficha, q, dims, x => muro(x) || ocupadas.has(claveHuella(x))))
+                    continue;
+                vistas.add(k);
+                cola.push({ p: q, d: d + 1 });
+            }
+        }
+        return r.sort((a, b) => a.d - b.d || distanciaEntreFichas(nueva, origen, ficha, b.p) - distanciaEntreFichas(nueva, origen, ficha, a.p) || a.p.y - b.p.y || a.p.x - b.p.x);
+    }
+    function buscar(restan) {
+        if (!restan.length)
+            return [];
+        // Limita la búsqueda en tableros llenos; se rechaza el cambio completo si no hay plan.
+        if (visitados.size >= 2048 || pasosEvaluados > LIMITE_PASOS)
+            return null;
+        const k = pendientes.map(t => claveHuella(ubicacion[t.id])).join(';');
+        if (visitados.has(k))
+            return null;
+        visitados.add(k);
+        const opciones = restan.map(t => ({ t, r: salidas(t) })).filter(x => x.r.length).sort((a, b) => a.r.length - b.r.length || a.t.id.localeCompare(b.t.id));
+        for (const { t, r } of opciones) {
+            const desde = ubicacion[t.id];
+            for (const { p: hasta } of r) {
+                ubicacion[t.id] = hasta;
+                const resto = buscar(restan.filter(x => x.id !== t.id));
+                if (resto)
+                    return [{ t, desde, hasta }, ...resto];
+                ubicacion[t.id] = desde;
+            }
+        }
+        return null;
+    }
+    return buscar(pendientes);
+}
+function aplicarFormaConEspacio(c, m, forma, rng) {
+    const posiciones = posicionesTablero(c), p = posiciones[m.id], empuje = forma.transformacion?.empuje_huella;
+    const plan = cabeFichaEn(c, forma, p, posiciones) ? [] : rng && empuje ? planEmpujeDeForma(c, m, forma, posiciones) : null;
+    if (!plan)
         return false;
-    // Fija las posiciones existentes para que cambiar de forma no reasigne otras fichas.
+    // Fija primero todos los destinos; ninguna tirada, movimiento ni coste parcial en un plan fallido.
     for (const a of c.miembros)
         if (posiciones[a.id])
             a.posicion = posiciones[a.id];
+    for (const { t, hasta } of plan)
+        t.posicion = hasta;
     Object.assign(m, forma, { posicion: p });
+    if (rng && empuje)
+        for (const { t } of plan) {
+            log(c, `${m.nombre} empuja a ${t.nombre} al crecer.`);
+            if (empuje.cantidad && t.vida > 0) {
+                const total = dados(c, empuje.cantidad, empuje.caras, rng, `Empuje de ${m.nombre} a ${t.nombre}`);
+                recibir(c, m, t, { ...basico(), id: 'empuje-forma', naturaleza: 'fisica', efecto: 'dano' }, total, [], rng);
+            }
+        }
     return true;
 }
 export function posicionesTablero(c) {
