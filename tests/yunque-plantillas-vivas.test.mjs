@@ -103,3 +103,22 @@ test('no muta el borrador ni las plantillas',()=>{
  actualizarDesdePlantillas(b,l);
  assert.equal(JSON.stringify(b),sb);assert.equal(JSON.stringify(l),sl);
 });
+
+const {PLANTILLAS_REACCION}=cargarDependencia('reacciones');
+test('cada defensa de Kion se despliega enlazada',()=>{
+ for(const k of Object.keys(PLANTILLAS_REACCION)){
+  const b=con('kion-'+k);
+  assert.deepEqual(json(b.efectos[0].origen),{plantilla:'kion-'+k,fragmento:'plantilla-kion-'+k,version:1,editados:[]});
+ }
+});
+
+test('un cambio en Inercia llega a los nodos sin tocar lo editado',()=>{
+ const b=con('kion-inercia');
+ const l=nueva('kion-inercia',p=>{p.fragmentos[0].datos.reaccion.principal.salvacion.cd=16;});
+ const r=actualizarDesdePlantillas(b,l);
+ assert.equal(r.borrador.efectos[0].reaccion.principal.salvacion.cd,16);
+ const b2=aplicar(b,{op:'fijar',ruta:['efectos',0,'reaccion'],valor:{disparador:'antes_ser_atacado',principal:{reducir:{modo:'fijo',valor:9}}}});
+ const r2=actualizarDesdePlantillas(b2,l);
+ assert.equal(r2.borrador.efectos[0].reaccion.principal.reducir.valor,9);
+ assert.ok(json(r2.cambios[0].conservados).includes('reaccion'));
+});

@@ -86,7 +86,7 @@ export function EditorDados({value,onChange,disabled=false,armas=[],onPlantilla}
        <label><input type="checkbox" checked={!!e.recurso} onChange={ev=>patch({recurso:ev.target.checked?{nombre:'Reserva',inicial:0,cambio:1}:undefined})}/> Modificar un recurso al usar</label>
        {e.recurso&&<div><label>Nombre compartido<input value={e.recurso.nombre} onChange={ev=>patch({recurso:{...e.recurso!,nombre:ev.target.value}})}/></label>{(['inicial','cambio'] as const).map(k=><label key={k}>{k==='inicial'?'Saldo inicial del encuentro':'Cambio por uso (+/−)'}<input type="number" value={e.recurso![k]} onChange={ev=>patch({recurso:{...e.recurso!,[k]:Number(ev.target.value)}})}/></label>)}</div>}
      </details>
-     <EditorReaccion valor={e.reaccion} costeAccion={e.coste_ph||0} onChange={reaccion=>patch({reaccion})}/>
+     <EditorReaccion valor={e.reaccion} costeAccion={e.coste_ph||0} onPlantilla={onPlantilla} onChange={reaccion=>patch({reaccion})}/>
      <SelectorVFX valor={e.vfx} onChange={vfx=>patch({vfx})}/>
      {e.efecto!=='crear_arma'&&e.efecto!=='transformacion'&&<EditorAlcance efecto={e} onChange={patch}/>}
      <PasoYunque numero="3" titulo="Qué cuesta usarla" ayuda="PH son puntos de habilidad que se gastan. La Fatiga aumenta al usar habilidades naturales.">

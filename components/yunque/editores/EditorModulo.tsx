@@ -83,7 +83,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
    const r=reaccionDe(normalizarReaccion(e));
    return <div className="yq-editor yq-legado">
     {e.defensa&&!e.reaccion&&<p className="yq-nota">Defensa clásica «{e.defensa}». Al editarla se guarda como reacción.</p>}
-    <EditorReaccion valor={r??undefined} costeAccion={e.coste_ph||0} onChange={v=>{if(v)patch({reaccion:v,defensa:undefined});else operar({op:'quitar',nodo:nodo.id});}}/>
+    <EditorReaccion valor={r??undefined} costeAccion={e.coste_ph||0} onPlantilla={k=>operar({op:'desplegar',plantilla:k})} onChange={v=>{if(v)patch({reaccion:v,defensa:undefined});else operar({op:'quitar',nodo:nodo.id});}}/>
    </div>;
   }
   case 'transformacion':return e.transformacion?<div className="yq-editor yq-legado"><EditorTransformacion efecto={e} acciones={b.efectos} onChange={transformacion=>patch({transformacion})}/></div>
