@@ -1,7 +1,7 @@
 /* Primitiva «Visión»: ojo dibujado, velo del tablero, puntos débiles y panel revelado.
    Animaciones únicas con transform/opacity y desactivadas con movimiento reducido (design.md). */
 .ojo-visual{display:block;flex-shrink:0;filter:drop-shadow(0 0 10px color-mix(in srgb,var(--ojo,#c0263a) 45%,transparent))}
-.ojo-visual.is-abriendo .ojo-visual-globo{transform-box:fill-box;transform-origin:center;animation:ojo-abrir .7s cubic-bezier(.2,1.2,.4,1) both}
+.ojo-visual.is-abriendo .ojo-visual-globo,.ojo-visual.is-abriendo .ojo-visual-propia{transform-box:fill-box;transform-origin:center;animation:ojo-abrir .7s cubic-bezier(.2,1.2,.4,1) both}
 .ojo-visual.is-abriendo .ojo-visual-iris{transform-box:fill-box;transform-origin:center;animation:ojo-iris .9s ease-out both}
 @keyframes ojo-abrir{from{transform:scaleY(.05)}to{transform:none}}
 @keyframes ojo-iris{from{transform:rotate(-120deg) scale(.6);opacity:.2}to{transform:none;opacity:1}}
@@ -36,4 +36,4 @@
 .ocular-atributos span{padding:2px 8px;border:1px solid var(--color-line);background:var(--color-canvas);font-size:12px;border-radius:2px;font-variant-numeric:tabular-nums}
 .ocular-lista{margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--color-text)}
 .ocular-lista small{color:var(--color-text-muted)}
-@media(prefers-reduced-motion:reduce){.ojo-visual.is-abriendo .ojo-visual-globo,.ojo-visual.is-abriendo .ojo-visual-iris,.ocular-velo,.ocular-hud{animation:none}}
+@media(prefers-reduced-motion:reduce){.ojo-visual.is-abriendo .ojo-visual-globo,.ojo-visual.is-abriendo .ojo-visual-iris,.ojo-visual.is-abriendo .ojo-visual-propia,.ocular-velo,.ocular-hud{animation:none}}

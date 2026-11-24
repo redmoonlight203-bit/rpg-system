@@ -1,6 +1,7 @@
 "use client";
 import FondoMapaProcedural from './FondoMapaProcedural';
 import {useEffect,useMemo,useRef,useState} from 'react';
+import IconoYugen from './IconoYugen';
 import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight, FlaskConical, X} from 'lucide-react';
 import EfectosCombate,{AuraTransformacion} from './EfectosCombate';
 import AnimacionesArmas from './AnimacionesArmas';
@@ -205,7 +206,15 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
   <span className="sr-only" role="status">{cambios.map(c=>`${fichas.find(f=>f.id===c.id)?.nombre||'Participante'}: ${c.delta>0?'+':'−'}${Math.abs(c.delta)} de vida`).join('. ')}</span>
  </section>;
 }
-export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[]};
+export type RecursoBarra={id:string;nombre:string;saldo:number;tope:number;color?:string};
+export type EstadoBarra={id:string;nombre:string;icono:string;restantes:number;frase:string;categoria?:string};
+export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[];
+ /** Estados con icono, duración y la frase del Yunque (tooltip). */
+ estados_detalle?:EstadoBarra[];
+ /** Recursos del catálogo (Carga Bioeléctrica, Furia…) con su nombre configurado. */
+ recursos?:RecursoBarra[];
+ /** Guardia configurada (concepto básico): nombre y frase. */
+ guardia?:{nombre:string;frase:string}};
 /** Consumible en la barra: pociones y pergaminos con su cantidad y enfriamiento. */
 export type ConsumibleBarra={id:string;nombre:string;cantidad:number;detalle?:string;enfriamiento?:number;bloqueada?:string;imagen_url?:string};
 
@@ -219,11 +228,23 @@ export function PanelHeroe({actor,phReal,puede}:{actor:ActorBarra;phReal:number;
    <strong className="heroe-nombre">{actor.nombre}{capa!=='suelo'&&<small className={`heroe-capa capa-${capa}`}>{CAPAS[capa].nombre}</small>}</strong>
    <BarraVital etiqueta="Vida" valor={Number(actor.vida.toFixed(1))} max={actor.max_vida} tipo="vida"/>
    <div className="heroe-reservas"><BarraVital etiqueta="PH" valor={phReal} max={maxPh} tipo="ph"/>{maxFatiga>0&&<BarraVital etiqueta="Fatiga" valor={actor.fatiga} max={maxFatiga} tipo="fatiga"/>}</div>
-   <div className="heroe-estados">{estados.length?<>{estados.slice(0,3).map(e=><span key={e}>{e}</span>)}{estados.length>3&&<span title={estados.slice(3).join(', ')}>+{estados.length-3}</span>}</>:<small>{actor.accion_usada?'Acción utilizada':'Acción disponible'}</small>}</div>
+   {!!actor.recursos?.length&&<div className="heroe-recursos">{actor.recursos.map(r=><RecursoGemas key={r.id} r={r}/>)}</div>}
+   {actor.estados_detalle?.length?<ul className="heroe-estados heroe-estados--detalle" aria-label="Estados">{actor.estados_detalle.map(e=><li key={e.id} className={`estado-chip estado-${e.categoria||'narrativo'}`} title={e.frase} aria-label={e.frase} tabIndex={0}><IconoYugen id={e.icono} size={14}/><span>{e.nombre.split(':')[0]}</span>{e.restantes>0&&<b>{e.restantes}</b>}</li>)}</ul>:
+   <div className="heroe-estados">{estados.length?<>{estados.slice(0,3).map(e=><span key={e}>{e}</span>)}{estados.length>3&&<span title={estados.slice(3).join(', ')}>+{estados.length-3}</span>}</>:<small>{actor.accion_usada?'Acción utilizada':'Acción disponible'}</small>}</div>}
   </div>
  </div>;
 }
 
+/** Recurso del catálogo como gemas que se encienden (o barra si el tope es grande). */
+function RecursoGemas({r}:{r:RecursoBarra}){
+ const color={['--recurso' as string]:r.color||'var(--color-gold)'};
+ return <div className="recurso-barra" style={color} role="meter" aria-label={r.nombre} aria-valuemin={0} aria-valuemax={r.tope} aria-valuenow={r.saldo} title={`${r.nombre}: ${r.saldo} / ${r.tope}`}>
+  <span className="recurso-nombre">{r.nombre}</span>
+  {r.tope<=10?<span className="recurso-gemas">{Array.from({length:r.tope},(_,i)=><i key={i} className={i<r.saldo?'llena':undefined}/>)}</span>
+   :<span className="recurso-linea"><i style={{width:`${Math.round(100*r.saldo/Math.max(1,r.tope))}%`}}/></span>}
+  <b>{r.saldo}</b>
+ </div>;
+}
 function ArteRanura({src,respaldo}:{src?:string;respaldo:React.ReactNode}){
  return src ? <span className="tactical-slot-arte" aria-hidden="true"><FotoEncuadrada src={src} fallback={respaldo}/></span> : respaldo;
 }
@@ -285,8 +306,8 @@ export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,on
  const propiaInfo=tipoInfo==='guardia'||tipoInfo==='consumible'||(!!accionInfo&&esAccionPropia(accionInfo.id,accionInfo.efecto));
  const enEspera=pendiente===clave&&!!pendiente;
  const pista=!puede?'Espera tu turno.':actor.accion_usada&&tipoInfo!=='mover'?'Ya usaste tu acción este turno.':motivo?motivo:tipoInfo==='mover'?'Clic en una casilla verde para moverte.':propiaInfo?(enEspera?'Pulsa otra vez para ejecutar.':segundoClic?'Pulsa para previsualizar; otra vez para ejecutar.':'Clic en la ranura para ejecutar.'):accionInfo?(objetivo?`Objetivo: ${objetivo}. Clic sobre él en el tablero para ejecutar.`:'Clic sobre un objetivo en el tablero para ejecutar.'):'';
- const titulo=tipoInfo==='mover'?'Mover':tipoInfo==='guardia'?'Guardia':consumibleInfo?.nombre||accionInfo?.nombre||'Elige una acción';
- const texto=tipoInfo==='mover'?`Te quedan ${movimiento} casillas. Moverte no consume tu acción.`:tipoInfo==='guardia'?'Te proteges y obtienes +2 ARM hasta tu siguiente turno.':consumibleInfo?`${consumibleInfo.detalle||'Objeto consumible.'} Quedan ${consumibleInfo.cantidad}.${objetivo?` Se usa sobre ${objetivo}.`:' Se usa sobre ti.'}`:ayuda?.resumen||'Pasa el cursor por una ranura para ver qué hace. Teclas 1–9.';
+ const titulo=tipoInfo==='mover'?'Mover':tipoInfo==='guardia'?(actor.guardia?.nombre||'Guardia'):consumibleInfo?.nombre||accionInfo?.nombre||'Elige una acción';
+ const texto=tipoInfo==='mover'?`Te quedan ${movimiento} casillas. Moverte no consume tu acción.`:tipoInfo==='guardia'?(actor.guardia?.frase||'Te proteges y obtienes +2 ARM hasta tu siguiente turno.'):consumibleInfo?`${consumibleInfo.detalle||'Objeto consumible.'} Quedan ${consumibleInfo.cantidad}.${objetivo?` Se usa sobre ${objetivo}.`:' Se usa sobre ti.'}`:ayuda?.resumen||'Pasa el cursor por una ranura para ver qué hace. Teclas 1–9.';
  const numero=(id:string,tipo:string)=>{const i=ranuras.findIndex(r=>r.id===id&&r.tipo===tipo);return i>=0&&i<9?i+1:null;};
  const ranuraDe=(id:string,tipo:Ranura['tipo'])=>ranuras.find(r=>r.id===id&&r.tipo===tipo)!;
  const hover=(k:string)=>({onMouseEnter:()=>setEnfoque(k),onMouseLeave:()=>setEnfoque(null),onFocus:()=>setEnfoque(k),onBlur:()=>setEnfoque(null)});
@@ -302,7 +323,7 @@ export function BarraCombate({actor,acciones,seleccion,onSeleccion,onResolver,on
      {actor.derribado&&<button disabled={!puede||ocupado} onClick={onLevantarse}><Footprints/><strong>Levantarse</strong><small>½ movimiento</small></button>}
      {acciones.some(a=>a.efecto.axioma)&&<button type="button" aria-pressed={categoria==='axioma'} onClick={()=>setCategoria(categoria==='axioma'?'todas':'axioma')}><Sparkles/><strong>Axioma</strong><small>{categoria==='axioma'?'Volver':'Elegir técnica'}</small></button>}
      {visibles.map(a=>{const r=ranuraDe(a.id,'accion'),n=numero(a.id,'accion'),elegida=!moviendo&&seleccion===a.id;return <button key={a.id} disabled={r.deshabilitada} aria-pressed={elegida} aria-keyshortcuts={n?String(n):undefined} title={phReal<(a.efecto.coste_ph||0)?`PH insuficientes: necesitas ${a.efecto.coste_ph}, tienes ${phReal}.`:a.bloqueada||a.nombre} className={`${elegida?'chosen':''} ${pendiente==='accion:'+a.id?'pending':''}`} onClick={()=>activar(r)} {...hover('accion:'+a.id)}>{n&&<span className="tactical-key">{n}</span>}{a.enfriamiento>0&&<span className="tactical-cooldown" aria-hidden="true">{a.enfriamiento}</span>}<ArteRanura src={imagenCreacion(a.ilustracion?.forja_id || /^(?:regla:)?(?:hab|pasiva|equipo):([^:]+)/.exec(a.id)?.[1], a.ilustracion?.imagen_url)} respaldo={a.efecto.efecto==='dano'?<Swords/>:<Sparkles/>}/><strong>{a.nombre}</strong><small>{phReal<(a.efecto.coste_ph||0)?'PH insuficientes':a.enfriamiento?`${a.enfriamiento} turnos`:a.efecto.coste_ph?`${a.efecto.coste_ph} PH`:a.efecto.coste_fatiga?`${a.efecto.coste_fatiga} Fatiga`:'1 acción'}</small></button>;})}
-     {(()=>{const r=ranuraDe('guardia','guardia'),n=numero('guardia','guardia');return <button disabled={r.deshabilitada} className={`${!moviendo&&seleccion==='guardia'?'chosen':''} ${pendiente==='guardia:guardia'?'pending':''}`} aria-pressed={!moviendo&&seleccion==='guardia'} aria-keyshortcuts={n?String(n):undefined} onClick={()=>activar(r)} {...hover('guardia:guardia')}>{n&&<span className="tactical-key">{n}</span>}<Shield/><strong>Guardia</strong><small>+2 ARM</small></button>;})()}
+     {(()=>{const r=ranuraDe('guardia','guardia'),n=numero('guardia','guardia');return <button disabled={r.deshabilitada} className={`${!moviendo&&seleccion==='guardia'?'chosen':''} ${pendiente==='guardia:guardia'?'pending':''}`} aria-pressed={!moviendo&&seleccion==='guardia'} aria-keyshortcuts={n?String(n):undefined} onClick={()=>activar(r)} {...hover('guardia:guardia')}>{n&&<span className="tactical-key">{n}</span>}<Shield/><strong>{actor.guardia?.nombre||'Guardia'}</strong><small>{actor.guardia?.frase.split(': ').slice(1).join(': ').replace(/\.$/,'')||'+2 ARM'}</small></button>;})()}
      {!!consumibles.length&&<span className="tactical-slots-sep" aria-hidden="true"/>}
      {consumibles.map(c=>{const r=ranuraDe(c.id,'consumible'),n=numero(c.id,'consumible');return <button key={'c:'+c.id} className={`tactical-consumable ${pendiente==='consumible:'+c.id?'pending':''}`} disabled={r.deshabilitada} aria-keyshortcuts={n?String(n):undefined} title={c.bloqueada||c.nombre} aria-label={`${c.nombre}, quedan ${c.cantidad}${c.enfriamiento?`, espera ${c.enfriamiento} turnos`:''}`} onClick={()=>activar(r)} {...hover('consumible:'+c.id)}>{n&&<span className="tactical-key">{n}</span>}<span className="tactical-count">×{c.cantidad}</span>{!!c.enfriamiento&&<span className="tactical-cooldown" aria-hidden="true">{c.enfriamiento}</span>}<ArteRanura src={c.imagen_url} respaldo={<FlaskConical/>}/><strong>{c.nombre}</strong><small>{c.bloqueada?'No disponible':'Consumible'}</small></button>;})}
      {!inventario?.oculto&&<button disabled={ocupado} onClick={onInventario} title={inventario?.titulo}><Backpack/><strong>{inventario?.nombre||'Inventario'}</strong><small>{inventario?.detalle||'Solo lo ves tú'}</small></button>}{extras}

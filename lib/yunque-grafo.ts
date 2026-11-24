@@ -53,7 +53,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   };
   if(e.tablero)modulo('alcance','tablero','Alcance',`${e.tablero.forma}${e.tablero.tamano?` de ${e.tablero.tamano}`:''}, alcance ${e.tablero.alcance}, afecta a ${e.tablero.afecta}.`);
   if(e.salvacion)modulo('salvacion','salvacion','Salvación',`CD ${e.salvacion.cd} de ${e.salvacion.atributo}; si la supera: ${e.salvacion.exito}.`);
-  if(e.efecto==='estado')modulo('estado',null,'Estado',e.estado?`Aplica ${e.estado}.`:'Estado sin nombre.');
+  if(e.efecto==='estado'&&!e.solo_pasivo)modulo('estado',null,'Estado',e.estado?`Aplica ${e.estado}.`:'Estado sin nombre.');
   const reaccion=(()=>{try{return reaccionDe(normalizarReaccion(e));}catch{return null;}})();
   if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',texto(()=>describirReaccion(reaccion,e.coste_ph||0),'Reacción.'),fallo(()=>validarReaccion(reaccion)));
   if(reaccion){const n=nodos.find(x=>x.id===`reaccion:${e.id}`);if(n)n.insignia=texto(()=>lineaCosteReaccion(reaccion,e.coste_ph||0),'Sin coste');}

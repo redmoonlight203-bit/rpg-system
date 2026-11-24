@@ -1,6 +1,8 @@
 import {formula, type Efecto, type Reaccion, type ResultadoReaccion} from './creacion';
 import {type Regla, type EfectoRegla, type CondicionRegla} from './reglas';
 import {describirVision} from './vision';
+import {describirInmunidades} from './inmunidades';
+import {describirEstado} from './estados';
 import {disparadorDe,lineaCosteReaccion} from "./reacciones";
 export type AyudaClara={resumen:string;detalles:string[]};
 const elementos:Record<string,string>={fuego:'fuego',agua:'agua',hielo:'hielo',electricidad:'electricidad',luz_sagrada:'luz sagrada'};
@@ -17,9 +19,10 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
   case 'curacion':resumen='Recupera vida del objetivo sin superar su vida máxima.';break;
   case 'recuperar_ph':resumen='Recupera puntos de habilidad del objetivo.';break;
   case 'reducir_fatiga':resumen='Reduce la Fatiga del objetivo. Si está agotado, aún necesita descansar.';break;
-  case 'estado':resumen=`Aplica ${e.estado||'un estado'} al objetivo.`;break;
+  case 'estado':resumen=e.estado_def?`Aplica ${describirEstado(e.estado_def)}`:`Aplica ${e.estado||'un estado'} al objetivo.`;break;
   case 'crear_arma':resumen=e.tabla_armas?`Lanza 1d${e.tabla_armas.caras} y crea el arma asignada al resultado.`:`Crea ${e.arma_nombre||'un arma temporal'} para combatir. Sustituye el equipo de la mano que ocupa.`;break;
  }
+ if(e.solo_pasivo)resumen=`Rasgo siempre activo. ${e.inmunidades?.length?describirInmunidades(e.inmunidades):''}`.trim();
  const detalles:string[]=[];
  if(e.transformacion){detalles.push('Una activación por encuentro. Cambiar etapa consume una acción, sin repetir el coste de activación.');for(const etapa of e.transformacion.etapas)detalles.push(`${etapa.nombre}: ${etapa.descripcion?etapa.descripcion+' ':''}${Object.entries(etapa.stats).map(([k,v])=>`${atributo(k)} ${v}`).join(', ')}.`);}
  if(e.efecto==='desplazamiento')detalles.push(`Hasta ${e.tablero?.alcance??0} casillas libres sin consumir movimiento.`);

@@ -13,9 +13,11 @@ import {TableroCombate,BarraCombate,type FichaTablero} from '../TableroCombate';
 import type {TiradaVisual} from '../AnimacionDados';
 import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,
  type PausaArena,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
-import {vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
+import {estadosVisibles,recursosVisibles,vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
  type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
 import MenuReaccion,{ListaReacciones} from '../MenuReaccion';
+import MenuPotenciador from '../MenuPotenciador';
+import type {EleccionPotenciador} from '../../lib/rasgos';
 import type {Efecto} from '../../lib/creacion';
 import type {ProcedenciaMapa,SuperficieMapa} from '../../lib/mapas-procedurales';
 import {atlasYugen} from '../../lib/tileset-yugen';
@@ -92,6 +94,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const [reinicio,setReinicio]=useState<{n:number;texto:string}|null>(null);
  // Estado de la jugada, como en la página de combate: acción elegida, objetivo, casilla apuntada y modos.
  const [accion,setAccion]=useState('');
+ const [potenciando,setPotenciando]=useState<{accion:string;sel:{accion?:string;objetivo?:string;centro?:Posicion}}|null>(null);
  const [objetivo,setObjetivo]=useState('');
  const [centro,setCentro]=useState<Posicion|null>(null);
  const [moviendo,setMoviendo]=useState(false);
@@ -200,11 +203,13 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  }
  const recordar=(n:Combate)=>{disposicion.current=seguro(()=>sacosDe(n),disposicion.current);};
  // Un clic ejecuta: la barra pasa la acción propia y el tablero, el objetivo o el centro del mismo clic.
- function resolver(sel:{accion?:string;objetivo?:string;centro?:Posicion}={}){
+ function resolver(sel:{accion?:string;objetivo?:string;centro?:Posicion}={},potenciadores?:EleccionPotenciador[]){
   const id=sel.accion||elegida,ef=lista.find(a=>a.id===id)?.efecto;
+  // Técnica con potenciadores compatibles: primero el menú (cancelar no gasta nada).
+  if(potenciadores===undefined&&lista.find(a=>a.id===id)?.potenciadores?.length){setPotenciando({accion:id,sel});return;}
   // Igual que la página de combate: guardia, armas creadas, transformaciones y rugidos se lanzan sobre uno mismo.
   const propio=id==='guardia'||['crear_arma','transformacion'].includes(ef?.efecto||'')||ef?.tablero?.origen_area==='lanzador'||ef?.vision?.modo==='abrir';
-  paso((x,rng)=>usar(x,id,propio?DOLL:(sel.objetivo??destino),rng,forzar,sel.centro||centro||undefined),'Esa acción no se pudo usar.',()=>{setCentro(null);setObjetivo('');setMoviendo(false);});
+  paso((x,rng)=>usar(x,id,propio?DOLL:(sel.objetivo??destino),rng,forzar,sel.centro||centro||undefined,potenciadores),'Esa acción no se pudo usar.',()=>{setCentro(null);setObjetivo('');setMoviendo(false);});
  }
  function atras(){
   if(!c)return;
@@ -277,8 +282,9 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   <div className="yq-arena-lado">
   {voz&&<div className="yq-arena-kuroi is-breve" role="alert"><LogoYugen size={32}/><p><b>Kuroi detiene la prueba.</b>{voz}</p></div>}
   {enCurso&&portador&&!barra&&<p className="yq-panel-voz">Kuroi no puede leer las estadísticas del doll: revisa sus ajustes o reinicia la prueba.</p>}
+  {potenciando&&lista.find(a=>a.id===potenciando.accion)&&<MenuPotenciador accion={lista.find(a=>a.id===potenciando.accion)!} onCancelar={()=>setPotenciando(null)} onConfirmar={el=>{const p=potenciando;setPotenciando(null);resolver(p.sel,el);}}/>}
   {enCurso&&portador&&barra&&<>
-   <BarraCombate actor={{...portador,estados:portador.estados.map(e=>e.nombre),ph:barra.ph,derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:barra.stats,max_vida:barra.max_vida,imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
+   <BarraCombate actor={{...portador,estados:portador.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(portador),recursos:recursosVisibles(portador,true),ph:barra.ph,derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:barra.stats,max_vida:barra.max_vida,imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
     acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(portador.motor?.proximos[a.regla]||0)-portador.turnos):portador.cooldowns[a.id]||0}))}
     seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setMoviendo(false);setColocando(false);}}
     onResolver={id=>resolver({accion:id})} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>{limpiarJugada();setForzar(false);})}

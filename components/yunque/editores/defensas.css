@@ -1,0 +1,37 @@
+/* Defensas, estados, rasgos y conceptos básicos del Yunque. Tokens del tema: var(--color-*). */
+.yq-defensas,.yq-estado-editor,.yq-rasgo-editor,.yq-concepto-editor{display:grid;gap:12px;min-width:0}
+.yq-defensas-columnas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
+.yq-defensa-col,.yq-primitiva,.yq-potenciador,.yq-recurso{display:grid;gap:8px;min-width:0;margin:0;padding:10px;border:1px solid color-mix(in srgb,var(--color-arcane) 30%,var(--color-line));border-radius:3px;
+ background:linear-gradient(170deg,color-mix(in srgb,var(--color-arcane) 9%,var(--color-raised)),var(--color-well))}
+.yq-defensa-col[data-tipo=dano]{border-color:color-mix(in srgb,#e0485b 40%,var(--color-line))}
+.yq-defensa-col[data-tipo=categoria]{border-color:color-mix(in srgb,var(--color-gold) 45%,var(--color-line))}
+.yq-defensa-col legend,.yq-primitiva>header,.yq-potenciador>header,.yq-recurso>header{display:flex;align-items:center;gap:7px;padding:0 4px;font:600 12px var(--font-display);letter-spacing:.16em;text-transform:uppercase;color:var(--color-gold-soft)}
+.yq-defensas select,.yq-estado-editor select,.yq-rasgo-editor select,.yq-concepto-editor select{width:100%;padding:7px 9px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px var(--font-sans)}
+.yq-defensa-anadir,.yq-boton-suave{justify-self:start;padding:6px 12px;border:1px solid color-mix(in srgb,var(--color-arcane) 60%,transparent);border-radius:2px;background:color-mix(in srgb,var(--color-arcane) 14%,var(--color-well));color:var(--color-text);font:600 13px var(--font-sans);cursor:pointer;transition:transform .15s ease,background-color .15s ease}
+.yq-defensa-anadir:hover,.yq-boton-suave:hover{transform:translateY(-1px);background:color-mix(in srgb,var(--color-arcane) 26%,var(--color-well))}
+.yq-defensa-lista{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.yq-defensa-lista li{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border:1px solid color-mix(in srgb,var(--color-gold) 50%,transparent);border-radius:999px;background:color-mix(in srgb,var(--color-gold) 12%,var(--color-well));font:600 12.5px var(--font-sans);animation:yq-sello .32s ease-out}
+.yq-defensa-lista li[data-modo=resistir]{border-color:color-mix(in srgb,var(--color-arcane) 55%,transparent);background:color-mix(in srgb,var(--color-arcane) 12%,var(--color-well))}
+.yq-defensa-lista button,.yq-primitiva header button,.yq-potenciador header button{display:grid;place-items:center;width:24px;height:24px;margin-left:auto;border:0;border-radius:50%;background:transparent;color:var(--color-text-muted);cursor:pointer}
+.yq-defensa-lista button:hover,.yq-primitiva header button:hover,.yq-potenciador header button:hover{background:color-mix(in srgb,#e0485b 20%,transparent);color:var(--color-text)}
+.yq-defensa-frase,.yq-estado-frase,.yq-rasgo-frase{margin:0;padding:9px 12px;border-left:3px solid var(--color-gold);background:color-mix(in srgb,var(--color-gold) 8%,var(--color-well));font:italic 14px/1.45 var(--font-serif,var(--font-sans));color:var(--color-parchment,var(--color-text))}
+.yq-fila{display:flex;flex-wrap:wrap;align-items:end;gap:10px}
+.yq-fila>label{display:grid;gap:4px;font:600 11px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted)}
+@keyframes yq-sello{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.yq-defensa-lista li{animation:none}.yq-defensa-anadir,.yq-boton-suave{transition:none}}
+.yq-mente{border:1px dashed color-mix(in srgb,var(--color-arcane) 40%,var(--color-line));border-radius:3px;padding:6px 10px}
+.yq-mente>summary{cursor:pointer;font:600 12px var(--font-display);letter-spacing:.14em;text-transform:uppercase;color:var(--color-arcane)}
+.yq-mente[open]{display:grid;gap:10px;padding-bottom:10px}
+.yq-primitivas{display:grid;gap:8px}
+.yq-recurso{border-color:color-mix(in srgb,var(--recurso) 55%,var(--color-line))}
+.yq-recurso-gema{width:10px;height:10px;transform:rotate(45deg);background:var(--recurso);box-shadow:0 0 8px var(--recurso)}
+.yq-componente{display:grid;gap:6px;padding:8px;border-left:2px solid var(--color-arcane);background:color-mix(in srgb,var(--color-arcane) 6%,transparent)}
+.yq-fila input[type=color]{width:42px;height:30px;padding:0;border:1px solid var(--color-line);background:none}
+.yq-fila input:not([type]),.yq-fila input[type=text]{padding:6px 8px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text);font:14px var(--font-sans)}
+.yq-esqueleto{display:grid;gap:10px}
+.yq-esqueleto-vista{display:grid;gap:8px}
+.yq-esqueleto-escena{position:relative;aspect-ratio:4/1;border:1px solid var(--color-line);border-radius:3px;overflow:hidden;
+ background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 1px),color-mix(in srgb,var(--color-line) 60%,transparent) calc(25% - 1px) 25%),radial-gradient(ellipse at 50% 120%,color-mix(in srgb,var(--color-gold) 10%,transparent),transparent 60%),var(--color-well)}
+.yq-esqueleto-escena .weapon-animation-layer{inset:0}
+.yq-esqueleto-actor,.yq-esqueleto-blanco{position:absolute;top:50%;width:26px;height:26px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle at 40% 35%,var(--color-gold-soft,#d6a84a),var(--color-raised));box-shadow:0 0 10px -2px var(--color-gold)}
+.yq-esqueleto-blanco{background:radial-gradient(circle at 40% 35%,#e0485b,var(--color-raised));box-shadow:0 0 10px -2px #e0485b}
