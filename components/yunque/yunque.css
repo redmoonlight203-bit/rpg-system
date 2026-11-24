@@ -78,13 +78,18 @@
 .yq-taller .yq-brasas span:nth-child(even){animation-name:yq-brasa-b}
 @keyframes yq-brasa{0%{transform:translate3d(0,0,0);opacity:0}12%{opacity:.85}55%{transform:translate3d(22px,-46vh,0);opacity:.6}100%{transform:translate3d(-8px,-92vh,0);opacity:0}}
 @keyframes yq-brasa-b{0%{transform:translate3d(0,0,0);opacity:0}15%{opacity:.7}50%{transform:translate3d(-26px,-40vh,0);opacity:.5}100%{transform:translate3d(14px,-86vh,0);opacity:0}}
-.yq-taller .yq-mundo{position:absolute;z-index:1;left:0;top:0;width:0;height:0;transform-origin:0 0;will-change:transform}
+/* Nitidez: `will-change:transform` fijo hacía que Chrome rasterizara el mundo a una escala congelada (texto borroso con zoom)
+   y dejara baldosas viejas de otros editores encima del nodo elegido. La capa de GPU solo existe mientras se desplaza la
+   vista o dura la transición de zoom; en reposo todo se pinta a su escala real. */
+.yq-taller .yq-mundo{position:absolute;z-index:1;left:0;top:0;width:0;height:0;transform-origin:0 0}
+.yq-taller .yq-lienzo.is-desplazando .yq-mundo,.yq-taller .yq-mundo.is-suave{will-change:transform}
 .yq-taller .yq-mundo-escala{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
 .yq-taller .yq-mundo.is-suave,.yq-taller .yq-mundo.is-suave>.yq-mundo-escala{transition:transform .38s cubic-bezier(.2,.7,.2,1)}
 
 /* ── Cables ── */
-/* Capa propia: el flujo animado de los cables repinta solo los cables, no los nodos (sombras, degradados) de debajo. */
-.yq-taller .yq-cables{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;will-change:transform}
+/* Sin capa propia: dentro del mundo escalado, una capa de GPU para los cables se rasterizaba a escala fija (borrosa)
+   y obligaba a componer aparte los nodos que la tapan. */
+.yq-taller .yq-cables{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .yq-taller .yq-cables path{fill:none}
 .yq-taller .yq-cable-aura{stroke:var(--color-gold);stroke-width:9;opacity:.07;transition:opacity .2s ease}
 .yq-taller .yq-cable{stroke-width:2.2;stroke-linecap:round;transition:opacity .2s ease}

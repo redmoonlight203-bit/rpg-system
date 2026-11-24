@@ -313,7 +313,7 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   <div className="yq-brasas" aria-hidden="true">{BRASAS.map((b,i)=><span key={i} style={{left:`${b.x}%`,width:b.s,height:b.s,animationDuration:`${b.d}s`,animationDelay:`${b.r}s`}}/>)}</div>
   {/* Desplazamiento y zoom en dos capas: al desplazar solo cambia una traslación, que el navegador aplica sin
       recomponer las capas de los 150+ nodos (con translate+scale juntos lo hacía en cada fotograma). */}
-  <div className={`yq-mundo${suave?' is-suave':''}`} style={{transform:`translate3d(${vista.x}px,${vista.y}px,0)`}} onTransitionEnd={e=>{if((e.target===e.currentTarget||(e.target as HTMLElement).parentElement===e.currentTarget)&&e.propertyName==='transform')setSuave(false);}}>
+  <div className={`yq-mundo${suave?' is-suave':''}`} style={{transform:`translate(${vista.x}px,${vista.y}px)`}} onTransitionEnd={e=>{if((e.target===e.currentTarget||(e.target as HTMLElement).parentElement===e.currentTarget)&&e.propertyName==='transform')setSuave(false);}}>
    <div className="yq-mundo-escala" style={{transform:`scale(${vista.z})`}}>
     <svg className="yq-cables" width="1" height="1" aria-hidden="true">
      {grafo.cables.map(c=>{
