@@ -62,5 +62,21 @@
  "kion-ancla": {
   "version": 1,
   "huella": "c113469be473178b54c796ddd61aae10f91e87f74201e477c014690323ed5b6d"
+ },
+ "embestida": {
+  "version": 1,
+  "huella": "2f8b9cccc3b7bcaf365674c37a6c3d8ce403b61d0d65588f92036f427f4411c3"
+ },
+ "salto-impacto": {
+  "version": 1,
+  "huella": "6288be6c57d3a2c1b5fe49f9fec9476b82c3c97ba06f1ab6487f178b2ed224b2"
+ },
+ "carrera-arrasadora": {
+  "version": 1,
+  "huella": "4170edf7f9cc209d17500d0afe1d374bcfc4a140297de64059485579446e8004"
+ },
+ "rugido": {
+  "version": 1,
+  "huella": "01ef9940523f028d66121e1d473360f279e8ad52694893e60abac5ba09e1d604"
  }
 }

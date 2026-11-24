@@ -65,6 +65,16 @@ const OJOS:Plantilla[]=[
     requisito_forma:{atributo:'fase_ojo',minimo:2},tablero:{alcance:6,forma:'individual',tamano:0,afecta:'enemigos'}}),
   ]},
 ];
+const MOVIMIENTO:Plantilla[]=[
+ {id:'embestida',version:1,nombre:'Ataque con dash / embestida',descripcion:'Se acerca al objetivo y lo golpea en una sola acción. También permite salto o teletransporte.',icono:'espada',para:'habilidad',
+  fragmentos:[accion('embestida',{efecto:'dano',nombre:'Embestida',animacion:'desplazamiento',naturaleza:'natural',coste_fatiga:2,descripcion:'Te lanzas hacia una criatura y la golpeas tras desplazarte.',tablero:{alcance:5,forma:'individual',tamano:0,afecta:'enemigos',color:'rojo',movimiento_lanzador:{tipo:'dash',casillas:4,alcance_golpe:1}}})]},
+ {id:'salto-impacto',version:1,nombre:'Salto de impacto en área',descripcion:'Salta, aterriza en una casilla libre y golpea alrededor. Una sola acción.',icono:'espada',para:'habilidad',
+  fragmentos:[accion('salto-impacto',{efecto:'dano',nombre:'Salto de impacto',animacion:'desplazamiento',naturaleza:'natural',coste_fatiga:3,cantidad:2,caras:6,descripcion:'Saltas hacia una casilla libre y causas daño en área al aterrizar.',tablero:{alcance:6,forma:'circulo',tamano:1,afecta:'enemigos',color:'rojo',origen_area:'aterrizaje',afecta_lanzador:false,movimiento_lanzador:{tipo:'salto',casillas:6,alcance_golpe:1}}})]},
+ {id:'carrera-arrasadora',version:1,nombre:'Carrera arrasadora',descripcion:'Recorre casillas y golpea a todas las criaturas que cruce, sin atravesar muros.',icono:'espada',para:'habilidad',
+  fragmentos:[accion('carrera-arrasadora',{efecto:'dano',nombre:'Carrera arrasadora',animacion:'desplazamiento',naturaleza:'natural',coste_fatiga:3,cantidad:2,caras:6,descripcion:'Corres en línea hacia la casilla indicada y golpeas una vez a cada criatura del recorrido.',tablero:{alcance:6,forma:'linea',tamano:6,afecta:'enemigos',color:'rojo',origen_area:'recorrido',afecta_lanzador:false,movimiento_lanzador:{tipo:'carrera',casillas:6,alcance_golpe:0,ancho:0}}})]},
+ {id:'rugido',version:1,nombre:'Rugido / onda alrededor',descripcion:'El área nace del atacante; no necesita seleccionar un punto lejano.',icono:'fuego',para:'habilidad',
+  fragmentos:[accion('rugido',{efecto:'dano',nombre:'Rugido devastador',animacion:'aura',naturaleza:'natural',coste_fatiga:3,cantidad:2,caras:6,descripcion:'Emites un rugido de energía que nace en tu posición e impacta en los objetivos a tu alrededor.',tablero:{alcance:0,forma:'circulo',tamano:2,afecta:'enemigos',color:'violeta',origen_area:'lanzador',afecta_lanzador:false}})]},
+];
 export const PLANTILLAS:Plantilla[]=[
  ...OJOS,
  // 01 · Fuego de luz: el fuego deja una quemadura que arde cada turno hasta superar una salvación CD 12.
@@ -99,8 +109,11 @@ export const PLANTILLAS:Plantilla[]=[
  {id:'teletransporte',version:1,nombre:'Teletransporte',descripcion:'Aparece junto al objetivo y golpea',icono:'rayo',para:'habilidad',
   fragmentos:[accion('paso-etereo',{nombre:'Paso etéreo',cantidad:1,caras:6,naturaleza:'magica',coste_ph:3,
    tablero:{alcance:7,forma:'individual',tamano:0,afecta:'enemigos',movimiento_lanzador:{tipo:'teletransporte',casillas:6,alcance_golpe:1}}})]},
+ ...MOVIMIENTO,
  ...KION,
 ];
+/** Plantillas de un solo fragmento `accion`: el selector de `EditorDados`. */
+export const PLANTILLAS_ACCION:Plantilla[]=PLANTILLAS.filter(p=>p.fragmentos.length===1&&p.fragmentos[0].tipo==='accion');
 
 export function plantillaPorId(id:string,lista:Plantilla[]=PLANTILLAS):Plantilla|undefined{return lista.find(p=>p.id===id);}
 /** Copias de los fragmentos con `datos.origen={plantilla:p.id,fragmento:<datos.id>,version:p.version,editados:[]}`. Ids sin regenerar. */

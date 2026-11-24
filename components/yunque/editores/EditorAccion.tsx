@@ -136,7 +136,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
   </>}
   <label className="yq-conmutador"><input type="checkbox" role="switch" checked={todos} onChange={v=>setTodos(v.target.checked)}/><span aria-hidden="true"/>Todos los campos</label>
   {todos&&<div className="yq-todos yq-desplazable">
-   <EditorDados value={[e]} onChange={lista=>{const efectos=[...b.efectos];efectos.splice(i,1,...lista);operar({op:'fijar',ruta:['efectos'],valor:efectos});}}/>
+   <EditorDados value={[e]} onChange={lista=>{const efectos=[...b.efectos];efectos.splice(i,1,...lista);operar({op:'fijar',ruta:['efectos'],valor:efectos});}} onPlantilla={id=>operar({op:'desplegar',plantilla:id})}/>
   </div>}
  </div>;
 }

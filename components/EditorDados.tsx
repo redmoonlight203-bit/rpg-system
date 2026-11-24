@@ -10,6 +10,8 @@ import {type Efecto,type FuenteCreacion,ELEMENTOS,formula,nuevoEfecto,validarEfe
 import SelectorVFX from './SelectorVFX';
 import EditorAlcance from './EditorAlcance';
 import {TablaArmas} from './TablaArmas';
+import {PLANTILLAS_ACCION,desplegar,plantillaPorId} from '../lib/yunque-plantillas';
+import {regenerarFragmento} from '../lib/yunque-operaciones';
 import {PasoYunque,ResumenYunque} from './AyudaYunque';
 const campo='mt-1 w-full rounded-lg border border-neutral-700 bg-well p-2 text-neutral-100';
 const tipos:{tipo:Efecto['efecto'];nombre:string;ayuda:string}[]=[
@@ -27,18 +29,22 @@ function Numero({nombre,value,onChange,min,max,ayuda}:{nombre:string;value:numbe
 function Cantidad({e,onChange,arma=false}:{e:Efecto;onChange:(p:Partial<Efecto>)=>void;arma?:boolean}){
  return <><div className="grid gap-3 sm:grid-cols-3"><Numero nombre="Cuántos dados" min={0} max={100} value={e.cantidad} onChange={cantidad=>onChange({cantidad})}/><label>Caras de cada dado<select className={campo} value={e.caras} onChange={v=>onChange({caras:Number(v.target.value)})}>{[...new Set([4,6,8,10,12,20,100,e.caras])].sort((a,b)=>a-b).map(n=><option key={n} value={n}>D{n}</option>)}</select></label><Numero nombre="Cantidad que se suma" value={e.modificador} onChange={modificador=>onChange({modificador})}/></div><p className="yunque-ayuda">{arma?'Daño del arma al atacar':'Resultado'}: <strong className="text-amber-200">{formula(e)}</strong>. {e.cantidad>0?`Lanza ${e.cantidad} ${e.cantidad===1?'dado':'dados'} de ${e.caras} caras${e.modificador?` y ${e.modificador>0?'suma':'resta'} ${Math.abs(e.modificador)}`:''}.`:'Sin tirada: usa directamente la cantidad que se suma.'}</p></>;
 }
-export function EditorDados({value,onChange,disabled=false,armas=[]}:{value:Efecto[];onChange:(e:Efecto[])=>void;disabled?:boolean;armas?:FuenteCreacion[]}){
+export function EditorDados({value,onChange,disabled=false,armas=[],onPlantilla}:{value:Efecto[];onChange:(e:Efecto[])=>void;disabled?:boolean;armas?:FuenteCreacion[];onPlantilla?:(id:string)=>void}){
  const [prueba,setPrueba]=useState<{id:string;texto:string}|null>(null);
  const [abierta,setAbierta]=useState<string|null>(null);
  function cambiar(id:string,patch:Partial<Efecto>){onChange(value.map(e=>e.id===id?{...e,...patch}:e));setPrueba(null);}
- function agregar(tipo:Efecto['efecto'],plantilla:'normal'|'dash'|'salto'|'carrera'|'rugido'='normal'){
+ function agregar(tipo:Efecto['efecto']){
   const e={...nuevoEfecto(),efecto:tipo,nombre:tipos.find(t=>t.tipo===tipo)!.nombre,...(tipo==='estado'?{estado:'Aturdido',estado_tipo:'aturdido' as const,duracion:1}:{}),...(tipo==='crear_arma'?{arma_nombre:'Nueva arma',arma_slot:'mano_der' as const,duracion:3}:{})};
-  if(plantilla==='dash'){Object.assign(e,{nombre:'Embestida',animacion:'desplazamiento',naturaleza:'natural',coste_fatiga:2,descripcion:'Te lanzas hacia una criatura y la golpeas tras desplazarte.',tablero:{alcance:5,forma:'individual',tamano:0,afecta:'enemigos',color:'rojo',movimiento_lanzador:{tipo:'dash',casillas:4,alcance_golpe:1}}});}
-  if(plantilla==='salto'){Object.assign(e,{nombre:'Salto de impacto',animacion:'desplazamiento',naturaleza:'natural',coste_fatiga:3,cantidad:2,caras:6,descripcion:'Saltas hacia una casilla libre y causas daño en área al aterrizar.',tablero:{alcance:6,forma:'circulo',tamano:1,afecta:'enemigos',color:'rojo',origen_area:'aterrizaje',afecta_lanzador:false,movimiento_lanzador:{tipo:'salto',casillas:6,alcance_golpe:1}}});}
-  if(plantilla==='carrera'){Object.assign(e,{nombre:'Carrera arrasadora',animacion:'desplazamiento',naturaleza:'natural',coste_fatiga:3,cantidad:2,caras:6,descripcion:'Corres en línea hacia la casilla indicada y golpeas una vez a cada criatura del recorrido.',tablero:{alcance:6,forma:'linea',tamano:6,afecta:'enemigos',color:'rojo',origen_area:'recorrido',afecta_lanzador:false,movimiento_lanzador:{tipo:'carrera',casillas:6,alcance_golpe:0,ancho:0}}});}
-  if(plantilla==='rugido'){Object.assign(e,{nombre:'Rugido devastador',animacion:'aura',naturaleza:'natural',coste_fatiga:3,cantidad:2,caras:6,descripcion:'Emites un rugido de energía que nace en tu posición e impacta en los objetivos a tu alrededor.',tablero:{alcance:0,forma:'circulo',tamano:2,afecta:'enemigos',color:'violeta',origen_area:'lanzador',afecta_lanzador:false}});}
   if(tipo==='transformacion')e.transformacion={id:e.id,nombre:e.nombre,tipo:'forma',etapas:[{id:'etapa_1',nombre:'Primera etapa',stats:{vida:20}}]};
   onChange([...value,e]);setAbierta(e.id);setPrueba(null);
+ }
+ function elegirPlantilla(id:string){
+  if(onPlantilla){onPlantilla(id);return;}
+  const p=plantillaPorId(id);if(!p)return;
+  // Sin lienzo nada actualizaría la copia: se añade sin `origen` y con ids nuevos.
+  const datos=regenerarFragmento(desplegar(p)[0]) as unknown as {origen?:unknown}&Efecto;
+  delete datos.origen;
+  onChange([...value,datos as Efecto]);setAbierta(datos.id);setPrueba(null);
  }
  function tirar(e:Efecto){
   const error=validarEfectos([e]);if(error){setPrueba({id:e.id,texto:error});return;}
@@ -50,7 +56,8 @@ export function EditorDados({value,onChange,disabled=false,armas=[]}:{value:Efec
  }
  return <section className="yunque-editor space-y-5">
   <header><p className="yunque-eyebrow">Acciones del personaje u objeto</p><h2>¿Qué ocurre al usarlo?</h2><p>Una acción se elige durante el turno y consume la acción del personaje. Empieza por el resultado que buscas.</p></header>
-  <fieldset disabled={disabled||value.length>=20} className="yunque-opciones" aria-label="Añadir una acción">{tipos.map(t=><button type="button" className="yunque-opcion" key={t.tipo} onClick={()=>agregar(t.tipo)}><IconoYugen id={{desplazamiento:"ojo",transformacion:"alma",dano:"espada",curacion:"pocion",crear_arma:"yunque",estado:"fuego",recuperar_ph:"alma",reducir_fatiga:"escudo"}[t.tipo]||"yugen"} size={32}/><strong>+ {t.nombre}</strong><span>{t.ayuda}</span></button>)}<button type="button" className="yunque-opcion" onClick={()=>agregar('dano','dash')}><IconoYugen id="espada" size={32}/><strong>+ Ataque con dash / embestida</strong><span>Se acerca al objetivo y lo golpea en una sola acción. También permite salto o teletransporte.</span></button><button type="button" className="yunque-opcion" onClick={()=>agregar('dano','salto')}><IconoYugen id="espada" size={32}/><strong>+ Salto de impacto en área</strong><span>Salta, aterriza en una casilla libre y golpea alrededor. Una sola acción.</span></button><button type="button" className="yunque-opcion" onClick={()=>agregar('dano','carrera')}><IconoYugen id="espada" size={32}/><strong>+ Carrera arrasadora</strong><span>Recorre casillas y golpea a todas las criaturas que cruce, sin atravesar muros.</span></button><button type="button" className="yunque-opcion" onClick={()=>agregar('dano','rugido')}><IconoYugen id="fuego" size={32}/><strong>+ Rugido / onda alrededor</strong><span>El área nace del atacante; no necesita seleccionar un punto lejano.</span></button></fieldset>
+  <fieldset disabled={disabled||value.length>=20} className="yunque-opciones" aria-label="Añadir una acción">{tipos.map(t=><button type="button" className="yunque-opcion" key={t.tipo} onClick={()=>agregar(t.tipo)}><IconoYugen id={{desplazamiento:"ojo",transformacion:"alma",dano:"espada",curacion:"pocion",crear_arma:"yunque",estado:"fuego",recuperar_ph:"alma",reducir_fatiga:"escudo"}[t.tipo]||"yugen"} size={32}/><strong>+ {t.nombre}</strong><span>{t.ayuda}</span></button>)}</fieldset>
+  <label>Desde una plantilla<select className={campo} value="" disabled={disabled||value.length>=20} onChange={v=>{const id=v.target.value;if(id)elegirPlantilla(id);}}><option value="">Elegir una plantilla…</option>{PLANTILLAS_ACCION.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select><span className="block yunque-ayuda mt-1">Un modelo listo: movimiento, áreas o defensas. Puedes ajustarlo después.</span></label>
   {!value.length&&<p className="yunque-ayuda">Todavía no hay acciones. Los objetos que solo aportan atributos, como una armadura, pueden guardarse así.</p>}
   <ListaArrastrable items={value} onChange={onChange} nombre="acciones" disabled={disabled} render={(e,index)=>{
    const ayuda=describirEfecto({...e,descripcion:undefined});

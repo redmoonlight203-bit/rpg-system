@@ -110,3 +110,36 @@ test('desplegar marca cada fragmento con su origen',()=>{
  assert.deepEqual(json(p),antes,'la plantilla no se muta');
  assert.equal(plantillaPorId('no-existe'),undefined);
 });
+
+const {PLANTILLAS_ACCION}=cargarDependencia('yunque-plantillas');
+const datosDe=id=>PLANTILLAS.find(p=>p.id===id).fragmentos[0].datos;
+test('las plantillas de movimiento reproducen los antiguos botones',()=>{
+ const r=datosDe('rugido');
+ assert.deepEqual(json(r.tablero),{alcance:0,forma:'circulo',tamano:2,afecta:'enemigos',color:'violeta',origen_area:'lanzador',afecta_lanzador:false});
+ assert.equal(r.coste_fatiga,3);assert.equal(r.cantidad,2);assert.equal(r.caras,6);assert.equal(r.animacion,'aura');
+ assert.equal(r.nombre,'Rugido devastador');assert.equal(r.efecto,'dano');assert.equal(r.naturaleza,'natural');
+ const e=datosDe('embestida');
+ assert.equal(e.nombre,'Embestida');assert.equal(e.animacion,'desplazamiento');assert.equal(e.naturaleza,'natural');assert.equal(e.coste_fatiga,2);
+ assert.deepEqual(json(e.tablero),{alcance:5,forma:'individual',tamano:0,afecta:'enemigos',color:'rojo',movimiento_lanzador:{tipo:'dash',casillas:4,alcance_golpe:1}});
+ const s=datosDe('salto-impacto');
+ assert.equal(s.nombre,'Salto de impacto');assert.equal(s.coste_fatiga,3);assert.equal(s.cantidad,2);assert.equal(s.caras,6);
+ assert.deepEqual(json(s.tablero),{alcance:6,forma:'circulo',tamano:1,afecta:'enemigos',color:'rojo',origen_area:'aterrizaje',afecta_lanzador:false,movimiento_lanzador:{tipo:'salto',casillas:6,alcance_golpe:1}});
+ const c=datosDe('carrera-arrasadora');
+ assert.equal(c.nombre,'Carrera arrasadora');assert.equal(c.coste_fatiga,3);assert.equal(c.cantidad,2);assert.equal(c.caras,6);
+ assert.deepEqual(json(c.tablero),{alcance:6,forma:'linea',tamano:6,afecta:'enemigos',color:'rojo',origen_area:'recorrido',afecta_lanzador:false,movimiento_lanzador:{tipo:'carrera',casillas:6,alcance_golpe:0,ancho:0}});
+ for(const id of ['embestida','salto-impacto','carrera-arrasadora','rugido']){
+  const p=PLANTILLAS.find(x=>x.id===id);
+  assert.equal(p.version,1);assert.equal(p.para,'habilidad');assert.equal(p.fragmentos.length,1);assert.equal(p.fragmentos[0].datos.id,'plantilla-'+id);
+ }
+});
+test('PLANTILLAS_ACCION incluye las cuatro y excluye las de reglas',()=>{
+ const ids=PLANTILLAS_ACCION.map(p=>p.id);
+ for(const id of ['embestida','salto-impacto','carrera-arrasadora','rugido'])assert.ok(ids.includes(id),id);
+ for(const p of PLANTILLAS_ACCION)assert.ok(p.fragmentos.length===1&&p.fragmentos[0].tipo==='accion',p.id);
+ assert.ok(!ids.includes('curar-al-matar')&&!ids.includes('furia-temporal'));
+});
+test('EditorDados ya no rellena campos de golpe',()=>{
+ const t=readFileSync(new URL('../components/EditorDados.tsx',import.meta.url),'utf8');
+ assert.ok(!/agregar\('dano','(dash|salto|carrera|rugido)'\)/.test(t));
+ assert.ok(!t.includes("plantilla==='rugido'"));
+});
