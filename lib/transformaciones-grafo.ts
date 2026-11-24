@@ -66,6 +66,9 @@ export function conectar(grafo: Grafo, desde: string, hasta: string, sentido: Se
   if (sentido !== 'ambos' && sentido !== 'uno') return {ok: false, error: 'Sentido de transición inválido.'};
   const repetida = grafo.transiciones.some(t => (t.desde === desde && t.hasta === hasta) || (t.sentido === 'ambos' && t.desde === hasta && t.hasta === desde));
   if (repetida) return {ok: false, error: 'Esas formas ya están conectadas.'};
+  // Conectar al revés un paso de cadena lo convierte en cambio libre, sin un segundo cable.
+  const inversa = grafo.transiciones.find(t => t.desde === hasta && t.hasta === desde);
+  if (inversa) return {ok: true, id: inversa.id, grafo: {...grafo, transiciones: grafo.transiciones.map(t => t === inversa ? {...t, sentido: 'ambos' as const} : t)}};
   const id = idLibre(grafo.transiciones.map(t => t.id), `${desde}__${hasta}`);
   return {ok: true, id, grafo: {...grafo, transiciones: [...grafo.transiciones, {id, desde, hasta, sentido}]}};
 }

@@ -8,6 +8,7 @@ import {Fichas,Rueda} from '../Controles';
 import {actualizarTransicion,conectar,crearForma,disposicion,quitarTransicion,validarGrafo,type Grafo,type SentidoTransicion} from '../../../lib/transformaciones-grafo';
 
 export const MAX_FORMAS=12;
+const plural=(n:number,palabra:string)=>`${n} ${palabra}${n===1?'':'es'.slice(palabra.endsWith('r')?0:1)}`;
 const SENTIDOS=[
  {valor:'ambos' as SentidoTransicion,nombre:'Cambio libre ↔',ayuda:'Se cambia en cualquier momento, en los dos sentidos'},
  {valor:'uno' as SentidoTransicion,nombre:'Solo hacia delante →',ayuda:'Paso de una cadena: no se puede volver por aquí (la vuelta a la realidad sigue disponible)'},
@@ -26,7 +27,7 @@ export function EditorFormas({grafo,onCambiar,seleccionada,onSeleccionar,plantil
  const error=validarGrafo(grafo);
  const huerfanas=new Set(grafo.formas.filter(f=>error?.startsWith(`${f.nombre}:`)).map(f=>f.id));
  const nodos:NodoLienzo[]=grafo.formas.map(f=>({id:f.id,titulo:f.nombre,columna:celdas[f.id].columna,fila:celdas[f.id].fila,
-  subtitulo:f.es_realidad?'Realidad · cuerpo original':f.control?'Toma el control':`${Object.keys(f.estadisticas).length} atributos · ${f.poderes.length} poderes`,
+  subtitulo:f.es_realidad?'Realidad':f.control?'Toma el control':`${plural(Object.keys(f.estadisticas).length,'atributo')} · ${plural(f.poderes.length,'poder')}`,
   icono:f.es_realidad?'yugen':f.control?'fuego':'alma',tono:f.es_realidad?'oro':f.control?'carmesi':'arcano',error:huerfanas.has(f.id)}));
  const nombre=(id:string)=>grafo.formas.find(f=>f.id===id)?.nombre||id;
  const cables:CableLienzo[]=grafo.transiciones.map(t=>({id:t.id,desde:t.desde,hasta:t.hasta,sentido:t.sentido,

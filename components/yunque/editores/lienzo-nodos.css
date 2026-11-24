@@ -5,11 +5,11 @@
 .ln-plano{position:relative}
 .ln-cables{position:absolute;inset:0;pointer-events:none;overflow:visible}
 .ln-cable{color:color-mix(in srgb,var(--color-gold) 70%,transparent)}
-.ln-cable line{stroke:currentColor;stroke-width:1.6;fill:none}
+.ln-cable path{stroke:currentColor;stroke-width:1.6;fill:none}
 .ln-cable.is-punteado{color:var(--color-text-muted)}
-.ln-cable.is-punteado line{stroke-dasharray:4 4}
+.ln-cable.is-punteado path{stroke-dasharray:4 4}
 .ln-cable.is-seleccionado{color:var(--color-gold-bright)}
-.ln-cable.is-seleccionado line{stroke-width:2.6}
+.ln-cable.is-seleccionado path{stroke-width:2.6}
 .ln-cable .ln-cable-zona{stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
 .ln-cable-vivo{stroke:var(--color-arcane);stroke-width:1.8;stroke-dasharray:5 4}
 .ln-nodo-pos{position:absolute;width:168px;height:58px}
@@ -28,10 +28,11 @@
 .ln-nodo.is-fantasma{background:transparent;border-style:dashed;color:var(--color-text-muted);box-shadow:none}
 .ln-nodo.is-error{border-color:var(--color-crimson)}
 .ln-nodo.is-destino{border-color:var(--color-arcane);border-style:dashed}
-.ln-puerto{position:absolute;right:-7px;top:50%;translate:0 -50%;width:22px;height:22px;display:grid;place-items:center;font-size:11px;line-height:1;
+.ln-nodo-pos .ln-puerto{position:absolute;right:-7px;top:50%;translate:0 -50%;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;display:grid;place-items:center;font-size:11px;line-height:1;
  color:var(--color-gold);background:var(--color-well);border:1px solid var(--color-gold);border-radius:50%;cursor:crosshair;touch-action:none}
-.ln-puerto:hover,.ln-puerto.is-activo{color:var(--color-well);background:var(--color-gold-bright)}
-.ln-aviso{position:sticky;left:0;bottom:0;margin:0;padding:6px 10px;font-size:12px;color:var(--color-text);background:color-mix(in srgb,var(--color-arcane) 25%,var(--color-well))}
+.ln-nodo-pos .ln-puerto:hover,.ln-nodo-pos .ln-puerto.is-activo{color:var(--color-well);background:var(--color-gold-bright)}
+.ln-marco{position:relative;min-width:0}
+.ln-aviso{position:absolute;z-index:1;left:1px;right:1px;top:1px;pointer-events:none;margin:0;padding:6px 10px;font-size:12px;color:var(--color-text);background:color-mix(in srgb,var(--color-arcane) 25%,var(--color-well))}
 .ln-barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
 .ln-boton{padding:6px 12px;font-size:13px;color:var(--color-text);background:var(--color-raised);border:1px solid var(--color-line-strong);border-radius:3px;cursor:pointer}
 .ln-boton:hover:not(:disabled){border-color:var(--color-gold)}

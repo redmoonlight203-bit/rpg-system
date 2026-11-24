@@ -97,3 +97,14 @@ test('disposición: columnas por distancia a la realidad, sin celdas repetidas',
   const celdas=Object.values(d).map(p=>p.columna+','+p.fila);
   assert.equal(new Set(celdas).size,celdas.length);
 });
+
+test('conectar al revés una transición de un solo sentido la convierte en cambio libre', () => {
+  const f=(id,extra={})=>({id,nombre:id,estadisticas:{},poderes:[],...extra});
+  const g={formas:[f('r',{es_realidad:true}),f('a')],transiciones:[{id:'1',desde:'r',hasta:'a',sentido:'uno',coste:{ph:2}}]};
+  const r=conectar(g,'a','r','ambos');
+  assert.equal(r.ok,true);
+  assert.equal(r.grafo.transiciones.length,1);
+  assert.equal(r.grafo.transiciones[0].sentido,'ambos');
+  assert.equal(r.grafo.transiciones[0].coste.ph,2);
+  assert.equal(r.id,'1');
+});

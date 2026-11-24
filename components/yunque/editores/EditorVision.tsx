@@ -48,7 +48,9 @@ export default function EditorVision({vision:v,onChange,efecto,fase=false}:{visi
  const presente:Record<Modulo,boolean>={apariencia:true,activacion:true,mirada:true,revelar:!!v.revelar&&Object.values(v.revelar).some(Boolean),
   puntos:!!pd,recompensa:!!pd,defensa:!!v.anticipar||!!v.amenazas,bonos:!!v.bonos&&Object.keys(v.bonos).length>0};
  const resumen:Partial<Record<Modulo,string>>={apariencia:PATRONES_OJO.find(p=>p.valor===v.apariencia.patron)?.nombre,activacion:NOMBRE_MODO[v.modo],
-  mirada:v.alcance?`${v.alcance} casillas`:'Todo el tablero',puntos:pd?`${pd.cantidad} dirección${pd.cantidad===1?'':'es'}`:undefined,
+  mirada:v.alcance?`${v.alcance} casillas`:'Todo el tablero',revelar:REVELAR.filter(([k])=>v.revelar?.[k]).map(([,n])=>n).join(', ')||undefined,
+  defensa:[v.anticipar&&`+${v.anticipar.armadura} ARM`,v.amenazas&&'amenazas'].filter(Boolean).join(' · ')||undefined,
+  bonos:v.bonos?`${Object.keys(v.bonos).length} bono${Object.keys(v.bonos).length===1?'':'s'}`:undefined,puntos:pd?`${pd.cantidad} dirección${pd.cantidad===1?'':'es'}`:undefined,
   recompensa:pd?[pd.recompensa.ventaja&&'ventaja',pd.recompensa.critico&&'crítico',pd.recompensa.dano&&`+${pd.recompensa.dano} daño`].filter(Boolean).join(' · ')||'Sin premio':undefined};
  const visibles=MODULOS.filter(m=>!(fase&&(m.id==='activacion'||m.id==='bonos')));
  const filaPuntos=visibles.findIndex(m=>m.id==='puntos');

@@ -75,7 +75,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
   const errorEmpuje=validarEmpujeHuella(empuje);
   const poderes = acciones.filter(a=>a.efecto!=="transformacion");
   return (
-    <fieldset className="space-y-4 rounded-xl border border-neutral-700 bg-black/20 p-3 sm:p-4">
+    <fieldset className="min-w-0 space-y-4 rounded-xl border border-neutral-700 bg-black/20 p-3 sm:p-4">
       <legend className="px-2 font-semibold text-violet-200">Forma {numero}</legend>
       <label className="block text-sm">Nombre de la forma
         <input className={campo} value={etapa.nombre} maxLength={120} onChange={e=>onChange({...etapa,nombre:e.target.value})} placeholder="Ej.: Manifestación parcial"/>
@@ -221,6 +221,14 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
   );
 }
 
+/** Una forma nueva copia los atributos de la seleccionada (o de la última), como hacía «añadir etapa». */
+function plantillaForma(d:DefinicionTransformacion,elegida?:EtapaTransformacion):Record<string,number>{
+  const stats={...(elegida??d.etapas[d.etapas.length-1])?.stats};
+  if(d.tipo==="forma"&&stats.vida===undefined&&stats.hp===undefined)stats.vida=20;
+  if(!Object.keys(stats).length)stats.armadura=0;
+  return stats;
+}
+
 export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;acciones:Efecto[];onChange:(d:DefinicionTransformacion)=>void}) {
   const d=efecto.transformacion!;
   const tipo=(nuevo:TipoTransformacion)=>{
@@ -248,7 +256,7 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
         <p className="text-xs text-neutral-400">Forma: al agotar sus HP vuelve al cuerpo original. Poder: los HP no se restauran y puede morir. Cambiar de forma consume una acción. Las cadenas (solo hacia delante) se activan una vez por encuentro; el cambio libre con la forma base se puede repetir.</p>
       </div>
       <EditorFormas grafo={grafo} seleccionada={seleccion} onSeleccionar={setSeleccion}
-        plantilla={d.tipo==="forma"?{vida:20}:undefined} onCambiar={g=>onChange(grafoADefinicion(g,d))}/>
+        plantilla={plantillaForma(d,elegida)} onCambiar={g=>onChange(grafoADefinicion(g,d))}/>
       {elegida?<EditorEtapa key={elegida.id} etapa={elegida} numero={indice+1} tipo={d.tipo} acciones={acciones} total={d.etapas.length}
           onChange={siguiente=>actualizar(elegida.id,siguiente)}
           onEliminar={()=>{const r=quitarForma(grafo,elegida.id);if(r.ok){onChange(grafoADefinicion(r.grafo,d));setSeleccion(ID_REALIDAD);}}}/>

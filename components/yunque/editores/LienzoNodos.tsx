@@ -48,7 +48,9 @@ export default function LienzoNodos({nodos,cables,etiqueta,seleccionado,cableSel
  };
  const pulsarNodo=(id:string)=>{if(origen){terminar(id);return;}onSeleccionar?.(id);};
  const deOrigen=origen?porId.get(origen):undefined;
- return <div className="ln-lienzo" ref={caja} role="group" aria-label={etiqueta}
+ return <div className="ln-marco">
+ {origen&&<p className="ln-aviso" role="status">Elige el nodo de destino para «{porId.get(origen)?.titulo}». Esc cancela.</p>}
+ <div className="ln-lienzo" ref={caja} role="group" aria-label={etiqueta}
   onPointerMove={e=>{if(origen&&cursor)setCursor(local(e));}} onPointerUp={soltar}
   onKeyDown={e=>{if(e.key==='Escape'&&origen){setOrigen(null);setCursor(null);}}}>
   <div className="ln-plano" style={{width:ancho,height:alto}}>
@@ -58,10 +60,15 @@ export default function LienzoNodos({nodos,cables,etiqueta,seleccionado,cableSel
     </defs>
     {cables.map(c=>{
      const a=porId.get(c.desde),b=porId.get(c.hasta);if(!a||!b)return null;
-     const p=borde(posicion(a),posicion(b)),q=borde(posicion(b),posicion(a));
+     const pa=posicion(a),pb=posicion(b),curva=a.columna!==b.columna&&a.fila!==b.fila;
+     // Entre columnas distintas, curva de borde a borde (no cruza otros nodos); si no, recta.
+     const [i,f]=a.columna<=b.columna?[pa,pb]:[pb,pa];
+     const p=curva?{x:i.x+ANCHO+4,y:i.y+ALTO/2}:borde(pa,pb),q=curva?{x:f.x-4,y:f.y+ALTO/2}:borde(pb,pa);
+     const medio=(p.x+q.x)/2,d=curva?`M${p.x} ${p.y}C${medio} ${p.y} ${medio} ${q.y} ${q.x} ${q.y}`:`M${p.x} ${p.y}L${q.x} ${q.y}`;
      return <g key={c.id} data-lienzo-cable={c.id} className={['ln-cable',c.punteado&&'is-punteado',cableSeleccionado===c.id&&'is-seleccionado'].filter(Boolean).join(' ')}>
-      <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} markerEnd={c.sentido!=='linea'?'url(#ln-flecha)':undefined} markerStart={c.sentido==='ambos'?'url(#ln-flecha)':undefined}/>
-      {onSeleccionarCable&&<line className="ln-cable-zona" x1={p.x} y1={p.y} x2={q.x} y2={q.y} onClick={()=>onSeleccionarCable(c.id)}><title>{c.etiqueta||'Conexión'}</title></line>}
+      {/* El trazo va de izquierda a derecha en curvas: si el cable apunta hacia atrás, la flecha va al inicio. */}
+      <path d={d} markerEnd={c.sentido==='ambos'||(c.sentido==='uno'&&(!curva||a.columna<=b.columna))?'url(#ln-flecha)':undefined} markerStart={c.sentido==='ambos'||(c.sentido==='uno'&&curva&&a.columna>b.columna)?'url(#ln-flecha)':undefined}/>
+      {onSeleccionarCable&&<path className="ln-cable-zona" d={d} onClick={()=>onSeleccionarCable(c.id)}><title>{c.etiqueta||'Conexión'}</title></path>}
      </g>;
     })}
     {deOrigen&&cursor&&(()=>{const p=posicion(deOrigen);return <line className="ln-cable-vivo" x1={p.x+ANCHO} y1={p.y+ALTO/2} x2={cursor.x} y2={cursor.y}/>;})()}
@@ -77,6 +84,6 @@ export default function LienzoNodos({nodos,cables,etiqueta,seleccionado,cableSel
      onClick={()=>{if(cursor)return;setOrigen(origen===n.id?null:n.id);}}>◆</button>}
    </div>;})}
   </div>
-  {origen&&<p className="ln-aviso" role="status">Elige el nodo de destino para «{porId.get(origen)?.titulo}». Esc cancela.</p>}
+  </div>
  </div>;
 }
