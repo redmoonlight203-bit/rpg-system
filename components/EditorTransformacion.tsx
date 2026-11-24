@@ -172,7 +172,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
        <summary className="cursor-pointer font-semibold">Ojo de esta fase {etapa.vision?`· ${etapa.vision.nombre}`:'(sin ojo)'}</summary>
        <p className="my-2 text-xs text-neutral-400">Cada fase puede tener su propio ojo: otra apariencia, otro alcance, otros puntos débiles y más revelación. Está abierto mientras dure la etapa.</p>
        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!etapa.vision} onChange={e=>onChange({...etapa,vision:e.target.checked?{...nuevaVision(),nombre:`Ojo · ${etapa.nombre}`,modo:'permanente',duracion:0}:undefined})}/>Esta fase tiene un ojo</label>
-       {etapa.vision&&<div className="yq-taller mt-3"><EditorVision fase vision={etapa.vision} onChange={vision=>onChange({...etapa,vision})}/></div>}
+       {etapa.vision&&<div className="yq-taller yq-taller-anidado mt-3"><EditorVision fase vision={etapa.vision} onChange={vision=>onChange({...etapa,vision})}/></div>}
       </details>
       <details className="rounded-lg border border-violet-900/50 p-3">
        <summary className="cursor-pointer font-semibold">Pasivas exclusivas de esta etapa ({etapa.reglas?.length||0})</summary>
