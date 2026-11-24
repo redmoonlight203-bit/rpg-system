@@ -1,3 +1,4 @@
+import type {OrigenPlantilla} from './yunque-origen';
 import {validarPatron,type PatronArea} from './patron-area';
 import {validarHuella} from './huellas-combate';
 import type {ConfiguracionVFX} from "./vfx";
@@ -125,6 +126,8 @@ export type Reaccion = {
 /** Componente de daño (Apéndice C): una técnica combinada suma varios, cada uno con su elemento. */
 export type ComponenteDano = { id: string; elemento: Elemento; cantidad: number; caras: number; origen: "base" | "potenciador"; nombre?: string };
 export type Efecto = {
+  /** Vínculo con la plantilla viva de la que viene este efecto (Yunque). */
+  origen?: OrigenPlantilla;
   /** Ataque múltiple: cada dado es un disparo con su propia tirada para impactar y su propio objetivo (puede repetirse).
    *  Tras el primer disparo solo se puede seguir disparando o moverse; los disparos que queden se pierden al acabar el turno. */
   rafaga?: boolean;

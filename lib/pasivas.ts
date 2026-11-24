@@ -1,4 +1,6 @@
+import type {OrigenPlantilla} from './yunque-origen';
 export type ReglaPasiva = {
+  origen?: OrigenPlantilla;
   id: string;
   nombre: string;
   condicion:
