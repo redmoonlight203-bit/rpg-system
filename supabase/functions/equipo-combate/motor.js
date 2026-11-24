@@ -1479,6 +1479,10 @@ function validarVision(v) {
         return 'La duración del ojo va de 0 (todo el combate) a 99 turnos.';
     if (o.mantenimiento_ph !== undefined && !entero(o.mantenimiento_ph, 0, 100))
         return 'El mantenimiento va de 0 a 100 PH por turno.';
+    if (o.mantenimiento_fatiga !== undefined && !entero(o.mantenimiento_fatiga, 0, 100))
+        return 'El mantenimiento va de 0 a 100 de Fatiga por turno.';
+    if (o.mantenimiento_ph && o.mantenimiento_fatiga !== undefined)
+        return 'Elige PH o Fatiga para el mantenimiento, no ambos.';
     if (!entero(o.alcance, 0, 100))
         return 'El alcance de la mirada va de 0 (todo el tablero) a 100 casillas.';
     if (o.atraviesa_muros !== undefined && typeof o.atraviesa_muros !== 'boolean')
@@ -1533,7 +1537,9 @@ function describirVision(v) {
     const revela = [r.vida && 'vida', r.atributos && 'atributos', r.acciones && 'acciones', r.pasivas && 'pasivas', r.estados && 'estados', r.ocultos && 'lo oculto'].filter(Boolean);
     const detalles = [
         `${activacion}${tiempo}.`,
-        v.mantenimiento_ph ? `Mantenerlo cuesta ${v.mantenimiento_ph} PH al inicio de cada turno.` : '',
+        v.modo === 'permanente' ? '' : v.mantenimiento_fatiga !== undefined
+            ? (v.mantenimiento_fatiga ? `Mantenerlo cuesta ${v.mantenimiento_fatiga} de Fatiga al inicio de cada turno.` : '')
+            : (v.mantenimiento_ph ? `Mantenerlo cuesta ${v.mantenimiento_ph} PH al inicio de cada turno.` : ''),
         `Mirada: ${v.alcance ? `${v.alcance} casillas` : 'todo el tablero'}${v.atraviesa_muros ? ', atraviesa muros' : ''}.`,
         revela.length ? `Revela de los enemigos: ${revela.join(', ')}.` : '',
         v.puntos_debiles ? `Ve ${v.puntos_debiles.cantidad} punto${v.puntos_debiles.cantidad === 1 ? '' : 's'} débil${v.puntos_debiles.cantidad === 1 ? '' : 'es'} por enemigo (${v.puntos_debiles.cambia === 'ronda' ? 'cambian cada ronda' : 'fijos todo el combate'}); atacar desde esa dirección da ${describirRecompensa(v.puntos_debiles.recompensa)}.` : '',
@@ -3054,7 +3060,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
             if (fatiga && (a.agotado || a.fatiga + fatiga > (estadisticas(a).fatiga || 0)))
                 throw Error("Fatiga insuficiente para transformarse.");
             a.fatiga += fatiga;
-            a.uso_fatiga = fatiga > 0;
+            if (fatiga)
+                a.uso_fatiga = true;
         }
         if (a.transformacion) {
             if (a.transformacion.definicion_id !== d.id)
@@ -3209,7 +3216,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         }
     }
     a.fatiga = Math.min(s.fatiga || 0, a.fatiga + fatiga);
-    a.uso_fatiga = fatiga > 0;
+    if (fatiga)
+        a.uso_fatiga = true;
     a.accion_usada = true;
     if (fatiga && a.fatiga >= (s.fatiga || 0))
         a.agotado = true;
@@ -4242,7 +4250,8 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
         const a = n.miembros.find(m => m.id === actorId);
         a.ph = phDisponibles(a) - ph;
         a.fatiga += fatiga;
-        a.uso_fatiga = fatiga > 0;
+        if (fatiga)
+            a.uso_fatiga = true;
         a.accion_usada = true;
         const criatura = n.miembros[n.miembros.length - 1];
         criatura.invocacion = { invocador: actorId, habilidad: habilidad.id, restantes: duracion };
@@ -4584,17 +4593,28 @@ function mantenerVisiones(c, m) {
             activarVision(c, m, { ...basico(), id, vision: x.vision });
         }
     for (const e of [...m.estados]) {
-        const coste = e.vision && e.vision.modo !== 'permanente' ? e.vision.mantenimiento_ph || 0 : 0;
-        if (!coste)
+        if (!e.vision || e.vision.modo === 'permanente')
             continue;
-        if (phDisponibles(m) >= coste) {
-            m.ph -= coste;
-            log(c, `${m.nombre}: mantener ${e.nombre} cuesta ${coste} PH.`);
-        }
-        else {
+        const usaFatiga = e.vision.mantenimiento_fatiga !== undefined;
+        const coste = e.vision.mantenimiento_fatiga ?? e.vision.mantenimiento_ph ?? 0;
+        if (coste <= 0)
+            continue;
+        const maxFatiga = estadisticas(m).fatiga || 0;
+        const recurso = usaFatiga ? 'Fatiga' : 'PH';
+        if (usaFatiga ? m.agotado || m.fatiga + coste > maxFatiga : phDisponibles(m) < coste) {
             quitarEstado(m, e.id);
-            log(c, `${m.nombre}: sin PH para mantener ${e.nombre}; el ojo se cierra.`);
+            log(c, `${m.nombre}: sin ${recurso} para mantener ${e.nombre}; el ojo se cierra.`);
+            continue;
         }
+        if (usaFatiga) {
+            m.fatiga += coste;
+            m.uso_fatiga = true;
+            if (m.fatiga >= maxFatiga)
+                m.agotado = true;
+        }
+        else
+            m.ph -= coste;
+        log(c, `${m.nombre}: mantener ${e.nombre} cuesta ${coste} ${recurso}.`);
     }
     normalizar(m);
 }
