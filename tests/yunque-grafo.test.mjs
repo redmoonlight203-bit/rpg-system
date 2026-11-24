@@ -214,3 +214,10 @@ test('el núcleo de un personaje ofrece «Acciones del personaje»',()=>{
  assert.ok(por(g,'accion:'+b.efectos[0].id));assert.ok(conectado(g,'nucleo','accion:'+b.efectos[0].id));
  assert.ok(por(g,'vinculo:habilidad:'+F.habilidad.id));
 });
+
+test('el núcleo de un personaje muestra su presupuesto',()=>{
+ const base={...clon(F.objeto),tipo:'personaje',stats:{acciones_legendaria:3}};
+ assert.equal(por(aGrafo(base,ctx),'nucleo').insignia,'Acciones: 1 principal · 0 adicionales · 3 legendarias');
+ assert.equal(por(aGrafo({...base,stats:{acciones_adicional:1,acciones_legendaria:1}},ctx),'nucleo').insignia,'Acciones: 1 principal · 1 adicional · 1 legendaria');
+ assert.equal(por(aGrafo(F.objeto,ctx),'nucleo').insignia,undefined);
+});

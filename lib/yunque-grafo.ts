@@ -3,7 +3,7 @@ import {EFECTOS_NOMBRE,SLOTS,validarEfectos,validarReaccion,type Efecto} from ".
 import {EVENTOS,EFECTOS_REGLA,validarReglas,type Regla,type EfectoRegla,type CondicionRegla} from "./reglas";
 import {describirEfecto,describirRegla,describirReaccion,condicionClara} from "./descripciones";
 import {validarPasivas,EVENTOS_PASIVA,CONDICIONES_PASIVA} from "./pasivas";
-import {reaccionDe,validarTactica,validarRequisitos} from "./combate";
+import {reaccionDe,validarTactica,validarRequisitos,presupuestoDeStats} from "./combate";
 import {describirVision,validarVision} from "./vision";
 import {normalizarReaccion,lineaCosteReaccion} from "./reacciones";
 import {leerOrigen,MENSAJE_ORIGEN} from "./yunque-origen";
@@ -55,6 +55,11 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  nodo('nucleo','nucleo',[],String(b.nombre??'').trim()||'Sin nombre',`${b.tipo}${b.clasificacion?' · '+b.clasificacion:''}`,null,[
   salida('acciones',['accion'],b.tipo==='personaje'?'Acciones del personaje':'Acciones'),salida('reglas',['cuando'],'Reglas'),salida('pasivas',['pasiva'],'Pasivas'),
   salida('vinculos',['vinculo'],'Vínculos'),salida('invocacion',['invocacion'],'Invocación'),salida('requisitos',['requisitos'],'Requisitos')]);
+ if(b.tipo==='personaje'){
+  const n=nodos[nodos.length-1];let p:ReturnType<typeof presupuestoDeStats>|null=null;
+  try{p=presupuestoDeStats(b.stats||{});}catch{p=null;}
+  if(p)n.insignia=`Acciones: ${p.principal} principal · ${p.adicional} ${p.adicional===1?'adicional':'adicionales'} · ${p.legendaria} ${p.legendaria===1?'legendaria':'legendarias'}`;
+ }
  // Acciones y módulos
  b.efectos.forEach((e:Efecto,i)=>{
   if(!e||typeof e!=='object')return;

@@ -47,7 +47,7 @@ import {
   iniciar,
   siguiente,
   actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,estadosVisibles,recursosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto,
-  acciones,
+  acciones,presupuestoRestante,situacionCombatiente,
   estadisticas,
   maxVida,
   reglas,
@@ -231,6 +231,8 @@ export default function CampoCombate() {
   const [vitales, setVitales] = useState<Record<string, number>>({});
   const [resumen, setResumen] = useState("");
   const [forzar, setForzar] = useState(false);
+  /** Legendaria fuera de turno: el actor temporal y la acción que el GM eligió (el objetivo sale de `destino`). */
+  const [legendaria, setLegendaria] = useState<{actor:string;accion:string}|null>(null);
   async function avanzar() {
     await ejecutar(async () => {
       const dados: TiradaVisual[] = [];
@@ -317,8 +319,12 @@ export default function CampoCombate() {
   }
   // Un clic ejecuta: el tablero y la barra pasan la acción, el objetivo y el centro elegidos en ese mismo clic.
   async function resolver(objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}) {
+    // Con una legendaria elegida actúa su dueño (no es su turno); si no, quien tiene el turno.
+    const temporal = legendariaActual ? legendariaActual.m : undefined;
+    const actor = temporal || c.miembros.find((m) => m.id === c.actual);
     if (!actor) return;
-    const elegida = opciones?.accion || elegidaActual, efecto = lista.find((a) => a.id === elegida)?.efecto;
+    const lista = temporal ? acciones(temporal) : listaTurno;
+    const elegida = temporal ? legendaria!.accion : opciones?.accion || elegidaActual, efecto = lista.find((a) => a.id === elegida)?.efecto;
     if (!elegida) return;
     await ejecutar(async () => {
       const dados: TiradaVisual[] = [];
@@ -344,6 +350,7 @@ export default function CampoCombate() {
       if (next.resultado)
         setFlotante({ texto: next.resultado, id: crypto.randomUUID() });
       setResumen(next.registro.slice(0, 4).reverse().join(" "));
+      if (temporal) setLegendaria(null);
     });
   }
   async function confirmarProgreso() {
@@ -561,6 +568,10 @@ export default function CampoCombate() {
   }
   const actor = c.miembros.find((m) => m.id === c.actual),
     lista = useMemo(()=>actor ? acciones(actor) : [],[actor]),
+    restante = actor && c.fase === "en_curso" ? presupuestoRestante(c, actor) : null,
+    // Quien no tiene el turno, sigue en pie y conserva legendarias, con sus acciones legendarias.
+    legendarias = c.fase === "en_curso" ? c.miembros.filter((m) => m.id !== c.actual && situacionCombatiente(m) === "activo" && presupuestoRestante(c, m).legendaria > 0).map((m) => ({m, restantes: presupuestoRestante(c, m).legendaria, acciones: acciones(m).filter((a) => a.presupuesto === "legendaria")})).filter((x) => x.acciones.length) : [],
+    legendariaActual = legendaria && legendarias.find((x) => x.m.id === legendaria.actor && x.acciones.some((a) => a.id === legendaria.accion)),
     elegida =
       lista.some((a) => a.id === accion) || accion === "guardia" || accion === ""
         ? accion
@@ -570,6 +581,7 @@ export default function CampoCombate() {
       ? objetivo
       : "";
   const elegidaActual = elegida;
+  const listaTurno = lista;
   // Consumibles de la mochila del actor en la barra (fijados por quien dirige el turno, solo en este navegador).
   const presupuestos=useMemo(()=>presupuestoEncuentro(c.miembros,catalogo),[c.miembros,catalogo]);
   const [fijados,setFijados]=useState<string[]>([]);
@@ -1100,7 +1112,7 @@ export default function CampoCombate() {
                     ? "FINALIZADO"
                     : "TURNO ACTUAL"}
               </span>
-              {c.fase === "finalizado" && <Hanko estado="finalizado"/>}<h2>{actor?.nombre || (c.fase === "finalizado" ? "Encuentro finalizado" : "Forma los bandos")}</h2>
+              {c.fase === "finalizado" && <Hanko estado="finalizado"/>}<h2>{actor?.nombre || (c.fase === "finalizado" ? "Encuentro finalizado" : "Forma los bandos")}</h2>{restante&&<p className="battle-presupuesto" aria-label="Acciones restantes">Le quedan: {restante.principal} principal{restante.principal===1?'':'es'} · {restante.adicional} adicional{restante.adicional===1?'':'es'} · {restante.legendaria} legendaria{restante.legendaria===1?'':'s'}</p>}
             </div>
             <div className="battle-initiative" aria-label="Orden de iniciativa">
               <span>INICIATIVA · D20</span>
@@ -1121,6 +1133,19 @@ export default function CampoCombate() {
               {c.fase === "preparacion" ? "Iniciar combate" : "Siguiente turno"}
             </button>
           </div>
+          {c.fase==='en_curso'&&<section className="battle-action battle-legendarias" aria-label="Acciones legendarias">
+            <h3>Acciones legendarias</h3>
+            {legendarias.length?<>
+              {legendarias.map(({m,restantes,acciones:acs})=><div key={m.id} className="battle-legendaria">
+                <strong>{m.nombre} · {restantes} por ronda</strong>
+                {acs.map(a=><button type="button" key={a.id} aria-pressed={legendaria?.actor===m.id&&legendaria.accion===a.id} disabled={ocupado} onClick={()=>setLegendaria(legendaria?.actor===m.id&&legendaria.accion===a.id?null:{actor:m.id,accion:a.id})}>{a.nombre}</button>)}
+              </div>)}
+              {legendariaActual&&<p>{legendariaActual.m.nombre} actúa fuera de turno. Elige el objetivo y confirma.
+                {' '}<select aria-label="Objetivo de la acción legendaria" value={destino} onChange={e=>setObjetivo(e.target.value)}><option value="">Sin objetivo</option>{c.miembros.map(m=><option key={m.id} value={m.id}>{m.nombre}</option>)}</select>
+                {' '}<button type="button" disabled={ocupado} onClick={()=>void resolver(destino||undefined)}>Usar legendaria</button>
+                {' '}<button type="button" onClick={()=>setLegendaria(null)}>Cancelar</button></p>}
+            </>:<p>Nadie tiene una legendaria a mano. Kuroi calla hasta la próxima ronda.</p>}
+          </section>}
           {c.miembros.length>0&&<TableroCombate ocular={actor&&c.fase==='en_curso'?vistaOcular(c,actor.id):null} turnoPropio={c.fase==='en_curso'&&!!actor&&c.actual===actor.id} mapa={c.mapa} key={id} habilidad={c.fase==='en_curso'?efecto:undefined} lanzador={actor?.id} centro={centro} puedeApuntar={!!actor&&accionDisponible(actor)&&c.fase==='en_curso'} onApuntar={(p,id)=>{setCentro(p);setObjetivo(id||'');}} evento={c.evento_visual} fichas={fichasTablero} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino} moviendo={modoMovimiento&&c.fase==='en_curso'} alcanzables={alcanzablesTablero} ocupado={bloqueado} onObjetivo={setObjetivo} onMover={p=>{if(actor)void ejecutar(()=>guardar(desplazar(c,actor.id,p)));}} puedeEjecutar={!!actor&&actor.vida>0&&accionDisponible(actor)&&c.fase==='en_curso'} onEjecutar={sel=>{if(sel.objetivo)setObjetivo(sel.objetivo);if(sel.centro)setCentro(sel.centro);void resolver(sel.objetivo,{centro:sel.centro});}}/>}
           <details className="battle-team-details" open={c.fase==='preparacion'}><summary>Participantes, equipo y ajustes</summary>
           <div className="battle-teams">

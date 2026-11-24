@@ -161,3 +161,17 @@ test('una legendaria en el turno de un aliado acredita a su dueño',()=>{
  assert.equal(z.eventos.find(e=>e.tipo==='enemigo_derrotado').actor,'a');
  assert.ok((m(z,'a').contribucion||0)>0);
 });
+
+test('varias fuentes se suman',()=>{
+ const regla=(id,bonos)=>({id,nombre:id,evento:'permanente',condicion:'siempre',bonos,curacion:0,recuperar_ph:0,reducir_fatiga:0});
+ const x=campo();
+ const a=m(x,'a');
+ a.configuracion.pasivas=[
+  {id:'raza:x',nombre:'Sangre',reglas:[regla('r1',{acciones_adicional:1})],reglas_motor:[]},
+  {id:'clan',nombre:'Herencia',requisitos_uso:{razas:['Otra']},reglas:[regla('r2',{acciones_legendaria:2})],reglas_motor:[]}];
+ assert.deepEqual({...c.presupuestoDe(a)},{principal:1,adicional:1,legendaria:0},'una pasiva cuyos requisitos no se cumplen no suma');
+ a.configuracion.raza='Otra';
+ assert.deepEqual({...c.presupuestoDe(a)},{principal:1,adicional:1,legendaria:2});
+ a.stats.acciones_legendaria=1;
+ assert.deepEqual({...c.presupuestoDe(a)},{principal:1,adicional:1,legendaria:3});
+});

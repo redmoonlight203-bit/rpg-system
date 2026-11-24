@@ -6,6 +6,7 @@ import {Medallon} from '../../ui/Juego';
 import {Fichas,Rueda,type Opcion} from '../Controles';
 import {TIPOS,clasificacionesPara,tipoDe,type TipoCreacion} from '../../../lib/creacion';
 import {esMonstruo} from '../../../lib/progresion';
+import {CLAVE_PRESUPUESTO,type TipoPresupuesto} from '../../../lib/combate';
 import {vacio,type Borrador} from '../../../lib/yunque-borrador';
 import {atributosVisibles,cambiosClasificacion,esMonstruoB,mallaActiva,type ContextoTaller} from '../contexto';
 import type {EditorNodoProps} from './EditorAccion';
@@ -92,6 +93,13 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
    </div>
    {!atributos.length&&<p className="yq-nota">Esta familia no tiene atributos. Defínelos en Estadísticas.</p>}
   </section>}
+  {b.tipo==='personaje'&&<section className="yq-atributos yq-presupuesto" aria-label="Acciones por turno">
+   <header><span>Acciones por turno</span></header>
+   <div className="yq-medallones">
+    {PRESUPUESTOS.map(x=><Medallon key={x.tipo} etiqueta={x.etiqueta} detalle={x.detalle} valor={<Rueda nombre={'presupuesto_'+x.tipo} etiqueta={x.etiqueta} valor={b.stats[CLAVE_PRESUPUESTO[x.tipo]]??0} min={0} max={10} onChange={n=>{const stats={...b.stats};if(n)stats[CLAVE_PRESUPUESTO[x.tipo]]=n;else delete stats[CLAVE_PRESUPUESTO[x.tipo]];fijar({stats});}} compacta/>}/>)}
+   </div>
+   <p className="yq-nota">Lo propio del personaje. La raza, el clan, la especie y el equipo suman las suyas en combate.</p>
+  </section>}
   {b.tipo==='objeto'&&b.slot!=='ninguno'&&<section className="yq-atributos yq-bonos-portador" aria-label="Bonos al portador">
    <header><span>Mientras esté equipado</span></header>
    <div className="yq-medallones">
@@ -101,6 +109,7 @@ export default function EditorNucleo({b,ctx,ejecutar,reemplazar,hijo,guardando}:
   </section>}
  </div>;
 }
+const PRESUPUESTOS:{tipo:TipoPresupuesto;etiqueta:string;detalle:string}[]=[{tipo:'principal',etiqueta:'Acciones principales extra',detalle:'además de la 1.ª'},{tipo:'adicional',etiqueta:'Acciones adicionales',detalle:'por turno'},{tipo:'legendaria',etiqueta:'Acciones legendarias por ronda',detalle:'fuera de turno'}];
 /** Atributos de supervivencia que cualquier pieza equipable puede sumar al portador (plan maestro 4.5). */
 const BONOS_PORTADOR=[{clave:'vida',etiqueta:'Vida máxima'},{clave:'ph',etiqueta:'PH máximo'},{clave:'fatiga',etiqueta:'Fatiga máxima'}];
 function frasePortador(b:{nombre:string;slot:string;stats:Record<string,number>}){
