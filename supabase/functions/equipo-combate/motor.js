@@ -299,6 +299,10 @@ function conectar(grafo, desde, hasta, sentido) {
     const repetida = grafo.transiciones.some(t => (t.desde === desde && t.hasta === hasta) || (t.sentido === 'ambos' && t.desde === hasta && t.hasta === desde));
     if (repetida)
         return { ok: false, error: 'Esas formas ya están conectadas.' };
+    // Conectar al revés un paso de cadena lo convierte en cambio libre, sin un segundo cable.
+    const inversa = grafo.transiciones.find(t => t.desde === hasta && t.hasta === desde);
+    if (inversa)
+        return { ok: true, id: inversa.id, grafo: { ...grafo, transiciones: grafo.transiciones.map(t => t === inversa ? { ...t, sentido: 'ambos' } : t) } };
     const id = idLibre(grafo.transiciones.map(t => t.id), `${desde}__${hasta}`);
     return { ok: true, id, grafo: { ...grafo, transiciones: [...grafo.transiciones, { id, desde, hasta, sentido }] } };
 }
@@ -364,6 +368,61 @@ function formasAlcanzables(grafo, desde) {
 /** Transición directa entre dos formas (para leer su coste), si existe. */
 function transicionEntre(grafo, desde, hasta) {
     return grafo.transiciones.find(t => (t.desde === desde && t.hasta === hasta) || (t.sentido === 'ambos' && t.desde === hasta && t.hasta === desde));
+}
+function quitarForma(grafo, id) {
+    const forma = grafo.formas.find(f => f.id === id);
+    if (!forma)
+        return { ok: false, error: 'La forma no existe.' };
+    if (forma.es_realidad)
+        return { ok: false, error: 'La forma base no se puede quitar: siempre hay vuelta a la realidad.' };
+    return { ok: true, grafo: { formas: grafo.formas.filter(f => f.id !== id), transiciones: grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id) } };
+}
+function quitarTransicion(grafo, id) {
+    if (!grafo.transiciones.some(t => t.id === id))
+        return { ok: false, error: 'La conexión no existe.' };
+    return { ok: true, grafo: { ...grafo, transiciones: grafo.transiciones.filter(t => t.id !== id) } };
+}
+/** Cambia sentido o coste de una transición. Un coste vacío (o a cero) se elimina. */
+function actualizarTransicion(grafo, id, cambio) {
+    if (!grafo.transiciones.some(t => t.id === id))
+        return { ok: false, error: 'La conexión no existe.' };
+    return { ok: true, grafo: { ...grafo, transiciones: grafo.transiciones.map(t => {
+                if (t.id !== id)
+                    return t;
+                const siguiente = { ...t, ...cambio };
+                const coste = Object.fromEntries(Object.entries(siguiente.coste || {}).filter(([, v]) => typeof v === 'number' && v > 0));
+                if (Object.keys(coste).length)
+                    siguiente.coste = coste;
+                else
+                    delete siguiente.coste;
+                return siguiente;
+            }) } };
+}
+/** Celda de cada forma en el lienzo: columna = pasos desde la realidad; las que no
+ * se alcanzan van a una columna final. Ninguna celda se repite. */
+function disposicion(grafo) {
+    const realidad = grafo.formas.find(f => f.es_realidad)?.id;
+    const nivel = new Map();
+    if (realidad) {
+        nivel.set(realidad, 0);
+        const cola = [realidad];
+        while (cola.length) {
+            const actual = cola.shift();
+            for (const s of salidas(grafo, actual))
+                if (!nivel.has(s)) {
+                    nivel.set(s, nivel.get(actual) + 1);
+                    cola.push(s);
+                }
+        }
+    }
+    const ultima = Math.max(0, ...nivel.values()) + 1;
+    const filas = new Map(), celdas = {};
+    for (const f of grafo.formas) {
+        const columna = nivel.get(f.id) ?? ultima, fila = filas.get(columna) ?? 0;
+        filas.set(columna, fila + 1);
+        celdas[f.id] = { columna, fila };
+    }
+    return celdas;
 }
 
 return { ID_REALIDAD, formasAlcanzables, transicionEntre };
@@ -417,6 +476,10 @@ function conectar(grafo, desde, hasta, sentido) {
     const repetida = grafo.transiciones.some(t => (t.desde === desde && t.hasta === hasta) || (t.sentido === 'ambos' && t.desde === hasta && t.hasta === desde));
     if (repetida)
         return { ok: false, error: 'Esas formas ya están conectadas.' };
+    // Conectar al revés un paso de cadena lo convierte en cambio libre, sin un segundo cable.
+    const inversa = grafo.transiciones.find(t => t.desde === hasta && t.hasta === desde);
+    if (inversa)
+        return { ok: true, id: inversa.id, grafo: { ...grafo, transiciones: grafo.transiciones.map(t => t === inversa ? { ...t, sentido: 'ambos' } : t) } };
     const id = idLibre(grafo.transiciones.map(t => t.id), `${desde}__${hasta}`);
     return { ok: true, id, grafo: { ...grafo, transiciones: [...grafo.transiciones, { id, desde, hasta, sentido }] } };
 }
@@ -482,6 +545,61 @@ function formasAlcanzables(grafo, desde) {
 /** Transición directa entre dos formas (para leer su coste), si existe. */
 function transicionEntre(grafo, desde, hasta) {
     return grafo.transiciones.find(t => (t.desde === desde && t.hasta === hasta) || (t.sentido === 'ambos' && t.desde === hasta && t.hasta === desde));
+}
+function quitarForma(grafo, id) {
+    const forma = grafo.formas.find(f => f.id === id);
+    if (!forma)
+        return { ok: false, error: 'La forma no existe.' };
+    if (forma.es_realidad)
+        return { ok: false, error: 'La forma base no se puede quitar: siempre hay vuelta a la realidad.' };
+    return { ok: true, grafo: { formas: grafo.formas.filter(f => f.id !== id), transiciones: grafo.transiciones.filter(t => t.desde !== id && t.hasta !== id) } };
+}
+function quitarTransicion(grafo, id) {
+    if (!grafo.transiciones.some(t => t.id === id))
+        return { ok: false, error: 'La conexión no existe.' };
+    return { ok: true, grafo: { ...grafo, transiciones: grafo.transiciones.filter(t => t.id !== id) } };
+}
+/** Cambia sentido o coste de una transición. Un coste vacío (o a cero) se elimina. */
+function actualizarTransicion(grafo, id, cambio) {
+    if (!grafo.transiciones.some(t => t.id === id))
+        return { ok: false, error: 'La conexión no existe.' };
+    return { ok: true, grafo: { ...grafo, transiciones: grafo.transiciones.map(t => {
+                if (t.id !== id)
+                    return t;
+                const siguiente = { ...t, ...cambio };
+                const coste = Object.fromEntries(Object.entries(siguiente.coste || {}).filter(([, v]) => typeof v === 'number' && v > 0));
+                if (Object.keys(coste).length)
+                    siguiente.coste = coste;
+                else
+                    delete siguiente.coste;
+                return siguiente;
+            }) } };
+}
+/** Celda de cada forma en el lienzo: columna = pasos desde la realidad; las que no
+ * se alcanzan van a una columna final. Ninguna celda se repite. */
+function disposicion(grafo) {
+    const realidad = grafo.formas.find(f => f.es_realidad)?.id;
+    const nivel = new Map();
+    if (realidad) {
+        nivel.set(realidad, 0);
+        const cola = [realidad];
+        while (cola.length) {
+            const actual = cola.shift();
+            for (const s of salidas(grafo, actual))
+                if (!nivel.has(s)) {
+                    nivel.set(s, nivel.get(actual) + 1);
+                    cola.push(s);
+                }
+        }
+    }
+    const ultima = Math.max(0, ...nivel.values()) + 1;
+    const filas = new Map(), celdas = {};
+    for (const f of grafo.formas) {
+        const columna = nivel.get(f.id) ?? ultima, fila = filas.get(columna) ?? 0;
+        filas.set(columna, fila + 1);
+        celdas[f.id] = { columna, fila };
+    }
+    return celdas;
 }
 
 return { ID_REALIDAD, idLibre };
