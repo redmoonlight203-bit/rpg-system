@@ -10,7 +10,7 @@ function RetratoCombate({ nombre, src, compacto = false, activo = false, circula
   const iniciales = nombre.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
   return <span className={`battle-portrait ${compacto ? "compact" : ""}`} aria-hidden="true">
     {activo&&<Enso activo/>}
-    <FotoEncuadrada src={src} circular={circular} fallback={<span>{iniciales || "?"}</span>} />
+    <FotoEncuadrada src={src} circular={circular} enfoque="cara" fallback={<span>{iniciales || "?"}</span>} />
   </span>;
 }
 

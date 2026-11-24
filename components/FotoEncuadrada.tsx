@@ -7,10 +7,12 @@ type Props = {
   src?: string;
   alt?: string;
   circular?: boolean;
+  /** En una ficha circular, «cara» acerca la foto hacia el tercio superior (retratos); «centro» la centra sin zoom (iconos). */
+  enfoque?: "cara" | "centro";
   fallback: ReactNode;
 };
 
-function Foto({ src, alt = "", circular, fallback }: Props & { src: string }) {
+function Foto({ src, alt = "", circular, enfoque = "centro", fallback }: Props & { src: string }) {
   const [medidas, setMedidas] = useState<{ ancho: number; alto: number }>();
   const [fallida, setFallida] = useState(false);
   const revisarImagen = useCallback((imagen: HTMLImageElement | null) => {
@@ -25,10 +27,11 @@ function Foto({ src, alt = "", circular, fallback }: Props & { src: string }) {
   if (fallida) return fallback;
   let encuadre: CSSProperties | undefined;
   if (circular && medidas) {
-    // El círculo se rellena entero (sin franjas). En un retrato vertical la cara suele estar en el tercio superior:
-    // se ancla arriba y se acerca un poco más cuanto más alargada es la imagen (como mucho ×1,5).
+    // El círculo se rellena entero (sin franjas). En el retrato vertical de un personaje la cara suele estar en el tercio
+    // superior: se ancla arriba y se acerca un poco más cuanto más alargada es la imagen (como mucho ×1,5).
+    // Los iconos (habilidades, pasivas, objetos) se centran sin zoom.
     const proporcion = medidas.alto / medidas.ancho;
-    const retrato = proporcion >= 1.15;
+    const retrato = enfoque === "cara" && proporcion >= 1.15;
     encuadre = {
       "--foto-y": retrato ? "16%" : "50%",
       "--foto-zoom": retrato ? String(Math.min(1.5, 1 + (proporcion - 1) * 0.8).toFixed(2)) : "1",
