@@ -37,8 +37,10 @@ export type AparienciaOjo = {
   marcas: number;
   /** Intensidad del velo sobre el tablero: 0 nada, 3 muy fuerte. */
   velo: number;
-  /** Imagen opcional del ojo (URL pública). Sustituye al dibujo generado. */
+  /** Imagen opcional del ojo (URL pública). */
   imagen_url?: string;
+  /** Sin ajuste se conserva el recorte al iris de los ojos anteriores. */
+  imagen_ajuste?: 'completa' | 'iris';
 };
 export type RevelarOcular = {
   vida?: boolean;
