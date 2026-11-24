@@ -249,3 +249,10 @@ test('leerConfiguracion: el servidor que no responde a tiempo no bloquea',async(
  const r=await c.leerConfiguracion(lento,memoria(JSON.stringify({rastro:{max:4}})),20);
  assert.equal(r.origen,'local');assert.equal(r.config.rastro.max,4);assert.match(r.error,/no respondió/);
 });
+
+test('resumenAsignacion describe una regla en una línea',()=>{
+ const nombres=k=>({bestiario:'Bestiario',tarot:'Carta de tarot'})[k];
+ assert.equal(c.resumenAsignacion({id:'a',tipo:'personaje',monstruo:'si',clasificacion:'',codice:'bestiario'},nombres,k=>k),'Personaje · solo monstruos → Bestiario');
+ assert.equal(c.resumenAsignacion({id:'b',tipo:'*',monstruo:'*',clasificacion:'fuego',codice:'tarot'},nombres,k=>k==='fuego'?'Fuego':k),'Cualquier tipo · Fuego → Carta de tarot');
+ assert.equal(c.resumenAsignacion({id:'c',tipo:'objeto',monstruo:'no',clasificacion:'',codice:'tarot'},nombres,k=>k),'Objeto · sin monstruos → Carta de tarot');
+});

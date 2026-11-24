@@ -42,6 +42,17 @@ export function MiniReliquia<T extends PiezaGaleria>({ctx,id,espacio}:{ctx:Conte
   </EnlaceCreacion>;
 }
 
+/** Personaje o monstruo: retrato circular con el marco de su rango. */
+export function MiniRetrato<T extends PiezaGaleria>({ctx,id}:{ctx:ContextoCodice<T>;id:string}){
+  const d=destino(ctx,id);
+  if(!d)return <EnlaceCreacion ctx={ctx} id={id}>{null}</EnlaceCreacion>;
+  return <EnlaceCreacion ctx={ctx} id={id} className={`cx-mini cx-mini-retrato ${rangoDe(d.clase).css}`}>
+    <span className="cx-mini-medallon"><Portada src={imagenCreacion(d.id,d.imagen_url)} tipo={ctx.props.tipoDe(d)} icono={ctx.props.iconoDe(d)} circular/></span>
+    <span className="cx-mini-nombre">{d.nombre}</span>
+    {ctx.props.esMonstruo?.(d)&&<small className="cx-mini-espacio">Monstruo</small>}
+  </EnlaceCreacion>;
+}
+
 /** Elige la miniatura según el tipo real de la creación enlazada. */
 export function Miniatura<T extends PiezaGaleria>({ctx,id,espacio,indice}:{ctx:ContextoCodice<T>;id:string;espacio?:string;indice?:number}){
   const d=destino(ctx,id);
@@ -49,6 +60,7 @@ export function Miniatura<T extends PiezaGaleria>({ctx,id,espacio,indice}:{ctx:C
   if(tipo==="habilidad")return <MiniTarot ctx={ctx} id={id} indice={indice}/>;
   if(tipo==="pasiva")return <MiniSello ctx={ctx} id={id}/>;
   if(tipo==="objeto"||tipo==="titulo")return <MiniReliquia ctx={ctx} id={id} espacio={espacio}/>;
+  if(tipo==="personaje")return <MiniRetrato ctx={ctx} id={id}/>;
   return <EnlaceCreacion ctx={ctx} id={id} className="cx-mini cx-mini-chip"><Sparkles size={14} aria-hidden="true"/>{d?.nombre}</EnlaceCreacion>;
 }
 

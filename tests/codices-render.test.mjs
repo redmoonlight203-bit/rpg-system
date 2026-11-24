@@ -160,7 +160,7 @@ test('taller de códices: pestañas, reglas editables, vista previa y guardado',
  });
  for(const t of ['Taller de códices','Asignación','Códices','Movimiento','Archivo','Añadir regla','Vista previa','Guardar configuración','Solo en este navegador'])assert.ok(html.includes(t),t);
  assert.match(html,/role="tablist"/);
- assert.match(html,/<option value="fuego">Fuego<\/option>/);
+ assert.equal((html.match(/class="cx-regla-resumen"/g)||[]).length,7,'una línea por regla por defecto');
  assert.match(html,/Arrastrar reglas de asignación/);
  assert.match(html,/cx-codice--tarot/,'la vista previa usa el borrador');
  assert.doesNotMatch(html,/Eliminar creación/,'la vista previa no ofrece acciones reales');
@@ -169,4 +169,20 @@ test('taller de códices: pestañas, reglas editables, vista previa y guardado',
 test('la ficha avisa cuando la configuración solo se guardó en este navegador',()=>{
  const html=vista(fixture('habilidad'),undefined,{onVerComo:()=>{},avisoConfig:'Solo en este navegador.'});
  assert.match(html,/role="status"[^>]*>Solo en este navegador\.</);
+});
+
+test('«La portan» muestra a los personajes con su retrato en miniatura',()=>{
+ const h=fixture('habilidad',{id:'h'});
+ const html=vista(h,[h,fixture('personaje',{id:'pj',nombre:'Axel Kuro',habilidades:['h']})]);
+ assert.match(html,/class="cx-enlace cx-mini cx-mini-retrato[ "]/);
+ assert.match(html,/aria-label="Abrir Axel Kuro"/);
+});
+
+test('taller: las reglas se muestran plegadas con su resumen',async()=>{
+ const {cargarDependencia}=await import('./helpers/cargar-ts.mjs');
+ const {configuracionBase}=cargarDependencia('codices');
+ const html=renderizar('components/codices/TallerCodices.tsx','default',{config:configuracionBase(),origen:'servidor',error:'',guardando:false,props:propsBase([fixture('habilidad')]),onGuardar:async()=>true,onCerrar:()=>{}});
+ assert.match(html,/Habilidad → Carta de tarot/);
+ assert.match(html,/aria-expanded="false"/);
+ assert.doesNotMatch(html,/Solo monstruos<\/option>/,'el editor de la regla está plegado');
 });

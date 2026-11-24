@@ -358,3 +358,11 @@
 @media (max-width:1100px){.cx-taller-cuerpo{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.cx-taller{animation:none}}
 .cx-aviso-config{flex-basis:100%;margin:0;font-size:13px;color:var(--color-arcane)}
+.cx-mini-medallon{display:block;width:72px;height:72px;border-radius:50%;overflow:hidden;border:2px solid var(--marco,var(--color-gold));box-shadow:0 0 0 4px color-mix(in srgb,var(--color-well) 60%,transparent),0 4px 14px color-mix(in srgb,var(--color-well) 70%,transparent)}
+.cx-mini-medallon .cg-art{aspect-ratio:1;height:100%}
+.cx-mini-medallon .cg-placeholder span{display:none}
+.cx-mini-medallon .cg-placeholder svg{width:30px;height:30px}
+.cx-regla-plegable{display:grid;gap:10px;min-width:0}
+.cx-taller .cx-regla-resumen{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:0!important;padding:6px 4px!important;border:0!important;background:none!important;color:var(--color-text)!important;font:13px var(--font-sans)!important;text-align:left;cursor:pointer}
+.cx-regla-resumen svg{flex:none;transition:transform .18s}
+.cx-regla-plegable.is-abierta .cx-regla-resumen svg{transform:rotate(180deg)}

@@ -360,3 +360,12 @@ export function nuevaAsignacion(existentes:{id:string}[]):ReglaAsignacion{
   while(ids.has(`regla-${n}`))n++;
   return {id:`regla-${n}`,tipo:'*',monstruo:'*',clasificacion:'',codice:'pergamino'};
 }
+
+/** Una regla de asignación en una línea: «Personaje · solo monstruos → Bestiario». */
+export function resumenAsignacion(a:ReglaAsignacion,nombreCodice:(c:Codice)=>string,nombreClasificacion:(clave:string)=>string):string{
+  const partes=[a.tipo==='*'?'Cualquier tipo':TIPOS.find(t=>t.valor===a.tipo)?.nombre||a.tipo];
+  if(a.monstruo==='si')partes.push('solo monstruos');
+  if(a.monstruo==='no')partes.push('sin monstruos');
+  if(a.clasificacion)partes.push(nombreClasificacion(a.clasificacion));
+  return `${partes.join(' · ')} → ${nombreCodice(a.codice)}`;
+}

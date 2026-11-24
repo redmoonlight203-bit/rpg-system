@@ -1,10 +1,10 @@
 "use client";
 import {useMemo,useRef,useState,type ReactNode} from "react";
-import {Download,Plus,RotateCcw,Save,Trash2,Upload,X} from "lucide-react";
+import {ChevronDown,Download,Plus,RotateCcw,Save,Trash2,Upload,X} from "lucide-react";
 import {TIPOS} from "../../lib/creacion";
 import {
   CATALOGO_SECCIONES,CODICES,arcanoDe,configuracionBase,exportarConfiguracion,importarConfiguracion,
-  nuevaAsignacion,plantilla,resolverCodice,seccionesDisponibles,
+  nuevaAsignacion,plantilla,resolverCodice,resumenAsignacion,seccionesDisponibles,
   type AjustesCodice,type Codice,type ConfiguracionCodices,type OrigenConfiguracion,type ReglaAsignacion,type SeccionConfig,
 } from "../../lib/codices";
 import {rangoDe} from "../../lib/cartas";
@@ -49,6 +49,9 @@ export default function TallerCodices<T extends PiezaGaleria>({config,origen,err
   const [previaId,setPreviaId]=useState<string>(()=>props.items[0]?.id||"");
   const [importado,setImportado]=useState<{config:ConfiguracionCodices;avisos:string[];nombre:string}|null>(null);
   const [mensaje,setMensaje]=useState("");
+  // Reglas desplegadas para editar; las demás se ven como una línea de resumen.
+  const [abiertas,setAbiertas]=useState<Set<string>>(()=>new Set());
+  const alternar=(id:string)=>setAbiertas(a=>{const n=new Set(a);if(n.has(id))n.delete(id);else n.add(id);return n;});
   const archivo=useRef<HTMLInputElement>(null);
   const sucio=useMemo(()=>JSON.stringify(borrador)!==JSON.stringify(config),[borrador,config]);
   const previa=props.items.find(i=>i.id===previaId)||props.items[0];
@@ -87,7 +90,12 @@ export default function TallerCodices<T extends PiezaGaleria>({config,origen,err
     asignacion:<div className="cx-taller-panel">
       <p className="cx-ayuda">Cada creación se lee con el códice de la <b>primera</b> regla que coincide. «Ver como» en una creación concreta tiene prioridad. Sin ninguna regla, se usa el pergamino.</p>
       <ListaArrastrable<ReglaAsignacion> items={borrador.asignaciones} nombre="reglas de asignación" onChange={lista=>cambiar(c=>({...c,asignaciones:lista}))}
-        render={(a,i)=><div className="cx-regla">
+        render={(a,i)=><div className={`cx-regla-plegable ${abiertas.has(a.id)?"is-abierta":""}`}>
+          <button type="button" className="cx-regla-resumen" aria-expanded={abiertas.has(a.id)} aria-controls={`cx-regla-${a.id}`} onClick={()=>alternar(a.id)}>
+            <span>{resumenAsignacion(a,k=>borrador.codices[k].nombre,k=>props.clasificaciones.find(x=>x.clave===k)?.nombre||k)}</span>
+            <ChevronDown size={15} aria-hidden="true"/>
+          </button>
+          {abiertas.has(a.id)&&<div className="cx-regla" id={`cx-regla-${a.id}`}>
           <label>Tipo<select className="cx-select" value={a.tipo} onChange={e=>cambiar(c=>{c.asignaciones[i].tipo=e.target.value;return c;})}>
             <option value="*">Cualquiera</option>{TIPOS.map(t=><option key={t.valor} value={t.valor}>{t.nombre}</option>)}
           </select></label>
@@ -101,8 +109,9 @@ export default function TallerCodices<T extends PiezaGaleria>({config,origen,err
             {CODICES.map(k=><option key={k} value={k}>{borrador.codices[k].nombre}</option>)}
           </select></label>
           <button type="button" className="cg-button cx-quitar" aria-label={`Quitar la regla ${i+1}`} onClick={()=>cambiar(c=>{c.asignaciones.splice(i,1);return c;})}><Trash2 size={14}/></button>
+        </div>}
         </div>}/>
-      <button type="button" className="cg-button" disabled={borrador.asignaciones.length>=50} onClick={()=>cambiar(c=>{c.asignaciones.push(nuevaAsignacion(c.asignaciones));return c;})}><Plus size={15}/>Añadir regla</button>
+      <button type="button" className="cg-button" disabled={borrador.asignaciones.length>=50} onClick={()=>{const nueva=nuevaAsignacion(borrador.asignaciones);cambiar(c=>{c.asignaciones.push(nueva);return c;});setAbiertas(a=>new Set(a).add(nueva.id));}}><Plus size={15}/>Añadir regla</button>
       {Object.keys(borrador.porCreacion).length>0&&<div className="cx-taller-bloque"><h4>«Ver como» de creaciones concretas</h4>
         <ul className="cx-propias">{Object.entries(borrador.porCreacion).map(([id,k])=><li key={id}>
           <span>{props.items.find(i=>i.id===id)?.nombre||"Creación no disponible"}</span>
