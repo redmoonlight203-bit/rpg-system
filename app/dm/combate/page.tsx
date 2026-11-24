@@ -67,8 +67,11 @@ import {
   type Fuente,
   accionUsableAhora,
   huellaReserva,
+  evolucionarEnCombate, prepararEtapaHistorica, politicaHistorica,
 } from "../../../lib/combate";
 import EditorHuella from "../../../components/EditorHuella";
+import EvolucionCombateGM from "../../../components/EvolucionCombateGM";
+import type {LineaEvolutiva} from "../../../lib/evolucion";
 import {huellaDe} from "../../../lib/huellas-combate";
 import {EditorEquipoCombate,consultarEquipo,type ContextoEquipo} from "../../../components/EditorEquipoCombate";
 import { formula } from "../../../lib/creacion";
@@ -140,6 +143,26 @@ export default function CampoCombate() {
     [ocupado, setOcupado] = useState(false),
     [cargando, setCargando] = useState(true);
   const [variantesSeleccionadas,setVariantesSeleccionadas]=useState<Record<string,string>>({});
+  // Líneas evolutivas de las plantillas (consulta aparte: si la columna aún no existe, el combate sigue igual).
+  const [lineas,setLineas]=useState<Record<string,LineaEvolutiva>>({});
+  const [etapasSeleccionadas,setEtapasSeleccionadas]=useState<Record<string,string>>({});
+  useEffect(()=>{let vivo=true;void supabase.from('forja_maestra').select('id,linea_evolutiva').not('linea_evolutiva','is',null).then(r=>{if(vivo&&!r.error)setLineas(Object.fromEntries((r.data||[]).map(x=>[x.id,x.linea_evolutiva as LineaEvolutiva])));});return()=>{vivo=false;};},[]);
+  async function catalogoFuentes():Promise<Fuente[]>{
+    const r=await supabase.from('forja_maestra').select('*').eq('estado','aprobado');if(r.error)throw Error(r.error.message);
+    return (r.data||[]).map(f=>({...f,stats:f.stats||{},efectos:f.configuracion_dados||[]}) as Fuente);
+  }
+  async function evolucionarParticipante(m:Combatiente,etapa:import("../../../lib/evolucion").EtapaEvolutiva,t:import("../../../lib/evolucion").TransicionEvolutiva){
+    await ejecutar(async()=>{const fuentes=await catalogoFuentes();await guardar(evolucionarEnCombate(c,m.id,etapa,{action_id:crypto.randomUUID(),transicion_id:t.id,recuperacion:t.recuperacion,catalogo:fuentes}));setResumen(`${m.nombre} evoluciona: ${etapa.nombre}.`);});
+  }
+  async function recrearHistorica(m:Combatiente,etapa:import("../../../lib/evolucion").EtapaEvolutiva){
+    await ejecutar(async()=>{
+      if(c.fase!=='preparacion')throw Error('Elige la etapa histórica durante la preparación.');
+      const copia=prepararEtapaHistorica(m,etapa);
+      const vida=Math.max(1,Number(copia.stats.vida??copia.stats.hp??1));
+      await guardar({...c,politica:politicaHistorica(c.politica),miembros:c.miembros.map(x=>x.id===m.id?{...copia,id:m.id,vida,ph:Math.max(0,Number(copia.stats.ph??0)),fatiga:0}:x)});
+      setResumen(`Encuentro histórico: ${copia.nombre}. Es de práctica y no modifica al personaje real.`);
+    });
+  }
   const [cantidadesSeleccionadas,setCantidadesSeleccionadas]=useState<Record<string,number>>({});
   const [nivelesSeleccionados,setNivelesSeleccionados] = useState<Record<string,number>>({});
   const bloqueo = useRef(false),ejecucion=useRef(0);
@@ -197,7 +220,7 @@ export default function CampoCombate() {
   }, []);
   const claveRetrato = useCallback((m: Combatiente) => m.personaje_id ? `jugador:${m.personaje_id}` : `forja:${m.forja_id || m.id}`, []);
   const fotoDe = useCallback((m: Combatiente) =>
-    m.transformacion?.imagen_etapa || retratos[claveRetrato(m)] || m.configuracion.imagen_url, [claveRetrato, retratos]);
+    m.transformacion?.imagen_etapa || (m.evolucion||m.etapa_historica ? m.configuracion.imagen_url : undefined) || retratos[claveRetrato(m)] || m.configuracion.imagen_url, [claveRetrato, retratos]);
   function configurarRetrato(m: Combatiente, value: string) {
     const url = value.trim();
     if (url && !/^https?:\/\//i.test(url) && !/^\/(?!\/)/.test(url)) {
@@ -467,7 +490,7 @@ export default function CampoCombate() {
   }
   async function guardar(next: Combate, deshacer=false) {
     if(!next.evento_visual||next.evento_visual.id===c.evento_visual?.id)next=registrarCambiosVida(c,next);
-    next = {...next, miembros: next.miembros.map(m=>({...m, configuracion:{...m.configuracion, imagen_url:retratos[claveRetrato(m)] || m.configuracion.imagen_url || catalogo.find(p=>p.id===m.forja_id)?.imagen_url}}))};
+    next = {...next, miembros: next.miembros.map(m=>({...m, configuracion:{...m.configuracion, imagen_url:((m.evolucion||m.etapa_historica)&&m.configuracion.imagen_url) || retratos[claveRetrato(m)] || m.configuracion.imagen_url || catalogo.find(p=>p.id===m.forja_id)?.imagen_url}}))};
     const r = {data:await segura.ejecutar({
       p_id: id,
       p_nombre: nombre,
@@ -547,12 +570,17 @@ export default function CampoCombate() {
       if(c.miembros.length+perfiles.length>100)throw Error('Máximo cien participantes.');
       const catalogoVariantes=config?.variantes?.length?await supabase.from('forja_maestra').select('*').eq('estado','aprobado'):null;
       if(catalogoVariantes?.error)throw Error(catalogoVariantes.error.message);
+      const lineaPlantilla=lineas[origenId];
+      const fuentesEtapa=lineaPlantilla&&etapasSeleccionadas[origenId]?await catalogoFuentes():null;
       let next=c;
       for(const perfil of perfiles){
        let copia={...f,id:crypto.randomUUID()};
        if(plantilla.es_grupo&&plantilla.stats_rango){const base={...escalarMalla(plantilla.stats_rango,nivel,plantilla.nivel_maximo||20),nivel};const stats:Record<string,number>={...base};for(const [k,v] of Object.entries(f.configuracion.bonos_equipamiento||{}))stats[k]=(stats[k]||0)+v;copia={...copia,stats,configuracion:{...f.configuracion,stats_base:base}};}
        if(config?.variantes?.length)copia=prepararVariante(copia,elegirVariante(config,perfil),catalogoVariantes!.data as FuenteMonstruo[]);
        next=agregar(next,copia,bando);
+       // Generada desde una etapa evolutiva: la misma evolución del combate, sin vínculo con ninguna ficha real.
+       const etapa=lineaPlantilla&&etapasSeleccionadas[origenId]?lineaPlantilla.etapas.find(e=>e.id===etapasSeleccionadas[origenId]):undefined;
+       if(etapa&&etapa.id!==lineaPlantilla!.inicial){const nuevo=next.miembros[next.miembros.length-1];next=evolucionarEnCombate(next,nuevo.id,etapa,{action_id:crypto.randomUUID(),catalogo:fuentesEtapa!});next={...next,miembros:next.miembros.map(x=>x.id===nuevo.id?{...x,nombre:`${x.nombre} · ${etapa.nombre}`}:x)};}
       }
       await guardar(next);
       mostrarIniciativa(next.miembros[next.miembros.length - 1]);
@@ -694,6 +722,8 @@ export default function CampoCombate() {
         {m.personaje_id && (
           <span className="battle-owner-tag">Personaje de jugador</span>
         )}
+        <EvolucionCombateGM m={m} fase={c.fase} lineaPlantilla={m.forja_id?lineas[m.forja_id]:null} deshabilitado={bloqueado}
+          onEvolucionar={(etapa,t)=>void evolucionarParticipante(m,etapa,t)} onHistorica={etapa=>void recrearHistorica(m,etapa)}/>
         {c.fase==='preparacion'&&<details className="battle-size">
           <summary>Tamaño en este encuentro · {huellaDe(m).ancho} × {huellaDe(m).alto}</summary>
           <fieldset disabled={bloqueado}>
@@ -1105,6 +1135,7 @@ export default function CampoCombate() {
                     {p.stats.armadura || 0} ARM
                   </p>
                   {p.origen==="forja"&&<label className="flex items-center gap-2 text-xs text-neutral-300">Nivel al entrar al combate<input type="number" min={1} max={p.nivel_maximo||100} step={1} value={nivelesSeleccionados[p.id]??p.nivel??1} onChange={e=>setNivelesSeleccionados(prev=>({...prev,[p.id]:Math.max(1,Math.min(p.nivel_maximo||100,Number(e.target.value)||1))}))} onClick={e=>e.stopPropagation()} className="w-20 rounded border border-neutral-700 bg-well p-1 text-white" /></label>}
+                  {p.origen==='forja'&&lineas[p.id]&&<label className="block text-xs">Etapa evolutiva<select aria-label={`Etapa evolutiva de ${p.nombre}`} className="w-full rounded border border-neutral-700 bg-well p-2" value={etapasSeleccionadas[p.id]||lineas[p.id].inicial} onChange={e=>setEtapasSeleccionadas({...etapasSeleccionadas,[p.id]:e.target.value})}>{lineas[p.id].etapas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}</select></label>}
                   {!!p.configuracion_monstruo?.variantes?.length&&<div className="space-y-2 text-xs"><label>Variante<select aria-label={`Variante de ${p.nombre}`} className="w-full rounded border border-neutral-700 bg-well p-2" value={variantesSeleccionadas[p.id]||'aleatorio'} onChange={e=>setVariantesSeleccionadas({...variantesSeleccionadas,[p.id]:e.target.value})}><option value="aleatorio">Sortear variante por aparición</option><option value="una_de_cada">Una de cada variante</option>{p.configuracion_monstruo.variantes.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}</select></label>{variantesSeleccionadas[p.id]!=='una_de_cada'&&<label>Cantidad<input type="number" min={1} max={20} value={cantidadesSeleccionadas[p.id]||1} onChange={e=>setCantidadesSeleccionadas({...cantidadesSeleccionadas,[p.id]:Math.max(1,Math.min(20,Math.floor(Number(e.target.value)||1)))})} className="ml-2 w-16 rounded bg-well p-1"/></label>}</div>}
                   <div className="battle-source-actions">
                     <button

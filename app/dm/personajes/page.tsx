@@ -1,4 +1,5 @@
 "use client";
+import LegadoPersonaje from "../../../components/LegadoPersonaje";
 import { imagenDeRaza } from "../../../lib/estadisticas";
 import RetratoRaza from "../../../components/RetratoRaza";
 import {Cabecera,Secciones} from "../../../components/layout/Cabecera";
@@ -44,6 +45,8 @@ type Tumba = {
     personaje: Personaje;
     inventario: Item[];
     combatiente?: Record<string, unknown>;
+    /** Etapa en la que murió y su historial de evolución (si tenía línea evolutiva). */
+    evolucion?: { etapa?: { nombre: string }; historial: { nombre: string; created_at: string }[] };
   };
 };
 type Item = {
@@ -557,6 +560,12 @@ export default function GestionPersonajes() {
                   onCambio={() => void cargar()}
                 />
               )}
+              {!tumba && seleccion && (
+                <details className="pj-section">
+                  <summary>Evolución y legado</summary>
+                  <LegadoPersonaje gm personajeId={seleccion.id} nombre={seleccion.nombre} />
+                </details>
+              )}
               {tumba ? (
                 <>
                   <p>
@@ -565,6 +574,12 @@ export default function GestionPersonajes() {
                   </p>
                   <p>{ficha.historia}</p>
                   <p>{ficha.defecto}</p>
+                  {tumba.snapshot.evolucion?.etapa && (
+                    <div className="pj-notice">
+                      <p>Murió en su etapa «{tumba.snapshot.evolucion.etapa.nombre}».</p>
+                      <ol>{tumba.snapshot.evolucion.historial.map((h, i) => <li key={i}>{h.nombre} · {new Date(h.created_at).toLocaleDateString("es-DO")}</li>)}</ol>
+                    </div>
+                  )}
                   <div className="pj-stats">
                     {Object.entries(ficha.atributos || {}).map(([k, v]) => (
                       <div className="pj-stat" key={k}>

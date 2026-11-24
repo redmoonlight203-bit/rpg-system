@@ -88,6 +88,10 @@ Las nueve funciones de combate se conservan íntegramente en el diagnóstico de 
 | tablas_botin | validar_tabla_botin | validar_tabla_botin || Valida entradas de botín (ids únicos, cantidad, peso, calidad, probabilidad, nivel y objetos aprobados) y actualiza updated_at. |
 | tablero_tokens | avisar_actualizacion | avisar_actualizacion | Invalida lecturas de las tablas suscritas mediante avisos generales. |
 | tableros | avisar_actualizacion | avisar_actualizacion | Invalida lecturas de las tablas suscritas mediante avisos generales. |
+| cementerio_personajes | cementerio_evolucion | cementerio_evolucion || Añade al recuerdo la etapa en la que murió y su historial de evolución. |
+| combates_yugen | zz_combate_persistir_evoluciones | combate_persistir_evoluciones || Al finalizar un encuentro real, guarda en la ficha las evoluciones ocurridas en combate; nunca en práctica. |
+| forja_maestra | forja_validar_linea_evolutiva | forja_validar_linea_evolutiva || Valida la línea evolutiva de la plantilla: referencias, tamaños y ausencia de ciclos. |
+| personaje_etapas_historial | evolucion_historial_inmutable | evolucion_historial_inmutable || El historial de etapas no se modifica. |
 | tiempo_juego | avisar_actualizacion | avisar_actualizacion | Invalida lecturas de las tablas suscritas mediante avisos generales. |
 | tienda_items | avisar_actualizacion | avisar_actualizacion | Invalida lecturas de las tablas suscritas mediante avisos generales. |
 | tienda_ofertas | avisar_actualizacion | avisar_actualizacion | Invalida lecturas de las tablas suscritas mediante avisos generales. |
