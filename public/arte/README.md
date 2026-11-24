@@ -52,6 +52,10 @@ Al crear una raza en Estadísticas hay que subir su figura; sin ella no se puede
 - `lugares/<clave>.webp`, 320 × 200: viñeta ilustrada para cada lugar del Nexo.
 - `texturas/pergamino.webp`, 512 × 512 sin costuras: grano de pergamino más rico que el actual (hecho con CSS).
 
+## 4 · Códices de La creación (opcional)
+
+Texturas sin costuras de 512 × 512 px en WebP para `public/arte/codices/`: `papel.webp` (páginas del bestiario y proclamas), `libro-cuero.webp` (tapas del bestiario) y `tarot-dorso.webp` (marco de las cartas). Sin ellas se usan gradientes CSS; al recibirlas se asignan a las variables `--cx-papel-img`, `--cx-cuero-img` y `--cx-dorso-img` de `components/codices/codices.css`.
+
 ## Entregado
 
 | Archivo | Origen | Licencia | Fecha |
