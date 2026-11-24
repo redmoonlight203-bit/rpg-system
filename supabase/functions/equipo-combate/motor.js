@@ -4372,16 +4372,20 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
     if (c.miembros.length >= 100)
         throw Error("Máximo cien participantes.");
     return registrar(c, () => {
-        const temporal = { ...c, fase: "preparacion" };
+        const posiciones = posicionesTablero(c);
+        const temporal = { ...c, fase: "preparacion", miembros: c.miembros.map(m => ({ ...m, posicion: posiciones[m.id] })) };
         const n = agregar(temporal, { ...preparado, id: crypto.randomUUID() }, actor.bando, rng);
         n.fase = c.fase;
+        const criatura = n.miembros[n.miembros.length - 1], p = posicionesTablero(n)[criatura.id];
+        if (!p)
+            throw Error('No hay espacio libre para la ficha invocada.');
+        criatura.posicion = p;
         const a = n.miembros.find(m => m.id === actorId);
         a.ph = phDisponibles(a) - ph;
         a.fatiga += fatiga;
         if (fatiga)
             a.uso_fatiga = true;
         a.accion_usada = true;
-        const criatura = n.miembros[n.miembros.length - 1];
         criatura.invocacion = { invocador: actorId, habilidad: habilidad.id, restantes: duracion };
         log(n, `${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);
         return n;

@@ -135,3 +135,17 @@ test('una casilla cercana no cubierta de una ficha grande no hereda la cobertura
  // El 1 puede fallar por su regla propia; la armadura mostrada no incluye los +2 del ancla cubierta.
  assert.ok(n.registro.some(linea=>linea.includes('ARM 0.')));
 });
+
+test('invocar una ficha grande sin espacio no gasta recursos ni modifica el mapa o los turnos',()=>{
+ const habilidad={id:'invoca',nombre:'Invoca',stats:{},configuracion_invocacion:{costePh:3,costeFatiga:2}};
+ const invocador=prisma('a',0,0);
+ invocador.configuracion.habilidades=[habilidad];
+ const celdas={};
+ for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(y!==0||x>2)celdas[x+','+y]='muro';
+ const b=empezar(invocador,[prisma('b',2,0)],celdas), previo=JSON.stringify(b);
+ assert.throws(()=>c.incorporarInvocacion(b,'a',habilidad,prisma('invocado',1,0,huella(2,3)),2,1,rng),/no hay espacio/i);
+ assert.equal(JSON.stringify(b),previo);
+ const n=c.incorporarInvocacion(b,'a',habilidad,prisma('invocado',1,0,huella(1,1)),2,1,rng);
+ assert.deepEqual(c.posicionesTablero(n)[n.miembros.at(-1).id],punto(1,0));
+ assert.equal(blanco(n,'a').ph,5);
+});
