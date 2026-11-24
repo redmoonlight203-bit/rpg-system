@@ -9,6 +9,8 @@ import Lienzo,{type ContenidoNodo,type GuiaPieza,type LienzoAPI} from './Lienzo'
 import Grimorio,{type PistaSoltar} from './Grimorio';
 import ArenaDolls from './ArenaDolls';
 import VistaLista from './VistaLista';
+import ResumenPlantillas from './ResumenPlantillas';
+import type {CambioPlantilla} from '../../lib/yunque-plantillas-vivas';
 import CajonFicha from './CajonFicha';
 import {useBalanceBorrador} from './PruebaBalance';
 import {claveDe as claveHistorial,useHistorial} from './useHistorial';
@@ -46,7 +48,9 @@ type Props={b:Borrador;setB:Dispatch<SetStateAction<Borrador>>;ctx:ContextoTalle
  /** Avisa a la Forja de que empieza otro borrador (p. ej. «Monstruos»): un guardado en curso ya no le da su `id`. */
  onNuevaSesion?:()=>void;
  /** Requisitos que el personaje no cumple para una creación de la colección (por defecto, el cálculo de la Forja). */
- faltantes?:(id:string)=>string[]};
+ faltantes?:(id:string)=>string[];
+ /** Cambios que las plantillas trajeron al abrir esta creación; el panel se muestra mientras haya alguno. */
+ cambiosPlantilla?:CambioPlantilla[];onCerrarCambios?:()=>void};
 type Vista='lienzo'|'lista';
 const ANCHO_LISTA=1024;
 const suscribirAncho=(f:()=>void)=>{window.addEventListener('resize',f);return ()=>window.removeEventListener('resize',f);};
@@ -73,7 +77,7 @@ const escribiendo=(t:EventTarget|null)=>{
 };
 const PASO_FLECHA=20;
 
-export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNuevo,onEditarVinculo,onGuardar,guardando,error,crearDentro,hijo=false,onNuevaSesion,faltantes:faltantesProp}:Props){
+export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNuevo,onEditarVinculo,onGuardar,guardando,error,crearDentro,hijo=false,onNuevaSesion,faltantes:faltantesProp,cambiosPlantilla,onCerrarCambios}:Props){
  // Lista por defecto en pantallas estrechas (sigue al ancho hasta que el GM elige una vista).
  const estrecha=useSyncExternalStore(suscribirAncho,esEstrecha,()=>false);
  const [vistaElegida,setVista]=useState<Vista|null>(null);
@@ -436,7 +440,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  },[arrastre,b,grafo,vista,ctx.creaciones,faltantes]);
 
  /** Icono, pie y editor de un nodo. El editor solo se crea para el nodo elegido (el único que lo muestra). */
- const contenido=(n:Nodo):ContenidoNodo=>{
+ const contenidoBase=(n:Nodo):ContenidoNodo=>{
   const conEditor=n.id===seleccion;
   if(n.tipo==='nucleo')return {
    icono:b.icono||(b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]),
@@ -462,6 +466,12 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
    case 'vinculo':{const p=porId.get(idDeVinculo(n.id));return {icono:iconoEnlazable(p),editor:!conEditor?undefined:<EditorVinculo onEditar={guardando||hijo?undefined:onEditarVinculo} b={b} nodo={n} ctx={ctx} ejecutar={ops=>ejecutar(ops)} avisar={t=>avisar(t)} faltantes={faltantes} onCrear={crear}/>};}
    default:return {editor:!conEditor?undefined:<EditorModulo {...props} ctx={ctx} avisar={avisoInfo}/>};
   }
+ };
+ /** Los nodos que vienen de una plantilla añaden «Convertir en nodo propio» (deshacible con Ctrl+Z). */
+ const contenido=(n:Nodo):ContenidoNodo=>{
+  const c=contenidoBase(n);
+  if(!n.plantilla)return c;
+  return {...c,pie:<>{c.pie}<button type="button" className="yq-boton yq-desvincular" onClick={()=>operar({op:'desvincular',nodo:n.id})}>Convertir en nodo propio</button></>};
  };
 
  const guiaLista=arrastre&&vista==='lista'?{compatibles:arrastre.compatibles,sobre:arrastre.sobre?.nodo??null}:null;
@@ -498,6 +508,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
     onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
     :<div ref={listaCaja} className="yq-vlista-caja"><VistaLista grafo={grafo} seleccion={seleccion} onSeleccionar={setSeleccion} contenido={contenido} operar={o=>operar(o)} encendidos={encendidos} nuevos={nuevos} guia={guiaLista}/></div>}
    {/* Aviso y sello pueden nacer en el mismo milisegundo (al forjar): claves con prefijo para que no choquen. */}
+   {cambiosPlantilla&&cambiosPlantilla.length>0&&onCerrarCambios&&<ResumenPlantillas cambios={cambiosPlantilla} onElegir={setSeleccion} onCerrar={onCerrarCambios}/>}
    {aviso&&<p key={`aviso:${aviso.n}`} role="status" className={`yq-aviso is-${aviso.tono}`}>{aviso.texto}</p>}
    {sello&&<div key={`sello:${sello}`} className="yq-sello" aria-hidden="true"><Sello texto="Creación forjada" runa="/arte/runas/forja.png" celebrar/></div>}
   </section>

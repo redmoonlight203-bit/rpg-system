@@ -22,6 +22,7 @@ import {validarArtefacto,normalizarArtefacto} from "../../../lib/artefactos";
 import GaleriaCreacion from "../../../components/GaleriaCreacion";
 import {evaluarInvocacion} from "../../../lib/invocaciones";
 import NavyCompanera from "../../../components/NavyCompanera";
+import {actualizarDesdePlantillas,type CambioPlantilla} from "../../../lib/yunque-plantillas-vivas";
 import TallerYunque,{type Suelto} from "../../../components/yunque/TallerYunque";
 import LimiteYunque from "../../../components/yunque/LimiteYunque";
 import {iconoCreacion,iconoValido} from "../../../lib/iconos-yugen";
@@ -71,6 +72,7 @@ export default function Forja(){
  // Conserva los cambios conectados al borrador mientras el usuario recorre el taller.
  const [reservas,setReservas]=useState<Record<string,Borrador>>({});
  const [ruta,setRuta]=useState<string[]>([]);
+ const [cambiosPlantilla,setCambiosPlantilla]=useState<CambioPlantilla[]>([]);
  const [documento,setDocumento]=useState("nuevo-inicial");
  const [mesa]=useState(()=>new Map<string,Suelto[]>());
  const base=useRef<Borrador|null>(b);
@@ -91,8 +93,10 @@ export default function Forja(){
     const anteriores=prev.filter(id=>id!==actual&&id!==destino);
     return b.id||conservar?[...anteriores,actual]:anteriores;
    });
+  // Las plantillas vivas se aplican al abrir; `base` sigue siendo lo guardado, así el GM ve el cambio como pendiente y lo guarda.
+  const {borrador:vivo,cambios}=actualizarDesdePlantillas(borrador);
   base.current=reservas[destino]?null:borrador;
-  nuevaSesion();setDocumento(destino);setB(borrador);setError("");setAviso("");setPestana("yunque");
+  nuevaSesion();setDocumento(destino);setB(vivo);setCambiosPlantilla(cambios);setError("");setAviso("");setPestana("yunque");
  }
  function cambiar(id:string,volver=false){
   const fila=activas.find(c=>c.id===id);
@@ -191,7 +195,7 @@ export default function Forja(){
  onNueva={()=>nuevo()} onEditar={editar} onEntregar={f=>setOperacion({item:f,modo:"inventario"})}
  onBatalla={f=>setOperacion({item:f,modo:"batalla"})} onEliminar={eliminar} onRestablecer={restablecer} onImagen={guardarImagen}
  />:<div ref={yunque} className="forja-yunque">{padre&&<aside className="yunque-resumen"><p>Creando para {padre.b.nombre||"el personaje"}. Su borrador está conservado.</p><button type="button" disabled={guardando} onClick={volverPadre}>Cancelar y volver al personaje</button></aside>}
- <LimiteYunque onVolver={()=>{volverPadre();setPestana("creacion");}}><TallerYunque key={documento+(padre?"-hijo":"")} documento={documento} mesa={mesa} navegacion={<>
+ <LimiteYunque onVolver={()=>{volverPadre();setPestana("creacion");}}><TallerYunque key={documento+(padre?"-hijo":"")} cambiosPlantilla={cambiosPlantilla} onCerrarCambios={()=>setCambiosPlantilla([])} documento={documento} mesa={mesa} navegacion={<>
   {anterior&&<button type="button" className="yq-boton" disabled={!!padre||guardando||imagenProcesando} onClick={()=>cambiar(anterior,true)}>← Volver a {nombreAnterior}</button>}
   <select aria-label="Cambiar creación" className="yq-selector" value="" disabled={!!padre||guardando||imagenProcesando} onChange={e=>cambiar(e.target.value)}>
    <option value="" disabled>Cambiar creación…</option>

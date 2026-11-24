@@ -167,3 +167,41 @@ test('estabilizar conserva los nodos y cables sin cambios y devuelve el mismo gr
  assert.deepEqual(json(g3),json(aGrafo(d,ctx)));
  assert.equal(g3.nodos.find(n=>n.id===id),g1.nodos.find(n=>n.id===id));
 });
+
+// --- Sello de plantilla ---
+const {aplicar:aplicarOp}=cargarDependencia('yunque-operaciones');
+const {vacio:vacioB}=cargarDependencia('yunque-borrador');
+const {MENSAJE_ORIGEN}=cargarDependencia('yunque-origen');
+const baseHab=()=>{const b=json(vacioB());b.nombre='Prueba';b.tipo='habilidad';return b;};
+const desplegada=()=>aplicarOp(baseHab(),{op:'desplegar',plantilla:'golpe-quemadura'});
+test('nodo desplegado lleva su plantilla',()=>{
+ const b=desplegada();
+ const g=aGrafo(b,{creaciones:[]});
+ const n=por(g,'accion:'+b.efectos[0].id);
+ assert.deepEqual(json(n.plantilla),{id:'golpe-quemadura',nombre:'Golpe con quemadura',version:1,huerfana:false});
+ assert.equal(por(g,'nucleo').plantilla,undefined);
+ const propio=aGrafo(F.objeto,ctx);
+ assert.ok(propio.nodos.every(x=>x.plantilla===undefined));
+});
+test('plantilla inexistente: huerfana true y sin error',()=>{
+ const b=desplegada();b.efectos[0].origen.plantilla='ya-no-existe';
+ const n=por(aGrafo(b,{creaciones:[]}),'accion:'+b.efectos[0].id);
+ assert.deepEqual(json(n.plantilla),{id:'ya-no-existe',nombre:'ya-no-existe',version:1,huerfana:true});
+ assert.equal(n.error,null);
+});
+test('origen dañado: error MENSAJE_ORIGEN',()=>{
+ const b=desplegada();b.efectos[0].origen.version='3';
+ const n=por(aGrafo(b,{creaciones:[]}),'accion:'+b.efectos[0].id);
+ assert.equal(n.error,MENSAJE_ORIGEN);
+ assert.equal(n.plantilla,undefined);
+});
+test('estabilizar distingue un cambio de plantilla',()=>{
+ const b=desplegada();
+ const g1=aGrafo(b,{creaciones:[]});
+ const c=json(b);c.efectos[0].origen.plantilla='ya-no-existe';
+ const g2=estabilizar(g1,aGrafo(c,{creaciones:[]}));
+ const id='accion:'+b.efectos[0].id;
+ assert.notEqual(por(g2,id),por(g1,id));
+ assert.equal(por(g2,id).plantilla.huerfana,true);
+ assert.equal(estabilizar(g1,aGrafo(json(b),{creaciones:[]})),g1);
+});

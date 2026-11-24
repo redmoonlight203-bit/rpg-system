@@ -6,6 +6,8 @@ import {validarPasivas,EVENTOS_PASIVA,CONDICIONES_PASIVA} from "./pasivas";
 import {reaccionDe,validarTactica,validarRequisitos} from "./combate";
 import {describirVision,validarVision} from "./vision";
 import {normalizarReaccion,lineaCosteReaccion} from "./reacciones";
+import {leerOrigen,MENSAJE_ORIGEN} from "./yunque-origen";
+import {plantillaPorId} from "./yunque-plantillas";
 /**
  * Grafo DERIVADO del Borrador (solo lectura): `aGrafo` nunca modifica `b`.
  * El Borrador es la única fuente de verdad; las ediciones son operaciones puras sobre él.
@@ -13,9 +15,13 @@ import {normalizarReaccion,lineaCosteReaccion} from "./reacciones";
 export type TipoNodo='nucleo'|'accion'|'alcance'|'salvacion'|'estado'|'reaccion'|'transformacion'|'recurso'|'vfx'|'tabla_armas'|'vision'|'cuando'|'si'|'entonces'|'pasiva'|'vinculo'|'invocacion'|'requisitos';
 export type Ruta=(string|number)[];
 export type Puerto={id:string;lado:'entrada'|'salida';acepta:TipoNodo[];etiqueta?:string};
+/** Vínculo del nodo con su plantilla viva; `huerfana`: la plantilla ya no existe en el catálogo. */
+export type SelloPlantilla={id:string;nombre:string;version:number;huerfana:boolean};
 export type Nodo={id:string;tipo:TipoNodo;ruta:Ruta;titulo:string;frase:string;error:string|null;puertos:Puerto[];
  /** Línea corta siempre visible bajo la frase (coste y usos de una reacción). */
- insignia?:string};
+ insignia?:string;
+ /** Solo en acciones, reglas y pasivas desplegadas desde una plantilla. */
+ plantilla?:SelloPlantilla};
 export type Cable={id:string;desde:{nodo:string;puerto:string};hasta:{nodo:string;puerto:string}};
 export type Grafo={nodos:Nodo[];cables:Cable[]};
 /** `estado`: solo las creaciones aprobadas (o sin estado, p. ej. en pruebas) cuentan como presentes en La Creación. */
@@ -34,6 +40,15 @@ const texto=(f:()=>string,defecto:string):string=>{try{return f();}catch{return 
 export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  const nodos:Nodo[]=[];const cables:Cable[]=[];
  const nodo=(id:string,tipo:TipoNodo,ruta:Ruta,titulo:string,frase:string,error:string|null,puertos:Puerto[])=>{nodos.push({id,tipo,ruta,titulo,frase,error,puertos});};
+ /** Rellena `plantilla` desde el `origen` del dato; un origen dañado marca el nodo (si no tenía otro error). */
+ const sellar=(id:string,dato:{origen?:unknown})=>{
+  if(dato.origen===undefined)return;
+  const n=nodos.find(x=>x.id===id);if(!n)return;
+  const o=leerOrigen(dato.origen);
+  if(!o){n.error=n.error||MENSAJE_ORIGEN;return;}
+  const p=plantillaPorId(o.plantilla);
+  n.plantilla={id:o.plantilla,nombre:p?p.nombre:o.plantilla,version:o.version,huerfana:!p};
+ };
  const cable=(d:string,pd:string,h:string,ph='entrada')=>{cables.push({id:`${d}:${pd}>${h}:${ph}`,desde:{nodo:d,puerto:pd},hasta:{nodo:h,puerto:ph}});};
  const ofertaRequisitos=b.tipo!=='personaje'||Object.keys(b.requisitos_uso||{}).length>0;
  // Núcleo
@@ -46,6 +61,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   const id='accion:'+e.id,ruta:Ruta=['efectos',i];
   const error=fallo(()=>validarEfectos([e])||validarTactica(e));
   nodo(id,'accion',ruta,String(e.nombre??'').trim()||EFECTOS_NOMBRE[e.efecto]||'Acción',texto(()=>describirEfecto(e).resumen,'Acción sin describir.'),error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos'),...(b.tipo==='habilidad'&&i===0?[salida('invocacion',['invocacion'],'Invocación')]:[])]);
+  sellar(id,e);
   cable('nucleo','acciones',id);
   const modulo=(tipo:TipoNodo,sub:string|null,titulo:string,frase:string,err:string|null=null)=>{
    const mid=`${tipo}:${e.id}`;
@@ -72,6 +88,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   r={...r,efectos:Array.isArray(r.efectos)?r.efectos:[],condicion:r.condicion&&typeof r.condicion==='object'?r.condicion:SIEMPRE};
   const cabecera=fallo(()=>r.efectos.length?validarReglas([{...r,condicion:SIEMPRE,efectos:[RELLENO]}]):validarReglas([r]));
   nodo(cuando,'cuando',ruta,r.nombre||'Regla',`${EVENTOS[r.evento]||r.evento} → ${texto(()=>describirRegla(r).resumen,'…')}`,cabecera,[entrada(['nucleo']),salida('si',['si'],'Si')]);
+  sellar(cuando,r);
   cable('nucleo','reglas',cuando);
   const condicion=(c:CondicionRegla,id:string,rutaC:Ruta,padre:string,puertoPadre:string)=>{
    if(!c||typeof c!=='object')c=SIEMPRE;
@@ -101,6 +118,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(!p||typeof p!=='object')return;
   const id='pasiva:'+p.id;
   nodo(id,'pasiva',['reglas_pasivas',i],p.nombre||'Pasiva',`${EVENTOS_PASIVA[p.evento]??p.evento}, ${CONDICIONES_PASIVA[p.condicion]??p.condicion}.`,fallo(()=>validarPasivas([p])),[entrada(['nucleo'])]);
+  sellar(id,p);
   cable('nucleo','pasivas',id);
  });
  // Vínculos con otras creaciones
@@ -130,7 +148,8 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
 /** Valor del borrador en una ruta de nodo (o `undefined` si la ruta ya no existe). */
 export const leerRuta=(b:unknown,ruta:Ruta):unknown=>ruta.reduce<unknown>((x,k)=>x!==null&&typeof x==='object'?(x as Record<string|number,unknown>)[k]:undefined,b);
 const mismoNodo=(a:Nodo,b:Nodo)=>a.id===b.id&&a.tipo===b.tipo&&a.titulo===b.titulo&&a.frase===b.frase&&a.error===b.error
- &&a.ruta.length===b.ruta.length&&a.ruta.every((k,i)=>k===b.ruta[i])&&JSON.stringify(a.puertos)===JSON.stringify(b.puertos);
+ &&a.ruta.length===b.ruta.length&&a.ruta.every((k,i)=>k===b.ruta[i])&&JSON.stringify(a.puertos)===JSON.stringify(b.puertos)
+ &&JSON.stringify(a.plantilla)===JSON.stringify(b.plantilla);
 /**
  * Reutiliza los nodos y cables de `previo` que no cambiaron (mismos datos) y, si nada cambió, devuelve `previo` tal cual.
  * Así la interfaz puede memorizar por identidad: al escribir en un nodo, los demás conservan su objeto y no se repintan.
