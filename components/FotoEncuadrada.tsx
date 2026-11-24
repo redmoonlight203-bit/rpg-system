@@ -23,19 +23,21 @@ function Foto({ src, alt = "", circular, fallback }: Props & { src: string }) {
   }, []);
 
   if (fallida) return fallback;
-  let dimensiones: CSSProperties | undefined;
+  let encuadre: CSSProperties | undefined;
   if (circular && medidas) {
-    // La diagonal de la foto deja un pequeño margen dentro del círculo.
-    const escala = 96 / Math.hypot(medidas.ancho, medidas.alto);
-    dimensiones = {
-      "--foto-ancho": `${medidas.ancho * escala}%`,
-      "--foto-alto": `${medidas.alto * escala}%`,
+    // El círculo se rellena entero (sin franjas). En un retrato vertical la cara suele estar en el tercio superior:
+    // se ancla arriba y se acerca un poco más cuanto más alargada es la imagen (como mucho ×1,5).
+    const proporcion = medidas.alto / medidas.ancho;
+    const retrato = proporcion >= 1.15;
+    encuadre = {
+      "--foto-y": retrato ? "16%" : "50%",
+      "--foto-zoom": retrato ? String(Math.min(1.5, 1 + (proporcion - 1) * 0.8).toFixed(2)) : "1",
     } as CSSProperties;
   }
-  return <span className={`foto-encuadrada${circular ? " foto-encuadrada-circular" : ""}`} style={dimensiones}>
+  return <span className={`foto-encuadrada${circular ? " foto-encuadrada-circular" : ""}`} style={encuadre}>
     {/* Ambas capas usan la misma URL y aprovechan la caché del navegador. */}
     {/* eslint-disable-next-line @next/next/no-img-element */}
-    {medidas && <img className="foto-encuadrada-fondo" src={src} alt="" aria-hidden="true" decoding="async" referrerPolicy="no-referrer" />}
+    {medidas && !circular && <img className="foto-encuadrada-fondo" src={src} alt="" aria-hidden="true" decoding="async" referrerPolicy="no-referrer" />}
     <span className="foto-encuadrada-ventana">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="foto-encuadrada-frente" src={src} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer"
