@@ -65,3 +65,37 @@ export function conectar(grafo: Grafo, desde: string, hasta: string, sentido: Se
   const id = idLibre(grafo.transiciones.map(t => t.id), `${desde}__${hasta}`);
   return {ok: true, id, grafo: {...grafo, transiciones: [...grafo.transiciones, {id, desde, hasta, sentido}]}};
 }
+
+/** Formas a las que se llega desde la realidad siguiendo transiciones. */
+function alcanzablesDesdeRealidad(grafo: Grafo, realidad: string): Set<string> {
+  const vistos = new Set([realidad]), cola = [realidad];
+  while (cola.length) {
+    const actual = cola.shift()!;
+    for (const siguiente of salidas(grafo, actual)) if (!vistos.has(siguiente)) { vistos.add(siguiente); cola.push(siguiente); }
+  }
+  return vistos;
+}
+/** Destinos directos de una forma según las transiciones dibujadas. */
+function salidas(grafo: Grafo, desde: string): string[] {
+  return grafo.transiciones.flatMap(t => t.desde === desde ? [t.hasta] : t.sentido === 'ambos' && t.hasta === desde ? [t.desde] : []);
+}
+
+/** Devuelve un mensaje de error o `null`. La vuelta a la realidad es implícita,
+ * así que ninguna forma queda sin salida; lo que sí falla es una forma a la que
+ * no se puede llegar (huérfana), o un grafo sin una única realidad. */
+export function validarGrafo(grafo: Grafo): string | null {
+  if (!grafo || !Array.isArray(grafo.formas) || !Array.isArray(grafo.transiciones)) return 'Transformación sin formas.';
+  const ids = new Set(grafo.formas.map(f => f.id));
+  if (ids.size !== grafo.formas.length || grafo.formas.some(f => !f.id)) return 'Cada forma necesita un identificador distinto.';
+  const realidades = grafo.formas.filter(f => f.es_realidad);
+  if (realidades.length !== 1) return realidades.length ? 'Solo puede haber una forma de realidad.' : 'Marca una forma como realidad (la forma base).';
+  for (const t of grafo.transiciones) {
+    if (!ids.has(t.desde) || !ids.has(t.hasta)) return 'Una transición apunta a una forma que no existe.';
+    if (t.desde === t.hasta) return 'Una forma no puede conectarse consigo misma.';
+    if (t.sentido !== 'ambos' && t.sentido !== 'uno') return 'Sentido de transición inválido.';
+  }
+  const alcanzables = alcanzablesDesdeRealidad(grafo, realidades[0].id);
+  const huerfana = grafo.formas.find(f => !alcanzables.has(f.id));
+  if (huerfana) return `${huerfana.nombre}: no hay ninguna transición que lleve a esta forma.`;
+  return null;
+}
