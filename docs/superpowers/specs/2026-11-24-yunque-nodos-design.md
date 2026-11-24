@@ -87,8 +87,9 @@ Botón «Convertir en nodo propio»: quita `origen`. El nodo queda como cualquie
 ### 4. Personajes con acciones, pasivas y reglas
 
 - Quitar `accion` y `pasiva` de la restricción de `personaje` en `NUCLEO_LLEVA`.
-- Las acciones de un personaje se guardan como entradas de `configuracion.habilidades` (con sus `efectos`), que
-  el combate ya lee. No se añade un formato nuevo. *(Decisión mía, ver «Decisiones tomadas»).*
+- Las acciones de un personaje se guardan en `configuracion.acciones_personaje` (nombre provisional), en una
+  sección propia de la ficha. El combate debe poder usarlas fuera de turno o como acción adicional, por lo que
+  esta parte sí toca `lib/combate.ts`.
 - Las pasivas de un personaje van a `configuracion.pasivas` y las reglas a `configuracion.reglas_pasivas`, que
   el combate ya lee.
 - Los nodos propios del personaje y los enlazados desde la Colección conviven en el mismo lienzo.
@@ -104,15 +105,20 @@ una la despliega en nodos. Desaparecen las opciones que solo rellenaban campos a
 - Las defensas de Kion usan el mismo mecanismo de referencia viva que el resto.
 - La versión de la plantilla se guarda junto al nodo, no en una tabla aparte.
 - Sin migración de datos: lo existente no se toca.
-- Las acciones de personaje van dentro de `configuracion.habilidades` (ver punto 4).
+- Las acciones de personaje van en `configuracion.acciones_personaje`, no en `configuracion.habilidades` (ver «Decisiones del usuario», punto 2).
 
-## Lo que queda abierto (decisión tuya)
+## Decisiones del usuario (aprobadas en conversación)
 
-1. **Cuando cambia una plantilla**, ¿prefieres que te pregunte por nodo (recomendado) o que actualice solo los campos
-   que no has tocado, avisando después?
-2. **Acciones de un personaje**: ¿deben aparecer mezcladas con sus habilidades en la ficha, o en una sección propia
-   llamada «Acciones del personaje»?
-3. **Plantillas de Kion**: ¿también deben quedar vivas, o prefieres que sigan siendo copias fijas?
+1. **Cuando cambia una plantilla:** se pregunta por nodo. Ejemplo: la plantilla «Rugido» pasa de radio 2 a radio 3.
+   Si el GM ya había cambiado el daño de ese nodo, el aviso aparece solo para el radio y el daño no se toca.
+2. **Acciones de un personaje:** sección propia «Acciones del personaje», separada de las habilidades. Motivo: poder
+   usar acciones legendarias fuera de su turno o como acción adicional. Esto afecta al motor: el combate debe poder
+   ejecutar acciones de esa sección fuera del turno normal. Lo confirmaré al planificar.
+3. **Plantillas de Kion:** vivas, con el mismo mecanismo que el resto.
+
+Consecuencia de la decisión 2: las acciones de personaje ya no van dentro de `configuracion.habilidades`. Se guardan en
+su propia lista (`configuracion.acciones_personaje`, nombre provisional) y el motor debe leerla con reglas de uso
+distintas (fuera de turno o como acción adicional). Esto sí exige cambios en `lib/combate.ts`.
 
 ## Lo que deja el constructor
 
