@@ -241,7 +241,7 @@ export default function CampoCombate() {
       };
       const next =
         turnoConReacciones(c,c.fase==="preparacion"?"iniciar":"siguiente",rng);
-      next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:"Inicio del turno",dados};
+      next.evento_visual={...(next.evento_visual?.id!==c.evento_visual?.id?next.evento_visual:undefined),id:crypto.randomUUID(),nombre:"Inicio del turno",dados};
       await guardar(next);
       setForzar(false);
       setResumen("");
@@ -335,7 +335,7 @@ export default function CampoCombate() {
         forzar,
         opciones?.centro||(objetivoId?posicionesTablero(c)[objetivoId]:centro)||undefined,
       );
-      next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado,
+      next.evento_visual={...(next.evento_visual?.id!==c.evento_visual?.id?next.evento_visual:undefined),id:crypto.randomUUID(),nombre:actor.nombre,dados,resultado:next.resultado,
         // La animación sale del esqueleto del arma o del concepto (el nombre solo para datos antiguos).
         arma_visual:esqueletoDeAccion(actor,lista.find(a=>a.id===elegida),elegida),esqueleto:esqueletoVisual(lista.find(a=>a.id===elegida)?.efecto)};
       await guardar(next);

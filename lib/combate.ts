@@ -182,7 +182,7 @@ export type Combatiente = {
 export type CambioVida = {id:string;delta:number};
 export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"carrera"|"forzado"};
 export type AparicionVisual = {id:string;animacion:string;posicion:Posicion;escala?:number};
-export type EventoVisual = {action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;esqueleto?:import('./esqueletos').Esqueleto;desde?:Posicion;hasta?:Posicion};
+export type EventoVisual = {action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];activaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;esqueleto?:import('./esqueletos').Esqueleto;desde?:Posicion;hasta?:Posicion};
 export type Combate = {
   reaccion_pendiente?:SolicitudReaccion;
   pasos_deshacer?:number;
@@ -985,10 +985,13 @@ function iniciarInterno(c: Combate, rng: RNG) {
   entrar(n, vivo, rng);
   return n;
 }
+// En cola solo durante la resolución. Nunca copiamos una animación del turno anterior.
+const activacionesPendientes=new WeakMap<Combate,AparicionVisual[]>();
 function siguienteInterno(c: Combate, rng: RNG) {
   if (c.fase !== "en_curso") throw Error("Inicia el combate.");
   const n = copia(c),
     a = n.miembros.find((m) => m.id === n.actual);
+  const pendientes=activacionesPendientes.get(c);if(pendientes)activacionesPendientes.set(n,pendientes);
   delete n.resultado;
   if (a && combatienteActivo(a))
     dispararReacciones(n, n.miembros.filter(w=>w.id!==a.id&&w.bando!==a.bando), "fin_de_turno", rng, {cerca:a, victima:a, hasta:()=>a.vida<=0});
@@ -1076,7 +1079,7 @@ export function deshacer(c: Combate) {
   if(c.fase==='finalizado')throw Error("Un encuentro terminado no se puede deshacer.");
   if (c.progreso_confirmado) throw Error("El progreso ya fue aplicado a las fichas.");
   if (!previo) throw Error("No hay una acción anterior.");
-  return registrarCambiosVida(c,{ ...copia(previo), historial: h });
+  return registrarCambiosVida(c,{ ...copia(previo), evento_visual:undefined, historial: h });
 }
 export function situacionCombatiente(m:Combatiente):Situacion{return m.situacion&&m.situacion!=='activo'?m.situacion:m.vida<=0?'inconsciente':'activo';}
 export function combatienteActivo(m:Combatiente){return situacionCombatiente(m)==='activo'&&!m.neutral;}
@@ -2261,6 +2264,17 @@ function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Comba
  // Sin enfriamiento, distintas muertes durante un mismo turno sí cuentan.
  if(!r.enfriamiento)m.proximos[clave]=yo.turnos;
  log(c,`${yo.nombre} · ${r.nombre}`);
+ // Tras comprobar y pagar la regla, antes de que sus efectos cambien la posición o la forma.
+ if(typeof r.animacion?.id==='string'&&/^[a-z0-9_-]{1,120}$/.test(r.animacion.id)){
+  const p=posicionesTablero(c)[yo.id],h=huellaDe(yo);
+  const activaciones=activacionesPendientes.get(c)||[];
+  if(p&&activaciones.length<24){
+   const escala=r.animacion.escala;
+   activaciones.push({id:String(activaciones.length),animacion:r.animacion.id,posicion:{x:p.x+(h.ancho-1)/2,y:p.y+(h.alto-1)/2},
+    escala:typeof escala==='number'&&Number.isFinite(escala)&&escala>=.5&&escala<=4?escala:Math.min(4,Math.max(1.5,h.ancho,h.alto)+1)});
+   activacionesPendientes.set(c,activaciones);
+  }
+ }
  efectosMotor(r.efectos,ctx,clave);
 }
 function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
@@ -2728,7 +2742,9 @@ export function registrarCambiosVida(antes:Combate,despues:Combate):Combate{
   if(m.ultima_defensa && m.ultima_defensa.id!==antes.miembros.find(p=>p.id===m.id)?.ultima_defensa?.id)
     transformaciones.push({id:m.id,animacion:m.ultima_defensa.animacion,posicion:actuales[m.id],escala:2.8});
  }
- return {...despues,evento_visual:{id:crypto.randomUUID(),creado_en:Date.now(),nombre:despues.miembros.find(m=>m.id===despues.actual)?.nombre||'Combate',dados:[],resultado:despues.resultado,cambios_vida:cambiosVida(antes,despues),movimientos,transformaciones}};
+ const activaciones=activacionesPendientes.get(despues);
+ activacionesPendientes.delete(despues);
+ return {...despues,evento_visual:{...(activaciones?.length?{activaciones}:{}),id:crypto.randomUUID(),creado_en:Date.now(),nombre:despues.miembros.find(m=>m.id===despues.actual)?.nombre||'Combate',dados:[],resultado:despues.resultado,cambios_vida:cambiosVida(antes,despues),movimientos,transformaciones}};
 }
 
 /** Obstáculos y terrenos del encuentro; los identificadores no representan navegación mundial. */

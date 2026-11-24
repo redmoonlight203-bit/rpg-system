@@ -67,7 +67,7 @@ Deno.serve(async req=>{
    }else throw Error('Operación no permitida.');
    if(body.operacion!=='mover'){
     const quien=dirigido||m,accion=body.operacion==='actuar'?acciones(quien).find(a=>a.id===body.accion_id):undefined;
-    next.evento_visual={...next.evento_visual,id:crypto.randomUUID(),nombre:quien.nombre,dados,resultado,arma_visual:esqueletoDeAccion(quien,accion,body.accion_id),esqueleto:esqueletoVisual(accion?.efecto)};
+    next.evento_visual={...(next.evento_visual?.id!==c.evento_visual?.id?next.evento_visual:undefined),id:crypto.randomUUID(),nombre:quien.nombre,dados,resultado,arma_visual:esqueletoDeAccion(quien,accion,body.accion_id),esqueleto:esqueletoVisual(accion?.efecto)};
    }
    delete next.historial;
    mediciones.motor_ms=performance.now()-motorInicio;

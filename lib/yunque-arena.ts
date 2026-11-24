@@ -1,6 +1,6 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {vigente,type Grafo} from "./yunque-grafo";
-import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,huellaReserva,type Combate,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG,type OfertaReaccion} from "./combate";
+import {nuevoCombate,agregar,cambiarEquipo,seleccionEquipo,iniciar,siguiente,actuar,desplazar,levantarse,posicionesTablero,registrarCambiosVida,maxVida,dadoSeguro,reaccionDe,huellaReserva,type Combate,type AparicionVisual,type Combatiente,type Config,type Fuente,type MapaCombate,type Posicion,type RNG,type OfertaReaccion} from "./combate";
 import {SLOTS,validarEfectos,type Efecto,type Elemento} from "./creacion";
 import {validarReglas} from "./reglas";
 import {validarPasivas} from "./pasivas";
@@ -142,15 +142,17 @@ function recomponer(c:Combate){
  }
 }
 /** Ningún saco juega su turno: se pasan todos hasta que vuelve a tocarle al portador. */
-function pasarSaco(c:Combate,rng:RNG){
+function pasarSaco(c:Combate,rng:RNG,activaciones:AparicionVisual[]){
  let n=c;
- for(let i=0;i<2*SACOS.length+2&&n.fase==='en_curso'&&esSaco(n.actual);i++){n=siguiente(n,rng);recomponer(n);}
+ for(let i=0;i<2*SACOS.length+2&&n.fase==='en_curso'&&esSaco(n.actual);i++){n=siguiente(n,rng);recomponer(n);activaciones.push(...(n.evento_visual?.activaciones||[]));}
  return n;
 }
 /** Todo un paso de la arena es un único punto de «deshacer» del motor. */
-function unPaso(antes:Combate,despues:Combate,visual:Combate):Combate{
+function unPaso(antes:Combate,despues:Combate,visual:Combate,activaciones?:AparicionVisual[]):Combate{
  const {historial,...previo}=antes;
- return {...despues,evento_visual:visual.evento_visual,historial:[...(historial||[]),copia(previo) as Combate].slice(-10)};
+ const evento=visual.evento_visual;
+ const evento_visual=evento&&activaciones?.length?{...evento,activaciones:activaciones.slice(0,24).map((a,i)=>({...a,id:String(i)}))}:evento;
+ return {...despues,evento_visual,historial:[...(historial||[]),copia(previo) as Combate].slice(-10)};
 }
 /**
  * Acción del portador, por el mismo `actuar` que el combate de la app (con la casilla apuntada para áreas y
@@ -160,13 +162,15 @@ function unPaso(antes:Combate,despues:Combate,visual:Combate):Combate{
 export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dadoSeguro,forzar=false,centro?:Posicion,potenciadores?:Parameters<typeof actuar>[7]):Combate{
  const hecho=actuar(c,DOLL,accionId,objetivo,rng,forzar,centro,potenciadores);
  recomponer(hecho);
- const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng):hecho;
- return unPaso(c,n,hecho);
+ const activaciones=[...(hecho.evento_visual?.activaciones||[])];
+ const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng,activaciones):hecho;
+ return unPaso(c,n,hecho,activaciones);
 }
 /** «Terminar turno» (`siguiente`, como en el combate): los sacos pasan sin actuar y vuelve a tocarle al portador. Un único paso de deshacer. */
 export function turno(c:Combate,rng:RNG=dadoSeguro):Combate{
- const n=pasarSaco(siguiente(c,rng),rng);
- return unPaso(c,n,n);
+ const primero=siguiente(c,rng),activaciones=[...(primero.evento_visual?.activaciones||[])];
+ const n=pasarSaco(primero,rng,activaciones);
+ return unPaso(c,n,n,activaciones);
 }
 /** La pieza de la creación en pruebas (objeto o título) del portador, equipada o en reserva; null si la creación no es una pieza equipable. */
 function piezaDe(c:Combate):{pieza:Fuente&{ranura?:string};equipada:boolean}|null{
@@ -196,8 +200,9 @@ export function alternarPieza(c:Combate,rng:RNG=dadoSeguro):Combate{
  else sel[p.pieza.ranura||ranuraDe(p.pieza.tipo_creacion,p.pieza.slot_tipo||'')]=p.pieza.id!;
  const hecho=cambiarEquipo(c,DOLL,sel,rng);
  recomponer(hecho);
- const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng):hecho;
- return unPaso(c,n,hecho);
+ const activaciones=[...(hecho.evento_visual?.activaciones||[])];
+ const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng,activaciones):hecho;
+ return unPaso(c,n,hecho,activaciones);
 }
 /** Movimiento del portador (el mismo `desplazar` del combate): conserva su acción y su turno. */
 export function mover(c:Combate,p:Posicion):Combate{
