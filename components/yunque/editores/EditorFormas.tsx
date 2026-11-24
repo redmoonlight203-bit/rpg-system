@@ -5,7 +5,7 @@
 import {useState} from 'react';
 import LienzoNodos,{type CableLienzo,type NodoLienzo} from './LienzoNodos';
 import {Fichas,Rueda} from '../Controles';
-import {actualizarTransicion,conectar,crearForma,disposicion,quitarTransicion,validarGrafo,type Grafo,type SentidoTransicion} from '../../../lib/transformaciones-grafo';
+import {actualizarTransicion,conectar,crearForma,disposicion,formasHuerfanas,quitarTransicion,validarGrafo,type Grafo,type SentidoTransicion} from '../../../lib/transformaciones-grafo';
 
 export const MAX_FORMAS=12;
 const plural=(n:number,palabra:string)=>`${n} ${palabra}${n===1?'':'es'.slice(palabra.endsWith('r')?0:1)}`;
@@ -25,7 +25,7 @@ export function EditorFormas({grafo,onCambiar,seleccionada,onSeleccionar,plantil
  const [aviso,setAviso]=useState('');
  const celdas=disposicion(grafo);
  const error=validarGrafo(grafo);
- const huerfanas=new Set(grafo.formas.filter(f=>error?.startsWith(`${f.nombre}:`)).map(f=>f.id));
+ const huerfanas=new Set(formasHuerfanas(grafo));
  const nodos:NodoLienzo[]=grafo.formas.map(f=>({id:f.id,titulo:f.nombre,columna:celdas[f.id].columna,fila:celdas[f.id].fila,
   subtitulo:f.es_realidad?'Realidad':f.control?'Toma el control':`${plural(Object.keys(f.estadisticas).length,'atributo')} · ${plural(f.poderes.length,'poder')}`,
   icono:f.es_realidad?'yugen':f.control?'fuego':'alma',tono:f.es_realidad?'oro':f.control?'carmesi':'arcano',error:huerfanas.has(f.id)}));

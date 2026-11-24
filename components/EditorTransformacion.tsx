@@ -239,11 +239,14 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
       return {...et,stats};
     })});
   };
-  const actualizar=(id:string,etapa:EtapaTransformacion)=>onChange({...d,etapas:d.etapas.map(e=>e.id===id?{...etapa,id}:e)});
   const grafo=migrarTransformacion(d);
-  const [seleccion,setSeleccion]=useState<string>(d.etapas[0]?.id??ID_REALIDAD);
-  const elegida=d.etapas.find(e=>e.id===seleccion);
-  const indice=elegida?d.etapas.indexOf(elegida):-1;
+  // Las formas se editan sobre la definición normalizada por el grafo: datos antiguos con ids de etapa
+  // repetidos reciben sufijo (x, x_2) y así cada forma se puede seleccionar; al editar se guardan así.
+  const normal=grafoADefinicion(grafo,d);
+  const actualizar=(id:string,etapa:EtapaTransformacion)=>onChange({...normal,etapas:normal.etapas.map(e=>e.id===id?{...etapa,id}:e)});
+  const [seleccion,setSeleccion]=useState<string>(normal.etapas[0]?.id??ID_REALIDAD);
+  const elegida=normal.etapas.find(e=>e.id===seleccion);
+  const indice=elegida?normal.etapas.indexOf(elegida):-1;
   return (
     <div className="space-y-4 rounded-xl border border-violet-700 p-3 sm:p-4">
       <div className="space-y-2">
@@ -257,7 +260,7 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
       </div>
       <EditorFormas grafo={grafo} seleccionada={seleccion} onSeleccionar={setSeleccion}
         plantilla={plantillaForma(d,elegida)} onCambiar={g=>onChange(grafoADefinicion(g,d))}/>
-      {elegida?<EditorEtapa key={elegida.id} etapa={elegida} numero={indice+1} tipo={d.tipo} acciones={acciones} total={d.etapas.length}
+      {elegida?<EditorEtapa key={elegida.id} etapa={elegida} numero={indice+1} tipo={d.tipo} acciones={acciones} total={normal.etapas.length}
           onChange={siguiente=>actualizar(elegida.id,siguiente)}
           onEliminar={()=>{const r=quitarForma(grafo,elegida.id);if(r.ok){onChange(grafoADefinicion(r.grafo,d));setSeleccion(ID_REALIDAD);}}}/>
         :<p className="text-sm text-neutral-400">La forma base es el cuerpo original del personaje, con sus propias estadísticas y poderes. Selecciona otra forma para editarla, o crea una nueva.</p>}

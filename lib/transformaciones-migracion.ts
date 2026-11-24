@@ -9,6 +9,8 @@ import type {DefinicionTransformacion, EtapaTransformacion} from './transformaci
 export type GrafoTransformacion = Grafo & {posesion?: DefinicionTransformacion['posesion']};
 export type TransicionGuardada = Omit<Transicion, 'id'> & {id?: string};
 
+/** Copia profunda de datos guardados (JSON): no depende de `structuredClone`. */
+const copiar = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const realidad = (): Forma => ({id: ID_REALIDAD, nombre: 'Forma base', es_realidad: true, estadisticas: {}, poderes: []});
 
 /** La cadena lineal implícita de una definición sin transiciones. */
@@ -25,7 +27,7 @@ function formaDeEtapa(etapa: EtapaTransformacion, id: string): Forma {
     id, nombre: nombre || id, estadisticas: {...(stats || {})}, poderes: [...(habilidades || [])],
     ...(imagen_url ? {apariencia: {imagen_url}} : {}),
     ...(descontrolada ? {control: true} : {}),
-    ...(Object.keys(extra).length ? {extra: structuredClone(extra)} : {}),
+    ...(Object.keys(extra).length ? {extra: copiar(extra)} : {}),
   };
 }
 
@@ -50,7 +52,7 @@ export function migrarTransformacion(antigua: DefinicionTransformacion): GrafoTr
 
 function etapaDeForma(f: Forma): EtapaTransformacion {
   return {
-    ...(structuredClone(f.extra || {}) as Partial<EtapaTransformacion>),
+    ...(copiar(f.extra || {}) as Partial<EtapaTransformacion>),
     id: f.id, nombre: f.nombre, stats: {...f.estadisticas},
     ...(f.poderes.length ? {habilidades: [...f.poderes]} : {}),
     ...(f.apariencia?.imagen_url ? {imagen_url: f.apariencia.imagen_url} : {}),

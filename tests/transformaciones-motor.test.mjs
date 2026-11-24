@@ -194,3 +194,43 @@ test('el enfriamiento de la transformación vale para todos los destinos', () =>
  b=turno(b);
  assert.throws(()=>c.actuar(b,'a','hab:h:cambiar>humano','a',()=>20),/enfriamiento/i);
 });
+
+// Fallos menores de la revisión.
+function campoCon(def,stats={vida:30,ph:20,fatiga:10}){
+ let b=c.nuevoCombate();
+ b=c.agregar(b,{id:'a',nombre:'Vyr',forja_id:null,posicion:{x:1,y:1},stats,
+  configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre:'S',stats:{},efectos:[{...cambiar,transformacion:def}]}]}},'jugador',()=>20);
+ b=c.agregar(b,{id:'e',nombre:'E',forja_id:null,posicion:{x:8,y:6},stats:{vida:25,ph:0,fatiga:3},configuracion:{tipo_creacion:'personaje'}},'enemigo',()=>1);
+ b.regla='directo'; return c.iniciar(b,()=>1);
+}
+test('M1: usar el cambio libre no gasta la cadena del mismo grafo', () => {
+ const def={id:'mixta',nombre:'Mixta',tipo:'poder',etapas:[{id:'humano',nombre:'Humano',stats:{armadura:7}},{id:'etapa1',nombre:'Etapa 1',stats:{armadura:9}}],
+  transiciones:[{id:'a',desde:'_realidad',hasta:'humano',sentido:'ambos'},{id:'b',desde:'_realidad',hasta:'etapa1',sentido:'uno'}]};
+ let b=campoCon(def);
+ b=c.actuar(b,'a','hab:h:cambiar>humano','a',()=>20);
+ b=turno(b); b=c.actuar(b,'a','volver_forma','a',()=>20);
+ b=turno(b);
+ assert.equal(c.acciones(actor(b)).find(a=>a.id==='hab:h:cambiar>etapa1').bloqueada,undefined);
+ b=c.actuar(b,'a','hab:h:cambiar>etapa1','a',()=>20);
+ b=turno(b); b=c.actuar(b,'a','volver_forma','a',()=>20);
+ b=turno(b);
+ assert.match(c.acciones(actor(b)).find(a=>a.id==='hab:h:cambiar>etapa1').bloqueada||'',/utilizada/);
+ assert.equal(c.acciones(actor(b)).find(a=>a.id==='hab:h:cambiar>humano').bloqueada,undefined);
+});
+test('M5: el coste de volver se comprueba con las estadísticas del cuerpo original', () => {
+ const def={id:'fatigosa',nombre:'F',tipo:'poder',etapas:[{id:'bestia',nombre:'Bestia',stats:{fatiga:30}}],
+  transiciones:[{id:'a',desde:'_realidad',hasta:'bestia',sentido:'ambos',coste:{fatiga:3}}]};
+ let b=campoCon(def);
+ b=c.actuar(b,'a','hab:h:cambiar>bestia','a',()=>20);
+ b=turno(b);
+ actor(b).fatiga=9;
+ assert.throws(()=>c.actuar(b,'a','volver_forma','a',()=>20),/fatiga/i);
+});
+test('M8: no se ofrece una forma que no existe en las etapas guardadas', () => {
+ const def={id:'dup',nombre:'D',tipo:'poder',etapas:[{id:'x',nombre:'X',stats:{armadura:7}},{id:'x',nombre:'X2',stats:{armadura:9}}],
+  transiciones:[{id:'a',desde:'_realidad',hasta:'x',sentido:'ambos'},{id:'b',desde:'x',hasta:'x_2',sentido:'ambos'}]};
+ let b=campoCon(def);
+ b=c.actuar(b,'a','hab:h:cambiar>x','a',()=>20);
+ b=turno(b);
+ assert.ok(!c.acciones(actor(b)).some(a=>a.id==='hab:h:cambiar>x_2'));
+});

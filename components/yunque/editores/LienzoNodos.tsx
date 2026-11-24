@@ -3,7 +3,7 @@
 // módulos de un ojo. Cada nodo ocupa una celda fija de una rejilla (columna, fila), así que nunca se
 // superponen. Se conecta arrastrando desde el puerto ◆ de un nodo hasta otro, o pulsando el puerto y
 // después el nodo de destino (teclado y pantallas táctiles).
-import {useRef,useState,type PointerEvent as EventoPuntero} from 'react';
+import {useEffect,useRef,useState,type PointerEvent as EventoPuntero} from 'react';
 import IconoYugen from '../../IconoYugen';
 import './lienzo-nodos.css';
 
@@ -34,7 +34,17 @@ type Props={nodos:NodoLienzo[];cables:CableLienzo[];etiqueta:string;seleccionado
 export default function LienzoNodos({nodos,cables,etiqueta,seleccionado,cableSeleccionado,onSeleccionar,onSeleccionarCable,onConectar,puedeConectar}:Props){
  const caja=useRef<HTMLDivElement>(null);
  const [origen,setOrigen]=useState<string|null>(null);
+ /** Pulsar el ◆ del nodo que ya está conectando cancela la conexión. */
+ const cancelar=useRef(false);
  const [cursor,setCursor]=useState<{x:number;y:number}|null>(null);
+ const arrastrando=cursor!==null;
+ // Un arrastre que se suelta fuera del lienzo se cancela (si se suelta dentro, el lienzo ya lo resolvió).
+ useEffect(()=>{
+  if(!arrastrando)return;
+  const cancelar=()=>{setOrigen(null);setCursor(null);};
+  window.addEventListener('pointerup',cancelar);window.addEventListener('pointercancel',cancelar);
+  return ()=>{window.removeEventListener('pointerup',cancelar);window.removeEventListener('pointercancel',cancelar);};
+ },[arrastrando]);
  const porId=new Map(nodos.map(n=>[n.id,n]));
  const columnas=Math.max(1,...nodos.map(n=>n.columna+1)),filas=Math.max(1,...nodos.map(n=>n.fila+1));
  const ancho=MARGEN*2+(columnas-1)*PASO_X+ANCHO,alto=MARGEN*2+(filas-1)*PASO_Y+ALTO;
@@ -80,8 +90,8 @@ export default function LienzoNodos({nodos,cables,etiqueta,seleccionado,cableSel
      <span><strong>{n.titulo}</strong>{n.subtitulo&&<small>{n.subtitulo}</small>}</span>
     </button>
     {conectable(n.id)&&<button type="button" className={`ln-puerto${origen===n.id?' is-activo':''}`} aria-label={origen===n.id?'Cancelar conexión':`Conectar desde ${n.titulo}`} title="Arrastra hasta otro nodo, o pulsa y elige el destino"
-     onPointerDown={e=>{e.preventDefault();e.currentTarget.releasePointerCapture?.(e.pointerId);setOrigen(n.id);setCursor(local(e));}}
-     onClick={()=>{if(cursor)return;setOrigen(origen===n.id?null:n.id);}}>◆</button>}
+     onPointerDown={e=>{e.preventDefault();cancelar.current=origen===n.id;if(cancelar.current)return;e.currentTarget.releasePointerCapture?.(e.pointerId);setOrigen(n.id);setCursor(local(e));}}
+     onClick={()=>{if(cancelar.current){cancelar.current=false;setOrigen(null);setCursor(null);return;}if(cursor)return;setOrigen(n.id);}}>◆</button>}
    </div>;})}
   </div>
   </div>

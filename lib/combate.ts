@@ -1332,7 +1332,8 @@ function opcionesDeForma(m:Combatiente,a:Accion,d:DefinicionTransformacion):Acci
   const activa=m.transformacion;
   if(activa&&activa.definicion_id!==d.id)return [{...a,bloqueada:'Otra transformación está activa.'}];
   const g=migrarTransformacion(d),desde=activa?activa.etapa_id:ID_REALIDAD;
-  const destinos=formasAlcanzables(g,desde).filter(id=>id!==ID_REALIDAD);
+  // Solo formas guardadas: datos antiguos con ids repetidos se ven con sufijo en el grafo, pero no existen en el motor.
+  const destinos=formasAlcanzables(g,desde).filter(id=>id!==ID_REALIDAD&&d.etapas.some(e=>e.id===id));
   if(!destinos.length)return activa?[]:[{...a,bloqueada:'No hay ninguna forma conectada a la realidad.'}];
   return destinos.map(id=>{
     const f=g.formas.find(x=>x.id===id)!,t=transicionEntre(g,desde,id);
@@ -1340,12 +1341,14 @@ function opcionesDeForma(m:Combatiente,a:Accion,d:DefinicionTransformacion):Acci
     const bloqueada=f.control?'Esta forma solo se manifiesta al perder el control.'
       :d.tipo==='forma'&&m.vidas_formas?.[claveVidaForma(d.id,id)]===0?'Forma rota: no puede volver a ella en este encuentro.'
       :(m.cooldowns?.[a.id]||0)>0?'Habilidad en enfriamiento.'
-      :!activa&&t?.sentido==='uno'&&m.transformaciones_usadas?.includes(d.id)?'Ya utilizada en este encuentro.':undefined;
+      :!activa&&t?.sentido==='uno'&&m.transformaciones_usadas?.includes(usoCadena(d.id,id))?'Ya utilizada en este encuentro.':undefined;
     return {...a,id:`${a.id}>${id}`,nombre:activa?`Cambiar a ${f.nombre}`:`${a.nombre} · ${f.nombre}`,forma_destino:id,
       efecto:{...a.efecto,coste_ph:ph,coste_fatiga:fatiga},...(bloqueada?{bloqueada}:{})};
   });
 }
 const claveVidaForma=(defId:string,etapa:string)=>`${defId}:${etapa}`;
+/** Marca de uso de una cadena de un grafo: por transformación y forma de entrada. */
+const usoCadena=(defId:string,destino:string)=>`${defId}>${destino}`;
 /** En una transformación por grafo de tipo forma, cada forma tiene su propia barra de vida
  * durante el encuentro: al salir de ella se guarda lo que le quedaba (0 si se rompió). */
 function guardarVidaForma(m:Combatiente,vida=m.vida){
@@ -1620,7 +1623,7 @@ function actuarBase(
     a.accion_usada=true;
     return n;
   }
-  if(accionId==='volver_forma'){if(!a.transformacion)throw Error('No hay transformación activa.');const vuelta=costeVuelta(a);if(vuelta.fatiga&&(a.agotado||a.fatiga+vuelta.fatiga>(estadisticas(a).fatiga||0)))throw Error('Fatiga insuficiente para volver.');if(phDisponibles(a)<vuelta.ph)throw Error('PH insuficientes para volver.');guardarVidaForma(a);Object.assign(a,terminarTransformacion(a));a.ph-=vuelta.ph;a.fatiga+=vuelta.fatiga;if(vuelta.fatiga)a.uso_fatiga=true;normalizar(a);a.accion_usada=true;log(n,`${a.nombre} vuelve a su cuerpo original.`);return n;}
+  if(accionId==='volver_forma'){if(!a.transformacion)throw Error('No hay transformación activa.');const vuelta=costeVuelta(a),cuerpo={...a,...terminarTransformacion(a)};/* el coste se paga con el cuerpo original: sus límites mandan */if(vuelta.fatiga&&(a.agotado||a.fatiga+vuelta.fatiga>(estadisticas(cuerpo).fatiga||0)))throw Error('Fatiga insuficiente para volver.');if(phDisponibles(cuerpo)<vuelta.ph)throw Error('PH insuficientes para volver.');guardarVidaForma(a);Object.assign(a,terminarTransformacion(a));a.ph-=vuelta.ph;a.fatiga+=vuelta.fatiga;if(vuelta.fatiga)a.uso_fatiga=true;normalizar(a);a.accion_usada=true;log(n,`${a.nombre} vuelve a su cuerpo original.`);return n;}
   if (accionId === "guardia") {
     // Concepto básico «Guardia» (Apéndice D · B): por defecto +2 ARM hasta su siguiente turno, como siempre.
     const g = conceptosDe(a).guardia, manos = Object.values(piezas(a));
@@ -1660,9 +1663,12 @@ function actuarBase(
         restaurarVidaForma(a,d,destino);
         log(n,`${a.nombre} cambia a ${nombre}.`);
       }else{
-        // El cambio libre se puede repetir: la marca de uso solo bloquea las cadenas (ver opcionesDeForma).
-        const libre={...a,transformaciones_usadas:(a.transformaciones_usadas||[]).filter(x=>x!==d.id)};
+        // El cambio libre se puede repetir; solo la entrada a una cadena («uno») se marca como usada,
+        // por destino, para que usar una parte del grafo no gaste la otra (ver opcionesDeForma).
+        const usadas=a.transformaciones_usadas||[],libre={...a,transformaciones_usadas:usadas.filter(x=>x!==d.id)};
         if(!aplicarFormaConEspacio(n,a,activarTransformacion(libre,{...d,coste_ph:ph,duracion_turnos:act.efecto.duracion||d.duracion_turnos},destino),rng))throw Error('No hay espacio para esa transformación.');
+        const entrada=transicionEntre(migrarTransformacion(d),ID_REALIDAD,destino);
+        a.transformaciones_usadas=entrada?.sentido==='uno'?[...usadas.filter(x=>x!==d.id),usoCadena(d.id,destino)]:usadas.filter(x=>x!==d.id);
         restaurarVidaForma(a,d,destino);
         log(n,`${a.nombre} activa ${d.nombre}: ${nombre}.`);
       }

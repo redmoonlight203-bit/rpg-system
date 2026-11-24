@@ -307,17 +307,29 @@ function conectar(grafo, desde, hasta, sentido) {
     return { ok: true, id, grafo: { ...grafo, transiciones: [...grafo.transiciones, { id, desde, hasta, sentido }] } };
 }
 /** Formas a las que se llega desde la realidad siguiendo transiciones. */
+/** Las formas que toman el control se alcanzan solas (posesión), sin cable; y desde
+ * ellas no se sigue avanzando, porque el jugador no puede actuar mientras dominan. */
 function alcanzablesDesdeRealidad(grafo, realidad) {
-    const vistos = new Set([realidad]), cola = [realidad];
+    const control = new Set(grafo.formas.filter(f => f.control).map(f => f.id));
+    const vistos = new Set([realidad, ...control]), cola = [realidad];
     while (cola.length) {
         const actual = cola.shift();
         for (const siguiente of salidas(grafo, actual))
             if (!vistos.has(siguiente)) {
                 vistos.add(siguiente);
-                cola.push(siguiente);
+                if (!control.has(siguiente))
+                    cola.push(siguiente);
             }
     }
     return vistos;
+}
+/** Ids de las formas a las que no se puede llegar desde la realidad (todas). */
+function formasHuerfanas(grafo) {
+    const realidad = grafo.formas.find(f => f.es_realidad);
+    if (!realidad)
+        return [];
+    const alcanzables = alcanzablesDesdeRealidad(grafo, realidad.id);
+    return grafo.formas.filter(f => !alcanzables.has(f.id)).map(f => f.id);
 }
 /** Destinos directos de una forma según las transiciones dibujadas. */
 function salidas(grafo, desde) {
@@ -348,10 +360,9 @@ function validarGrafo(grafo) {
     }
     if (grafo.transiciones.length > 100)
         return 'Máximo 100 transiciones por transformación.';
-    const alcanzables = alcanzablesDesdeRealidad(grafo, realidades[0].id);
-    const huerfana = grafo.formas.find(f => !alcanzables.has(f.id));
-    if (huerfana)
-        return `${huerfana.nombre}: no hay ninguna transición que lleve a esta forma.`;
+    const huerfanas = formasHuerfanas(grafo).map(id => grafo.formas.find(f => f.id === id).nombre);
+    if (huerfanas.length)
+        return `${huerfanas.join(', ')}: no hay ninguna transición que lleve a ${huerfanas.length === 1 ? 'esta forma' : 'estas formas'}.`;
     return null;
 }
 /** Formas a las que se puede ir en un paso desde `desde`. Las cadenas no se
@@ -493,17 +504,29 @@ function conectar(grafo, desde, hasta, sentido) {
     return { ok: true, id, grafo: { ...grafo, transiciones: [...grafo.transiciones, { id, desde, hasta, sentido }] } };
 }
 /** Formas a las que se llega desde la realidad siguiendo transiciones. */
+/** Las formas que toman el control se alcanzan solas (posesión), sin cable; y desde
+ * ellas no se sigue avanzando, porque el jugador no puede actuar mientras dominan. */
 function alcanzablesDesdeRealidad(grafo, realidad) {
-    const vistos = new Set([realidad]), cola = [realidad];
+    const control = new Set(grafo.formas.filter(f => f.control).map(f => f.id));
+    const vistos = new Set([realidad, ...control]), cola = [realidad];
     while (cola.length) {
         const actual = cola.shift();
         for (const siguiente of salidas(grafo, actual))
             if (!vistos.has(siguiente)) {
                 vistos.add(siguiente);
-                cola.push(siguiente);
+                if (!control.has(siguiente))
+                    cola.push(siguiente);
             }
     }
     return vistos;
+}
+/** Ids de las formas a las que no se puede llegar desde la realidad (todas). */
+function formasHuerfanas(grafo) {
+    const realidad = grafo.formas.find(f => f.es_realidad);
+    if (!realidad)
+        return [];
+    const alcanzables = alcanzablesDesdeRealidad(grafo, realidad.id);
+    return grafo.formas.filter(f => !alcanzables.has(f.id)).map(f => f.id);
 }
 /** Destinos directos de una forma según las transiciones dibujadas. */
 function salidas(grafo, desde) {
@@ -534,10 +557,9 @@ function validarGrafo(grafo) {
     }
     if (grafo.transiciones.length > 100)
         return 'Máximo 100 transiciones por transformación.';
-    const alcanzables = alcanzablesDesdeRealidad(grafo, realidades[0].id);
-    const huerfana = grafo.formas.find(f => !alcanzables.has(f.id));
-    if (huerfana)
-        return `${huerfana.nombre}: no hay ninguna transición que lleve a esta forma.`;
+    const huerfanas = formasHuerfanas(grafo).map(id => grafo.formas.find(f => f.id === id).nombre);
+    if (huerfanas.length)
+        return `${huerfanas.join(', ')}: no hay ninguna transición que lleve a ${huerfanas.length === 1 ? 'esta forma' : 'estas formas'}.`;
     return null;
 }
 /** Formas a las que se puede ir en un paso desde `desde`. Las cadenas no se
@@ -622,6 +644,8 @@ function disposicion(grafo) {
 
 return { ID_REALIDAD, idLibre };
 })();
+/** Copia profunda de datos guardados (JSON): no depende de `structuredClone`. */
+const copiar = (v) => JSON.parse(JSON.stringify(v));
 const realidad = () => ({ id: ID_REALIDAD, nombre: 'Forma base', es_realidad: true, estadisticas: {}, poderes: [] });
 /** La cadena lineal implícita de una definición sin transiciones. */
 function cadenaLineal(ids) {
@@ -636,7 +660,7 @@ function formaDeEtapa(etapa, id) {
         id, nombre: nombre || id, estadisticas: { ...(stats || {}) }, poderes: [...(habilidades || [])],
         ...(imagen_url ? { apariencia: { imagen_url } } : {}),
         ...(descontrolada ? { control: true } : {}),
-        ...(Object.keys(extra).length ? { extra: structuredClone(extra) } : {}),
+        ...(Object.keys(extra).length ? { extra: copiar(extra) } : {}),
     };
 }
 /** Convierte una transformación guardada en grafo. Nunca falla: sin etapas
@@ -660,7 +684,7 @@ function migrarTransformacion(antigua) {
 }
 function etapaDeForma(f) {
     return {
-        ...structuredClone(f.extra || {}),
+        ...copiar(f.extra || {}),
         id: f.id, nombre: f.nombre, stats: { ...f.estadisticas },
         ...(f.poderes.length ? { habilidades: [...f.poderes] } : {}),
         ...(f.apariencia?.imagen_url ? { imagen_url: f.apariencia.imagen_url } : {}),
@@ -3448,7 +3472,8 @@ function opcionesDeForma(m, a, d) {
     if (activa && activa.definicion_id !== d.id)
         return [{ ...a, bloqueada: 'Otra transformación está activa.' }];
     const g = migrarTransformacion(d), desde = activa ? activa.etapa_id : ID_REALIDAD;
-    const destinos = formasAlcanzables(g, desde).filter(id => id !== ID_REALIDAD);
+    // Solo formas guardadas: datos antiguos con ids repetidos se ven con sufijo en el grafo, pero no existen en el motor.
+    const destinos = formasAlcanzables(g, desde).filter(id => id !== ID_REALIDAD && d.etapas.some(e => e.id === id));
     if (!destinos.length)
         return activa ? [] : [{ ...a, bloqueada: 'No hay ninguna forma conectada a la realidad.' }];
     return destinos.map(id => {
@@ -3457,12 +3482,14 @@ function opcionesDeForma(m, a, d) {
         const bloqueada = f.control ? 'Esta forma solo se manifiesta al perder el control.'
             : d.tipo === 'forma' && m.vidas_formas?.[claveVidaForma(d.id, id)] === 0 ? 'Forma rota: no puede volver a ella en este encuentro.'
                 : (m.cooldowns?.[a.id] || 0) > 0 ? 'Habilidad en enfriamiento.'
-                    : !activa && t?.sentido === 'uno' && m.transformaciones_usadas?.includes(d.id) ? 'Ya utilizada en este encuentro.' : undefined;
+                    : !activa && t?.sentido === 'uno' && m.transformaciones_usadas?.includes(usoCadena(d.id, id)) ? 'Ya utilizada en este encuentro.' : undefined;
         return { ...a, id: `${a.id}>${id}`, nombre: activa ? `Cambiar a ${f.nombre}` : `${a.nombre} · ${f.nombre}`, forma_destino: id,
             efecto: { ...a.efecto, coste_ph: ph, coste_fatiga: fatiga }, ...(bloqueada ? { bloqueada } : {}) };
     });
 }
 const claveVidaForma = (defId, etapa) => `${defId}:${etapa}`;
+/** Marca de uso de una cadena de un grafo: por transformación y forma de entrada. */
+const usoCadena = (defId, destino) => `${defId}>${destino}`;
 /** En una transformación por grafo de tipo forma, cada forma tiene su propia barra de vida
  * durante el encuentro: al salir de ella se guarda lo que le quedaba (0 si se rompió). */
 function guardarVidaForma(m, vida = m.vida) {
@@ -3790,10 +3817,10 @@ function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, auton
     if (accionId === 'volver_forma') {
         if (!a.transformacion)
             throw Error('No hay transformación activa.');
-        const vuelta = costeVuelta(a);
-        if (vuelta.fatiga && (a.agotado || a.fatiga + vuelta.fatiga > (estadisticas(a).fatiga || 0)))
+        const vuelta = costeVuelta(a), cuerpo = { ...a, ...terminarTransformacion(a) }; /* el coste se paga con el cuerpo original: sus límites mandan */
+        if (vuelta.fatiga && (a.agotado || a.fatiga + vuelta.fatiga > (estadisticas(cuerpo).fatiga || 0)))
             throw Error('Fatiga insuficiente para volver.');
-        if (phDisponibles(a) < vuelta.ph)
+        if (phDisponibles(cuerpo) < vuelta.ph)
             throw Error('PH insuficientes para volver.');
         guardarVidaForma(a);
         Object.assign(a, terminarTransformacion(a));
@@ -3863,10 +3890,13 @@ function actuarBase(c, actorId, accionId, objetivoId, rng, forzar, centro, auton
                 log(n, `${a.nombre} cambia a ${nombre}.`);
             }
             else {
-                // El cambio libre se puede repetir: la marca de uso solo bloquea las cadenas (ver opcionesDeForma).
-                const libre = { ...a, transformaciones_usadas: (a.transformaciones_usadas || []).filter(x => x !== d.id) };
+                // El cambio libre se puede repetir; solo la entrada a una cadena («uno») se marca como usada,
+                // por destino, para que usar una parte del grafo no gaste la otra (ver opcionesDeForma).
+                const usadas = a.transformaciones_usadas || [], libre = { ...a, transformaciones_usadas: usadas.filter(x => x !== d.id) };
                 if (!aplicarFormaConEspacio(n, a, activarTransformacion(libre, { ...d, coste_ph: ph, duracion_turnos: act.efecto.duracion || d.duracion_turnos }, destino), rng))
                     throw Error('No hay espacio para esa transformación.');
+                const entrada = transicionEntre(migrarTransformacion(d), ID_REALIDAD, destino);
+                a.transformaciones_usadas = entrada?.sentido === 'uno' ? [...usadas.filter(x => x !== d.id), usoCadena(d.id, destino)] : usadas.filter(x => x !== d.id);
                 restaurarVidaForma(a, d, destino);
                 log(n, `${a.nombre} activa ${d.nombre}: ${nombre}.`);
             }

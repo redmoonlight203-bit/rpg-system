@@ -117,3 +117,17 @@ test('quitar un eslabón de una cadena une el anterior con el siguiente', () => 
   assert.deepEqual(r.grafo.transiciones.map(t=>`${t.desde}>${t.hasta}:${t.sentido}`),['r>a:uno','a>c:uno']);
   assert.equal(validarGrafo(r.grafo),null);
 });
+
+const {formasHuerfanas}=cargarDependencia('transformaciones-grafo');
+test('M3: una forma que toma el control no necesita cable; tras ella no se llega a nada', () => {
+  const f=(id,extra={})=>({id,nombre:id,estadisticas:{},poderes:[],...extra});
+  const sinCable={formas:[f('r',{es_realidad:true}),f('gigante',{control:true})],transiciones:[]};
+  assert.equal(validarGrafo(sinCable),null);
+  const trasControl={formas:[f('r',{es_realidad:true}),f('gigante',{control:true}),f('oculta')],transiciones:[{id:'1',desde:'gigante',hasta:'oculta',sentido:'uno'}]};
+  assert.match(validarGrafo(trasControl)||'',/oculta/);
+});
+test('M6: las formas huérfanas se identifican por id, todas', () => {
+  const f=(id,nombre)=>({id,nombre,estadisticas:{},poderes:[]});
+  const g={formas:[{...f('r','R'),es_realidad:true},f('a','Igual'),f('b','Igual'),f('c','Otra')],transiciones:[{id:'1',desde:'r',hasta:'a',sentido:'ambos'}]};
+  assert.deepEqual([...formasHuerfanas(g)],['b','c']);
+});

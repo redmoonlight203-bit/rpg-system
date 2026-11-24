@@ -74,13 +74,23 @@ export function conectar(grafo: Grafo, desde: string, hasta: string, sentido: Se
 }
 
 /** Formas a las que se llega desde la realidad siguiendo transiciones. */
+/** Las formas que toman el control se alcanzan solas (posesión), sin cable; y desde
+ * ellas no se sigue avanzando, porque el jugador no puede actuar mientras dominan. */
 function alcanzablesDesdeRealidad(grafo: Grafo, realidad: string): Set<string> {
-  const vistos = new Set([realidad]), cola = [realidad];
+  const control = new Set(grafo.formas.filter(f => f.control).map(f => f.id));
+  const vistos = new Set([realidad, ...control]), cola = [realidad];
   while (cola.length) {
     const actual = cola.shift()!;
-    for (const siguiente of salidas(grafo, actual)) if (!vistos.has(siguiente)) { vistos.add(siguiente); cola.push(siguiente); }
+    for (const siguiente of salidas(grafo, actual)) if (!vistos.has(siguiente)) { vistos.add(siguiente); if (!control.has(siguiente)) cola.push(siguiente); }
   }
   return vistos;
+}
+/** Ids de las formas a las que no se puede llegar desde la realidad (todas). */
+export function formasHuerfanas(grafo: Grafo): string[] {
+  const realidad = grafo.formas.find(f => f.es_realidad);
+  if (!realidad) return [];
+  const alcanzables = alcanzablesDesdeRealidad(grafo, realidad.id);
+  return grafo.formas.filter(f => !alcanzables.has(f.id)).map(f => f.id);
 }
 /** Destinos directos de una forma según las transiciones dibujadas. */
 function salidas(grafo: Grafo, desde: string): string[] {
@@ -105,9 +115,8 @@ export function validarGrafo(grafo: Grafo): string | null {
       return 'El coste de una transición va de 0 a 1000 PH o fatiga.';
   }
   if (grafo.transiciones.length > 100) return 'Máximo 100 transiciones por transformación.';
-  const alcanzables = alcanzablesDesdeRealidad(grafo, realidades[0].id);
-  const huerfana = grafo.formas.find(f => !alcanzables.has(f.id));
-  if (huerfana) return `${huerfana.nombre}: no hay ninguna transición que lleve a esta forma.`;
+  const huerfanas = formasHuerfanas(grafo).map(id => grafo.formas.find(f => f.id === id)!.nombre);
+  if (huerfanas.length) return `${huerfanas.join(', ')}: no hay ninguna transición que lleve a ${huerfanas.length === 1 ? 'esta forma' : 'estas formas'}.`;
   return null;
 }
 
