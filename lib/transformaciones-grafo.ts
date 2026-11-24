@@ -15,6 +15,8 @@ export type Forma = {
   estadisticas: Record<string, number>;
   poderes: string[];
   apariencia?: {imagen_url?: string};
+  /** Datos de la etapa que el grafo no edita (huella, vfx, pasivas, ojo…). Se conservan tal cual. */
+  extra?: Record<string, unknown>;
 };
 export type SentidoTransicion = 'ambos' | 'uno';
 export type Transicion = {
@@ -26,6 +28,8 @@ export type Transicion = {
   condicion?: unknown;
 };
 export type Grafo = {formas: Forma[]; transiciones: Transicion[]};
+/** Id reservado de la realidad (el cuerpo original). `slugForma` nunca lo produce. */
+export const ID_REALIDAD = '_realidad';
 type Resultado<T> = ({ok: true; grafo: Grafo} & T) | {ok: false; error: string};
 
 export function slugForma(nombre: string): string {
