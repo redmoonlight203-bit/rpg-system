@@ -32,6 +32,7 @@ export default function NavegacionMovil({ gm = false }: { gm?: boolean }) {
     { href: "/dm/recompensas", label: "Botín, logros y títulos", icon: Sparkles },
     { href: "/dm/experiencia", label: "Experiencia", icon: TrendingUp },
     { href: "/dm/reglas", label: "Estadísticas y reglas", icon: Sliders },
+    { href: "/dm/estados", label: "Grimorio de estados y elementos", icon: Sparkles },
     { href: "/dm/arbol", label: "Árboles de habilidades", icon: Sparkles },
     { href: "/dm/tienda-almas", label: "Tienda de almas", icon: Users },
     { href: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },

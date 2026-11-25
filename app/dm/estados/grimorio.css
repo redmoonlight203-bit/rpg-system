@@ -1,0 +1,188 @@
+/* Grimorio de estados: cartas-talismán con aura, taller con vista previa viva y muñeco de pruebas. */
+.ge-pagina{display:grid;gap:20px;min-width:0}
+.ge-alerta{margin:0;color:var(--color-danger-text)}
+.ge-aviso{margin:0;color:var(--color-gold-soft)}
+.ge-ok{margin:0;color:var(--color-success-text)}
+.ge-pista{margin:0;color:var(--color-text-muted);font-size:14px}
+
+.ge-pagina .ge-boton,.ge-taller .ge-boton{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 16px;border:1px solid var(--color-gold);border-radius:2px;background:transparent;color:var(--color-gold-soft);font:600 14px var(--font-sans);cursor:pointer;transition:background .2s,transform .15s}
+.ge-boton:hover:not(:disabled){background:var(--color-ember);transform:translateY(-1px)}
+.ge-boton:disabled{opacity:.45;cursor:not-allowed}
+.ge-boton.is-principal{background:linear-gradient(135deg,var(--color-gold-bright),var(--color-gold));color:var(--color-ink);box-shadow:0 0 18px color-mix(in srgb,var(--color-gold) 35%,transparent)}
+.ge-boton.is-principal:hover:not(:disabled){background:linear-gradient(135deg,#fff1cc,var(--color-gold-bright))}
+.ge-boton.is-peligro{border-color:var(--color-crimson);color:var(--color-danger-text)}
+
+/* Filtros */
+.ge-filtros{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.ge-buscar{display:flex;align-items:center;gap:8px;flex:1 1 220px;max-width:340px;min-height:44px;padding:0 12px;border:1px solid var(--color-line);border-radius:2px;background:var(--color-well);color:var(--color-text-muted)}
+.ge-buscar input{flex:1;min-width:0;border:0;background:transparent;color:var(--color-text);font:15px var(--font-sans);outline:none}
+.ge-buscar:focus-within{border-color:var(--color-gold)}
+.ge-cats{display:flex;flex-wrap:wrap;gap:6px}
+.ge-cats button{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:4px 12px;border:1px solid var(--color-line);border-radius:99px;background:var(--color-well);color:var(--color-text-muted);font:13px var(--font-sans);cursor:pointer;transition:all .2s}
+.ge-cats button i{width:9px;height:9px;border-radius:50%;background:var(--aura);box-shadow:0 0 8px var(--aura)}
+.ge-cats button[aria-pressed=true]{border-color:var(--aura,var(--color-gold));color:var(--color-text);background:color-mix(in srgb,var(--aura,var(--color-gold)) 16%,var(--color-well))}
+
+/* Rejilla de cartas */
+.ge-rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:18px;min-width:0}
+.ge-aparece{animation:ge-aparece .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--d,0) * 45ms);min-width:0}
+@keyframes ge-aparece{from{opacity:0;transform:translateY(14px) rotate(-2deg) scale(.96)}}
+.ge-vacio-grimorio{grid-column:1/-1}
+
+/* Carta-talismán */
+.ge-carta{--aura:var(--color-gold-soft);position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;min-height:236px;padding:22px 14px 14px;border:1px solid color-mix(in srgb,var(--aura) 55%,var(--color-line));border-radius:6px;
+ background:radial-gradient(120% 70% at 50% 0%,color-mix(in srgb,var(--aura) 22%,transparent),transparent 65%),linear-gradient(180deg,var(--color-raised),var(--color-well));
+ color:var(--color-text);text-align:center;font:inherit;overflow:hidden;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
+button.ge-carta{cursor:pointer}
+.ge-carta::before{content:'';position:absolute;inset:6px;border:1px dashed color-mix(in srgb,var(--aura) 30%,transparent);border-radius:4px;pointer-events:none}
+.ge-aura{position:absolute;z-index:-1;left:50%;top:58px;width:120px;height:120px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,color-mix(in srgb,var(--aura) 45%,transparent),transparent 70%);filter:blur(6px);animation:ge-respira 4s ease-in-out infinite}
+@keyframes ge-respira{50%{transform:translate(-50%,-50%) scale(1.18);opacity:.7}}
+button.ge-carta:hover,button.ge-carta:focus-visible{transform:translateY(-6px) rotate(-.6deg);box-shadow:0 12px 30px -8px color-mix(in srgb,var(--aura) 60%,transparent),0 0 0 1px var(--aura)}
+button.ge-carta:hover .ge-icono{animation-duration:1.4s}
+.ge-sello{position:absolute;top:8px;right:10px;display:grid;place-items:center;width:26px;height:26px;border:1.5px solid var(--color-crimson);border-radius:3px;color:var(--color-crimson);font:600 15px var(--font-serif-kr,serif);transform:rotate(8deg);opacity:.85}
+.ge-base{position:absolute;top:10px;left:10px;padding:1px 7px;border-radius:99px;background:color-mix(in srgb,var(--color-gold) 22%,transparent);color:var(--color-gold-soft);font:600 10px var(--font-display);letter-spacing:.14em;text-transform:uppercase}
+.ge-icono{display:grid;place-items:center;width:72px;height:72px;margin-top:4px;color:var(--aura);filter:drop-shadow(0 0 8px var(--aura));animation:ge-flota 3.2s ease-in-out infinite}
+@keyframes ge-flota{50%{transform:translateY(-5px)}}
+.ge-nombre{font:600 16px/1.2 var(--font-display);letter-spacing:.04em;color:var(--color-gold-bright);overflow-wrap:anywhere}
+.ge-meta{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--color-text-muted)}
+.ge-dur{padding:1px 7px;border:1px solid var(--color-line);border-radius:99px}
+.ge-poder{display:flex;gap:4px}
+.ge-poder i{width:8px;height:8px;transform:rotate(45deg);border:1px solid color-mix(in srgb,var(--aura) 60%,transparent)}
+.ge-poder i.is-on{background:var(--aura);box-shadow:0 0 6px var(--aura)}
+.ge-pips{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin-top:auto}
+.ge-pip{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:color-mix(in srgb,var(--aura) 16%,var(--color-well));color:var(--color-text);border:1px solid color-mix(in srgb,var(--aura) 40%,transparent)}
+.ge-vacio{font-size:11px;font-style:italic;color:var(--color-text-muted)}
+.ge-accion-pie{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--color-gold-soft);opacity:.7}
+button.ge-carta:hover .ge-accion-pie{opacity:1}
+.ge-carta.is-grande{min-height:0;padding:28px 20px 18px}
+.ge-carta.is-grande .ge-aura{top:72px;width:170px;height:170px}
+.ge-carta.is-grande .ge-icono{width:96px;height:96px}
+.ge-carta.is-grande .ge-nombre{font-size:21px}
+.ge-frase{margin:6px 0 0;font:italic 13px/1.45 var(--font-serif,var(--font-sans));color:var(--color-parchment)}
+
+/* Carta «nueva» */
+.ge-nueva{justify-content:center;border-style:dashed;background:repeating-linear-gradient(135deg,transparent 0 10px,color-mix(in srgb,var(--color-gold) 5%,transparent) 10px 20px),var(--color-well)}
+.ge-nueva::before{display:none}
+.ge-nueva small{color:var(--color-text-muted);font-size:12px}
+.ge-nueva-cruz{display:grid;place-items:center;width:64px;height:64px;border:1px solid var(--color-gold);border-radius:50%;color:var(--color-gold-soft);transition:transform .4s}
+.ge-nueva:hover .ge-nueva-cruz{transform:rotate(90deg) scale(1.08);box-shadow:0 0 20px color-mix(in srgb,var(--color-gold) 45%,transparent)}
+
+/* Taller (modal) */
+.ge-velo{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#05040a 78%,transparent);backdrop-filter:blur(4px);animation:ge-velo .25s ease both}
+@keyframes ge-velo{from{opacity:0}}
+.ge-taller{display:flex;flex-direction:column;width:min(1120px,100%);max-height:calc(100dvh - 32px);border:1px solid color-mix(in srgb,var(--aura) 50%,var(--color-line));border-radius:6px;background:var(--color-canvas);box-shadow:0 0 60px -10px color-mix(in srgb,var(--aura) 45%,transparent);animation:ge-abre .35s cubic-bezier(.2,.8,.2,1) both;overflow:hidden}
+@keyframes ge-abre{from{opacity:0;transform:translateY(20px) scale(.97)}}
+.ge-taller-cab{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--color-line)}
+.ge-taller-cab h2{margin:0;font:600 18px var(--font-display);letter-spacing:.08em;color:var(--color-gold-bright)}
+.ge-taller .ge-cerrar{display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:var(--color-text-muted);cursor:pointer}
+.ge-cerrar:hover{background:var(--color-overlay);color:var(--color-text)}
+.ge-taller-cuerpo{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:20px;padding:18px;overflow:auto;min-height:0}
+.ge-vista{display:grid;gap:14px;align-content:start;min-width:0}
+.ge-vista-carta{position:relative}
+.ge-editor{min-width:0}
+.ge-taller.yugen-page{min-height:0}
+.ge-editor .yq-campo .yq-rueda{justify-self:start}
+/* Reutiliza los controles del Yunque sin su rejilla de tres columnas. */
+.ge-editor.yq-taller{display:block;height:auto;min-height:0;background:transparent}
+.ge-editor .yq-estado-editor{max-width:none}
+.ge-editor .yq-campo{max-width:none}
+.ge-taller-pie{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid var(--color-line)}
+.ge-botones{display:flex;flex-wrap:wrap;gap:10px;margin-left:auto}
+.ge-sellado{position:absolute;right:14px;bottom:14px;display:grid;place-items:center;width:58px;height:58px;border:3px solid var(--color-crimson);border-radius:6px;color:var(--color-crimson);font:700 32px var(--font-serif-kr,serif);background:color-mix(in srgb,var(--color-crimson) 10%,transparent);animation:ge-sella .55s cubic-bezier(.3,1.6,.5,1) both;pointer-events:none}
+@keyframes ge-sella{from{opacity:0;transform:scale(2.4) rotate(-25deg)}to{opacity:.92;transform:scale(1) rotate(-8deg)}}
+
+/* Paleta de aura */
+.ge-paleta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0;padding:0;border:0}
+.ge-paleta legend{margin-bottom:6px;font:600 11px var(--font-display);letter-spacing:.16em;text-transform:uppercase;color:var(--color-gold-soft)}
+.ge-taller .ge-paleta button{flex:none;width:28px;height:28px;min-height:0;padding:0;border:2px solid transparent;border-radius:50%;cursor:pointer;transition:transform .15s}
+.ge-paleta button:hover{transform:scale(1.15)}
+.ge-paleta button[aria-pressed=true]{border-color:var(--color-text);box-shadow:0 0 0 2px var(--color-canvas),0 0 12px currentColor}
+.ge-paleta-libre{position:relative;width:28px;height:28px;border-radius:50%;background:conic-gradient(#e0485b,#e3c58f,#6cc3a0,#4fb3d9,#9d8ae0,#e0485b);cursor:pointer;overflow:hidden}
+.ge-paleta-libre input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* Muñeco de pruebas */
+.ge-muneco{display:grid;gap:10px;padding:12px;border:1px solid var(--color-line);border-radius:4px;background:var(--color-well)}
+.ge-muneco header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ge-muneco h3{margin:0;font:600 12px var(--font-display);letter-spacing:.16em;text-transform:uppercase;color:var(--color-gold-soft)}
+.ge-taller .ge-lanzar{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border:1px solid var(--aura);border-radius:99px;background:color-mix(in srgb,var(--aura) 15%,transparent);color:var(--color-text);font:600 13px var(--font-sans);cursor:pointer;transition:box-shadow .2s}
+.ge-lanzar:hover{box-shadow:0 0 14px color-mix(in srgb,var(--aura) 60%,transparent)}
+.ge-arena{position:relative;display:grid;justify-items:center;gap:8px;padding:10px 0 4px;background:radial-gradient(60% 40% at 50% 92%,color-mix(in srgb,var(--aura) 14%,transparent),transparent)}
+.ge-dummy{position:relative;transition:filter .3s,opacity .3s}
+.ge-madera{fill:#6b4a2e;stroke:#3d2a19}
+.ge-saco{fill:#cdb589;stroke:#7a6440}
+.ge-ojos{stroke:#3d2a19;stroke-width:2}
+.ge-diana{stroke:var(--color-crimson);stroke-width:1.5;opacity:.6}
+.ge-dummy.is-afectado svg{filter:drop-shadow(0 0 10px var(--aura))}
+.ge-dummy.is-golpe{animation:ge-golpe .45s ease}
+@keyframes ge-golpe{20%{transform:translateX(-6px) rotate(-5deg)}45%{transform:translateX(5px) rotate(4deg)}70%{transform:translateX(-2px)}}
+.ge-dummy[style*='--desliz']{animation:ge-desliz .8s ease both}
+@keyframes ge-desliz{to{transform:translateX(var(--desliz))}}
+.ge-dummy.is-dormido{filter:saturate(.3) brightness(.75)}
+.ge-dummy.is-caido{animation:ge-cae .7s ease both}
+@keyframes ge-cae{to{transform:rotate(80deg) translate(20px,10px);opacity:.55}}
+.ge-zzz{position:absolute;top:-4px;right:-14px;font:700 18px var(--font-display);color:var(--color-arcane);animation:ge-sube 1.2s ease-out both}
+.ge-zzz small{font-size:13px}
+.ge-flota{position:absolute;top:20px;left:50%;font:700 22px var(--font-display);text-shadow:0 2px 6px #000;animation:ge-sube 1s ease-out both;animation-delay:calc(var(--i) * 160ms);pointer-events:none}
+.ge-flota.is-dano{color:#ff6b78}
+.ge-flota.is-cura{color:#7be0b4}
+@keyframes ge-sube{from{opacity:0;transform:translate(-50%,10px) scale(.6)}25%{opacity:1;transform:translate(-50%,-6px) scale(1.15)}to{opacity:0;transform:translate(-50%,-44px)}}
+.ge-vida{position:relative;width:min(220px,90%);height:14px;border:1px solid var(--color-line-strong);border-radius:99px;background:#1a0d12;overflow:hidden}
+.ge-vida span{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#b0172b,#e0485b);transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.ge-vida b{position:relative;display:block;text-align:center;font:600 10px/12px var(--font-sans);color:var(--color-text)}
+.ge-cronica{display:grid;gap:6px;max-height:220px;margin:0;padding:0;list-style:none;overflow:auto}
+.ge-turno{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:start;animation:ge-aparece .4s ease both}
+.ge-turno-n{display:grid;place-items:center;height:24px;border:1px solid var(--aura);border-radius:3px;font:600 11px var(--font-display);color:var(--color-gold-soft)}
+.ge-turno ul{display:grid;gap:2px;margin:0;padding:0;list-style:none;font-size:13px}
+.ge-turno li span{display:inline-block;width:18px;color:var(--aura)}
+.ge-turno li.is-dano{color:#ff9aa3}
+.ge-turno li.is-cura{color:#9fe8c6}
+.ge-turno li.is-fin{color:var(--color-gold-bright);font-style:italic}
+.ge-turno li.is-pierde{color:var(--color-arcane)}
+.ge-pasivos h4{margin:0 0 4px;font:600 11px var(--font-display);letter-spacing:.14em;text-transform:uppercase;color:var(--color-gold-soft)}
+.ge-pasivos ul{margin:0;padding-left:18px;font-size:13px;color:var(--color-text-muted)}
+
+
+/* Selector Estados | Elementos */
+.ge-selector{display:inline-flex;justify-self:start;padding:4px;border:1px solid var(--color-line);border-radius:99px;background:var(--color-well)}
+.ge-selector a{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:4px 18px;border-radius:99px;color:var(--color-text-muted);font:600 14px var(--font-sans);text-decoration:none;transition:all .25s}
+.ge-selector a span{font:600 16px var(--font-serif-kr,serif);color:var(--color-crimson)}
+.ge-selector a[aria-current=page]{background:linear-gradient(135deg,color-mix(in srgb,var(--color-gold) 30%,transparent),color-mix(in srgb,var(--color-gold) 10%,transparent));color:var(--color-gold-bright);box-shadow:inset 0 0 0 1px var(--color-gold)}
+.ge-selector a:hover:not([aria-current]){color:var(--color-text)}
+
+/* Carta de elemento: orbe */
+.ge-orbe{position:relative;display:grid;place-items:center;width:84px;height:84px;margin-top:4px;border-radius:50%;color:#fff;
+ background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--aura) 30%,#fff),var(--aura) 45%,color-mix(in srgb,var(--aura) 40%,#000) 100%);
+ box-shadow:0 0 24px color-mix(in srgb,var(--aura) 70%,transparent),inset 0 -8px 16px color-mix(in srgb,#000 35%,transparent);animation:ge-flota 3.2s ease-in-out infinite}
+.ge-orbe svg{position:relative;z-index:1;filter:drop-shadow(0 1px 3px #0008)}
+.ge-orbe-anillo{position:absolute;inset:-8px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 60%,var(--aura) 75%,transparent 90%);-webkit-mask:radial-gradient(circle,transparent 58%,#000 60%);mask:radial-gradient(circle,transparent 58%,#000 60%);animation:ge-gira 3s linear infinite}
+.ge-orbe-chispas{position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(circle at 15% 25%,var(--aura) 0 2px,transparent 3px),radial-gradient(circle at 85% 40%,var(--aura) 0 1.5px,transparent 2.5px),radial-gradient(circle at 60% 92%,var(--aura) 0 2px,transparent 3px),radial-gradient(circle at 30% 85%,#fff 0 1px,transparent 2px);animation:ge-gira 7s linear infinite reverse}
+@keyframes ge-gira{to{transform:rotate(1turn)}}
+button.ge-carta-elemento:hover .ge-orbe-anillo{animation-duration:1s}
+.ge-carta.is-grande .ge-orbe{width:116px;height:116px}
+.ge-reglas{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin-top:auto}
+.ge-reglas span{padding:2px 8px;border:1px solid color-mix(in srgb,var(--aura) 45%,transparent);border-radius:99px;background:color-mix(in srgb,var(--aura) 12%,var(--color-well));font:600 11px var(--font-sans);text-transform:capitalize}
+.ge-taller .ge-anadir{display:flex;width:100%;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px dashed var(--color-line-strong);border-radius:3px;background:transparent;color:var(--color-gold-soft);font:600 13px var(--font-sans);cursor:pointer}
+.ge-taller .ge-anadir:hover{border-color:var(--color-gold);background:var(--color-ember)}
+
+/* Golpe de prueba */
+.ge-arena-doble{grid-template-columns:auto auto;justify-content:center;align-items:end;gap:28px}
+.ge-arco{position:absolute;left:50%;top:44%;width:56px;height:20px;transform:translateX(-30%);background:linear-gradient(90deg,transparent,var(--aura),#fff,var(--aura),transparent);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 20'%3E%3Cpath d='M0 10l8-8 8 14 8-12 8 12 8-10 8 8 8-4' fill='none' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 20'%3E%3Cpath d='M0 10l8-8 8 14 8-12 8 12 8-10 8 8 8-4' fill='none' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 0 6px var(--aura));animation:ge-chispa .6s steps(3) 3 both}
+@keyframes ge-chispa{0%,100%{opacity:0}50%{opacity:1}}
+.ge-estallido{position:absolute;left:50%;top:52%;width:20px;height:20px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,#fff,var(--aura) 40%,transparent 70%);animation:ge-estalla .6s ease-out both;pointer-events:none}
+@keyframes ge-estalla{to{width:150px;height:150px;opacity:0}}
+.ge-desglose{display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:13px;animation:ge-aparece .4s ease both}
+.ge-desglose b{color:var(--color-text)}
+.ge-desglose .is-dano{color:#ff9aa3}
+.ge-desglose .is-pierde b{color:var(--aura)}
+.ge-desglose .ge-nota{color:var(--color-text-muted);font-style:italic}
+
+@media (max-width:820px){
+ .ge-taller-cuerpo{grid-template-columns:minmax(0,1fr);padding:14px}
+ .ge-velo{padding:0}
+ .ge-taller{max-height:100dvh;height:100dvh;border-radius:0}
+ .ge-rejilla{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:12px}
+ .ge-botones{width:100%}
+ .ge-botones .ge-boton{flex:1}
+}
+@media (prefers-reduced-motion:reduce){
+ .ge-pagina *,.ge-velo *{animation:none!important;transition:none!important}
+}

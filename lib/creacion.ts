@@ -12,6 +12,7 @@ import {DISPARADORES,RESULTADOS_POR_DISPARADOR,NOMBRE_DISPARADOR,ACOMPANANTES,CO
 import { linaje, type CategoriaBase } from "./estadisticas";
 import {validarInmunidades,type Inmunidad} from "./inmunidades";
 import {validarDefinicionEstado,definicionBase,type DefinicionEstado} from "./estados";
+import {validarDefinicionElemento,type DefinicionElemento} from "./elementos";
 import {validarRasgo,ETIQUETAS,MAX_COMPONENTES,type Rasgo} from "./rasgos";
 import {validarConcepto,type ConceptoBasico} from "./conceptos-basicos";
 import {validarEsqueleto,esqueletoBase,type Esqueleto} from "./esqueletos";
@@ -138,6 +139,8 @@ export type Efecto = {
   /** Imagen propia de la acción para el combate (ranura de la barra). Sin ella se usa la de la creación. */
   imagen?: string;
   /** Varios componentes elementales en un mismo efecto (máx. 3). Sin esta lista se usa elemento + dados. */
+  /** Variante de elemento del grimorio (lib/elementos): `elemento` guarda su base. */
+  elemento_def?: DefinicionElemento;
   componentes?: ComponenteDano[];
   /** Etiquetas de técnica (lista cerrada): deciden qué potenciadores acepta. */
   etiquetas?: string[];
@@ -446,6 +449,7 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       return "Naturaleza inválida.";
     if (e.estado_tipo && !["narrativo","veneno","regeneracion","aturdido","quemadura"].includes(e.estado_tipo) && !definicionBase(e.estado_tipo))
       return "Estado inválido.";
+    if (e.elemento_def !== undefined) { const fallo = validarDefinicionElemento(e.elemento_def); if (fallo) return `${e.nombre||'Elemento'}: ${fallo}`; if (e.elemento !== e.elemento_def.base) return 'La variante de elemento no coincide con su elemento base.'; }
     if (e.estado_def !== undefined) { const fallo = validarDefinicionEstado(e.estado_def); if (fallo) return `${e.nombre||'Estado'}: ${fallo}`; }
     if (e.concepto !== undefined) { const fallo = validarConcepto(e.concepto); if (fallo) return `${e.nombre||'Concepto'}: ${fallo}`; }
     if (e.estado_impacto !== undefined) { const fallo = validarDefinicionEstado(e.estado_impacto); if (fallo) return `Estado al impactar: ${fallo}`; }

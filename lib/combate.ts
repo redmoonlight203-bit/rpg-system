@@ -12,6 +12,7 @@ import {activarVoz,avanzarVoz,vozNiega,type ConfigVoces,type EstadoVoz} from "./
 import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type DisparadorReaccion} from "./reacciones";
 import { type ReglaPasiva } from "./pasivas";
 import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./inmunidades";
+import {definicionElemento,type EfectoImpacto} from "./elementos";
 import {describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
 import {potenciar,potenciadoresPara,etiquetasDe,describirPotenciado,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
@@ -2013,7 +2014,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   arm = Math.max(
     0,
     arm -
-      Math.max(...(e.componentes?.length ? e.componentes.map(x => x.elemento) : [elemento]).map(x => x === "electricidad" ? 3 : x === "luz_sagrada" ? 5 : 0)),
+      Math.max(...(e.componentes?.length ? e.componentes.map(x => x.elemento) : [elemento]).map(x => definicionElemento(x, e.elemento_def)?.ignora_armadura || 0)),
   );
   if (antes.length)
     log(
@@ -2105,8 +2106,9 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
     ({ total, combo, tipoVulnerable } = danoPorComponentes(n, a, t, e, act, rng, { critico, permiteEstados, s, debil: debil?.recompensa }));
   } else {
   let dadosTotal = dados(n, e.cantidad, e.caras, rng, act.nombre);
-  if (elemento !== "ninguno")
-    dadosTotal += dados(n, 1, 4, rng, "Daño elemental " + elemento);
+  const defElemento = definicionElemento(elemento, e.elemento_def);
+  if (defElemento?.dados_extra)
+    dadosTotal += dados(n, defElemento.dados_extra.cantidad, defElemento.dados_extra.caras, rng, "Daño elemental " + (defElemento === e.elemento_def ? defElemento.nombre : elemento));
   // Primitiva «Vulnerabilidad elemental» (Mojado y los estados creados en el Yunque).
   const vulnerable = t.estados.map(s => ({ s, r: primitivas(definicionDe(s), "vulnerabilidad_elemental").flatMap(p => p.reacciones.filter(x => x.elemento === elemento).map(x => ({ p, x })))[0] })).find(v => v.r);
   combo = !!vulnerable; tipoVulnerable = vulnerable ? vulnerable.s.tipo || vulnerable.s.id : "";
@@ -2156,36 +2158,15 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   // Elemental saves affect secondary states, never repeat the attack roll. Cada componente aplica los suyos.
   for (const elemento of elementosGolpe) {
   const eElemento: Efecto = e.componentes?.length ? { ...e, componentes: undefined, elemento: elemento as Elemento } : e;
-  if (permiteEstados && elemento === "agua" && puedeAplicar(n, t, "mojado", undefined, e) !== 'no') estado(t, "mojado", "Mojado");
-  if (
-    permiteEstados &&
-    elemento === "fuego" &&
-    puedeAplicar(n, t, "quemadura", undefined, e) !== 'no' &&
-    !salvacion(n, t, 12, "salvacion", rng)
-  )
-    estado(
-      t,
-      "quemadura",
-      "Quemadura",
-      0,
-      {},
-      { cantidad: 1, caras: 4, cd: 12, atributo: "salvacion" },
-    );
-  if (
-    permiteEstados &&
-    elemento === "hielo" &&
-    puedeAplicar(n, t, "escarcha", undefined, e) !== 'no' &&
-    !salvacion(n, t, 12, "salvacion", rng)
-  )
-    estado(t, "escarcha", "Escarcha: ARM a la mitad hasta el próximo ataque");
-  if (
-    permiteEstados &&
-    elemento === "luz_sagrada" &&
-    puedeAplicar(n, t, "marca_luz", undefined, e) !== 'no' &&
-    !salvacion(n, t, 12, "salvacion", rng)
-  )
-    estado(t, "marca_luz", "Marcado por la Luz");
-  if (elemento === "electricidad" && t.grupo_cercania) {
+  // Estados al impactar del elemento (lib/elementos.ts): fuego → Quemadura, agua → Mojado… o los de una variante.
+  const defGolpe = definicionElemento(elemento, e.elemento_def);
+  if (permiteEstados) for (const x of defGolpe?.al_impactar || []) {
+    if (puedeAplicar(n, t, x.estado, x.estado_def, e) === 'no') continue;
+    if (x.salvacion && salvacion(n, t, x.salvacion.cd, x.salvacion.atributo, rng)) continue;
+    impactoElemental(n, a, t, x, e);
+  }
+  const cadena = defGolpe?.cadena;
+  if (cadena && t.grupo_cercania) {
     for (const otro of n.miembros.filter(
       (m) =>
         m.id !== t.id &&
@@ -2194,8 +2175,8 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
         m.vida > 0 &&
         m.grupo_cercania === t.grupo_cercania,
     )) {
-      area(n, a, otro, eElemento, 3, rng);
-      log(n, `${otro.nombre}: chispa de cercanía 3.`);
+      area(n, a, otro, eElemento, cadena.dano, rng);
+      log(n, `${otro.nombre}: chispa de cercanía ${cadena.dano}.`);
       if (combo && tiene(otro, tipoVulnerable)) {
         const v = dados(n, 1, 6, rng, "Superconducción cercana");
         area(n, a, otro, eElemento, v, rng);
@@ -2208,6 +2189,15 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
   normalizar(a);
   normalizar(t);
   return n;
+}
+/** Aplica un estado elemental. Los cuatro estados históricos conservan su forma exacta de instancia. */
+function impactoElemental(n: Combate, a: Combatiente, t: Combatiente, x: EfectoImpacto, e: Efecto) {
+  if (!x.estado_def && x.estado === "mojado") return estado(t, "mojado", "Mojado");
+  if (!x.estado_def && x.estado === "quemadura") return estado(t, "quemadura", "Quemadura", 0, {}, { cantidad: 1, caras: 4, cd: 12, atributo: "salvacion" });
+  if (!x.estado_def && x.estado === "escarcha") return estado(t, "escarcha", "Escarcha: ARM a la mitad hasta el próximo ataque");
+  if (!x.estado_def && x.estado === "marca_luz") return estado(t, "marca_luz", "Marcado por la Luz");
+  const d = x.estado_def || definicionBase(x.estado);
+  if (d) aplicarDefinicion(n, t, d, a.id, undefined, {}, e);
 }
 const NOMBRE_COMPONENTE: Record<string, string> = { ninguno: "físico", fuego: "fuego", agua: "agua", electricidad: "electricidad", hielo: "hielo", luz_sagrada: "luz sagrada" };
 /** Daño de una técnica combinada: cada componente tira sus dados, su 1d4 elemental, su inmunidad y su combo.
@@ -2222,7 +2212,8 @@ function danoPorComponentes(n: Combate, a: Combatiente, t: Combatiente, e: Efect
   let usado = false;
   for (const comp of e.componentes || []) {
     let v = dados(n, comp.cantidad, comp.caras, rng, `${act.nombre} · ${comp.nombre || NOMBRE_COMPONENTE[comp.elemento] || comp.elemento}`);
-    if (comp.elemento !== "ninguno") v += dados(n, 1, 4, rng, "Daño elemental " + comp.elemento);
+    const defComp = definicionElemento(comp.elemento, e.elemento_def);
+    if (defComp?.dados_extra) v += dados(n, defComp.dados_extra.cantidad, defComp.dados_extra.caras, rng, "Daño elemental " + (defComp === e.elemento_def ? defComp.nombre : comp.elemento));
     let mult = 1, nota = "";
     if (!usado && vul?.r && vul.r.r.elemento === comp.elemento) {
       {
