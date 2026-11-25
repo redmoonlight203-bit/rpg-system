@@ -209,6 +209,7 @@ export type Efecto = {
     | "dano"
     | "curacion"
     | "recuperar_ph"
+    | "invocar"
     | "reducir_fatiga"
     | "estado"
     | "crear_arma"
@@ -230,6 +231,7 @@ export const EFECTOS_NOMBRE: Record<Efecto["efecto"], string> = {
   dano: "Daño",
   curacion: "Curación",
   recuperar_ph: "Recuperar PH",
+  invocar: "Invocar",
   reducir_fatiga: "Reducir Fatiga",
   estado: "Estado",
   crear_arma: "Crear arma temporal",
