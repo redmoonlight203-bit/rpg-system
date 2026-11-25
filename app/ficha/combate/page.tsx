@@ -71,7 +71,7 @@ export default function CombateJugador(){
  function lanzar(id:string,sel:Sel={}){const lista=sel.controlado?estado?.actor.controlados?.find(x=>x.id===sel.controlado)?.acciones:estado?.acciones;if(!estado?.actor.rafaga&&lista?.find(a=>a.id===id)?.potenciadores?.length){setPotenciando({id,sel});return;}void ejecutar('actuar',id,undefined,sel);}
  const puede=!!estado?.es_turno&&estado.actor.vida>0;
  // Cada acción se habilita según su propio presupuesto (la adicional vale antes o después de la principal).
- const puedeAccion=puede&&!!estado&&accionUsableAhora(estado.acciones.find(a=>a.id===accion)?.presupuesto,estado.actor,estado.actor.stats?presupuestoEstimado(estado.actor.stats,estado.actor.accion_usada):null);
+ const puedeAccion=puede&&!!estado&&accionUsableAhora(estado.acciones.find(a=>a.id===accion)?.presupuesto,estado.actor,estado.actor.presupuesto||(estado.actor.stats?presupuestoEstimado(estado.actor.stats,estado.actor.accion_usada):null));
  const enCurso=estado?.fase==='en_curso';
  useEffect(()=>{setFijados(leerFijados(seleccion?.actor_id||''));setInventario(null);},[seleccion?.actor_id]);
  // Consumibles de la barra: se leen al empezar cada turno propio (lectura privada, sin eventos para el resto).

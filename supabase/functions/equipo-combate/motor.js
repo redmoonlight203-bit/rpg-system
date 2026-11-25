@@ -2611,6 +2611,15 @@ function anotarGasto(c, m, tipo) {
     m.gasto_acciones = { turno: m.turnos, principal: turno ? g.principal : 0, adicional: turno ? g.adicional : 0, ronda: c.ronda, legendaria: ronda ? g.legendaria : 0 };
     m.gasto_acciones[tipo]++;
 }
+/** Cierra una acción principal ya gastada (`accion_usada`): con más de una principal se anota y, si queda otra, se libera.
+ *  Con una sola no anota nada (los datos antiguos no cambian). Sirve a cualquier camino que gaste la principal. */
+function cerrarPrincipal(c, m) {
+    if (!m.accion_usada || (m.rafaga?.restantes || 0) > 0 || presupuestoDe(m).principal <= 1)
+        return;
+    anotarGasto(c, m, 'principal');
+    if (presupuestoRestante(c, { ...m, accion_usada: false }).principal > 0)
+        m.accion_usada = false;
+}
 export function dadoSeguro(caras) {
     if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
         throw Error("El dado requiere caras enteras entre 2 y 4294967296.");
@@ -4106,11 +4115,8 @@ function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, au
         if (!actor.accion_usada && presupuestoRestante(c, actor).principal <= 0)
             throw Error('No le quedan acciones principales este turno.');
         const n = base(c), a = n.miembros.find(m => m.id === actorId);
-        if (a && a.accion_usada && !((a.rafaga?.restantes || 0) > 0) && presupuestoDe(a).principal > 1) {
-            anotarGasto(n, a, 'principal');
-            if (presupuestoRestante(n, { ...a, accion_usada: false }).principal > 0)
-                a.accion_usada = false;
-        }
+        if (a)
+            cerrarPrincipal(n, a);
         return n;
     }
     if (tipo === 'adicional' && (c.fase !== 'en_curso' || c.actual !== actorId))
@@ -5376,7 +5382,7 @@ export function cambiarEquipo(c, actorId, seleccion, rng = dadoSeguro) {
             throw Error('Personaje inexistente.');
         if (n.fase === 'finalizado')
             throw Error('El encuentro ha terminado.');
-        if (n.fase === 'en_curso' && (n.actual !== m.id || m.accion_usada || m.vida <= 0))
+        if (n.fase === 'en_curso' && (n.actual !== m.id || presupuestoRestante(n, m).principal <= 0 || m.vida <= 0))
             throw Error('Cambiar equipo requiere tu turno y una acción disponible.');
         const anterior = m.configuracion.equipamiento || {}, reserva = new Map([...(m.configuracion.reserva || []), ...Object.values(anterior)].filter(p => p.id).map(p => [p.id, p]));
         const elegido = {}, usados = new Set();
@@ -5429,8 +5435,10 @@ export function cambiarEquipo(c, actorId, seleccion, rng = dadoSeguro) {
         m.configuracion.reserva = [...reserva.values()];
         activarEquipo(n, m, rng, new Set([...nuevos].filter((id) => !!id && !antiguos.has(id))));
         normalizar(m);
-        if (n.fase === 'en_curso')
+        if (n.fase === 'en_curso') {
             m.accion_usada = true;
+            cerrarPrincipal(n, m);
+        }
         log(n, `${m.nombre} cambia su equipamiento${n.fase === 'en_curso' ? ' y consume su acción' : ''}. Manos libres: ${manosLibres(m)}.`);
         return n;
     });
@@ -5448,7 +5456,8 @@ export function accionesObjeto(m, p) {
 export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dadoSeguro) {
     const n = registrar(c, () => {
         const n = copia(c), m = n.miembros.find(x => x.id === actorId);
-        if (!m || n.fase !== 'en_curso' || n.actual !== m.id || m.accion_usada || m.vida <= 0)
+        // La acción disponible la decide el presupuesto (actuarInterno): un objeto adicional o legendario no exige la principal.
+        if (!m || n.fase !== 'en_curso' || n.actual !== m.id || m.vida <= 0)
             throw Error('Usar un objeto requiere tu turno y una acción disponible.');
         const p = m.configuracion.reserva?.find(p => p.id === objetoId);
         if (!p || !accionesObjeto(m, p).some(a => a.id === efectoId))
@@ -5461,7 +5470,8 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
         if (!slot)
             (m.configuracion.habilidades ||= []).push({ ...p, id: temporal });
         const id = efectoId.startsWith('regla:') ? `regla:${slot ? 'equipo:' + p.id : 'hab:' + temporal}:${efectoId.slice(6)}` : slot ? `equipo:${slot}:${efectoId}` : `hab:${temporal}:${efectoId}`;
-        const resultado = actuarBase(n, m.id, id, objetivoId, rng, false, undefined, false, [], false), actor = resultado.miembros.find(v => v.id === actorId);
+        // Mismo presupuesto que cualquier acción: con varias principales no se pierde la siguiente, y las adicionales no gastan la principal.
+        const resultado = actuarInterno(n, m.id, id, objetivoId, rng, false, undefined, false, []), actor = resultado.miembros.find(v => v.id === actorId);
         actor.configuracion.habilidades = actor.configuracion.habilidades?.filter(h => h.id !== temporal);
         if (p.consumible) {
             actor.configuracion.reserva = actor.configuracion.reserva?.filter(v => v.id !== p.id);
@@ -5482,7 +5492,7 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
 /** Invocar es una acción atómica: el llamador valida la propuesta antes de pagar. */
 export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion, maxActivas = 1, rng = dadoSeguro) {
     const actor = c.miembros.find(m => m.id === actorId);
-    if (c.fase !== "en_curso" || c.actual !== actorId || !actor || actor.vida <= 0 || actor.accion_usada)
+    if (c.fase !== "en_curso" || c.actual !== actorId || !actor || actor.vida <= 0 || presupuestoRestante(c, actor).principal <= 0)
         throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
     if (!actor.configuracion.habilidades?.some(h => h.id === habilidad.id))
         throw Error("Habilidad no equipada.");
@@ -5516,6 +5526,7 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
         if (fatiga)
             a.uso_fatiga = true;
         a.accion_usada = true;
+        cerrarPrincipal(n, a);
         criatura.invocacion = { invocador: actorId, habilidad: habilidad.id, restantes: duracion };
         log(n, `${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);
         return n;

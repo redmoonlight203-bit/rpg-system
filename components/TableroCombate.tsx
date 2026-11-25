@@ -234,7 +234,9 @@ export type RecursoBarra={id:string;nombre:string;saldo:number;tope:number;color
 export type EstadoBarra={id:string;nombre:string;icono:string;restantes:number;frase:string;categoria?:string};
 export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fatiga:number;accion_usada:boolean;
  /** Ataque múltiple a medias: solo esa acción (otro disparo) sigue disponible. */
- rafaga?:{accion:string;nombre:string;total:number;restantes:number};derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[];
+ rafaga?:{accion:string;nombre:string;total:number;restantes:number};
+ /** Acciones que le quedan según el motor (lo ya gastado incluido). Sin él se estima con las estadísticas. */
+ presupuesto?:PresupuestoAcciones;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[];
  /** Estados con icono, duración y la frase del Yunque (tooltip). */
  estados_detalle?:EstadoBarra[];
  /** Recursos del catálogo (Carga Bioeléctrica, Furia…) con su nombre configurado. */
@@ -275,6 +277,14 @@ function ArteRanura({src,respaldo}:{src?:string;respaldo:React.ReactNode}){
  return src ? <span className="tactical-slot-arte" aria-hidden="true"><FotoEncuadrada src={src} fallback={respaldo}/></span> : respaldo;
 }
 
+/** Lo que le queda en el turno: la principal (o «utilizada») y, si las tiene, adicionales y legendarias. */
+function textoPresupuesto(actor:ActorBarra,cupo?:PresupuestoAcciones){
+ const principal=actor.accion_usada?0:cupo?cupo.principal:1;
+ const partes=[principal?`${principal} ${principal===1?'acción':'acciones'}`:'Acción utilizada'];
+ if(cupo?.adicional)partes.push(`${cupo.adicional} ${cupo.adicional===1?'adicional':'adicionales'}`);
+ if(cupo?.legendaria)partes.push(`${cupo.legendaria} ${cupo.legendaria===1?'legendaria':'legendarias'}`);
+ return partes.join(' · ');
+}
 export function BarraCombate({restante,actor,acciones,seleccion,onSeleccion,onResolver,onPasar,onInventario,objetivo,puede,ocupado,moviendo,onMovimiento,movimiento,forzar,onForzar,dados=[],resultado,extras,onLevantarse,inventario,consumibles=[],onConsumible,onSiguiente}:{/** Presupuesto que le queda este turno/ronda. Sin él (vista de jugador) se estima con sus estadísticas y el motor rechaza lo ya gastado. */restante?:PresupuestoAcciones;actor:ActorBarra;acciones:Accion[];seleccion:string;onSeleccion:(id:string)=>void;
  /** Ejecuta la acción indicada (o la seleccionada). Las acciones propias se ejecutan desde la barra; las demás, con un clic en el tablero. */
  onResolver:(accionId?:string)=>void;onPasar:()=>void;onInventario:()=>void;objetivo?:string;puede:boolean;ocupado:boolean;moviendo:boolean;onMovimiento:()=>void;movimiento:number;forzar:boolean;onForzar:(v:boolean)=>void;dados?:TiradaVisual[];resultado?:string;extras?:React.ReactNode;onLevantarse?:()=>void;inventario?:{nombre:string;detalle:string;titulo?:string;oculto?:boolean};
@@ -287,7 +297,7 @@ export function BarraCombate({restante,actor,acciones,seleccion,onSeleccion,onRe
  const motivoDe=(a?:Accion)=>a?.bloqueada||((a?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(a?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!a?.regla)?'Fatiga insuficiente.':a?.enfriamiento?`Espera ${a.enfriamiento} turnos`:a&&phReal<a.efecto.coste_ph?'PH insuficientes':'');
  const visibles=acciones.filter(a=>categoria==='axioma'?a.efecto.axioma:!a.efecto.axioma&&(categoria==='todas'||a.id!=='ataque'));
  const libre=puede&&!ocupado&&!actor.accion_usada;
- const cupo=restante||(actor.stats?presupuestoEstimado(actor.stats,actor.accion_usada):undefined);
+ const cupo=restante||actor.presupuesto||(actor.stats?presupuestoEstimado(actor.stats,actor.accion_usada):undefined);
  const usable=(a:Accion)=>puede&&!ocupado&&accionUsableAhora(a.presupuesto,actor,cupo);
  const rafaga=actor.rafaga&&actor.rafaga.restantes>0?actor.rafaga:undefined;
  // Ranuras numeradas (teclas 1–9): acciones, guardia y consumibles, en el orden en que se ven.
@@ -346,7 +356,7 @@ export function BarraCombate({restante,actor,acciones,seleccion,onSeleccion,onRe
   <div className="tactical-dock">
    <PanelHeroe actor={actor} phReal={phReal} puede={puede}/>
    <div className="tactical-controls">
-    <div className="tactical-tabs"><button aria-pressed={categoria==='todas'} onClick={()=>setCategoria('todas')}>Todas</button><button aria-pressed={categoria==='habilidades'} onClick={()=>setCategoria('habilidades')}>Habilidades</button><span>{!puede?'Espera tu turno':rafaga?`Ráfaga: ${rafaga.restantes} ${rafaga.restantes===1?'disparo':'disparos'}`:actor.accion_usada?'Acción utilizada':'1 acción disponible'}</span></div>
+    <div className="tactical-tabs"><button aria-pressed={categoria==='todas'} onClick={()=>setCategoria('todas')}>Todas</button><button aria-pressed={categoria==='habilidades'} onClick={()=>setCategoria('habilidades')}>Habilidades</button><span>{!puede?'Espera tu turno':rafaga?`Ráfaga: ${rafaga.restantes} ${rafaga.restantes===1?'disparo':'disparos'}`:textoPresupuesto(actor,cupo)}</span></div>
     <div className="tactical-slots" role="group" aria-label="Barra de acciones">
      <button className={moviendo?'chosen':''} disabled={!puede||ocupado||movimiento<=0||actor.derribado} aria-pressed={moviendo} onClick={onMovimiento} {...hover('mover')}><Footprints/><strong>Mover</strong><small>{movimiento} casillas</small></button>
      {actor.derribado&&<button disabled={!puede||ocupado} onClick={onLevantarse}><Footprints/><strong>Levantarse</strong><small>½ movimiento</small></button>}

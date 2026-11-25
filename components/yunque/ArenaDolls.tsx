@@ -14,7 +14,7 @@ import type {TiradaVisual} from '../AnimacionDados';
 import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,
  type PausaArena,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
 import {estadosVisibles,recursosVisibles,vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
- accionDisponible,huellaReserva,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
+ accionUsableAhora,presupuestoRestante,huellaReserva,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
 import {huellaDe} from '../../lib/huellas-combate';
 import MenuReaccion,{ListaReacciones} from '../MenuReaccion';
 import MenuPotenciador from '../MenuPotenciador';
@@ -268,12 +268,12 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    {/* El aviso de reinicio flota sobre el tablero: no empuja la barra ni los botones mientras se juega. */}
    {reinicio&&<p key={reinicio.n} role="status" className="yq-arena-reinicio">{reinicio.texto}</p>}
    <TableroCombate ocular={colocando?null:vistaOcular(c,DOLL)} turnoPropio={enCurso&&c.actual===DOLL} mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?elegido:DOLL}
-    centro={colocando?null:centro} puedeApuntar={enCurso&&(colocando||!portador||accionDisponible(portador))} onApuntar={alApuntar}
+    centro={colocando?null:centro} puedeApuntar={enCurso&&(colocando||!portador||accionUsableAhora(lista.find(a=>a.id===elegida)?.presupuesto,portador,presupuestoRestante(c,portador)))} onApuntar={alApuntar}
     evento={c.evento_visual} fichas={fichas} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino}
     moviendo={moviendo&&enCurso&&!colocando} alcanzables={alcanzables} ocupado={!enCurso}
     onObjetivo={id=>{if(colocando&&esSaco(id))setSacoElegido(id);else setObjetivo(id);}}
     onMover={p=>paso(x=>mover(x,p),'El doll no puede moverse ahí.')}
-    puedeEjecutar={enCurso&&!colocando&&!!portador&&portador.vida>0&&accionDisponible(portador)&&c.actual===DOLL} onEjecutar={colocando?undefined:sel=>resolver(sel)}/>
+    puedeEjecutar={enCurso&&!colocando&&!!portador&&portador.vida>0&&accionUsableAhora(lista.find(a=>a.id===elegida)?.presupuesto,portador,presupuestoRestante(c,portador))&&c.actual===DOLL} onEjecutar={colocando?undefined:sel=>resolver(sel)}/>
    {caido&&<div className="yq-arena-fin" role="status"><strong>El doll cayó</strong><span>Deshaz el golpe o reinicia para seguir probando.</span>
     <div className="yq-arena-fin-botones">
      {deshacible&&<button type="button" className="yq-arena-reiniciar is-grande is-secundario" onClick={atras}><Undo2 size={16} aria-hidden="true"/>Deshacer el golpe</button>}
@@ -285,7 +285,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   {enCurso&&portador&&!barra&&<p className="yq-panel-voz">Kuroi no puede leer las estadísticas del doll: revisa sus ajustes o reinicia la prueba.</p>}
   {potenciando&&lista.find(a=>a.id===potenciando.accion)&&<MenuPotenciador accion={lista.find(a=>a.id===potenciando.accion)!} onCancelar={()=>setPotenciando(null)} onConfirmar={el=>{const p=potenciando;setPotenciando(null);resolver(p.sel,el);}}/>}
   {enCurso&&portador&&barra&&<>
-   <BarraCombate actor={{...portador,estados:portador.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(portador),recursos:recursosVisibles(portador,true),ph:barra.ph,derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:barra.stats,max_vida:barra.max_vida,imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
+   <BarraCombate restante={presupuestoRestante(c,portador)} actor={{...portador,estados:portador.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(portador),recursos:recursosVisibles(portador,true),ph:barra.ph,derribado:portador.estados.some(e=>e.tipo==='derribado'),stats:barra.stats,max_vida:barra.max_vida,imagen_url:portador.transformacion?.imagen_etapa||imagenDoll}}
     acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(portador.motor?.proximos[a.regla]||0)-portador.turnos):portador.cooldowns[a.id]||0}))}
     seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setMoviendo(false);setColocando(false);}}
     onResolver={id=>resolver({accion:id})} onPasar={()=>paso((x,rng)=>turno(x,rng),'No se pudo pasar el turno.',()=>{limpiarJugada();setForzar(false);})}
