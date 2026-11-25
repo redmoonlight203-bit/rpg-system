@@ -1,6 +1,7 @@
 'use client';
 // Editor de una condición («Si»): el tipo como fichas; «Todas», «Alguna» y «No» agrupan creando nodos «Si» hijos.
-import {Fichas,Interruptor,Rueda,Texto,type Opcion} from '../Controles';
+import {SelectorRegla} from '../../SelectorRegla';
+import {Fichas,Interruptor,Rueda,type Opcion} from '../Controles';
 import {condicionClara} from '../../../lib/descripciones';
 import type {CondicionRegla,Sujeto} from '../../../lib/reglas';
 import {leerRuta} from '../../../lib/yunque-grafo';
@@ -10,12 +11,6 @@ export const SUJETOS:Opcion<Sujeto>[]=[
  {valor:'yo',nombre:'Portador',icono:'humano',ayuda:'Quien tiene esta habilidad u objeto'},
  {valor:'actor',nombre:'Autor',icono:'espada',ayuda:'Quien provocó el evento (por ejemplo, el atacante)'},
  {valor:'objetivo',nombre:'Objetivo',icono:'ojo',ayuda:'Quien recibe el evento (por ejemplo, la víctima)'},
-];
-/** Atributos frecuentes en reglas; cualquier otra clave de Estadísticas se escribe a mano. */
-export const ATRIBUTOS_REGLA:Opcion<string>[]=[
- {valor:'vida_actual',nombre:'Vida actual'},{valor:'vida',nombre:'Vida máx.'},{valor:'ph_actual',nombre:'PH actuales'},{valor:'ph',nombre:'PH máx.'},
- {valor:'fatiga_actual',nombre:'Fatiga actual'},{valor:'armadura',nombre:'Armadura'},{valor:'dano',nombre:'Daño extra'},{valor:'bono_impacto',nombre:'Ataque'},
- {valor:'salvacion',nombre:'Salvación'},{valor:'iniciativa',nombre:'Iniciativa'},{valor:'movimiento',nombre:'Movimiento'},
 ];
 export const ELEMENTOS_REGLA:Opcion<string>[]=[
  {valor:'ninguno',nombre:'Sin elemento',icono:'yugen'},{valor:'fuego',nombre:'Fuego',icono:'fuego'},{valor:'agua',nombre:'Agua',icono:'agua'},
@@ -43,21 +38,12 @@ function nuevaHoja(t:Hoja,antes:CondicionRegla):CondicionRegla{
   case 'estado_terminado':return {tipo:'estado_terminado',clave:'furia'};
  }
 }
-/** Fichas de atributos frecuentes más un campo para cualquier otra clave. */
-export function AtributoFichas({etiqueta,valor,onChange,opciones=ATRIBUTOS_REGLA}:{etiqueta:string;valor:string;onChange:(v:string)=>void;opciones?:Opcion<string>[]}){
- const propio=!opciones.some(o=>o.valor===valor);
- return <div className="yq-atributo-fichas">
-  <Fichas etiqueta={etiqueta} opciones={opciones} valor={valor} onChange={onChange}/>
-  <label className="yq-campo yq-campo--clave"><span>Otra clave</span><input value={propio?valor:''} placeholder="etapa_phoenix…" maxLength={64}
-   onChange={e=>{const v=e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'_');onChange(v||opciones[0].valor);}}/></label>
- </div>;
-}
 /** Formulario de una condición hoja (también lo usa el efecto «Condicional»). */
 export function FormCondicion({c,onChange}:{c:CondicionRegla;onChange:(c:CondicionRegla)=>void}){
  switch(c.tipo){
   case 'comparar':return <>
    <Fichas etiqueta="De quién" opciones={SUJETOS} valor={c.sujeto} onChange={sujeto=>onChange({...c,sujeto})}/>
-   <AtributoFichas etiqueta="Qué valor" valor={c.atributo} onChange={atributo=>onChange({...c,atributo})}/>
+   <SelectorRegla tipo="atributo" etiqueta="Qué valor" valor={c.atributo} onChange={atributo=>onChange({...c,atributo})}/>
    <div className="yq-comparar">
     <Fichas etiqueta="Comparación" opciones={OPERADORES} valor={c.operador} onChange={operador=>onChange({...c,operador})} tono="carmesi"/>
     <label className="yq-comparar-valor"><span>Valor</span><Rueda nombre="valor" etiqueta="Valor de la comparación" valor={c.valor} min={c.porcentaje?0:-999999} max={c.porcentaje?100:999999} paso={c.porcentaje?5:1} onChange={valor=>onChange({...c,valor})} prefijo={null}/>{c.porcentaje&&<b>%</b>}</label>
@@ -67,14 +53,14 @@ export function FormCondicion({c,onChange}:{c:CondicionRegla;onChange:(c:Condici
   </>;
   case 'estado':return <>
    <Fichas etiqueta="Quién" opciones={SUJETOS} valor={c.sujeto} onChange={sujeto=>onChange({...c,sujeto})}/>
-   <Texto etiqueta="Estado o forma" valor={c.estado} max={100} placeholder="furia, veneno…" onChange={estado=>onChange({...c,estado})}/>
+   <SelectorRegla tipo="estado" etiqueta="Estado o forma" valor={c.estado} onChange={estado=>onChange({...c,estado})}/>
   </>;
   case 'elemento':return <Fichas etiqueta="Elemento del ataque" opciones={ELEMENTOS_REGLA} valor={c.elemento} onChange={elemento=>onChange({...c,elemento})} tono="arcano"/>;
   case 'probabilidad':return <div className="yq-probabilidad">
    <Rueda nombre="porcentaje" etiqueta="Probabilidad en porcentaje" valor={c.porcentaje} min={0} max={100} paso={5} onChange={porcentaje=>onChange({...c,porcentaje:Math.round(porcentaje)})}/><b>%</b>
    <div className="yq-umbral is-azar" aria-hidden="true"><i style={{width:`${c.porcentaje}%`}}/></div>
   </div>;
-  case 'estado_terminado':return <Texto etiqueta="Estado o forma que termina" valor={c.clave} max={100} placeholder="phoenix_parpadeante" onChange={clave=>onChange({...c,clave})}/>;
+  case 'estado_terminado':return <SelectorRegla tipo="estado" etiqueta="Estado o forma que termina" valor={c.clave} onChange={clave=>onChange({...c,clave})}/>;
   default:return null;
  }
 }

@@ -247,7 +247,7 @@ function EditorEtapa({etapa,linea,catalogo,atributos,vivida,onChange,onEliminar,
    <SelectorCreacionVisual nombre="Pasivas" items={de('pasiva')} value={etapa.pasivas} onChange={pasivas=>onChange({...etapa,pasivas})}/>
    <SelectorCreacionVisual nombre="Transformaciones disponibles en esta etapa" items={transformaciones} value={etapa.transformaciones||[]} onChange={v=>onChange({...etapa,transformaciones:v})}/>
   </details>
-  <details><summary><b>Pasivas exclusivas de la etapa</b> · {etapa.reglas?.length||0}</summary><EditorReglas value={etapa.reglas||[]} onChange={reglas=>onChange({...etapa,reglas})}/></details>
+  <details><summary><b>Pasivas exclusivas de la etapa</b> · {etapa.reglas?.length||0}</summary><EditorReglas atributos={atributos} value={etapa.reglas||[]} onChange={reglas=>onChange({...etapa,reglas})}/></details>
   <details><summary><b>Resistencias e inmunidades</b> · {etapa.inmunidades?.length||0}</summary><EditorDefensas valor={etapa.inmunidades||[]} porTurnos={false} onChange={inmunidades=>onChange({...etapa,inmunidades})}/></details>
   <details><summary><b>Debilidades</b> · {etapa.debilidades?.length||0}</summary>
    <p className="evo-nota">Registro narrativo de lo que le hace vulnerable. Para que tengan efecto en combate, conviértelas en una pasiva exclusiva.</p>

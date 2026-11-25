@@ -1,4 +1,5 @@
 "use client";
+import {CatalogoReglas} from './SelectorRegla';
 import {mensajeError} from '../lib/errores';
 import {useCallback,useEffect,useState} from 'react';
 import {useTiempoReal} from '../lib/useTiempoReal';
@@ -93,7 +94,7 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
  function quitarBono(k:string){setMod(prev=>Object.fromEntries(Object.entries(prev).filter(([clave])=>clave!==k)));}
  function cambiarEstadistica(anterior:string,nueva:string){if(!nueva||nueva===anterior)return;setMod(prev=>Object.fromEntries(Object.entries(prev).map(([k,v])=>[k===anterior?nueva:k,v])));}
  function vincular(id:string){const f=catalogo.find(c=>c.id===id);if(!f)return;if(f.tipo_creacion==='pasiva'){if(!pasivas.includes(id))setPasivas([...pasivas,id]);}else if(!habilidades.includes(id))setHabilidades([...habilidades,id]);}
- return <section className="space-y-5 rounded-xl border border-emerald-900/50 bg-neutral-950 p-4 text-neutral-100 sm:p-6">
+ return <CatalogoReglas atributos={atributos} fuentes={[{reglas:reglas.motor},...habilidades.filter(h=>typeof h!=='string'),...pasivas.flatMap(p=>typeof p==='string'?[]:[{reglas:p.reglas_motor}])]}><section className="space-y-5 rounded-xl border border-emerald-900/50 bg-neutral-950 p-4 text-neutral-100 sm:p-6">
   <header><h3 className="text-xl font-semibold">Naturalezas adquiridas</h3><p className="mt-2 text-sm text-neutral-400">Lo que le ocurre a un personaje puede darle nuevos poderes. Su raza y su pasiva racial se conservan.</p></header>
   {error&&<p role="alert" className="rounded-lg border border-red-900 p-3 text-sm text-red-300">{error}</p>}{mensaje&&<p role="status" className="rounded-lg border border-emerald-900 p-3 text-sm text-emerald-300">{mensaje}</p>}
   {!soloCatalogo&&personajeId&&<section className={panel} aria-label="Naturalezas de este personaje">
@@ -120,5 +121,5 @@ export default function NaturalezasYugen({personajeId,onCambio,soloCatalogo=fals
    </fieldset>
    <div className="flex justify-between gap-2"><button type="button" className={btn} disabled={ocupado||paso===0} onClick={()=>setPaso(paso-1)}>← Anterior</button>{paso<3&&<button type="button" className={btn} disabled={ocupado} onClick={()=>setPaso(paso+1)}>Siguiente: {pasos[paso+1]} →</button>}</div>
   </details>
- </section>;
+ </section></CatalogoReglas>;
 }
