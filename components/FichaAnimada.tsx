@@ -22,5 +22,5 @@ export default function FichaAnimada({ficha,fichas,evento,columnas,filas,mapa,ch
  // Un evento confirmado se reproduce una vez, sin reiniciarse por refrescos de estado.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[evento?.id,ficha.id]);
- return <span ref={ref} className={`tactical-token ${ancho>1||alto>1?'tactical-token-footprint':''}`} style={ancho>1||alto>1?{width:`calc(${100*ancho}% - 2 * var(--footprint-inset))`,height:`calc(${100*alto}% - 2 * var(--footprint-inset))`}:undefined}>{children}</span>;
+ return <span ref={ref} data-ficha={ficha.id} className={`tactical-token ${ancho>1||alto>1?'tactical-token-footprint':''}`} style={ancho>1||alto>1?{width:`calc(${100*ancho}% - 2 * var(--footprint-inset))`,height:`calc(${100*alto}% - 2 * var(--footprint-inset))`}:undefined}>{children}</span>;
 }

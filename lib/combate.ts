@@ -197,7 +197,7 @@ export type Combatiente = {
 export type CambioVida = {id:string;delta:number};
 export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"carrera"|"forzado"};
 export type AparicionVisual = {id:string;animacion:string;posicion:Posicion;escala?:number};
-export type EventoVisual = {action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];activaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;esqueleto?:import('./esqueletos').Esqueleto;desde?:Posicion;hasta?:Posicion};
+export type EventoVisual = {emisor?:string;action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];activaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;esqueleto?:import('./esqueletos').Esqueleto;desde?:Posicion;hasta?:Posicion};
 export type Combate = {
   reaccion_pendiente?:SolicitudReaccion;
   pasos_deshacer?:number;
@@ -2341,7 +2341,7 @@ function animarAccion(c:Combate,n:Combate,actorId:string,efecto:Efecto|undefined
   const area=efecto?.tablero&&hasta?(patron
     ?areaDesdeFicha(c.miembros.find(m=>m.id===actorId)||{},desde,orientacion,efecto.tablero,dimensionesTablero(c),c.mapa)
     :areaDesde(desde,hasta,efecto.tablero,dimensionesTablero(c))):undefined;
-  n.evento_visual={...n.evento_visual,id:n.evento_visual?.id||crypto.randomUUID(),nombre:efecto?.nombre||accionId,dados:n.evento_visual?.dados||[],animacion:efecto?.animacion||'impacto',vfx:efecto?.vfx,desde:pos[actorId],hasta,area,
+  n.evento_visual={...n.evento_visual,id:n.evento_visual?.id||crypto.randomUUID(),nombre:efecto?.nombre||accionId,dados:n.evento_visual?.dados||[],animacion:efecto?.animacion||'impacto',vfx:efecto?.vfx,emisor:actorId,desde:pos[actorId],hasta,area,
     movimientos:n.evento_visual?.movimientos?.map(m=>({...m,tipo:m.id===actorId?efecto?.tablero?.movimiento_lanzador?.tipo||m.tipo:m.tipo}))};
   return n;
 }
