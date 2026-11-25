@@ -53,6 +53,20 @@ export function validarVFX(config:ConfiguracionVFX|AnimacionEtapa|undefined):str
 
 import type {EventoVisual,Posicion} from './combate';
 export type ClipVFX={id:string;animacion:string;desde:Posicion;hasta:Posicion;inicio:number;duracion:number;escala:number;giro?:number;salto?:boolean;oculto?:boolean};
+export function esLanzamientoRayoDivino(clip:ClipVFX){
+ return clip.id==='salida'&&separarVFX(clip.animacion).base==='foundry-divine-beam';
+}
+/** El aro del Rayo divino se encuentra en (24, 88) de un lienzo de 48 × 96.
+ * object-fit:contain centra el lienzo en el cuadro del clip. El traslado
+ * se aplica en los ejes del dibujo antes del giro y los reflejos del editor.
+ */
+export function transformacionClipVFX(clip:ClipVFX){
+ const transformacion=transformacionVFX(clip.animacion,clip.giro);
+ if(esLanzamientoRayoDivino(clip)){
+  return transformacion+` translateY(${(48-88)/96*100}%)`;
+ }
+ return transformacion;
+}
 /** Secuencia puramente visual sobre posiciones ya resueltas por el motor. */
 export function planificarVFX(evento:EventoVisual):ClipVFX[]{
  const clips:ClipVFX[]=[],v=evento.vfx,escala=Math.max(.5,Math.min(4,v?.escala||1.5));
