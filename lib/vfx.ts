@@ -11,13 +11,41 @@ export type AnimacionRegla = {id:string;escala?:number};
 export type AnimacionEtapa = {entrada?:string;aura?:string;escala?:number};
 export const CATALOGO_VFX = catalogo;
 const indice=new Map(CATALOGO_VFX.map(a=>[a.id,a]));
-export function buscarVFX(id?:string){return id?indice.get(id):undefined;}
+export type OrientacionVFX={cuartos:number;horizontal:boolean;vertical:boolean};
+const identidad:OrientacionVFX={cuartos:0,horizontal:false,vertical:false};
+export function separarVFX(id:string){
+ const ajuste=/^ori-([0-3])([01])([01])-(.+)$/.exec(id);
+ return ajuste?{base:ajuste[4],cuartos:Number(ajuste[1]),horizontal:ajuste[2]==='1',vertical:ajuste[3]==='1'}:{base:id,...identidad};
+}
+export function orientarVFX(id:string,o:OrientacionVFX){
+ const base=separarVFX(id).base;
+ return o.cuartos||o.horizontal||o.vertical?`ori-${o.cuartos}${Number(o.horizontal)}${Number(o.vertical)}-${base}`:base;
+}
+export function transformacionVFX(id:string,rumbo=0){
+ const o=separarVFX(id);
+ return `rotate(${rumbo+90*o.cuartos}deg) scale(${o.horizontal?-1:1}, ${o.vertical?-1:1})`;
+}
+// La referencia identifica un archivo inmutable del bucket del proyecto sin aceptar URLs arbitrarias.
+const subida=/^usr-([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})-([a-f0-9]{16})-([a-z0-9-]{1,18})-([1-9][0-9]{1,3})-(png|webp)$/;
+export function buscarVFX(id?:string){
+ if(!id||id.length>100)return undefined;
+ const {base}=separarVFX(id);
+ const incluido=indice.get(base);
+ if(incluido)return incluido;
+ const partes=subida.exec(base);
+ if(!partes)return undefined;
+ const [,dueno,hash,nombre,ms,ext]=partes;
+ const duracion=Number(ms);
+ if(duracion<100||duracion>2400)return undefined;
+ const url=`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/imagenes/${dueno}/vfx/${hash}-${nombre}-${ms}.${ext}`;
+ return {id:base,nombre:nombre.replaceAll('-',' '),categoria:'Mis efectos',paquete:'Personalizado',url,bucle:url,poster:'',duracion,ancho:0,alto:0,repetible:false};
+}
 export function validarVFX(config:ConfiguracionVFX|AnimacionEtapa|undefined):string|null {
  if(config===undefined)return null;
  if(!config||typeof config!=='object'||Array.isArray(config))return 'Selecciona una configuración de animación válida.';
  for(const key of ['lanzamiento','recorrido','impacto','entrada','aura'] as const){
   const id=(config as Record<string,unknown>)[key];
-  if(id!==undefined&&(typeof id!=='string'||!indice.has(id)))return 'Selecciona una animación del catálogo.';
+  if(id!==undefined&&(typeof id!=='string'||!buscarVFX(id)))return 'Selecciona una animación del catálogo.';
  }
  if(config.escala!==undefined&&(!Number.isFinite(config.escala)||config.escala<0.5||config.escala>4))return 'El tamaño de la animación debe estar entre 0.5 y 4 casillas.';
  return null;
@@ -30,7 +58,7 @@ export function planificarVFX(evento:EventoVisual):ClipVFX[]{
  const clips:ClipVFX[]=[],v=evento.vfx,escala=Math.max(.5,Math.min(4,v?.escala||1.5));
  const agregar=(id:string,animacion:string|undefined,desde:Posicion|undefined,hasta=desde,inicio=0,duracion?:number,giro?:number,salto=false)=>{
   const asset=buscarVFX(animacion);if(!asset||!desde||!hasta)return;
-  clips.push({id,animacion:asset.id,desde,hasta,inicio,duracion:duracion||asset.duracion,escala,giro,salto});
+  clips.push({id,animacion:animacion!,desde,hasta,inicio,duracion:duracion||asset.duracion,escala,giro,salto});
  };
  const salida=buscarVFX(v?.lanzamiento),espera=salida?Math.min(350,salida.duracion):0;
  agregar('salida',v?.lanzamiento,evento.desde);
