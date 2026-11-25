@@ -6,6 +6,7 @@ import IconoYugen from '../../IconoYugen';
 import {Fichas,Rueda,Texto,Interruptor,type Opcion} from '../Controles';
 import EditorDefensas from './EditorDefensas';
 import {CATALOGO_ESTADOS,NOMBRE_PRIMITIVA,ICONO_PRIMITIVA,describirEstado,validarDefinicionEstado,type DefinicionEstado,type Primitiva,type TipoPrimitiva,type CategoriaEstado,type DuracionEstado} from '../../../lib/estados';
+import {useGrimorioEstados} from '../../../lib/useGrimorioEstados';
 import './defensas.css';
 
 const CATEGORIAS:Opcion<CategoriaEstado>[]=[{valor:'mental',nombre:'Mental',icono:'alma'},{valor:'fisico',nombre:'Físico',icono:'espada'},{valor:'elemental',nombre:'Elemental',icono:'fuego'},{valor:'narrativo',nombre:'Narrativo',icono:'libro'}];
@@ -24,12 +25,12 @@ const CD=({etiqueta,valor,onChange}:{etiqueta:string;valor:{cd:number;atributo:s
  <label className="yq-campo"><span>{etiqueta}</span><Rueda nombre="cd" etiqueta={etiqueta} valor={valor.cd} min={1} max={100} onChange={cd=>onChange({...valor,cd})} compacta/></label>;
 
 export default function EditorEstados({valor,onChange}:{valor:DefinicionEstado;onChange:(d:DefinicionEstado)=>void}){
- const d=valor,error=validarDefinicionEstado(d);
+ const d=valor,error=validarDefinicionEstado(d),{estados:grimorio}=useGrimorioEstados(false);
  const set=(p:Partial<DefinicionEstado>)=>onChange({...d,...p});
  const prim=(i:number,p:Partial<Primitiva>)=>set({efectos:d.efectos.map((x,j)=>j===i?{...x,...p} as Primitiva:x)});
  return <section className="yq-estado-editor" aria-label="Editor de estado">
-  <label className="yq-campo"><span>Partir del catálogo</span><select value="" onChange={e=>{const base=CATALOGO_ESTADOS.find(x=>x.id===e.target.value);if(base)onChange({...structuredClone(base),id:base.id+'_propio',nombre:base.nombre.split(':')[0]+' (variante)'});}}>
-   <option value="">Elegir un estado base…</option>{CATALOGO_ESTADOS.map(x=><option key={x.id} value={x.id}>{x.nombre.split(':')[0]}</option>)}</select></label>
+  <label className="yq-campo"><span>Partir del catálogo</span><select value="" onChange={e=>{const propio=grimorio.find(x=>'g:'+x.id===e.target.value);if(propio){onChange(structuredClone(propio.def));return;}const base=CATALOGO_ESTADOS.find(x=>x.id===e.target.value);if(base)onChange({...structuredClone(base),id:base.id+'_propio',nombre:base.nombre.split(':')[0]+' (variante)'});}}>
+   <option value="">Elegir un estado base…</option>{grimorio.length>0&&<optgroup label="Tu grimorio">{grimorio.map(x=><option key={x.id} value={'g:'+x.id}>{x.def.nombre}</option>)}</optgroup>}<optgroup label="Catálogo base">{CATALOGO_ESTADOS.map(x=><option key={x.id} value={x.id}>{x.nombre.split(':')[0]}</option>)}</optgroup></select></label>
   <Texto etiqueta="Nombre del estado" valor={d.nombre} onChange={nombre=>set({nombre,id:idDe(nombre)})} placeholder="Sopor tóxico, Pánico…"/>
   <Fichas etiqueta="Icono" opciones={ICONOS} valor={d.icono||'fuego'} onChange={icono=>set({icono})}/>
   <Fichas etiqueta="Categoría" opciones={CATEGORIAS} valor={d.categoria} onChange={categoria=>set({categoria,subcategoria:categoria==='mental'?d.subcategoria||'control':undefined})} tono="arcano"/>

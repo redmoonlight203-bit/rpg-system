@@ -9,6 +9,7 @@ import {CATALOGO_ESTADOS,estadoVacio,definicionBase} from '../../../lib/estados'
 import {Interruptor} from '../Controles';
 import EditorDefensas from './EditorDefensas';
 import EditorEstados from './EditorEstados';
+import FichasGrimorio from '../../grimorio/FichasGrimorio';
 import EditorRasgo,{rasgoVacio} from './EditorRasgo';
 import EditorConcepto from './EditorConcepto';
 import EditorEsqueleto from './EditorEsqueleto';
@@ -109,6 +110,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
   </>}
   {e.efecto==='estado'&&<>
    <Fichas etiqueta="Comportamiento" opciones={ESTADOS} valor={e.estado_def?'propio':e.estado_tipo||'narrativo'} onChange={tipo=>tipo==='propio'?patch({estado_tipo:'narrativo',estado_def:e.estado_def||estadoVacio(),estado:''}):patch({estado_tipo:tipo,estado_def:undefined,estado:definicionBase(tipo)?.nombre.split(':')[0]||e.estado,categoria:definicionBase(tipo)?.categoria==='mental'?'mental':e.categoria,subcategoria:definicionBase(tipo)?.subcategoria})} tono="arcano" columnas={3}/>
+   <FichasGrimorio actual={e.estado_def} onElegir={estado_def=>patch({estado_tipo:'narrativo',estado_def,estado:estado_def.nombre,categoria:estado_def.categoria==='mental'?'mental':e.categoria,subcategoria:estado_def.categoria==='mental'?estado_def.subcategoria:e.subcategoria})}/>
    {e.estado_def?<EditorEstados valor={e.estado_def} onChange={estado_def=>patch({estado_def,estado:estado_def.nombre})}/>
     :<label className="yq-campo"><span>Nombre del estado</span><input maxLength={200} value={e.estado} onChange={v=>patch({estado:v.target.value})}/></label>}
   </>}

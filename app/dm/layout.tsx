@@ -4,7 +4,7 @@ import React from "react";
 import LogoYugen from "../../components/LogoYugen";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { Hammer, Swords, Sliders, Users, Handshake, ShoppingBag, LogOut, TrendingUp } from "lucide-react";
+import { Hammer, Swords, Sliders, Users, Handshake, ShoppingBag, LogOut, TrendingUp, Sparkles } from "lucide-react";
 import "./gm.css";
 import Riel, {indiceRuta} from "../../components/layout/Riel";
 import MarcoRuta from "../../components/layout/MarcoRuta";
@@ -25,6 +25,7 @@ const principales = [
 const gestion = [
   { path: "/dm/arbol", label: "Árboles de habilidades", detail: "Ramas y puntos por personaje", icon: TrendingUp },
   { path: "/dm/reglas", label: "Estadísticas", detail: "Definir categorías y atributos", icon: Sliders },
+  { path: "/dm/estados", label: "Grimorio de estados", detail: "Crear y probar estados", icon: Sparkles },
   { path: "/dm/mercado", label: "Tiendas", icon: ShoppingBag },
   { path: "/dm/tienda-almas", label: "Tienda de almas", icon: ShoppingBag },
   { path: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },
