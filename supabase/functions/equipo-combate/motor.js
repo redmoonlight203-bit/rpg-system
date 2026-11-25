@@ -3773,7 +3773,11 @@ export function acciones(m) {
     }
     if ((m.arma || lista.some(a => a.id === 'ataque' && a.efecto.id !== 'basico')) && (manosLibres(m) > 0 || conceptosDe(m).desarmado.requiere_mano === false))
         lista.push({ id: 'desarmado', nombre: `${conceptosDe(m).desarmado.nombre} · ${conceptosDe(m).desarmado.requiere_mano === false ? 'arma natural' : 'mano libre'}`, efecto: desarmadoDe(m), enfriamiento: 0 });
-    for (const h of habilidadesDe(m).filter(h => !requisitosFuente(m, h).length))
+    for (const h of habilidadesDe(m).filter(h => !requisitosFuente(m, h).length)) {
+        const config = h.configuracion_invocacion;
+        if (config)
+            lista.push({ id: `invocar:${h.id}`, nombre: `Invocar · ${h.nombre}`, invocacion: h, ilustracion: ilustracionFuente(h), enfriamiento: 0,
+                efecto: { ...basico(), efecto: 'invocar', cantidad: 0, coste_ph: config.costePh ?? 0, coste_fatiga: config.costeFatiga ?? 0 } });
         for (const e of h.efectos || [])
             lista.push({
                 id: `hab:${h.id}:${e.id}`,
@@ -3782,6 +3786,7 @@ export function acciones(m) {
                 efecto: e,
                 enfriamiento: Math.max(0, h.stats.enfriamiento || h.stats.cooldown || 0),
             });
+    }
     for (const [slot, p] of Object.entries(piezas(m)).filter(([, p]) => !requisitosFuente(m, p).length))
         for (const e of p.efectos || [])
             lista.push({
@@ -4105,6 +4110,8 @@ function areaDeRecorrido(trayecto, ancho, dim) {
  *  - Adicional: solo en su turno, antes o después de la principal. Legendaria: dentro o fuera de su turno.
  *    Ninguna de las dos gasta la principal. */
 function actuarInterno(c, actorId, accionId, objetivoId, rng, forzar, centro, autonomo = false, potenciadores = []) {
+    if (accionId.startsWith("invocar:"))
+        throw Error("Confirma la criatura desde la acción Invocar.");
     const base = (entrada, fueraDeTurno = false) => actuarBase(entrada, actorId, accionId, objetivoId, rng, forzar, centro, autonomo, potenciadores, fueraDeTurno);
     const actor = c.miembros.find(m => m.id === actorId);
     // El turno automático de una criatura descontrolada no lleva cuentas de presupuesto.
@@ -5490,16 +5497,37 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
     return animarAccion(c, n, actorId, efecto, efectoId, objetivoId);
 }
 /** Invocar es una acción atómica: el llamador valida la propuesta antes de pagar. */
+export function solicitarInvocacion(c, actorId, accionId) {
+    const actor = c.miembros.find(m => m.id === actorId);
+    if (c.fase !== 'en_curso' || c.actual !== actorId || !actor || !combatienteActivo(actor) || actor.rafaga?.restantes || presupuestoRestante(c, actor).principal < 1)
+        throw Error('No puedes invocar en este momento.');
+    const accion = acciones(actor).find(a => a.id === accionId);
+    if (!accion?.invocacion || accion.bloqueada)
+        throw Error(accion?.bloqueada || 'Invocación no disponible.');
+    if (actor.solicitud_invocacion?.turno === actor.turnos && actor.solicitud_invocacion.accion === accionId)
+        throw Error('El GM ya tiene tu solicitud.');
+    return registrar(c, () => {
+        const n = copia(c), a = n.miembros.find(m => m.id === actorId);
+        a.solicitud_invocacion = { accion: accionId, turno: a.turnos };
+        log(n, `${a.nombre} solicita ${accion.nombre}. Pendiente de confirmación del GM.`);
+        return n;
+    });
+}
 export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion, maxActivas = 1, rng = dadoSeguro) {
     const actor = c.miembros.find(m => m.id === actorId);
     if (c.fase !== "en_curso" || c.actual !== actorId || !actor || actor.vida <= 0 || presupuestoRestante(c, actor).principal <= 0)
         throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
-    if (!actor.configuracion.habilidades?.some(h => h.id === habilidad.id))
+    const equipada = habilidadesDe(actor).find(h => h.id === habilidad.id);
+    if (!equipada)
         throw Error("Habilidad no equipada.");
-    const config = habilidad.configuracion_invocacion;
+    const config = equipada.configuracion_invocacion;
     if (!config || !Number.isInteger(duracion) || duracion < 1 || !Number.isInteger(maxActivas) || maxActivas < 1)
         throw Error("Configuración de invocación inválida.");
-    const faltan = requisitosFuente(actor, habilidad);
+    if (config.duracionTurnos != null && duracion !== config.duracionTurnos || maxActivas !== (config.maxActivas ?? 1))
+        throw Error("Los límites de invocación cambiaron.");
+    if (!combatienteActivo(actor) || actor.rafaga?.restantes || presupuestoRestante(c, actor).principal <= 0)
+        throw Error("No puedes invocar en este momento.");
+    const faltan = requisitosFuente(actor, equipada);
     if (faltan.length)
         throw Error(faltan.join("; "));
     if (c.miembros.filter(m => m.invocacion?.invocador === actorId && m.invocacion.habilidad === habilidad.id && m.vida > 0).length >= maxActivas)
@@ -5507,7 +5535,7 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
     const ph = config.costePh ?? 0, fatiga = config.costeFatiga ?? 0;
     if (!Number.isInteger(ph) || !Number.isInteger(fatiga) || ph < 0 || fatiga < 0)
         throw Error("Costes inválidos.");
-    if (phDisponibles(actor) < ph || fatiga > 0 && actor.fatiga + fatiga > (estadisticas(actor).fatiga || 0))
+    if (phDisponibles(actor) < ph || fatiga > 0 && (actor.agotado || actor.fatiga + fatiga > (estadisticas(actor).fatiga || 0)))
         throw Error("No tienes recursos suficientes para invocar.");
     if (c.miembros.length >= 100)
         throw Error("Máximo cien participantes.");
@@ -5527,6 +5555,7 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
             a.uso_fatiga = true;
         a.accion_usada = true;
         cerrarPrincipal(n, a);
+        delete a.solicitud_invocacion;
         criatura.invocacion = { invocador: actorId, habilidad: habilidad.id, restantes: duracion };
         log(n, `${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);
         return n;

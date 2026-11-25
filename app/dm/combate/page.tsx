@@ -27,7 +27,6 @@ import {
   Flame,
   Heart,
   Zap,
-  Sparkles,
   Hammer,
   Trash2,
   X,
@@ -345,7 +344,10 @@ export default function CampoCombate() {
   // Un clic ejecuta: el tablero y la barra pasan la acción, el objetivo y el centro elegidos en ese mismo clic.
   async function resolver(objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}) {
     if (!actor) return;
-    await actuar(actor, listaTurno, opciones?.accion || elegidaActual, objetivoId, opciones);
+    const id=opciones?.accion || elegidaActual;
+    const invocacion=listaTurno.find(a=>a.id===id)?.invocacion;
+    if(invocacion){setInvocar(invocacion);return;}
+    await actuar(actor, listaTurno, id, objetivoId, opciones);
   }
   /** Legendaria fuera de turno: solo la dispara el botón «Usar legendaria», con su propio objetivo. */
   async function usarLegendaria() {
@@ -609,6 +611,7 @@ export default function CampoCombate() {
   }
   const actor = c.miembros.find((m) => m.id === c.actual),
     lista = useMemo(()=>actor ? acciones(actor) : [],[actor]),
+    solicitudInvocacion = actor?.solicitud_invocacion && actor.solicitud_invocacion.turno===actor.turnos ? lista.find(a=>a.id===actor.solicitud_invocacion?.accion)?.invocacion : undefined,
     restante = actor && c.fase === "en_curso" ? presupuestoRestante(c, actor) : null,
     // Quien no tiene el turno, sigue en pie y conserva legendarias, con sus acciones legendarias.
     legendarias = c.fase === "en_curso" ? c.miembros.filter((m) => m.id !== c.actual && situacionCombatiente(m) === "activo" && presupuestoRestante(c, m).legendaria > 0).map((m) => ({m, restantes: presupuestoRestante(c, m).legendaria, acciones: acciones(m).filter((a) => a.presupuesto === "legendaria")})).filter((x) => x.acciones.length) : [],
@@ -1074,7 +1077,8 @@ export default function CampoCombate() {
       <ConfigurarCiclo combate={c} ocupado={bloqueado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
       {c.fase==='finalizado'&&<ResumenEncuentro onRecargar={refrescarEncuentro} id={id} version={version} combate={c} ocupado={bloqueado}/>}
       {c.politica?.modo!=='entrenamiento'&&c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">El crecimiento de reglas se confirma junto con las recompensas. También puedes aplicarlo aquí; después el resultado queda cerrado para revisiones. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={bloqueado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
-      {invocar&&actor&&<InvocarCombate combate={c} actorId={actor.id} habilidad={invocar} onCerrar={()=>setInvocar(null)} onConfirmar={async next=>{await guardar(next);}}/>}
+      {actor&&solicitudInvocacion&&!actor.accion_usada&&c.fase==='en_curso'&&<button className="rounded border border-sky-700 p-2" disabled={bloqueado} onClick={()=>setInvocar(solicitudInvocacion)}>Revisar invocación de {actor.nombre} · {solicitudInvocacion.nombre}</button>}
+      {invocar&&actor&&lista.some(a=>a.invocacion===invocar)&&<InvocarCombate combate={c} actorId={actor.id} habilidad={invocar} onCerrar={()=>setInvocar(null)} onConfirmar={async next=>{await guardar(next);}}/>}
       <VentanaInventario abierta={!!editorEquipo} onCerrar={()=>setEditorEquipo(null)} titulo={`Inventario de ${c.miembros.find(m=>m.id===editorEquipo?.actor)?.nombre||'participante'}`} consumibles={editorEquipo?.actor===actor?.id?consumiblesBarra(mochilaActor,[]).map(x=>({id:x.nombre,nombre:x.nombre,cantidad:x.cantidad,imagen_url:x.imagen_url})):[]} fijados={fijados} onFijados={editorEquipo?.actor===actor?.id?ids=>{setFijados(ids);guardarFijados(actor?.id||'',ids);}:undefined}>{editorEquipo&&<EditorEquipoCombate key={`${editorEquipo.actor}:${editorEquipo.contexto.version}`} catalogo={c.fase==='preparacion'&&!c.miembros.find(m=>m.id===editorEquipo.actor)?.personaje_id?objetosMochila:undefined} onAgregar={agregarObjetoMochila} contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}</VentanaInventario>
       <MetricasCombate/>
       <EstadoAccionCombate estado={segura.estado} revisando={segura.revisando} onComprobar={segura.comprobar} onReintentar={segura.reintentar} onDescartar={segura.descartar} conexion={conexion}/>
@@ -1241,7 +1245,7 @@ export default function CampoCombate() {
             ))}
           </div>
           </details>
-          <>{c.fase==='en_curso'&&actor&&<BarraCombate restante={restante||undefined} onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(actor),recursos:recursosVisibles(actor,true),guardia:{nombre:conceptosDe(actor).guardia.nombre,frase:describirConcepto(conceptosDe(actor).guardia)},ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:fotoDe(actor)}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto} extras={actor.configuracion.habilidades?.filter(h=>h.configuracion_invocacion).map(h=><button key={h.id} disabled={bloqueado||actor.accion_usada||phDisponibles(actor)<(h.configuracion_invocacion?.costePh||0)} onClick={()=>setInvocar(h)}><Sparkles/><strong>Invocar</strong><small>{h.nombre}</small></button>)}/>}
+          <>{c.fase==='en_curso'&&actor&&<BarraCombate restante={restante||undefined} onLevantarse={()=>void ejecutar(()=>guardar(levantarse(c,actor.id)))} actor={{...actor,estados:actor.estados.map(e=>e.nombre),estados_detalle:estadosVisibles(actor),recursos:recursosVisibles(actor,true),guardia:{nombre:conceptosDe(actor).guardia.nombre,frase:describirConcepto(conceptosDe(actor).guardia)},ph:phDisponibles(actor),derribado:actor.estados.some(e=>e.tipo==='derribado'),stats:estadisticas(actor),max_vida:maxVida(actor),imagen_url:fotoDe(actor)}} acciones={lista.map(a=>({...a,enfriamiento:a.regla?Math.max(0,(actor.motor?.proximos[a.regla]||0)-actor.turnos):actor.cooldowns[a.id]||0}))} seleccion={elegida} onSeleccion={id=>{setAccion(id);setCentro(null);setModoMovimiento(false);}} onResolver={id=>void resolver(undefined,{accion:id})} onPasar={()=>{setModoMovimiento(false);void avanzar();}} onInventario={()=>void abrirEquipoActual()} consumibles={consumibles} onConsumible={id=>void usarConsumible(id)} objetivo={efecto?.tablero?(centro?`Casilla ${centro.x+1}, ${centro.y+1}`:undefined):c.miembros.find(m=>m.id===destino)?.nombre} puede={actor.vida>0} ocupado={bloqueado} moviendo={modoMovimiento} onMovimiento={()=>setModoMovimiento(v=>!v)} movimiento={movimientoRestante(actor)} forzar={forzar} onForzar={setForzar} dados={c.evento_visual?.dados||roll?.dados} resultado={c.evento_visual?.resultado||flotante?.texto}/>}
           {c.fase === "preparacion" && <details className="battle-action battle-options"><summary>Opciones del encuentro</summary>            <label className="battle-rule">
               Regla de armadura
               <select

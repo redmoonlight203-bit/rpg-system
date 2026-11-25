@@ -141,3 +141,11 @@ test('soltar una plantilla produce una operación desplegar',()=>{
  assert.equal(p.plantilla,'furia-temporal');
  assert.deepEqual(json(planSoltar(base(),p,null)),[{op:'desplegar',plantilla:'furia-temporal'}]);
 });
+test('convertir el ataque Invocar conserva las otras acciones y la criatura configurada',()=>{
+ const b=soltar(soltar(base(),pieza('Ataque'),null),pieza('Curación'),null);
+ const previo=soltar(b,pieza('Invocación'),null);
+ const r=aplicar(previo,{op:'convertir_invocacion',id:b.efectos[0].id});
+ assert.deepEqual(r.invocacion,previo.invocacion);
+ assert.deepEqual(r.efectos,[previo.efectos[1]]);
+ assert.equal(previo.efectos.length,2);
+});

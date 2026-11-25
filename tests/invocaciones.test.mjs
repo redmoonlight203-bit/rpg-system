@@ -16,3 +16,14 @@ function campo(){return c.iniciar(c.agregar(c.agregar(c.nuevoCombate(),ficha('a'
 test('invocar paga recursos, usa acción, conserva bando, iniciativa e historial y no muta origen',()=>{const origen=campo();const n=c.incorporarInvocacion(origen,'a',habilidad,ficha('amigo'),2,1,()=>5);assert.equal(origen.miembros.length,2);assert.equal(n.miembros.length,3);assert.equal(n.miembros[0].ph,8);assert.equal(n.miembros[0].accion_usada,true);assert.equal(n.miembros[2].bando,'jugador');assert.equal(n.miembros[2].iniciativa,5);assert.equal(c.deshacer(n).miembros.length,2);assert.throws(()=>c.incorporarInvocacion(n,'a',habilidad,ficha('otro'),2,1));});
 test('temporal desaparece al finalizar y después de sus turnos; límites no cobran recursos',()=>{let n=c.incorporarInvocacion(campo(),'a',habilidad,ficha('amigo'),2,1,()=>5);assert.equal(c.finalizar(n).miembros.length,2);for(let j=0;j<12&&n.miembros[2].vida>0;j++)n=c.siguiente(n,()=>1);assert.equal(n.miembros[2].vida,0);const limitado=campo();limitado.miembros[0].ph=1;assert.throws(()=>c.incorporarInvocacion(limitado,'a',habilidad,ficha('amigo'),2,1));assert.equal(limitado.miembros.length,2);});
 test('mallas escalan sin salir de los rangos y nivel no modifica clase',()=>{const r={vida:{min:10,max:100}};assert.equal(p.escalarMalla(r,1,20,()=>0).vida,10);assert.equal(p.escalarMalla(r,20,20,()=>1).vida,100);for(let n=1;n<=20;n++){const v=p.escalarMalla(r,n,20,()=>1).vida;assert.ok(v>=10&&v<=100);}assert.equal(p.nivelPorExperiencia(100),2);});
+test('invocar aparece en la barra y la solicitud del jugador espera al GM sin gastar',()=>{
+ const b=campo(), a=b.miembros[0], accion=c.acciones(a).find(x=>x.efecto.efecto==='invocar');
+ assert.equal(accion.presupuesto,'principal');
+ const s=c.solicitarInvocacion(b,a.id,accion.id);
+ assert.equal(s.miembros[0].accion_usada,false);
+ assert.equal(s.miembros[0].ph,a.ph);
+ assert.throws(()=>c.solicitarInvocacion(s,a.id,accion.id),/ya tiene/);
+ const n=c.incorporarInvocacion(s,a.id,habilidad,ficha('amigo'),2,1,()=>5);
+ assert.equal(n.miembros[0].solicitud_invocacion,undefined);
+ assert.equal(n.miembros[0].accion_usada,true);
+});
