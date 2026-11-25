@@ -1022,6 +1022,355 @@ function describirInmunidades(lista) {
 
 return { comprobarInmunidad, norm };
 })();
+const { definicionElemento } = (() => {
+/**
+ * Elementos configurables. Lo que antes estaba escrito a mano en el motor (1d4 elemental, el rayo ignora 3 ARM,
+ * el fuego quema, el agua moja…) es ahora una DEFINICIÓN DE DATOS. El catálogo base reproduce exactamente el
+ * comportamiento anterior.
+ *
+ * Un elemento creado en el grimorio es una VARIANTE de un elemento base (`base`): las inmunidades, resistencias,
+ * reacciones de Mojado y validaciones de la base de datos lo tratan como su base; lo que cambia es su nombre, su
+ * aspecto y lo que hace al golpear. Al usarlo, la habilidad guarda `elemento` = base y una copia en `elemento_def`.
+ * Módulo puro (el motor Edge lo incrusta).
+ */
+const { validarDefinicionEstado, definicionBase } = (() => {
+const { validarInmunidades } = (() => {
+const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
+const MODOS_INMUNIDAD = ['bloquear_dano', 'bloquear_aplicacion', 'bloquear_todo', 'resistir'];
+const SUBCATEGORIAS_MENTALES = ['control', 'miedo', 'ilusion', 'confusion', 'memoria', 'posesion'];
+const norm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, '_');
+const NOMBRE_ELEMENTO = { fuego: 'al fuego', agua: 'al agua', electricidad: 'al rayo', hielo: 'al hielo', luz_sagrada: 'a la luz sagrada', veneno: 'al veneno', fisico: 'al daño físico', magica: 'a la magia', magico: 'a la magia' };
+const capital = (t) => t ? t[0].toUpperCase() + t.slice(1).replace(/_/g, ' ') : t;
+function validarInmunidades(lista) {
+    if (lista === undefined)
+        return null;
+    if (!Array.isArray(lista) || lista.length > 40)
+        return 'Configura hasta 40 inmunidades.';
+    for (const i of lista) {
+        if (!i || typeof i !== 'object' || !TIPOS_INMUNIDAD.includes(i.tipo) || !MODOS_INMUNIDAD.includes(i.modo))
+            return 'Cada inmunidad necesita tipo y modo válidos.';
+        if (typeof i.valor !== 'string' || !/^[a-z_][a-z0-9_:]{0,63}$/.test(norm(i.valor)))
+            return 'Cada inmunidad necesita un daño, estado o categoría.';
+        if (i.tipo === 'estado' && i.modo === 'bloquear_dano')
+            return 'Un estado no causa daño propio: usa «impedir que se aplique».';
+        if (i.duracion !== undefined && !['permanente', 'equipada', 'turnos'].includes(i.duracion))
+            return 'Duración de inmunidad inválida.';
+        if (i.duracion === 'turnos' && (!Number.isInteger(i.turnos) || i.turnos < 1 || i.turnos > 99))
+            return 'Indica de 1 a 99 turnos.';
+    }
+    return null;
+}
+/** `ignora`: entradas `dano:fuego`, `estado:quemadura`, `categoria:mental` o `categoria:mental:control`. */
+function ignoraInmunidad(i, ignora = []) {
+    const v = norm(i.valor);
+    return ignora.map(norm).some(x => {
+        const [t, ...resto] = x.split(':');
+        const valor = resto.join(':');
+        if (t !== i.tipo)
+            return false;
+        return valor === v || (i.tipo === 'categoria' && (v.startsWith(valor + ':') || valor.startsWith(v + ':')));
+    });
+}
+function coincideCategoria(valor, c) {
+    if (!c.categoria)
+        return false;
+    const cat = norm(c.categoria), sub = c.subcategoria ? norm(c.subcategoria) : '';
+    const [vc, vs] = valor.split(':');
+    return vc === cat && (!vs || vs === sub);
+}
+/** Comprueba si un objetivo bloquea o resiste el candidato. Sin inmunidades nunca bloquea (regresión). */
+function comprobarInmunidad(objetivo, c, ignora = []) {
+    const lista = (Array.isArray(objetivo) ? objetivo : objetivo?.inmunidades) || [];
+    let resistido;
+    for (const i of lista) {
+        if (ignoraInmunidad(i, ignora))
+            continue;
+        const v = norm(i.valor);
+        let aplica = false;
+        if (c.clase === 'dano') {
+            const tipos = (c.tipos || []).map(norm);
+            if (i.tipo === 'dano')
+                aplica = tipos.includes(v) && ['bloquear_dano', 'bloquear_todo', 'resistir'].includes(i.modo);
+            else if (i.tipo === 'categoria')
+                aplica = coincideCategoria(v, c) && ['bloquear_dano', 'bloquear_todo', 'resistir'].includes(i.modo);
+        }
+        else {
+            if (i.tipo === 'estado')
+                aplica = !!c.estado && norm(c.estado) === v && i.modo !== 'bloquear_dano';
+            else if (i.tipo === 'categoria')
+                aplica = coincideCategoria(v, c) && i.modo !== 'bloquear_dano';
+            else if (i.tipo === 'dano')
+                aplica = !!c.origen && norm(c.origen) === v && (i.modo === 'bloquear_todo' || i.modo === 'resistir');
+        }
+        if (!aplica)
+            continue;
+        if (i.modo === 'resistir') {
+            resistido ??= i;
+            continue;
+        }
+        return { bloqueado: true, resistido: false, motivo: `inmune ${describirValor(i)}${i.origen ? ` (${i.origen})` : ''}` };
+    }
+    return resistido ? { bloqueado: false, resistido: true, motivo: `resiste ${describirValor(resistido)}${resistido.origen ? ` (${resistido.origen})` : ''}` } : { bloqueado: false, resistido: false, motivo: '' };
+}
+function describirValor(i) {
+    const v = norm(i.valor);
+    if (i.tipo === 'dano')
+        return NOMBRE_ELEMENTO[v] || `al daño de ${v.replace(/_/g, ' ')}`;
+    if (i.tipo === 'estado')
+        return `a ${capital(v)}`;
+    const [c, s] = v.split(':');
+    const SUB = { ilusion: 'ilusión', confusion: 'confusión', posesion: 'posesión' };
+    return s ? `a efectos ${c === 'mental' ? 'mentales' : c} de ${SUB[s] || s.replace(/_/g, ' ')}` : `a efectos ${c === 'mental' ? 'mentales' : c}`;
+}
+/** Frase para la vista previa del Yunque: «Inmune al fuego; no a Quemadura». */
+function describirInmunidades(lista) {
+    if (!lista.length)
+        return 'Sin inmunidades.';
+    const partes = lista.map(i => {
+        const base = `${i.modo === 'resistir' ? 'Resiste' : 'Inmune'} ${describirValor(i)}`;
+        const modo = i.modo === 'bloquear_aplicacion' && i.tipo !== 'estado' ? ' (no se le aplican sus estados)' : i.modo === 'bloquear_todo' && i.tipo === 'dano' ? ' (daño y estados de ese origen)' : '';
+        const dura = i.duracion === 'equipada' ? ' mientras esté equipada' : i.duracion === 'turnos' ? ` durante ${i.turnos} turnos` : '';
+        return base + modo + dura;
+    });
+    // Aclara el caso clásico: inmune al daño de un elemento pero no a su estado.
+    const fuego = lista.find(i => i.tipo === 'dano' && norm(i.valor) === 'fuego' && i.modo === 'bloquear_dano');
+    if (fuego && !lista.some(i => i.tipo === 'estado' && norm(i.valor) === 'quemadura'))
+        partes.push('no a Quemadura');
+    return capital(partes.join('; ')) + '.';
+}
+
+return { validarInmunidades };
+})();
+const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal' };
+const ICONO_PRIMITIVA = { perder_turno: 'alma', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'escudo', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo' };
+const CATEGORIAS_ESTADO = ['mental', 'fisico', 'elemental', 'narrativo'];
+const SALV = { cd: 12, atributo: 'salvacion' };
+/** Catálogo base. Los estados del motor antiguo son ahora definiciones; sus resultados no cambian. */
+const CATALOGO_ESTADOS = [
+    { id: 'congelado', nombre: 'Congelado', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
+    { id: 'aturdido', nombre: 'Aturdido', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
+    { id: 'mojado', nombre: 'Mojado', icono: 'agua', categoria: 'elemental', origen: 'agua', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'vulnerabilidad_elemental', consume: true, reacciones: [
+                    { elemento: 'electricidad', nombre: 'Superconducción', multiplicador: 2, mensaje: 'Superconducción: daño principal × 2.' },
+                    { elemento: 'luz_sagrada', nombre: 'Agua bendita', dados: { cantidad: 1, caras: 6 }, multiplicador: 2, solo_corruptos: true, mensaje: 'Agua bendita contra oscuridad/corrupción: daño sagrado × 2.' },
+                    { elemento: 'hielo', nombre: 'Congelación', aplica_estado: 'congelado' },
+                    { elemento: 'fuego', nombre: 'Onda de vapor', dados: { cantidad: 1, caras: 4 }, aplica_estado: 'ciego' }
+                ] }], descripcion: 'El agua amplifica el siguiente elemento que lo toque.' },
+    { id: 'quemadura', nombre: 'Quemadura', icono: 'fuego', categoria: 'elemental', origen: 'fuego', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'fuego', momento: 'inicio', salvacion_termina: SALV }] },
+    { id: 'veneno', nombre: 'Envenenado', icono: 'pocion', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
+    { id: 'regeneracion', nombre: 'Regeneración', icono: 'vida', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'curacion_periodica', cantidad: 1, caras: 4, momento: 'inicio' }] },
+    { id: 'dominado', nombre: 'Dominado', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
+    { id: 'control_mental', nombre: 'Control mental', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'cesion_control', controlador: 'fuente' }], descripcion: 'Quien lo controla decide sus actos; el GM puede cortarlo.' },
+    { id: 'asustado', nombre: 'Asustado', icono: 'ojo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
+    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'ojo', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
+    { id: 'dormido', nombre: 'Dormido', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
+    { id: 'paralizado', nombre: 'Paralizado', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
+    { id: 'en_trance', nombre: 'En trance', icono: 'alma', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
+    { id: 'guardia', nombre: 'Guardia', icono: 'escudo', categoria: 'fisico', duracion: { tipo: 'hasta_su_turno' }, efectos: [{ tipo: 'bonos', bonos: { armadura: 2 } }] },
+    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
+    { id: 'escarcha', nombre: 'Escarcha: ARM a la mitad hasta el próximo ataque', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'ARM a la mitad contra el próximo ataque.' },
+    { id: 'marca_luz', nombre: 'Marcado por la Luz', icono: 'corona', categoria: 'elemental', origen: 'luz_sagrada', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'El próximo golpe estalla con 1d6.' },
+];
+const POR_ID = new Map(CATALOGO_ESTADOS.map(d => [d.id, d]));
+const definicionBase = (id) => id ? POR_ID.get(id) : undefined;
+/** Definición de una instancia activa: la copia que lleva (estado creado en el Yunque) o la del catálogo. */
+function definicionDe(inst) {
+    return inst.def || definicionBase(inst.tipo || inst.id);
+}
+const primitivas = (d, tipo) => (d?.efectos || []).filter((p) => p.tipo === tipo);
+const entero = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+const salvValida = (s) => !s || (entero(s.cd, 1, 100) && /^[a-z_][a-z0-9_]*$/.test(s.atributo || ''));
+function validarDefinicionEstado(d) {
+    if (!d || typeof d !== 'object')
+        return 'Estado sin definir.';
+    if (!/^[a-z_][a-z0-9_]{0,63}$/.test(d.id || ''))
+        return 'El estado necesita un identificador (letras minúsculas y guiones bajos).';
+    if (typeof d.nombre !== 'string' || !d.nombre.trim() || d.nombre.length > 120)
+        return 'El estado necesita un nombre.';
+    if (!CATEGORIAS_ESTADO.includes(d.categoria))
+        return 'Categoría de estado inválida.';
+    const du = d.duracion;
+    if (!du || !['turnos', 'combate', 'salvacion', 'hasta_su_turno'].includes(du.tipo))
+        return 'Elige una duración.';
+    if (du.tipo === 'turnos' && !entero(du.turnos, 1, 99))
+        return 'La duración va de 1 a 99 turnos.';
+    if (du.tipo === 'salvacion' && (!du.salvacion || !salvValida(du.salvacion)))
+        return 'Configura la salvación que termina el estado.';
+    if (!Array.isArray(d.efectos) || d.efectos.length > 8)
+        return 'Hasta 8 primitivas por estado.';
+    if (d.despertar && !salvValida(d.despertar.salvacion))
+        return 'Salvación de despertar inválida.';
+    if (d.origen !== undefined && !/^[a-z_][a-z0-9_]{0,63}$/.test(d.origen))
+        return 'Origen inválido.';
+    for (const p of d.efectos) {
+        if (!p || !(p.tipo in NOMBRE_PRIMITIVA))
+            return 'Primitiva desconocida.';
+        if (p.tipo === 'movimiento_forzado' && (!['alejar', 'acercar'].includes(p.sentido) || !entero(p.min, 0, 12) || !entero(p.max, 1, 12) || p.min > p.max))
+            return 'Movimiento forzado: de 0 a 12 casillas (mínimo ≤ máximo).';
+        if (p.tipo === 'cesion_control' && !['gm', 'fuente'].includes(p.controlador))
+            return 'Elige quién controla.';
+        if (p.tipo === 'percepcion_alterada' && !entero(p.probabilidad, 0, 100))
+            return 'Probabilidad de 0 a 100.';
+        if ((p.tipo === 'dano_periodico' || p.tipo === 'curacion_periodica') && (!entero(p.cantidad, 1, 20) || !entero(p.caras, 2, 100) || !['inicio', 'fin'].includes(p.momento)))
+            return 'Dados periódicos de 1 a 20 y de 2 a 100 caras.';
+        if (p.tipo === 'dano_periodico' && (!/^[a-z_][a-z0-9_]{0,63}$/.test(p.tipo_dano || '') || !salvValida(p.salvacion_termina)))
+            return 'Indica el tipo de daño periódico.';
+        if (p.tipo === 'modificador_movimiento' && (!['cero', 'mitad', 'restar'].includes(p.modo) || (p.modo === 'restar' && !entero(p.valor, 1, 30))))
+            return 'Modificador de movimiento inválido.';
+        if (p.tipo === 'vulnerabilidad_elemental' && (!Array.isArray(p.reacciones) || !p.reacciones.length || p.reacciones.some(r => !r || !r.elemento || !r.nombre || (r.dados && (!entero(r.dados.cantidad, 1, 20) || !entero(r.dados.caras, 2, 100))) || (r.multiplicador !== undefined && !(r.multiplicador > 0 && r.multiplicador <= 5)))))
+            return 'Cada reacción elemental necesita elemento, nombre y valores válidos.';
+        if (p.tipo === 'bonos' && (!p.bonos || Object.entries(p.bonos).some(([k, v]) => !/^[a-z_][a-z0-9_]*$/.test(k) || !Number.isFinite(v) || Math.abs(v) > 1000)))
+            return 'Bonos inválidos.';
+        if (p.tipo === 'inmunidad') {
+            const e = validarInmunidades(p.inmunidades);
+            if (e)
+                return e;
+            if (!p.inmunidades?.length)
+                return 'Añade al menos una inmunidad.';
+        }
+    }
+    return null;
+}
+/** Bonos que suma la definición (además de los bonos propios de la instancia). */
+function bonosDefinicion(d) {
+    const r = {};
+    for (const p of primitivas(d, 'bonos'))
+        for (const [k, v] of Object.entries(p.bonos))
+            r[k] = (r[k] || 0) + v;
+    return r;
+}
+/** Turnos iniciales de una instancia. 0 = hasta que se consuma o termine el combate. */
+function turnosIniciales(d, pedidos) {
+    if (d.duracion.tipo === 'turnos')
+        return Math.max(1, pedidos || d.duracion.turnos);
+    if (d.duracion.tipo === 'hasta_su_turno')
+        return 1;
+    return pedidos && pedidos > 0 && d.duracion.tipo !== 'salvacion' ? pedidos : 0;
+}
+function movimientoPermitido(defs, base) {
+    let v = base;
+    for (const d of defs)
+        for (const p of primitivas(d, 'modificador_movimiento'))
+            v = p.modo === 'cero' ? 0 : p.modo === 'mitad' ? Math.floor(v / 2) : Math.max(0, v - (p.valor || 0));
+    return v;
+}
+const permiteReacciones = (defs) => !defs.some(d => primitivas(d, 'perder_turno').some(p => p.permite_reacciones === false));
+const SUJETO_TIPO = { fuego: 'fuego', veneno: 'veneno', agua: 'agua', hielo: 'hielo', electricidad: 'rayo', luz_sagrada: 'luz sagrada' };
+/** Frase en lenguaje claro: la misma en el editor del Yunque y en el tooltip de combate. */
+function describirEstado(d) {
+    const partes = [];
+    for (const p of d.efectos) {
+        if (p.tipo === 'perder_turno')
+            partes.push((p.primer_turno ? 'pierde siempre su primer turno' : 'pierde su turno') + (p.consumir ? ' (una vez)' : '') + (p.permite_reacciones === false ? ', sin reacciones' : ''));
+        if (p.tipo === 'movimiento_forzado')
+            partes.push(`${p.sentido === 'alejar' ? 'se aleja' : 'se acerca'} ${p.min === p.max ? p.max : `${p.min}–${p.max}`} casillas de su fuente cada turno${p.no_ataca_fuente ? ' y no puede atacarla' : ''}`);
+        if (p.tipo === 'cesion_control')
+            partes.push(p.controlador === 'gm' ? 'el GM decide sus actos' : 'quien lo lanzó decide sus actos (el GM puede cortarlo)');
+        if (p.tipo === 'percepcion_alterada')
+            partes.push(`ve los bandos invertidos (${p.probabilidad} % cada turno)`);
+        if (p.tipo === 'dano_periodico')
+            partes.push(`recibe ${p.cantidad}d${p.caras} de ${SUJETO_TIPO[p.tipo_dano] || p.tipo_dano.replace(/_/g, ' ')} al ${p.momento} de su turno${p.salvacion_termina ? ` (salvación CD ${p.salvacion_termina.cd} para apagarlo)` : ''}`);
+        if (p.tipo === 'curacion_periodica')
+            partes.push(`recupera ${p.cantidad}d${p.caras} de vida al ${p.momento} de su turno`);
+        if (p.tipo === 'modificador_movimiento')
+            partes.push(p.modo === 'cero' ? 'no puede moverse' : p.modo === 'mitad' ? 'se mueve a la mitad' : `pierde ${p.valor} casillas de movimiento`);
+        if (p.tipo === 'vulnerabilidad_elemental')
+            partes.push(`reacciona con ${p.reacciones.map(r => `${SUJETO_TIPO[r.elemento] || r.elemento} (${r.nombre})`).join(', ')}${p.consume ? ' y se consume' : ''}`);
+        if (p.tipo === 'bonos')
+            partes.push(Object.entries(p.bonos).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.replace(/_/g, ' ')}`).join(', '));
+        if (p.tipo === 'inmunidad')
+            partes.push(`inmune a ${p.inmunidades.map(i => i.valor.replace(/_/g, ' ')).join(', ')}`);
+    }
+    if (d.despertar?.recibir_dano)
+        partes.push('despierta al recibir daño');
+    if (d.despertar?.salvacion)
+        partes.push(`salvación CD ${d.despertar.salvacion.cd} al inicio de cada turno para terminarlo`);
+    const du = d.duracion;
+    const dura = du.tipo === 'turnos' ? `dura ${du.turnos} ${du.turnos === 1 ? 'turno' : 'turnos'}` : du.tipo === 'combate' ? 'dura hasta que se consuma o acabe el combate' : du.tipo === 'salvacion' ? `dura hasta superar CD ${du.salvacion.cd}` : 'dura hasta el inicio de su siguiente turno';
+    return `${d.nombre}: ${[...partes, dura].filter(Boolean).join('; ')}.`;
+}
+/** Nueva definición vacía para el editor. */
+const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', icono: 'fuego', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+
+return { validarDefinicionEstado, definicionBase };
+})();
+const BASES_ELEMENTO = ['fuego', 'agua', 'electricidad', 'hielo', 'luz_sagrada'];
+const SALV = { cd: 12, atributo: 'salvacion' };
+const D4 = { cantidad: 1, caras: 4 };
+/** Catálogo base: el comportamiento histórico del motor, sin cambios. */
+const CATALOGO_ELEMENTOS = [
+    { id: 'fuego', nombre: 'Fuego', icono: 'fuego', color: '#e8643c', base: 'fuego', dados_extra: D4, al_impactar: [{ estado: 'quemadura', salvacion: SALV }], descripcion: 'Puede causar Quemadura.' },
+    { id: 'agua', nombre: 'Agua', icono: 'agua', color: '#4fa3e0', base: 'agua', dados_extra: D4, al_impactar: [{ estado: 'mojado', salvacion: null }], descripcion: 'Moja al objetivo: el siguiente elemento reacciona.' },
+    { id: 'electricidad', nombre: 'Rayo', icono: 'rayo', color: '#f2d74a', base: 'electricidad', dados_extra: D4, ignora_armadura: 3, cadena: { dano: 3 }, descripcion: 'Ignora 3 ARM y salta a quien esté en contacto.' },
+    { id: 'hielo', nombre: 'Hielo', icono: 'hielo', color: '#9fe3f2', base: 'hielo', dados_extra: D4, al_impactar: [{ estado: 'escarcha', salvacion: SALV }], descripcion: 'Puede dejar Escarcha (ARM a la mitad).' },
+    { id: 'luz_sagrada', nombre: 'Luz sagrada', icono: 'corona', color: '#f4dfae', base: 'luz_sagrada', dados_extra: D4, ignora_armadura: 5, al_impactar: [{ estado: 'marca_luz', salvacion: SALV }], descripcion: 'Ignora 5 ARM y marca al objetivo.' },
+];
+const POR_ID = new Map(CATALOGO_ELEMENTOS.map(d => [d.id, d]));
+const elementoBase = (id) => id ? POR_ID.get(id) : undefined;
+/** Definición que rige un golpe de `elemento`: la copia propia si es variante de ese mismo elemento, o la base. */
+function definicionElemento(elemento, propia) {
+    if (!elemento || elemento === 'ninguno')
+        return undefined;
+    return propia && propia.base === elemento ? propia : elementoBase(elemento);
+}
+/** Nombre visible: el de la variante o el de la base. */
+const nombreElemento = (elemento, propia) => definicionElemento(elemento, propia)?.nombre || 'físico';
+const entero = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+function validarDefinicionElemento(d) {
+    if (!d || typeof d !== 'object')
+        return 'Elemento sin definir.';
+    if (!/^[a-z_][a-z0-9_]{0,63}$/.test(d.id || ''))
+        return 'El elemento necesita un identificador (letras minúsculas y guiones bajos).';
+    if (typeof d.nombre !== 'string' || !d.nombre.trim() || d.nombre.length > 120)
+        return 'El elemento necesita un nombre.';
+    if (!BASES_ELEMENTO.includes(d.base))
+        return 'Elige en qué elemento base se apoya.';
+    if (d.color !== undefined && !/^#[0-9a-fA-F]{6}$/.test(d.color))
+        return 'Color inválido.';
+    if (d.dados_extra && (!entero(d.dados_extra.cantidad, 1, 20) || !entero(d.dados_extra.caras, 2, 100)))
+        return 'Dados extra de 1 a 20 y de 2 a 100 caras.';
+    if (d.ignora_armadura !== undefined && !entero(d.ignora_armadura, 0, 50))
+        return 'La armadura ignorada va de 0 a 50.';
+    if (d.cadena && !entero(d.cadena.dano, 1, 100))
+        return 'El daño en cadena va de 1 a 100.';
+    if (d.al_impactar !== undefined && (!Array.isArray(d.al_impactar) || d.al_impactar.length > 4))
+        return 'Hasta 4 estados al impactar.';
+    for (const x of d.al_impactar || []) {
+        if (!x || typeof x.estado !== 'string')
+            return 'Estado al impactar inválido.';
+        if (x.estado_def) {
+            const e = validarDefinicionEstado(x.estado_def);
+            if (e)
+                return `Estado al impactar: ${e}`;
+            if (x.estado_def.id !== x.estado)
+                return 'Estado al impactar inválido.';
+        }
+        else if (!definicionBase(x.estado))
+            return 'Estado al impactar desconocido.';
+        if (x.salvacion && (!entero(x.salvacion.cd, 1, 100) || !/^[a-z_][a-z0-9_]*$/.test(x.salvacion.atributo || '')))
+            return 'Salvación al impactar inválida.';
+    }
+    return null;
+}
+/** Frase en lenguaje claro (editor, tooltip y cartas). */
+function describirElemento(d) {
+    const partes = [];
+    if (d.dados_extra)
+        partes.push(`+${d.dados_extra.cantidad}d${d.dados_extra.caras} de daño`);
+    if (d.ignora_armadura)
+        partes.push(`ignora ${d.ignora_armadura} ARM`);
+    for (const x of d.al_impactar || []) {
+        const n = (x.estado_def?.nombre || definicionBase(x.estado)?.nombre || x.estado).split(':')[0];
+        partes.push(x.salvacion ? `puede causar ${n} (salvación CD ${x.salvacion.cd})` : `aplica ${n}`);
+    }
+    if (d.cadena)
+        partes.push(`salta ${d.cadena.dano} de daño a quien esté en contacto`);
+    const base = elementoBase(d.base)?.nombre || d.base;
+    return `${d.nombre}${d.id !== d.base ? ` (de ${base.toLowerCase()})` : ''}: ${partes.length ? partes.join('; ') : 'sin efectos extra'}.`;
+}
+const elementoVacio = (id = 'elemento_nuevo', base = 'fuego') => { const b = elementoBase(base); return { ...structuredClone(b), id, nombre: 'Nuevo elemento', descripcion: undefined }; };
+
+return { definicionElemento };
+})();
 const { describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
 const { validarInmunidades } = (() => {
 const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
@@ -4342,7 +4691,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     if (tiene(t, "escarcha"))
         arm = Math.floor(arm / 2);
     arm = Math.max(0, arm -
-        Math.max(...(e.componentes?.length ? e.componentes.map(x => x.elemento) : [elemento]).map(x => x === "electricidad" ? 3 : x === "luz_sagrada" ? 5 : 0)));
+        Math.max(...(e.componentes?.length ? e.componentes.map(x => x.elemento) : [elemento]).map(x => definicionElemento(x, e.elemento_def)?.ignora_armadura || 0)));
     if (antes.length)
         log(n, `${t.nombre}: defensas reactivas ${antes.map((r) => r.nombre).join(", ")}; ARM contra este ataque ${arm}.`);
     let totalAtaque;
@@ -4439,8 +4788,9 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     }
     else {
         let dadosTotal = dados(n, e.cantidad, e.caras, rng, act.nombre);
-        if (elemento !== "ninguno")
-            dadosTotal += dados(n, 1, 4, rng, "Daño elemental " + elemento);
+        const defElemento = definicionElemento(elemento, e.elemento_def);
+        if (defElemento?.dados_extra)
+            dadosTotal += dados(n, defElemento.dados_extra.cantidad, defElemento.dados_extra.caras, rng, "Daño elemental " + (defElemento === e.elemento_def ? defElemento.nombre : elemento));
         // Primitiva «Vulnerabilidad elemental» (Mojado y los estados creados en el Yunque).
         const vulnerable = t.estados.map(s => ({ s, r: primitivas(definicionDe(s), "vulnerabilidad_elemental").flatMap(p => p.reacciones.filter(x => x.elemento === elemento).map(x => ({ p, x })))[0] })).find(v => v.r);
         combo = !!vulnerable;
@@ -4501,31 +4851,25 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     // Elemental saves affect secondary states, never repeat the attack roll. Cada componente aplica los suyos.
     for (const elemento of elementosGolpe) {
         const eElemento = e.componentes?.length ? { ...e, componentes: undefined, elemento: elemento } : e;
-        if (permiteEstados && elemento === "agua" && puedeAplicar(n, t, "mojado", undefined, e) !== 'no')
-            estado(t, "mojado", "Mojado");
-        if (permiteEstados &&
-            elemento === "fuego" &&
-            puedeAplicar(n, t, "quemadura", undefined, e) !== 'no' &&
-            !salvacion(n, t, 12, "salvacion", rng))
-            estado(t, "quemadura", "Quemadura", 0, {}, { cantidad: 1, caras: 4, cd: 12, atributo: "salvacion" });
-        if (permiteEstados &&
-            elemento === "hielo" &&
-            puedeAplicar(n, t, "escarcha", undefined, e) !== 'no' &&
-            !salvacion(n, t, 12, "salvacion", rng))
-            estado(t, "escarcha", "Escarcha: ARM a la mitad hasta el próximo ataque");
-        if (permiteEstados &&
-            elemento === "luz_sagrada" &&
-            puedeAplicar(n, t, "marca_luz", undefined, e) !== 'no' &&
-            !salvacion(n, t, 12, "salvacion", rng))
-            estado(t, "marca_luz", "Marcado por la Luz");
-        if (elemento === "electricidad" && t.grupo_cercania) {
+        // Estados al impactar del elemento (lib/elementos.ts): fuego → Quemadura, agua → Mojado… o los de una variante.
+        const defGolpe = definicionElemento(elemento, e.elemento_def);
+        if (permiteEstados)
+            for (const x of defGolpe?.al_impactar || []) {
+                if (puedeAplicar(n, t, x.estado, x.estado_def, e) === 'no')
+                    continue;
+                if (x.salvacion && salvacion(n, t, x.salvacion.cd, x.salvacion.atributo, rng))
+                    continue;
+                impactoElemental(n, a, t, x, e);
+            }
+        const cadena = defGolpe?.cadena;
+        if (cadena && t.grupo_cercania) {
             for (const otro of n.miembros.filter((m) => m.id !== t.id &&
                 m.id !== a.id &&
                 m.bando === t.bando &&
                 m.vida > 0 &&
                 m.grupo_cercania === t.grupo_cercania)) {
-                area(n, a, otro, eElemento, 3, rng);
-                log(n, `${otro.nombre}: chispa de cercanía 3.`);
+                area(n, a, otro, eElemento, cadena.dano, rng);
+                log(n, `${otro.nombre}: chispa de cercanía ${cadena.dano}.`);
                 if (combo && tiene(otro, tipoVulnerable)) {
                     const v = dados(n, 1, 6, rng, "Superconducción cercana");
                     area(n, a, otro, eElemento, v, rng);
@@ -4538,6 +4882,20 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
     normalizar(a);
     normalizar(t);
     return n;
+}
+/** Aplica un estado elemental. Los cuatro estados históricos conservan su forma exacta de instancia. */
+function impactoElemental(n, a, t, x, e) {
+    if (!x.estado_def && x.estado === "mojado")
+        return estado(t, "mojado", "Mojado");
+    if (!x.estado_def && x.estado === "quemadura")
+        return estado(t, "quemadura", "Quemadura", 0, {}, { cantidad: 1, caras: 4, cd: 12, atributo: "salvacion" });
+    if (!x.estado_def && x.estado === "escarcha")
+        return estado(t, "escarcha", "Escarcha: ARM a la mitad hasta el próximo ataque");
+    if (!x.estado_def && x.estado === "marca_luz")
+        return estado(t, "marca_luz", "Marcado por la Luz");
+    const d = x.estado_def || definicionBase(x.estado);
+    if (d)
+        aplicarDefinicion(n, t, d, a.id, undefined, {}, e);
 }
 const NOMBRE_COMPONENTE = { ninguno: "físico", fuego: "fuego", agua: "agua", electricidad: "electricidad", hielo: "hielo", luz_sagrada: "luz sagrada" };
 /** Daño de una técnica combinada: cada componente tira sus dados, su 1d4 elemental, su inmunidad y su combo.
@@ -4552,8 +4910,9 @@ function danoPorComponentes(n, a, t, e, act, rng, o) {
     let usado = false;
     for (const comp of e.componentes || []) {
         let v = dados(n, comp.cantidad, comp.caras, rng, `${act.nombre} · ${comp.nombre || NOMBRE_COMPONENTE[comp.elemento] || comp.elemento}`);
-        if (comp.elemento !== "ninguno")
-            v += dados(n, 1, 4, rng, "Daño elemental " + comp.elemento);
+        const defComp = definicionElemento(comp.elemento, e.elemento_def);
+        if (defComp?.dados_extra)
+            v += dados(n, defComp.dados_extra.cantidad, defComp.dados_extra.caras, rng, "Daño elemental " + (defComp === e.elemento_def ? defComp.nombre : comp.elemento));
         let mult = 1, nota = "";
         if (!usado && vul?.r && vul.r.r.elemento === comp.elemento) {
             {

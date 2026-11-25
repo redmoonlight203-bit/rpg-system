@@ -53,3 +53,27 @@ test('un estado del grimorio copiado en una habilidad lo ejecuta el motor sin ca
  assert.equal(de(n,'k').accion_usada,true);
  assert.equal(de(m.siguiente(n,dados([5])),'k').vida,40);
 });
+
+// ── Grimorio de elementos ──
+const infernal={id:'fuego_infernal',nombre:'Fuego infernal',base:'fuego',dados_extra:{cantidad:2,caras:6},ignora_armadura:4,al_impactar:[{estado:'aturdido',salvacion:{cd:15,atributo:'salvacion'}}],cadena:{dano:5}};
+test('elementos: ids libres y validación del grimorio',()=>{
+ assert.equal(g.idElementoLibre('fuego',[]),'fuego_2');
+ assert.equal(g.idElementoLibre('ninguno',[]),'ninguno_2');
+ assert.equal(g.validarElementoGuardado(infernal,[]),null);
+ assert.match(g.validarElementoGuardado({...infernal,id:'hielo'},[]),/elemento base/);
+ assert.match(g.validarElementoGuardado(infernal,['fuego_infernal']),/Ya tienes/);
+ assert.equal(g.leerFilaElemento({id:'fuego_infernal',definicion:infernal,color:'#123456'}).color,'#123456');
+ assert.equal(g.leerFilaElemento({id:'otro',definicion:infernal}),null);
+});
+test('elementos: un estado del grimorio sirve como estado al impactar',()=>{
+ const v={...infernal,al_impactar:[{estado:'sopor_toxico',estado_def:sopor,salvacion:null}]};
+ assert.equal(g.validarElementoGuardado(v,[]),null);
+ assert.match(g.validarElementoGuardado({...v,al_impactar:[{estado:'otro',estado_def:sopor}]},[]),/inválido/);
+});
+test('golpe de prueba: dados, armadura ignorada, salvación y cadena',()=>{
+ const r=g.simularGolpe(infernal,{armadura:4,tirar:fijo(3)});
+ assert.equal(r.arma,3);assert.equal(r.extra.length,2);assert.equal(r.ignorada,4);assert.equal(r.total,9);
+ assert.equal(r.estados[0].aplicado,true,'3 < CD 15');assert.equal(r.cadena,5);
+ assert.ok(r.reacciones.some(x=>/Onda de vapor/.test(x)),'Mojado reacciona al fuego de la base');
+ const sin=g.simularGolpe({id:'x',nombre:'X',base:'agua'},{armadura:4,tirar:fijo(2)});assert.equal(sin.total,0);
+});

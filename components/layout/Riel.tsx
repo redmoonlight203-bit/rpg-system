@@ -7,7 +7,7 @@ import {usePathname} from 'next/navigation';
 import {PanelLeftOpen,PanelLeftClose,LogOut} from 'lucide-react';
 import LogoYugen from '../LogoYugen';
 export type EnlaceRiel={href:string;nombre:string;kanji:string};
-export const indices:Record<string,string>={forja:'鍛',combate:'戦',reglas:'規',experiencia:'経',arbol:'樹',estilos:'典',recompensas:'賞',clanes:'族',party:'絆',personajes:'人',personaje:'人',mercado:'市',tienda:'市','tienda-almas':'魂',deudas:'借',arena:'闘',logros:'功',alma:'魂',tiradas:'賽',habilidades:'術',equipamiento:'装',inventario:'倉',panel:'主',tablero:'盤',mapas:'図',lore:'巻',codex:'典',creacion:'創',estados:'状'};
+export const indices:Record<string,string>={forja:'鍛',combate:'戦',reglas:'規',experiencia:'経',arbol:'樹',estilos:'典',recompensas:'賞',clanes:'族',party:'絆',personajes:'人',personaje:'人',mercado:'市',tienda:'市','tienda-almas':'魂',deudas:'借',arena:'闘',logros:'功',alma:'魂',tiradas:'賽',habilidades:'術',equipamiento:'装',inventario:'倉',panel:'主',tablero:'盤',mapas:'図',lore:'巻',codex:'典',creacion:'創',estados:'状',elementos:'元'};
 export function indiceRuta(href:string){return indices[href.split('/').at(-1)||'']||'主';}
 export default function Riel({enlaces,gm=false,onSalir}:{enlaces:EnlaceRiel[];gm?:boolean;onSalir:()=>void}){
  const [expandido,setExpandido]=useState(false),ruta=usePathname();

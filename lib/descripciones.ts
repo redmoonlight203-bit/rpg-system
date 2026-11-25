@@ -3,6 +3,7 @@ import {type Regla, type EfectoRegla, type CondicionRegla} from './reglas';
 import {describirVision} from './vision';
 import {describirInmunidades} from './inmunidades';
 import {describirEstado} from './estados';
+import {describirElemento} from './elementos';
 import {disparadorDe,lineaCosteReaccion} from "./reacciones";
 export type AyudaClara={resumen:string;detalles:string[]};
 const elementos:Record<string,string>={fuego:'fuego',agua:'agua',hielo:'hielo',electricidad:'electricidad',luz_sagrada:'luz sagrada'};
@@ -10,7 +11,7 @@ const atributo=(s:string)=>({vida:'vida máxima',hp:'vida máxima',vida_actual:'
 export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  const legacy=(e.tipo_dano||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const claveElemento=e.elemento||({electrico:'electricidad',frio:'hielo','luz sagrada':'luz_sagrada'}[legacy]||legacy);
- const elemento=elementos[claveElemento];
+ const elemento=e.elemento_def&&e.elemento_def.base===claveElemento?e.elemento_def.nombre.toLowerCase():elementos[claveElemento];
  let resumen:string;
  switch(e.efecto){
   case 'transformacion':resumen=`Activa ${e.transformacion?.nombre||e.nombre}: ${e.transformacion?.tipo==='forma'?'vida independiente; al romperse recupera su cuerpo':'poder con su vida real'}.`;break;
@@ -25,6 +26,7 @@ export function describirEfecto(e:Efecto,nombre=e.nombre):AyudaClara {
  if(e.efecto==='dano'&&e.rafaga&&!e.solo_pasivo)resumen=`Ataque múltiple: ${e.cantidad} disparos de 1d${e.caras}, cada uno con su propia tirada para impactar; al mismo enemigo o a otros. Tras el primero solo puedes seguir disparando o moverte.`;
  if(e.solo_pasivo)resumen=`Rasgo siempre activo. ${e.inmunidades?.length?describirInmunidades(e.inmunidades):''}`.trim();
  const detalles:string[]=[];
+ if(e.elemento_def&&e.elemento_def.base===claveElemento)detalles.push(describirElemento(e.elemento_def));
  if(e.transformacion){detalles.push('Una activación por encuentro. Cambiar etapa consume una acción, sin repetir el coste de activación.');for(const etapa of e.transformacion.etapas)detalles.push(`${etapa.nombre}: ${etapa.descripcion?etapa.descripcion+' ':''}${Object.entries(etapa.stats).map(([k,v])=>`${atributo(k)} ${v}`).join(', ')}.`);}
  if(e.efecto==='desplazamiento')detalles.push(`Hasta ${e.tablero?.alcance??0} casillas libres sin consumir movimiento.`);
  else if(e.tablero){const t=e.tablero;

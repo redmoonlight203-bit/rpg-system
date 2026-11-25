@@ -10,6 +10,7 @@ import {Interruptor} from '../Controles';
 import EditorDefensas from './EditorDefensas';
 import EditorEstados from './EditorEstados';
 import FichasGrimorio from '../../grimorio/FichasGrimorio';
+import FichasGrimorioElementos from '../../grimorio/FichasGrimorioElementos';
 import EditorRasgo,{rasgoVacio} from './EditorRasgo';
 import EditorConcepto from './EditorConcepto';
 import EditorEsqueleto from './EditorEsqueleto';
@@ -116,7 +117,8 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
   </>}
   {e.efecto==='estado'&&<><label className="yq-conmutador"><input type="checkbox" checked={!!e.aterrizar} onChange={v=>patch({aterrizar:v.target.checked||undefined,vuelo:undefined,aprendizaje:undefined})}/> Aterrizar desde la capa de vuelo</label><label className="yq-conmutador"><input type="checkbox" checked={!!e.aprendizaje} onChange={v=>patch({aterrizar:undefined,vuelo:undefined,aprendizaje:v.target.checked?{bono:0,cd:15}:undefined})}/>Aprender el último hechizo observado del objetivo</label>
    {e.aprendizaje&&<div className="yq-costes">{(['bono','cd'] as const).map(k=><label key={k}>{k==='cd'?'CD del GM':'Bono al d20'}<Rueda nombre={k} etiqueta={k==='cd'?'CD de aprendizaje':'Bono de aprendizaje'} valor={e.aprendizaje![k]} min={k==='cd'?1:-100} max={100} onChange={v=>patch({aprendizaje:{...e.aprendizaje!,[k]:v}})}/></label>)}</div>}</>}
-  {elemental&&<Fichas etiqueta="Elemento" opciones={ELEMENTOS} valor={elementoDe(e)} onChange={elemento=>patch({elemento})} tono="arcano"/>}
+  {elemental&&<Fichas etiqueta="Elemento" opciones={ELEMENTOS} valor={e.elemento_def?undefined:elementoDe(e)} onChange={elemento=>patch({elemento,elemento_def:undefined})} tono="arcano"/>}
+  {elemental&&<FichasGrimorioElementos actual={e.elemento_def} onElegir={elemento_def=>patch({elemento:elemento_def.base,elemento_def})}/>}
   {!e.rafaga&&<>
    <Fichas etiqueta="Presupuesto" opciones={PRESUPUESTOS} valor={tipoPresupuesto(e)} onChange={v=>patch({presupuesto:v==='principal'?undefined:v})}/>
    <p className="yq-nota">Legendaria: fuera de tu turno, se recarga cada ronda.{tipoPresupuesto(e)!=='principal'&&` Solo se puede usar si quien la tiene cuenta con acciones ${tipoPresupuesto(e)==='adicional'?'adicionales':'legendarias'}: del núcleo, la raza, el clan o la especie.`}</p>

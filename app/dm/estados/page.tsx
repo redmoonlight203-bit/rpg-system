@@ -11,6 +11,7 @@ import {useDialogo} from '../../../components/Dialogo';
 import EditorEstados from '../../../components/yunque/editores/EditorEstados';
 import CartaEstado from '../../../components/grimorio/CartaEstado';
 import MunecoPruebas from '../../../components/grimorio/MunecoPruebas';
+import SelectorGrimorio from '../../../components/grimorio/SelectorGrimorio';
 import {CATALOGO_ESTADOS,CATEGORIAS_ESTADO,estadoVacio,type CategoriaEstado,type DefinicionEstado} from '../../../lib/estados';
 import {AURA_CATEGORIA,NOMBRE_CATEGORIA,auraDe,idLibre,validarEstadoGuardado} from '../../../lib/estados-biblioteca';
 import {useGrimorioEstados} from '../../../lib/useGrimorioEstados';
@@ -60,6 +61,7 @@ export default function GrimorioEstados(){
    <Secciones etiqueta="Colecciones" valor={pestana} onCambio={v=>setPestana(v as 'propios'|'base')} items={[{id:'propios',etiqueta:'Tu grimorio',cuenta:estados.length},{id:'base',etiqueta:'Catálogo base',cuenta:CATALOGO_ESTADOS.length}]}/>
   </Cabecera>
   {errorCarga&&<p role="alert" className="ge-alerta">No se pudo leer el grimorio ({errorCarga}). ¿Falta aplicar la migración <code>grimorio_estados</code>?</p>}
+  <SelectorGrimorio actual="estados"/>
   <div className="ge-filtros">
    <label className="ge-buscar"><Search size={16} aria-hidden="true"/><input type="search" placeholder="Buscar estado…" value={busca} onChange={e=>setBusca(e.target.value)} aria-label="Buscar estado"/></label>
    <div className="ge-cats" role="group" aria-label="Categoría">

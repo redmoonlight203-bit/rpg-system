@@ -25,7 +25,7 @@ const principales = [
 const gestion = [
   { path: "/dm/arbol", label: "Árboles de habilidades", detail: "Ramas y puntos por personaje", icon: TrendingUp },
   { path: "/dm/reglas", label: "Estadísticas", detail: "Definir categorías y atributos", icon: Sliders },
-  { path: "/dm/estados", label: "Grimorio de estados", detail: "Crear y probar estados", icon: Sparkles },
+  { path: "/dm/estados", label: "Grimorio", detail: "Estados y elementos propios", icon: Sparkles },
   { path: "/dm/mercado", label: "Tiendas", icon: ShoppingBag },
   { path: "/dm/tienda-almas", label: "Tienda de almas", icon: ShoppingBag },
   { path: "/dm/deudas", label: "Pactos y deudas", icon: Handshake },

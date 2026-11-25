@@ -4,7 +4,8 @@
  * `estado_def`, que es lo que el motor de combate ya ejecuta: no hay casos nuevos en el motor.
  * Módulo puro (sin Supabase) para poder probarlo en Node.
  */
-import {CATALOGO_ESTADOS,primitivas,validarDefinicionEstado,movimientoPermitido,type DefinicionEstado,type CategoriaEstado} from './estados';
+import {CATALOGO_ESTADOS,primitivas,validarDefinicionEstado,movimientoPermitido,definicionBase,type DefinicionEstado,type CategoriaEstado} from './estados';
+import {CATALOGO_ELEMENTOS,elementoBase,validarDefinicionElemento,type DefinicionElemento} from './elementos';
 
 export type FilaEstado={id:string;definicion:unknown;color?:string|null;updated_at?:string|null};
 export type EstadoGuardado={id:string;def:DefinicionEstado;color:string;actualizado?:string};
@@ -116,4 +117,42 @@ export function simularEstado(d:DefinicionEstado,{vida=30,movimiento=6,maxTurnos
   if(!activo)break;
  }
  return {turnos,pasivos,vidaInicial:vida,vidaFinal:hp};
+}
+
+// ── Grimorio de elementos ────────────────────────────────────────────────────────────────────────
+export type ElementoGuardado={id:string;def:DefinicionElemento;color:string;actualizado?:string};
+export const IDS_ELEMENTO_RESERVADOS:ReadonlySet<string>=new Set(['ninguno','cualquiera',...CATALOGO_ELEMENTOS.map(d=>d.id)]);
+export const colorElemento=(d:DefinicionElemento,color?:string|null)=>color&&COLOR_VALIDO.test(color)?color:d.color&&COLOR_VALIDO.test(d.color)?d.color:elementoBase(d.base)?.color||'#e8643c';
+export function leerFilaElemento(f:FilaEstado):ElementoGuardado|null{
+ const def=f?.definicion as DefinicionElemento|undefined;
+ if(!def||typeof def!=='object'||def.id!==f.id||validarDefinicionElemento(def))return null;
+ return {id:f.id,def,color:colorElemento(def,f.color),actualizado:f.updated_at||undefined};
+}
+export function idElementoLibre(base:string,ocupados:Iterable<string>):string{
+ const usados=new Set(ocupados),limpio=(base||'elemento').slice(0,56);
+ if(!IDS_ELEMENTO_RESERVADOS.has(limpio)&&!usados.has(limpio))return limpio;
+ for(let i=2;;i++){const c=`${limpio}_${i}`;if(!IDS_ELEMENTO_RESERVADOS.has(c)&&!usados.has(c))return c;}
+}
+export function validarElementoGuardado(d:DefinicionElemento,otros:Iterable<string>=[]):string|null{
+ const e=validarDefinicionElemento(d);if(e)return e;
+ if(IDS_ELEMENTO_RESERVADOS.has(d.id))return 'Ese nombre ya lo usa un elemento base. Elige otro.';
+ if(new Set(otros).has(d.id))return 'Ya tienes un elemento con ese nombre en el grimorio.';
+ return null;
+}
+export const copiaElemento=(d:DefinicionElemento,color?:string):DefinicionElemento=>({...structuredClone(d),...(color?{color}:{})});
+
+export type GolpePrueba={arma:number;extra:number[];armadura:number;ignorada:number;total:number;estados:{nombre:string;salvacion?:number;cd?:number;aplicado:boolean}[];cadena?:number;reacciones:string[]};
+/**
+ * Golpe de prueba sobre el muñeco (ARM 4, en contacto con otro muñeco): arma 1d8 + dados del elemento, armadura
+ * ignorada, estados con su salvación y chispa en cadena. Aproximado: el combate real usa el motor.
+ */
+export function simularGolpe(d:DefinicionElemento,{armadura=4,tirar=(c:number)=>1+Math.floor(Math.random()*c)}:{armadura?:number;tirar?:(caras:number)=>number}={}):GolpePrueba{
+ const arma=tirar(8),extra:number[]=[];
+ for(let i=0;i<(d.dados_extra?.cantidad||0);i++)extra.push(tirar(d.dados_extra!.caras));
+ const ignorada=Math.min(armadura,d.ignora_armadura||0);
+ const total=Math.max(0,arma+extra.reduce((a,b)=>a+b,0)-(armadura-ignorada));
+ const estados=(d.al_impactar||[]).map(x=>{const nombre=(x.estado_def?.nombre||definicionBase(x.estado)?.nombre||x.estado).split(':')[0];
+  if(!x.salvacion)return {nombre,aplicado:true};const s=tirar(20);return {nombre,salvacion:s,cd:x.salvacion.cd,aplicado:s<x.salvacion.cd};});
+ const reacciones=CATALOGO_ESTADOS.flatMap(e=>primitivas(e,'vulnerabilidad_elemental').flatMap(p=>p.reacciones.filter(r=>r.elemento===d.base).map(r=>`Contra ${e.nombre.split(':')[0]}: ${r.nombre}`)));
+ return {arma,extra,armadura,ignorada,total,estados,cadena:d.cadena?.dano,reacciones};
 }
