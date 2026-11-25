@@ -2,7 +2,7 @@
 import {createPortal} from 'react-dom';
 import {useEffect,useRef,useState} from 'react';
 import type {EventoVisual} from '../lib/combate';
-import {buscarVFX,separarVFX,transformacionVFX,planificarVFX,type ClipVFX} from '../lib/vfx';
+import {buscarVFX,esLanzamientoRayoDivino,separarVFX,transformacionClipVFX,transformacionVFX,planificarVFX,type ClipVFX} from '../lib/vfx';
 import {ColaVisual} from '../lib/cola-visual';
 import {precargarVFX} from '../lib/precarga-vfx';
 import './vfx.css';
@@ -21,12 +21,12 @@ function Sprite({clip,columnas,filas}:{clip:ClipVFX;columnas:number;filas:number
   ],{duration:clip.duracion,delay:clip.inicio,fill:'none',easing:'linear'});
   return()=>anim.cancel();
  },[clip,columnas,filas]);
- return <span ref={ref} className="vfx-sprite" style={{left:(clip.desde.x+.5)/columnas*100+'%',top:(clip.desde.y+.5)/filas*100+'%',width:clip.escala/columnas*100+'%',height:clip.escala/filas*100+'%',opacity:0}}><ImagenDiferida clip={clip} src={asset.url}/></span>;
+ return <span ref={ref} className="vfx-sprite" style={{left:(clip.desde.x+.5)/columnas*100+'%',top:(clip.desde.y+.5)/filas*100+'%',width:clip.escala/columnas*100+'%',height:clip.escala/filas*100+'%',opacity:0}}><ImagenDiferida clip={clip} src={esLanzamientoRayoDivino(clip)?'/vfx/foundry/divine-beam-launch.png':asset.url}/></span>;
 }
 function ImagenDiferida({clip,src}:{clip:ClipVFX;src:string}){
  const [visible,setVisible]=useState(clip.inicio===0);
  useEffect(()=>{const timer=setTimeout(()=>setVisible(true),clip.inicio);return()=>clearTimeout(timer);},[clip.inicio]);
- return visible?<img src={src} alt="" style={{transform:transformacionVFX(clip.animacion,clip.giro)}}/>:null;
+ return visible?<img src={src} alt="" style={{transform:transformacionClipVFX(clip)}}/>:null;
 }
 export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVisual;columnas:number;filas:number}){
  const [lote,setLote]=useState<Lote>(),propio=useRef<string|undefined>(undefined);
