@@ -64,7 +64,7 @@ export function validarReglas(input: unknown): string | null {
   }
   function nodo(depth:number){if(depth>8||++nodos>500)fallo('Máximo 8 niveles y 500 bloques.');}
   function condicion(v:unknown,d=0){nodo(d);const c=objeto(v);
-   switch(c.tipo){case 'siempre':return;case 'estado_terminado':if(typeof c.clave!=='string'||!c.clave.trim())fallo('Escribe la clave del estado terminado.');return;case 'todas':case 'alguna':if(!Array.isArray(c.condiciones)||!c.condiciones.length)fallo('Añade condiciones al grupo.');(c.condiciones as unknown[]).forEach(x=>condicion(x,d+1));return;
+   switch(c.tipo){case 'siempre':return;case 'estado_terminado':if(typeof c.clave!=='string'||!c.clave.trim())fallo('Selecciona el estado o la forma que termina.');return;case 'todas':case 'alguna':if(!Array.isArray(c.condiciones)||!c.condiciones.length)fallo('Añade condiciones al grupo.');(c.condiciones as unknown[]).forEach(x=>condicion(x,d+1));return;
     case 'no':condicion(c.condicion,d+1);return;
     case 'estado':if(!sujeto(c.sujeto)||typeof c.estado!=='string'||!c.estado.trim()||c.estado.length>100)fallo('Estado o sujeto inválido.');return;
     case 'comparar':if(!sujeto(c.sujeto)||!clave(c.atributo)||!['<','<=','=','>=','>'].includes(String(c.operador))||typeof c.valor!=='number'||!Number.isFinite(c.valor)||Math.abs(c.valor)>1000000)fallo('Comparación inválida.');return;
@@ -80,7 +80,7 @@ export function validarReglas(input: unknown): string | null {
    for(const k of ['permanente','acumular'])if(e[k]!==undefined&&typeof e[k]!=='boolean')fallo('Configuración inválida.');
    if(e.permanente&&(e.tipo!=='atributo'||e.operacion!=='sumar'))fallo('Los cambios permanentes deben sumar un atributo.');
    if(e.tipo==='atributo'&&(!clave(e.atributo)||!['sumar','multiplicar','fijar'].includes(String(e.operacion))||e.valor===undefined))fallo('Configura atributo, operación y valor.');
-   if(['estado','quitar_estado','transformar'].includes(String(e.tipo))&&!e.clave)fallo('Escribe la clave del estado o forma.');
+   if(['estado','quitar_estado','transformar'].includes(String(e.tipo))&&!e.clave)fallo('Selecciona el estado o la forma.');
    if(e.tipo==='transformar'){if(!Array.isArray(e.cambios)||!e.cambios.length||e.cambios.length>30)fallo('Configura entre 1 y 30 cambios de forma.');for(const cambio of e.cambios as unknown[]){const c=objeto(cambio);if(!clave(c.atributo)||!['sumar','multiplicar','fijar'].includes(String(c.operacion)))fallo('Cambio de forma inválido.');valor(c.valor);}}
    if(e.tipo==='salvacion'){if(!entero(e.cd,1,1000)||!clave(e.atributo))fallo('Salvación inválida.');efectos(e.exito||[],d+1);efectos(e.fallo||[],d+1);}
    if(e.tipo==='condicional'){condicion(e.condicion,d+1);efectos(e.exito||[],d+1);efectos(e.fallo||[],d+1);}

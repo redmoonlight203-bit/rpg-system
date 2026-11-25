@@ -1,8 +1,9 @@
 'use client';
 // Editor de un efecto de regla («Entonces»): los 13 tipos y los 6 destinos como fichas, y el valor como
 // «2d6 + atributo × escala» con ruedas. Las ramas de éxito y fallo son las salidas del propio nodo.
+import {SelectorRegla} from '../../SelectorRegla';
 import {Fichas,Interruptor,Rueda,Texto,type Opcion} from '../Controles';
-import {AtributoFichas,FormCondicion,SUJETOS} from './EditorSi';
+import {FormCondicion,SUJETOS} from './EditorSi';
 import {DESTINOS,EFECTOS_REGLA,type CambioRegla,type DestinoRegla,type EfectoRegla,type Sujeto,type ValorRegla} from '../../../lib/reglas';
 import {ICONO_EFECTO_REGLA,cambiarTipoEfecto} from '../../../lib/yunque-grimorio';
 import {mensajeError} from '../../../lib/errores';
@@ -49,9 +50,8 @@ export function EditorValor({valor,onChange,etiqueta='Cantidad'}:{valor:ValorReg
     </div>
     <div className="yq-valor-atributo">
      <b aria-hidden="true">+</b>
-     <Fichas etiqueta="Atributo" opciones={[{valor:'',nombre:'Ninguno'},{valor:'fuerza',nombre:'Fuerza'},{valor:'mente',nombre:'Mente'},{valor:'destreza',nombre:'Destreza'},{valor:'vida',nombre:'Vida máx.'},{valor:'dano',nombre:'Daño'}]} valor={v.atributo??''} onChange={atributo=>set({atributo:atributo||undefined,...(atributo?{}:{desde:undefined,escala:undefined})})}/>
+     <SelectorRegla tipo="atributo" opcional etiqueta="Atributo" valor={v.atributo??''} onChange={atributo=>set({atributo:atributo||undefined,...(atributo?{}:{desde:undefined,escala:undefined})})}/>
      {v.atributo!==undefined&&<>
-      <Texto etiqueta="Clave del atributo" valor={v.atributo} max={64} onChange={a=>set({atributo:a.toLowerCase().replace(/[^a-z0-9_]/g,'_')||undefined})}/>
       <div className="yq-valor-escala">
        <Fichas etiqueta="De quién" opciones={SUJETOS} valor={v.desde??'yo'} onChange={(desde:Sujeto)=>set({desde:desde==='yo'?undefined:desde})}/>
        <label><span>× Escala</span><Rueda nombre="escala" etiqueta="Multiplicador del atributo" valor={v.escala??1} min={-100} max={100} paso={0.5} onChange={escala=>set({escala:escala===1?undefined:escala})} compacta/></label>
@@ -79,18 +79,18 @@ export default function EditorEntonces({b,nodo,operar,avisar}:EditorNodoProps&{a
   <Fichas etiqueta="Qué ocurre" opciones={TIPOS} valor={e.tipo} onChange={cambiarTipo} columnas={3} tono="carmesi"/>
   {e.tipo!=='mensaje'&&<Fichas etiqueta="A quién" opciones={DESTINOS_OP} valor={e.destino} onChange={destino=>patch({destino})} columnas={3}/>}
   {e.tipo==='atributo'&&<>
-   <AtributoFichas etiqueta="Atributo que cambia" valor={e.atributo||'armadura'} onChange={atributo=>patch({atributo})}/>
+   <SelectorRegla tipo="atributo" etiqueta="Atributo que cambia" valor={e.atributo||'armadura'} onChange={atributo=>patch({atributo})}/>
    <Fichas etiqueta="Operación" opciones={OPERACIONES} valor={e.operacion} onChange={operacion=>patch({operacion,...(operacion!=='sumar'?{permanente:undefined,limite:undefined}:{})})}/>
   </>}
   {CON_VALOR.includes(e.tipo)&&<EditorValor valor={e.valor} onChange={valor=>patch({valor})} etiqueta={({dano:'Daño',curar:'Vida que recupera',ph:'PH (negativo quita)',fatiga:'Fatiga (negativo alivia)'} as Record<string,string>)[e.tipo]??'Cantidad'}/>}
   {['estado','quitar_estado','transformar'].includes(e.tipo)&&<div className="yq-dos">
-   <Texto etiqueta="Clave del estado o forma" valor={e.clave||''} max={100} placeholder="furia" onChange={clave=>patch({clave:clave||undefined})}/>
+   <SelectorRegla tipo="estado" etiqueta="Estado o forma" crear={e.tipo!=='quitar_estado'} valor={e.clave||''} onChange={(clave,nombre)=>patch({clave,nombre})}/>
    <Texto etiqueta="Nombre visible" valor={e.nombre||''} max={120} placeholder="Furia" onChange={nombre=>patch({nombre:nombre||undefined})}/>
   </div>}
   {e.tipo==='transformar'&&<section className="yq-lista" aria-label="Cambios de la forma">
    <header><span>Cambios de la forma</span><button type="button" className="yq-boton" disabled={cambios.length>=30} onClick={()=>patch({cambios:[...cambios,{atributo:'armadura',operacion:'sumar',valor:1}]})}>+ Atributo</button></header>
    {cambios.map((c,k)=><div key={k} className="yq-lista-fila">
-    <AtributoFichas etiqueta={`Cambio ${k+1}`} valor={c.atributo} onChange={atributo=>patch({cambios:cambios.map((x,j)=>j===k?{...x,atributo}:x)})}/>
+    <SelectorRegla tipo="atributo" etiqueta={`Cambio ${k+1}`} valor={c.atributo} onChange={atributo=>patch({cambios:cambios.map((x,j)=>j===k?{...x,atributo}:x)})}/>
     <Fichas etiqueta="Operación" opciones={OPERACIONES} valor={c.operacion} onChange={operacion=>patch({cambios:cambios.map((x,j)=>j===k?{...x,operacion}:x)})}/>
     <EditorValor valor={c.valor} onChange={valor=>patch({cambios:cambios.map((x,j)=>j===k?{...x,valor}:x)})}/>
     <button type="button" className="yq-boton is-peligro" disabled={cambios.length<=1} onClick={()=>patch({cambios:cambios.filter((_,j)=>j!==k)})}>Quitar este cambio</button>
@@ -98,7 +98,7 @@ export default function EditorEntonces({b,nodo,operar,avisar}:EditorNodoProps&{a
   </section>}
   {e.tipo==='salvacion'&&<div className="yq-dos">
    <label className="yq-campo"><span>Dificultad (CD)</span><Rueda nombre="cd" etiqueta="Dificultad de la salvación" valor={e.cd??12} min={1} max={1000} onChange={cd=>patch({cd:Math.round(cd)})}/></label>
-   <AtributoFichas etiqueta="Bono para resistir" valor={e.atributo||'salvacion'} onChange={atributo=>patch({atributo})} opciones={[{valor:'salvacion',nombre:'Salvación'},{valor:'fuerza',nombre:'Fuerza'},{valor:'destreza',nombre:'Destreza'},{valor:'mente',nombre:'Mente'}]}/>
+   <SelectorRegla tipo="atributo" etiqueta="Bono para resistir" valor={e.atributo||'salvacion'} onChange={atributo=>patch({atributo})}/>
   </div>}
   {e.tipo==='condicional'&&<div className="yq-subcondicion">
    <Fichas etiqueta="Condición" opciones={[{valor:'probabilidad',nombre:'Probabilidad',icono:'ojo'},{valor:'comparar',nombre:'Comparar',icono:'vida'},{valor:'estado',nombre:'Tiene estado',icono:'alma'},{valor:'elemento',nombre:'Elemento',icono:'fuego'}] as Opcion<string>[]} valor={e.condicion?.tipo} onChange={t=>patch({condicion:t==='probabilidad'?{tipo:'probabilidad',porcentaje:50}:t==='comparar'?{tipo:'comparar',sujeto:'yo',atributo:'vida_actual',operador:'<',valor:50,porcentaje:true}:t==='estado'?{tipo:'estado',sujeto:'yo',estado:'furia'}:{tipo:'elemento',elemento:'fuego'}})}/>
