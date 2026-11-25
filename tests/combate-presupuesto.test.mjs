@@ -198,3 +198,47 @@ test('tras la principal el motor sigue admitiendo la adicional y la legendaria d
  for(const acc of c.acciones(a).filter(v=>v.id.startsWith('hab:')))assert.equal(c.accionUsableAhora(acc.presupuesto,a,r),true,acc.id);
  assert.equal(c.accionUsableAhora('principal',a,r),false);
 });
+
+// Objetos del inventario: siguen el mismo presupuesto que las acciones de la barra.
+const pocion=(presupuesto)=>({id:'pocion',nombre:'Poción',stats:{},consumible:true,tipo_creacion:'objeto',slot_tipo:'consumible',efectos:[golpe('beber',{efecto:'curacion',...(presupuesto?{presupuesto}:{})})]});
+function conMochila(stats,objeto){
+ const x=campo({stats});m(x,'a').configuracion.reserva=[objeto];return x;
+}
+test('usar un objeto con dos principales deja libre la segunda',()=>{
+ let x=conMochila({acciones_principal:1},pocion());
+ x=c.usarObjeto(x,'a','pocion','beber','a',()=>3);
+ assert.equal(m(x,'a').accion_usada,false);
+ assert.equal(c.presupuestoRestante(x,m(x,'a')).principal,1);
+ x=c.actuar(x,'a','ataque','b',dados);
+ assert.equal(m(x,'a').accion_usada,true);
+});
+test('un objeto adicional se usa tras la principal sin gastarla de nuevo',()=>{
+ let x=conMochila({acciones_adicional:1},pocion('adicional'));
+ x=c.actuar(x,'a','ataque','b',dados);
+ x=c.usarObjeto(x,'a','pocion','beber','a',()=>3);
+ assert.equal(c.presupuestoRestante(x,m(x,'a')).adicional,0);
+ assert.match(x.registro.join('\n'),/consume Poción/);
+ // Antes de la principal tampoco la gasta.
+ let y=conMochila({acciones_adicional:1},pocion('adicional'));
+ y=c.usarObjeto(y,'a','pocion','beber','a',()=>3);
+ assert.equal(m(y,'a').accion_usada,false);
+});
+test('un objeto principal sigue exigiendo la principal',()=>{
+ let x=conMochila({},pocion());
+ x=c.actuar(x,'a','ataque','b',dados);
+ assert.throws(()=>c.usarObjeto(x,'a','pocion','beber','a',()=>3),/Ya utilizó su acción/);
+});
+test('cambiar el equipo con dos principales deja libre la segunda',()=>{
+ const capa={id:'capa',nombre:'Capa',slot_tipo:'capa',tipo_creacion:'objeto',stats:{}};
+ const conCapa=stats=>{const x=campo({stats});m(x,'a').configuracion.reserva=[capa];return x;};
+ let x=c.cambiarEquipo(conCapa({acciones_principal:1}),'a',{capa:'capa'});
+ assert.equal(m(x,'a').accion_usada,false);
+ assert.equal(c.presupuestoRestante(x,m(x,'a')).principal,1);
+ x=c.cambiarEquipo(x,'a',{});
+ assert.equal(m(x,'a').accion_usada,true);
+ assert.throws(()=>c.cambiarEquipo(x,'a',{capa:'capa'}),/Cambiar equipo requiere/);
+ // Con una sola principal, como siempre: la gasta.
+ assert.equal(m(c.cambiarEquipo(conCapa({}),'a',{capa:'capa'}),'a').accion_usada,true);
+ // Con principal 0 tampoco se puede cambiar en combate.
+ assert.throws(()=>c.cambiarEquipo(conCapa({acciones_principal:-1}),'a',{capa:'capa'}),/Cambiar equipo requiere/);
+});

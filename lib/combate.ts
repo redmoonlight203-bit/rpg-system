@@ -296,6 +296,13 @@ function anotarGasto(c:Combate,m:Combatiente,tipo:TipoPresupuesto){
   m.gasto_acciones={turno:m.turnos,principal:turno?g!.principal:0,adicional:turno?g!.adicional:0,ronda:c.ronda,legendaria:ronda?g!.legendaria:0};
   m.gasto_acciones[tipo]++;
 }
+/** Cierra una acción principal ya gastada (`accion_usada`): con más de una principal se anota y, si queda otra, se libera.
+ *  Con una sola no anota nada (los datos antiguos no cambian). Sirve a cualquier camino que gaste la principal. */
+function cerrarPrincipal(c:Combate,m:Combatiente){
+  if(!m.accion_usada||(m.rafaga?.restantes||0)>0||presupuestoDe(m).principal<=1)return;
+  anotarGasto(c,m,'principal');
+  if(presupuestoRestante(c,{...m,accion_usada:false}).principal>0)m.accion_usada=false;
+}
 export function dadoSeguro(caras: number) {
   if (!Number.isInteger(caras) || caras < 2 || caras > 4294967296)
     throw Error("El dado requiere caras enteras entre 2 y 4294967296.");
@@ -1573,10 +1580,7 @@ function actuarInterno(
   if(tipo==='principal'){
     if(!actor.accion_usada&&presupuestoRestante(c,actor).principal<=0)throw Error('No le quedan acciones principales este turno.');
     const n=base(c),a=n.miembros.find(m=>m.id===actorId);
-    if(a&&a.accion_usada&&!((a.rafaga?.restantes||0)>0)&&presupuestoDe(a).principal>1){
-      anotarGasto(n,a,'principal');
-      if(presupuestoRestante(n,{...a,accion_usada:false}).principal>0)a.accion_usada=false;
-    }
+    if(a)cerrarPrincipal(n,a);
     return n;
   }
   if(tipo==='adicional'&&(c.fase!=='en_curso'||c.actual!==actorId))throw Error('Solo puede actuar el personaje de turno.');
@@ -2539,7 +2543,7 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
   const n=copia(c),m=n.miembros.find(v=>v.id===actorId);
   if(!m)throw Error('Personaje inexistente.');
   if(n.fase==='finalizado')throw Error('El encuentro ha terminado.');
-  if(n.fase==='en_curso'&&(n.actual!==m.id||m.accion_usada||m.vida<=0))throw Error('Cambiar equipo requiere tu turno y una acción disponible.');
+  if(n.fase==='en_curso'&&(n.actual!==m.id||presupuestoRestante(n,m).principal<=0||m.vida<=0))throw Error('Cambiar equipo requiere tu turno y una acción disponible.');
   const anterior=m.configuracion.equipamiento||{},reserva=new Map([...(m.configuracion.reserva||[]),...Object.values(anterior)].filter(p=>p.id).map(p=>[p.id!,p]));
   const elegido:Record<string,Fuente>={},usados=new Set<string>();
   for(const [slot,id] of Object.entries(seleccion)){
@@ -2570,7 +2574,7 @@ export function cambiarEquipo(c:Combate,actorId:string,seleccion:Record<string,s
   m.configuracion.equipamiento=elegido;m.configuracion.bonos_equipamiento=actuales;m.configuracion.reserva=[...reserva.values()];
   activarEquipo(n,m,rng,new Set([...nuevos].filter((id):id is string=>!!id&&!antiguos.has(id))));
   normalizar(m);
-  if(n.fase==='en_curso')m.accion_usada=true;
+  if(n.fase==='en_curso'){m.accion_usada=true;cerrarPrincipal(n,m);}
   log(n,`${m.nombre} cambia su equipamiento${n.fase==='en_curso'?' y consume su acción':''}. Manos libres: ${manosLibres(m)}.`);
   return n;
  });
@@ -2586,7 +2590,8 @@ export function accionesObjeto(m:Combatiente,p:Fuente):{id:string;nombre:string;
 export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:string,objetivoId:string,rng:RNG=dadoSeguro):Combate{
  const n=registrar(c,()=>{
   const n=copia(c),m=n.miembros.find(x=>x.id===actorId);
-  if(!m||n.fase!=='en_curso'||n.actual!==m.id||m.accion_usada||m.vida<=0)throw Error('Usar un objeto requiere tu turno y una acción disponible.');
+  // La acción disponible la decide el presupuesto (actuarInterno): un objeto adicional o legendario no exige la principal.
+  if(!m||n.fase!=='en_curso'||n.actual!==m.id||m.vida<=0)throw Error('Usar un objeto requiere tu turno y una acción disponible.');
   const p=m.configuracion.reserva?.find(p=>p.id===objetoId);
   if(!p||!accionesObjeto(m,p).some(a=>a.id===efectoId))throw Error('Este objeto no está disponible o debes equiparlo primero.');
   const objetivo=n.miembros.find(v=>v.id===objetivoId);if(!objetivo||situacionCombatiente(objetivo)==='muerto')throw Error('Selecciona un objetivo vivo.');
@@ -2594,7 +2599,8 @@ export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:str
   const temporal='inventario-'+p.id;
   if(!slot)(m.configuracion.habilidades||=[]).push({...p,id:temporal});
   const id=efectoId.startsWith('regla:')?`regla:${slot?'equipo:'+p.id:'hab:'+temporal}:${efectoId.slice(6)}`:slot?`equipo:${slot}:${efectoId}`:`hab:${temporal}:${efectoId}`;
-  const resultado=actuarBase(n,m.id,id,objetivoId,rng,false,undefined,false,[],false),actor=resultado.miembros.find(v=>v.id===actorId)!;
+  // Mismo presupuesto que cualquier acción: con varias principales no se pierde la siguiente, y las adicionales no gastan la principal.
+  const resultado=actuarInterno(n,m.id,id,objetivoId,rng,false,undefined,false,[]),actor=resultado.miembros.find(v=>v.id===actorId)!;
   actor.configuracion.habilidades=actor.configuracion.habilidades?.filter(h=>h.id!==temporal);
   if(p.consumible){
    actor.configuracion.reserva=actor.configuracion.reserva?.filter(v=>v.id!==p.id);
@@ -2614,7 +2620,7 @@ export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:str
 /** Invocar es una acción atómica: el llamador valida la propuesta antes de pagar. */
 export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,preparado:Parameters<typeof agregar>[1],duracion:number,maxActivas=1,rng:RNG=dadoSeguro){
  const actor=c.miembros.find(m=>m.id===actorId);
- if(c.fase!=="en_curso"||c.actual!==actorId||!actor||actor.vida<=0||actor.accion_usada)throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
+ if(c.fase!=="en_curso"||c.actual!==actorId||!actor||actor.vida<=0||presupuestoRestante(c,actor).principal<=0)throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
  if(!actor.configuracion.habilidades?.some(h=>h.id===habilidad.id))throw Error("Habilidad no equipada.");
  const config=habilidad.configuracion_invocacion;
  if(!config||!Number.isInteger(duracion)||duracion<1||!Number.isInteger(maxActivas)||maxActivas<1)throw Error("Configuración de invocación inválida.");
@@ -2631,7 +2637,7 @@ export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,p
   const criatura=n.miembros[n.miembros.length-1],p=posicionesTablero(n)[criatura.id];
   if(!p)throw Error('No hay espacio libre para la ficha invocada.');
   criatura.posicion=p;
-  const a=n.miembros.find(m=>m.id===actorId)!;a.ph=phDisponibles(a)-ph;a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;a.accion_usada=true;
+  const a=n.miembros.find(m=>m.id===actorId)!;a.ph=phDisponibles(a)-ph;a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;a.accion_usada=true;cerrarPrincipal(n,a);
   criatura.invocacion={invocador:actorId,habilidad:habilidad.id!,restantes:duracion};
   log(n,`${a.nombre} invoca a ${criatura.nombre} durante ${duracion} turnos propios.`);return n;
  });

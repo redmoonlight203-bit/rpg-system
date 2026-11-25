@@ -4,8 +4,8 @@ import {readFileSync} from 'node:fs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
 const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import (\{[^}]+\}) from '\.\.\/equipo-combate\/motor.js';/m,'const $1=motor;');
 const jugador='00000000-0000-0000-0000-000000000001', combate='00000000-0000-0000-0000-000000000002';
-function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false,ojo=null}={}){
- let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);if(ojo)c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'ojo',nombre:'Ojo',efecto:'estado',estado:'Ojo',cantidad:0,caras:4,modificador:0,tipo_dano:'',duracion:0,coste_ph:0,vision:ojo}]}];c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
+function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false,ojo=null,legendaria=false}={}){
+ let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);if(ojo)c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'ojo',nombre:'Ojo',efecto:'estado',estado:'Ojo',cantidad:0,caras:4,modificador:0,tipo_dano:'',duracion:0,coste_ph:0,vision:ojo}]}];if(legendaria){c.miembros[0].stats.acciones_legendaria=1;c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'leg',nombre:'Zarpa',efecto:'dano',cantidad:1,caras:6,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0,presupuesto:'legendaria'},{id:'nor',nombre:'Tajo',efecto:'dano',cantidad:1,caras:6,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:2,y:1};}c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
  if(area){c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Azul',stats:{},efectos:[{id:'azul',nombre:'Azul',efecto:'dano',cantidad:2,caras:6,modificador:0,tipo_dano:'energia',estado:'',duracion:0,coste_ph:2,salvacion:{cd:12,atributo:'salvacion',exito:'mitad'},tablero:{alcance:6,forma:'circulo',tamano:2,afecta:'enemigos',desplazamiento:{tipo:'atraer',casillas:2,cuando:'siempre'},derribo:'fallo_salvacion'}}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:6,y:1};}
 
  if(sinPH){c.miembros[0].stats.ph=0;c.miembros[0].ph=99;}
@@ -51,4 +51,21 @@ test('la visión ocular solo viaja al jugador con el ojo abierto y con lo que ve
  const visto=data.ocular.objetivos.b;assert.equal(visto.detalle.vida.max,100);assert.ok(visto.detalle.acciones.length>0);assert.equal(visto.puntos.length,1);
  assert.equal(data.ocular.objetivos.a,undefined,'no se analiza a sí mismo');
  assert.equal(visto.detalle.atributos,undefined,'solo revela lo configurado');
+});
+
+test('fuera de turno solo se acepta una acción legendaria propia',async()=>{
+ const s=servidor({turno:false,legendaria:true});
+ let data=await (await s.handler(req({}))).json();
+ assert.equal(data.es_turno,false);assert.equal(data.puede_legendaria,true);assert.equal(data.actor.presupuesto.legendaria,1);
+ // Una acción normal sigue esperando al turno.
+ assert.equal((await s.handler(req({operacion:'actuar',version:3,accion_id:'hab:h:nor',objetivo_id:'b'}))).status,400);
+ for(const operacion of ['pasar','mover'])assert.equal((await s.handler(req({operacion,version:3,destino:{x:1,y:2}}))).status,400);
+ assert.equal(s.escrituras.length,0);
+ const r=await s.handler(req({operacion:"actuar",version:3,accion_id:"hab:h:leg",objetivo_id:"b"}));
+ assert.equal(r.status,200);assert.equal(s.escrituras.length,1);
+ const datos=s.escrituras[0].p_datos,a=datos.miembros.find(m=>m.id==='a');
+ assert.equal(datos.actual,'b');assert.equal(a.gasto_acciones.legendaria,1);assert.ok(datos.miembros.find(m=>m.id==='b').vida<100);
+ // Sin acciones legendarias no se ofrecen fuera de turno.
+ const t=servidor({turno:false,legendaria:false});
+ data=await (await t.handler(req({}))).json();assert.equal(data.puede_legendaria,false);
 });
