@@ -1,6 +1,7 @@
 'use client';
 // Taller del Yunque: barra superior + tres paneles (grimorio, lienzo, arena). El Borrador es la única fuente
 // de verdad; cada gesto es una Operacion pura (`aplicar`) y sus errores se muestran como aviso, nunca rompen.
+import {CatalogoReglas} from '../SelectorRegla';
 import {memo,useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore,type Dispatch,type SetStateAction} from 'react';
 import {BookOpen,Hammer,LayoutList,Redo2,Undo2,Workflow} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
@@ -86,6 +87,8 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  const [anclaFicha,setAnclaFicha]=useState<string|null>(null);
  const botonFicha=useRef<HTMLButtonElement>(null);
  const listaCaja=useRef<HTMLDivElement>(null);
+ const fuentesColeccion=useMemo(()=>ctx.creaciones.filter(c=>c.id!==b.id).map(c=>({reglas:c.reglas,efectos:c.configuracion_dados})),[ctx.creaciones,b.id]);
+ const fuentesBorrador=useMemo(()=>[{reglas:b.reglas,efectos:b.efectos,stats:b.stats}],[b.reglas,b.efectos,b.stats]);
  const piezasEnlace=useMemo(()=>enlazables(ctx,b.id),[ctx,b.id]);
  const porId=useMemo(()=>new Map<string,EnlazableVista>(piezasEnlace.map(p=>[p.id,p])),[piezasEnlace]);
  // Solo lo que sigue en La Creación (aprobado): un vínculo a algo archivado se ve roto.
@@ -475,7 +478,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  };
 
  const guiaLista=arrastre&&vista==='lista'?{compatibles:arrastre.compatibles,sobre:arrastre.sobre?.nodo??null}:null;
- return <div className={`yq-taller is-${vista}`} data-creacion={b.id||'nueva'}>
+ return <CatalogoReglas atributos={ctx.atributos} fuentes={fuentesColeccion}><CatalogoReglas fuentes={fuentesBorrador}><div className={`yq-taller is-${vista}`} data-creacion={b.id||'nueva'}>
   <header className="yq-barra">
    <span className="yq-barra-runa"><Runa seccion="forja" size={30}/></span>
    <div className="yq-barra-titulo"><small>El Yunque</small><h1>{b.nombre.trim()||'Nueva creación'}</h1></div>
@@ -518,7 +521,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
    <ArenaDolls b={b} ctx={ctx} grafo={grafo} onEncender={encender}/>
   </aside>
   <CajonFicha balance={balance} ancla={anclaFicha} b={b} patch={patchFicha} ctx={ctx} abierto={ficha} onCerrar={cerrarCajon}/>
- </div>;
+ </div></CatalogoReglas></CatalogoReglas>;
 }
 
 /** Entrada del índice del Grimorio. Memorizada: al escribir en un nodo solo se repinta su propia entrada. */

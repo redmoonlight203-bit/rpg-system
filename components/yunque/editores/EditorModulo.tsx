@@ -11,7 +11,7 @@ import {TablaArmas} from '../../TablaArmas';
 import SelectorVFX from '../../SelectorVFX';
 import EditorVision from './EditorVision';
 import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
-import {AtributoFichas} from './EditorSi';
+import {SelectorRegla} from '../../SelectorRegla';
 import {reaccionDe} from '../../../lib/combate';
 import {tipoDe,type Efecto} from '../../../lib/creacion';
 import {linaje} from '../../../lib/estadisticas';
@@ -60,7 +60,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
    const set=(p:Partial<typeof s>)=>patch({salvacion:{...s,...p}});
    return <div className="yq-editor">
     <label className="yq-campo yq-cd"><span>Dificultad que debe superar</span><span className="yq-cd-escudo"><Rueda nombre="cd" etiqueta="Dificultad de la salvación" valor={s.cd} min={1} max={1000} onChange={cd=>set({cd:Math.round(cd)})}/></span></label>
-    <AtributoFichas etiqueta="Bono con el que tira" valor={s.atributo} onChange={atributo=>set({atributo})} opciones={[{valor:'salvacion',nombre:'Salvación'},{valor:'fuerza',nombre:'Fuerza'},{valor:'destreza',nombre:'Destreza'},{valor:'mente',nombre:'Mente'}]}/>
+    <SelectorRegla tipo="atributo" etiqueta="Bono con el que tira" valor={s.atributo} onChange={atributo=>set({atributo})}/>
     <Fichas etiqueta="Si la supera" opciones={EXITOS} valor={s.exito} onChange={exito=>set({exito})} tono="arcano"/>
    </div>;
   }

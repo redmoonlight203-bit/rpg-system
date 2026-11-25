@@ -191,7 +191,7 @@ export default function PropuestaRazaUnica({
             <EditorPasivas value={pasiva.reglas_pasivas} onChange={(reglas_pasivas) => setPasiva({...pasiva, reglas_pasivas})} />
             <details>
               <summary>Reglas avanzadas: condiciones, salvaciones y transformaciones</summary>
-              <EditorReglas value={pasiva.reglas} onChange={(reglas) => setPasiva({...pasiva, reglas})} />
+              <EditorReglas atributos={atributos} value={pasiva.reglas} onChange={(reglas) => setPasiva({...pasiva, reglas})} />
             </details>
           </section>
         )}

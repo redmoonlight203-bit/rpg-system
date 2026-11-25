@@ -5,6 +5,7 @@ import {EditorFormas} from './yunque/editores/EditorFormas';
 import {useRef,useState} from "react";
 import {validarPortada} from "../lib/imagenes-creacion";
 import {publicarArchivoImagen} from "../lib/imagenes-storage";
+import {SelectorRegla} from './SelectorRegla';
 import {EditorReglas} from "./EditorReglas";
 import type {Efecto} from "../lib/creacion";
 import EditorHuella from './EditorHuella';
@@ -168,9 +169,8 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
         {tipo==="forma"&&!((valorDe("vida")??0)>0)&&<p className="text-sm text-amber-300">Para una forma necesitas definir Vida máxima con un valor mayor que 0.</p>}
         {tipo==="poder"&&<p className="text-xs text-neutral-400">Las transformaciones de poder conservan los HP actuales y el máximo de vida del cuerpo original.</p>}
         <div className="rounded-lg border border-dashed border-neutral-700 p-3">
-          <label className="block text-sm">Añadir otro atributo de Estadísticas y reglas</label>
           <div className="mt-2 flex flex-wrap gap-2">
-            <input className={campo+" mt-0 min-w-[160px] flex-1"} value={nuevoAtributo} onChange={e=>{setNuevoAtributo(e.target.value);setError("");}} placeholder="Ej.: resistencia_magica" aria-label="Clave de atributo personalizado"/>
+            <SelectorRegla tipo="atributo" etiqueta="Añadir otro atributo de Estadísticas y reglas" valor={nuevoAtributo} onChange={v=>{setNuevoAtributo(v);setError("");}}/>
             <button type="button" className={boton} onClick={agregarAtributo}>+ Añadir atributo</button>
           </div>
           {error&&<p className="mt-2 text-xs text-red-300">{error}</p>}
