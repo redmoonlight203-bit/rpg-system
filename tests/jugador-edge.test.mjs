@@ -74,7 +74,9 @@ test('invocar deja la solicitud para el GM sin pagar, bloquea el turno y se pued
  const s=servidor({invoca:true});
  const data=await (await s.handler(req({}))).json();
  const acc=data.acciones.find(a=>a.id==='invocar:sol');
- assert.ok(acc,'la acción de invocar viaja a la barra');assert.equal(acc.invocacion.modo,'jugador_en_combate');
+ assert.ok(acc,'la acción de invocar viaja a la barra');assert.equal(acc.efecto.efecto,'invocar');assert.equal(acc.invocacion,undefined,'sin la habilidad completa');
+ assert.equal(data.invocaciones[0].config.modo,'jugador_en_combate');
+ assert.equal(data.acciones.filter(a=>a.id==='invocar:sol').length,1);
  assert.equal((await s.handler(req({operacion:'invocar',version:3,habilidad_id:'sol'}))).status,400,'sin diseño no se pide');
  const r=await s.handler(req({operacion:'invocar',version:3,habilidad_id:'sol',propuesta:{nombre:'Lobo',stats:{vida:6},habilidades:[],pasivas:[]}}));
  assert.equal(r.status,200);

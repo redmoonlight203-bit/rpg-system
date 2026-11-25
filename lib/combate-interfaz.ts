@@ -33,7 +33,7 @@ export function alcanzaCapa(efecto:EfectoMinimo|undefined,capa:Capa):{ok:boolean
 
 /** Acciones que no necesitan objetivo en el tablero: se ejecutan sobre quien actúa. */
 export function esAccionPropia(id:string,efecto?:EfectoMinimo){
- return id==='guardia'||id.startsWith('invocar:')||['crear_arma','transformacion'].includes(efecto?.efecto||'')||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir';
+ return id==='guardia'||id.startsWith('invocar:')||['invocar','crear_arma','transformacion'].includes(efecto?.efecto||'')||efecto?.tablero?.origen_area==='lanzador'||efecto?.vision?.modo==='abrir';
 }
 
 /** Un objetivo es «natural» para la acción si el clic directo puede ejecutarla sin sorpresas. */

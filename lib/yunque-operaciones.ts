@@ -16,6 +16,7 @@ export type Fragmento={tipo:TipoNodo;datos:unknown};
 export type Operacion=
  |{op:'fijar';ruta:Ruta;valor:unknown}
  |{op:'agregar';tipo:TipoNodo;padre?:string;rama?:'exito'|'fallo'}
+ |{op:'convertir_invocacion';id:string}
  |{op:'quitar';nodo:string}
  |{op:'duplicar';nodo:string}
  |{op:'pegar';fragmento:Fragmento;padre?:string;rama?:'exito'|'fallo'}
@@ -134,7 +135,7 @@ function insertar(b:Borrador,tipo:TipoNodo,datos:unknown,padre:string|undefined,
   if(tipo==='accion')b.efectos.push(datos as Efecto);
   else if(tipo==='cuando')b.reglas.push(datos as Regla);
   else if(tipo==='pasiva')b.reglas_pasivas.push(datos as ReglaPasiva);
-  else{if(b.invocacion)falla('Ya hay una invocación.');b.invocacion=datos as Borrador['invocacion'];}
+  else{if(b.tipo!=='habilidad')falla('Solo las habilidades pueden invocar.');if(b.invocacion)falla('Ya hay una invocación.');b.invocacion=datos as Borrador['invocacion'];}
   return;
  }
  if(tipo==='requisitos')falla('Los requisitos ya existen en el núcleo; edítalos en su nodo.');
@@ -206,6 +207,14 @@ export function aplicar(b:Borrador,o:Operacion):Borrador{
 function aplicarSinMarcar(b:Borrador,o:Operacion):Borrador{
  const r=clon(b);
  switch(o.op){
+  case 'convertir_invocacion':{
+   const indice=r.efectos.findIndex(e=>e.id===o.id);
+   if(r.tipo!=='habilidad'||indice<0)falla('Elige una acción de habilidad.');
+   const efecto=r.efectos[indice];
+   r.invocacion??={claseMaxima:'C',maxHabilidades:1,modo:'jugador_en_combate',duracionTurnos:3,costePh:efecto.coste_ph,costeFatiga:efecto.coste_fatiga};
+   r.efectos.splice(indice,1);
+   return r;
+  }
   case 'fijar':{
    if(!o.ruta.length)falla('La ruta está vacía.');
    if(o.ruta.some(k=>typeof k==='string'&&PELIGROSAS.includes(k)))falla('Ruta no permitida.');

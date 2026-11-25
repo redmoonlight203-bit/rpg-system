@@ -8,7 +8,7 @@ import type {Nodo,TipoNodo} from '../../lib/yunque-grafo';
 import type {Operacion} from '../../lib/yunque-operaciones';
 
 export type Familia='nucleo'|'accion'|'modulo'|'regla'|'pasiva'|'vinculo';
-const FAMILIA:Record<TipoNodo,Familia>={nucleo:'nucleo',accion:'accion',alcance:'modulo',salvacion:'modulo',estado:'modulo',reaccion:'modulo',transformacion:'modulo',recurso:'modulo',vfx:'modulo',tabla_armas:'modulo',vision:'modulo',invocacion:'modulo',cuando:'regla',si:'regla',entonces:'regla',pasiva:'pasiva',vinculo:'vinculo',requisitos:'vinculo'};
+const FAMILIA:Record<TipoNodo,Familia>={nucleo:'nucleo',accion:'accion',alcance:'modulo',salvacion:'modulo',estado:'modulo',reaccion:'modulo',transformacion:'modulo',recurso:'modulo',vfx:'modulo',tabla_armas:'modulo',vision:'modulo',invocacion:'accion',cuando:'regla',si:'regla',entonces:'regla',pasiva:'pasiva',vinculo:'vinculo',requisitos:'vinculo'};
 export const familiaDe=(t:TipoNodo):Familia=>FAMILIA[t]??'modulo';
 export const NOMBRE_TIPO:Record<TipoNodo,string>={nucleo:'Núcleo',accion:'Acción',alcance:'Alcance',salvacion:'Salvación',estado:'Estado',reaccion:'Reacción',transformacion:'Transformación',recurso:'Recurso',vfx:'Animación',tabla_armas:'Tabla de armas',vision:'Visión',cuando:'Cuándo',si:'Si',entonces:'Entonces',pasiva:'Pasiva',vinculo:'Vínculo',invocacion:'Invocación',requisitos:'Requisitos'};
 export const ICONO_TIPO:Record<TipoNodo,string>={nucleo:'yugen',accion:'espada',alcance:'ojo',salvacion:'escudo',estado:'fuego',reaccion:'escudo',transformacion:'alma',recurso:'pocion',vfx:'rayo',tabla_armas:'espada',vision:'ojo',cuando:'libro',si:'ojo',entonces:'rayo',pasiva:'vida',vinculo:'anillo',invocacion:'espectro',requisitos:'corona'};

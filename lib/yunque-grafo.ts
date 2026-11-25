@@ -53,8 +53,8 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  const ofertaRequisitos=b.tipo!=='personaje'||Object.keys(b.requisitos_uso||{}).length>0;
  // Núcleo
  nodo('nucleo','nucleo',[],String(b.nombre??'').trim()||'Sin nombre',`${b.tipo}${b.clasificacion?' · '+b.clasificacion:''}`,null,[
-  salida('acciones',['accion'],b.tipo==='personaje'?'Acciones del personaje':'Acciones'),salida('reglas',['cuando'],'Reglas'),salida('pasivas',['pasiva'],'Pasivas'),
-  salida('vinculos',['vinculo'],'Vínculos'),salida('invocacion',['invocacion'],'Invocación'),salida('requisitos',['requisitos'],'Requisitos')]);
+  salida('acciones',b.tipo==='habilidad'?['accion','invocacion']:['accion'],b.tipo==='personaje'?'Acciones del personaje':'Acciones'),salida('reglas',['cuando'],'Reglas'),salida('pasivas',['pasiva'],'Pasivas'),
+  salida('vinculos',['vinculo'],'Vínculos'),salida('requisitos',['requisitos'],'Requisitos')]);
  if(b.tipo==='personaje'){
   const n=nodos[nodos.length-1];let p:ReturnType<typeof presupuestoDeStats>|null=null;
   try{const s:Record<string,number>={...(b.stats||{})};if(b.malla)for(const [k,r] of Object.entries(b.rangos||{}))if(k.startsWith('acciones_')&&r)s[k]=r.max;p=presupuestoDeStats(s);}catch{p=null;}
@@ -65,7 +65,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(!e||typeof e!=='object')return;
   const id='accion:'+e.id,ruta:Ruta=['efectos',i];
   const error=fallo(()=>validarEfectos([e])||validarTactica(e));
-  nodo(id,'accion',ruta,String(e.nombre??'').trim()||EFECTOS_NOMBRE[e.efecto]||'Acción',texto(()=>describirEfecto(e).resumen,'Acción sin describir.'),error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos'),...(b.tipo==='habilidad'&&i===0?[salida('invocacion',['invocacion'],'Invocación')]:[])]);
+  nodo(id,'accion',ruta,String(e.nombre??'').trim()||EFECTOS_NOMBRE[e.efecto]||'Acción',texto(()=>describirEfecto(e).resumen,'Acción sin describir.'),error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos')]);
   sellar(id,e);
   cable('nucleo','acciones',id);
   const modulo=(tipo:TipoNodo,sub:string|null,titulo:string,frase:string,err:string|null=null)=>{
@@ -139,7 +139,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  // Invocación y requisitos
  if(b.invocacion){
   nodo('invocacion','invocacion',['invocacion'],'Invocación',`Modo ${b.invocacion.modo}, hasta clase ${b.invocacion.claseMaxima}, ${b.invocacion.duracionTurnos} turnos.`,null,[entrada(['nucleo','accion'])]);
-  if(b.tipo==='habilidad'&&b.efectos.length)cable('accion:'+b.efectos[0].id,'invocacion','invocacion');else cable('nucleo','invocacion','invocacion');
+  cable('nucleo','acciones','invocacion');
  }
  // Requisitos: siempre presentes salvo en personajes sin requisitos, para poder editarlos.
  if(ofertaRequisitos){

@@ -28,7 +28,6 @@ import {
   Flame,
   Heart,
   Zap,
-  Sparkles,
   Hammer,
   Trash2,
   X,
@@ -48,7 +47,7 @@ import {
   iniciar,
   siguiente,
   actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,estadosVisibles,recursosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto,
-  acciones,presupuestoRestante,situacionCombatiente,accionesInvocacion,fuentesInvocacion,cancelarInvocacion,PREFIJO_INVOCAR,type SolicitudInvocacion,
+  acciones,presupuestoRestante,situacionCombatiente,accionesEnCombate,fuentesInvocacion,cancelarInvocacion,PREFIJO_INVOCAR,type SolicitudInvocacion,
   estadisticas,
   maxVida,
   reglas,
@@ -348,7 +347,10 @@ export default function CampoCombate() {
   // Un clic ejecuta: el tablero y la barra pasan la acción, el objetivo y el centro elegidos en ese mismo clic.
   async function resolver(objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}) {
     if (!actor) return;
-    await actuar(actor, listaTurno, opciones?.accion || elegidaActual, objetivoId, opciones);
+    const id=opciones?.accion || elegidaActual;
+    const invocacion=listaTurno.find(a=>a.id===id)?.invocacion;
+    if(invocacion&&actor){setInvocar({habilidad:invocacion,actorId:actor.id});return;}
+    await actuar(actor, listaTurno, id, objetivoId, opciones);
   }
   /** Legendaria fuera de turno: solo la dispara el botón «Usar legendaria», con su propio objetivo. */
   async function usarLegendaria() {
@@ -483,36 +485,6 @@ export default function CampoCombate() {
   useEffect(() => {
     void cargar(true);
   }, []);
-  // Solicitudes de invocación de los jugadores: esta pantalla las valida y materializa sola (sin clics),
-  // salvo en «GM crea durante combate», donde abre la ventana para diseñarla.
-  useEffect(()=>{
-    const sol=c.solicitud_invocacion;
-    if(!sol||c.fase!=='en_curso'||ocupado||bloqueo.current||solicitudesVistas.current.has(sol.id))return;
-    solicitudesVistas.current.add(sol.id);
-    const quien=c.miembros.find(m=>m.id===sol.actor);
-    const h=quien&&fuentesInvocacion(quien).find(x=>x.id===sol.habilidad);
-    if(quien&&h&&(h.configuracion_invocacion as InvocacionEditor).modo==='gm_en_combate'){setInvocar({habilidad:h,actorId:quien.id,solicitud:sol});return;}
-    const base=c;
-    void ejecutar(async()=>{
-      let next:Combate;
-      try{
-        if(!quien||!h)throw Error('La habilidad de invocar ya no está disponible.');
-        next=await materializarInvocacion({combate:base,actorId:quien.id,habilidad:h,propuesta:sol.propuesta,datos:await cargarCatalogoInvocacion()});
-      }catch(e){next=cancelarInvocacion(base,sol.actor,mensajeError(e,'No se pudo invocar.'));}
-      try{await guardar(next);}catch(e){solicitudesVistas.current.delete(sol.id);throw e;}
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[c.solicitud_invocacion?.id,c.fase,ocupado]);
-  function ventanaInvocacion(){
-    if(!invocar)return null;
-    const quien=c.miembros.find(m=>m.id===invocar.actorId),config=invocar.habilidad.configuracion_invocacion as InvocacionEditor|undefined;
-    if(!quien||!config)return null;
-    const sol=invocar.solicitud;
-    return <VentanaInvocacion key={sol?.id||invocar.habilidad.id} titulo={sol?`${quien.nombre} invoca con ${invocar.habilidad.nombre}`:invocar.habilidad.nombre} config={config} nivel={estadisticas(quien).nivel||1} disenar={disenaEnCombate(config.modo)}
-      nota={sol?'Un jugador pidió esta invocación y el GM la diseña. Si cancelas, se le avisa.':undefined}
-      onCerrar={()=>{setInvocar(null);if(sol&&c.solicitud_invocacion?.id===sol.id)void ejecutar(()=>guardar(cancelarInvocacion(c,sol.actor,'El GM canceló la invocación.')));}}
-      onConfirmar={async p=>{const next=await materializarInvocacion({combate:c,actorId:quien.id,habilidad:invocar.habilidad,propuesta:p,datos:await cargarCatalogoInvocacion()});await guardar(next);setInvocar(null);}}/>;
-  }
   async function ejecutar(fn: () => void | Promise<void>) {
     if (bloqueo.current) return;
     const turnoEjecucion=++ejecucion.current;
@@ -548,6 +520,44 @@ export default function CampoCombate() {
         ...prev.filter((p) => p.id !== id),
       ].slice(0, 20),
     );
+  }
+  // Solicitudes de invocación de los jugadores: esta pantalla las valida y materializa sola (sin clics),
+  // salvo en «GM crea durante combate», donde abre la ventana para diseñarla.
+  useEffect(()=>{
+    const sol=c.solicitud_invocacion;
+    if(!sol||c.fase!=='en_curso'||ocupado||bloqueo.current||solicitudesVistas.current.has(sol.id))return;
+    const quien=c.miembros.find(m=>m.id===sol.actor);
+    const h=quien&&fuentesInvocacion(quien).find(x=>x.id===sol.habilidad);
+    // «GM crea durante combate»: la ventana se abre sola (ventanaInvocacion) y el GM la diseña.
+    if(quien&&h&&(h.configuracion_invocacion as InvocacionEditor).modo==='gm_en_combate')return;
+    solicitudesVistas.current.add(sol.id);
+    const base=c;
+    void ejecutar(async()=>{
+      let next:Combate;
+      try{
+        if(!quien||!h)throw Error('La habilidad de invocar ya no está disponible.');
+        next=await materializarInvocacion({combate:base,actorId:quien.id,habilidad:h,propuesta:sol.propuesta,datos:await cargarCatalogoInvocacion()});
+      }catch(e){next=cancelarInvocacion(base,sol.actor,mensajeError(e,'No se pudo invocar.'));}
+      try{await guardar(next);}catch(e){solicitudesVistas.current.delete(sol.id);throw e;}
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[c.solicitud_invocacion?.id,c.fase,ocupado]);
+  /** La solicitud que el GM debe diseñar («GM crea durante combate»), si la hay. */
+  function solicitudParaGM(){
+    const sol=c.solicitud_invocacion;if(!sol||c.fase!=='en_curso')return null;
+    const quien=c.miembros.find(m=>m.id===sol.actor),h=quien&&fuentesInvocacion(quien).find(x=>x.id===sol.habilidad);
+    return h&&(h.configuracion_invocacion as InvocacionEditor).modo==='gm_en_combate'?{habilidad:h,actorId:sol.actor,solicitud:sol}:null;
+  }
+  function ventanaInvocacion(){
+    const abierta=invocar||solicitudParaGM();
+    if(!abierta)return null;
+    const quien=c.miembros.find(m=>m.id===abierta.actorId),config=abierta.habilidad.configuracion_invocacion as InvocacionEditor|undefined;
+    if(!quien||!config)return null;
+    const sol=abierta.solicitud;
+    return <VentanaInvocacion key={sol?.id||abierta.habilidad.id} titulo={sol?`${quien.nombre} invoca con ${abierta.habilidad.nombre}`:abierta.habilidad.nombre} config={config} nivel={estadisticas(quien).nivel||1} disenar={disenaEnCombate(config.modo)}
+      nota={sol?'Un jugador pidió esta invocación y el GM la diseña. Si cancelas, se le avisa.':undefined}
+      onCerrar={()=>{setInvocar(null);if(sol&&c.solicitud_invocacion?.id===sol.id)void ejecutar(()=>guardar(cancelarInvocacion(c,sol.actor,'El GM canceló la invocación.')));}}
+      onConfirmar={async p=>{const next=await materializarInvocacion({combate:c,actorId:quien.id,habilidad:abierta.habilidad,propuesta:p,datos:await cargarCatalogoInvocacion()});await guardar(next);setInvocar(null);}}/>;
   }
   function nuevo() {
     setPendiente(null);
@@ -647,7 +657,7 @@ export default function CampoCombate() {
     }
   }
   const actor = c.miembros.find((m) => m.id === c.actual),
-    lista = useMemo(()=>actor ? [...acciones(actor),...accionesInvocacion(c,actor)] : [],[actor,c]),
+    lista = useMemo(()=>actor ? accionesEnCombate(c,actor) : [],[actor,c]),
     restante = actor && c.fase === "en_curso" ? presupuestoRestante(c, actor) : null,
     // Quien no tiene el turno, sigue en pie y conserva legendarias, con sus acciones legendarias.
     legendarias = c.fase === "en_curso" ? c.miembros.filter((m) => m.id !== c.actual && situacionCombatiente(m) === "activo" && presupuestoRestante(c, m).legendaria > 0).map((m) => ({m, restantes: presupuestoRestante(c, m).legendaria, acciones: acciones(m).filter((a) => a.presupuesto === "legendaria")})).filter((x) => x.acciones.length) : [],

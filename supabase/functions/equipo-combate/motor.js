@@ -3782,7 +3782,11 @@ export function acciones(m) {
     }
     if ((m.arma || lista.some(a => a.id === 'ataque' && a.efecto.id !== 'basico')) && (manosLibres(m) > 0 || conceptosDe(m).desarmado.requiere_mano === false))
         lista.push({ id: 'desarmado', nombre: `${conceptosDe(m).desarmado.nombre} · ${conceptosDe(m).desarmado.requiere_mano === false ? 'arma natural' : 'mano libre'}`, efecto: desarmadoDe(m), enfriamiento: 0 });
-    for (const h of habilidadesDe(m).filter(h => !requisitosFuente(m, h).length))
+    for (const h of habilidadesDe(m).filter(h => !requisitosFuente(m, h).length)) {
+        const config = h.configuracion_invocacion;
+        if (config)
+            lista.push({ id: `invocar:${h.id}`, nombre: `Invocar · ${h.nombre}`, invocacion: h, ilustracion: ilustracionFuente(h), enfriamiento: 0,
+                efecto: { ...basico(), efecto: 'invocar', cantidad: 0, coste_ph: config.costePh ?? 0, coste_fatiga: config.costeFatiga ?? 0 } });
         for (const e of h.efectos || [])
             lista.push({
                 id: `hab:${h.id}:${e.id}`,
@@ -3791,6 +3795,7 @@ export function acciones(m) {
                 efecto: e,
                 enfriamiento: Math.max(0, h.stats.enfriamiento || h.stats.cooldown || 0),
             });
+    }
     for (const [slot, p] of Object.entries(piezas(m)).filter(([, p]) => !requisitosFuente(m, p).length))
         for (const e of p.efectos || [])
             lista.push({
@@ -5504,7 +5509,7 @@ export function usarObjeto(c, actorId, objetoId, efectoId, objetivoId, rng = dad
 export const PREFIJO_INVOCAR = 'invocar:';
 /** Habilidades del combatiente que traen una criatura. */
 export function fuentesInvocacion(m) {
-    return (m.configuracion.habilidades || []).filter(h => !!h.id && !!h.configuracion_invocacion && typeof h.configuracion_invocacion === 'object');
+    return habilidadesDe(m).filter(h => !!h.id && !!h.configuracion_invocacion && typeof h.configuracion_invocacion === 'object');
 }
 /** Criaturas en pie que `actorId` mantiene (opcionalmente, de una habilidad). */
 export function invocacionesDe(c, actorId, habilidad) {
@@ -5530,16 +5535,14 @@ export function motivoNoInvocar(c, actor, habilidad) {
         return 'Máximo cien participantes.';
     return undefined;
 }
-/** Acciones de invocar para la barra. Aparecen aunque la habilidad no tenga dados; se ejecutan en su ventana. */
+/** Acciones de invocar de `acciones()` con los límites que dependen del combate (criaturas activas, recursos, aforo). */
 export function accionesInvocacion(c, m) {
-    return fuentesInvocacion(m).map(h => {
-        const config = h.configuracion_invocacion;
-        return { id: PREFIJO_INVOCAR + h.id, nombre: h.nombre, enfriamiento: 0, presupuesto: 'principal',
-            ...(h.forja_id || h.imagen_url ? { ilustracion: { forja_id: h.forja_id, imagen_url: h.imagen_url } } : {}),
-            bloqueada: motivoNoInvocar(c, m, h),
-            efecto: { id: PREFIJO_INVOCAR + h.id, nombre: h.nombre, efecto: 'estado', cantidad: 0, caras: 6, modificador: 0, tipo_dano: '', estado: '', duracion: 0, coste_ph: config.costePh ?? 0, coste_fatiga: config.costeFatiga ?? 0 },
-            invocacion: { habilidad: h.id, modo: config.modo, claseMaxima: config.claseMaxima, duracionTurnos: config.duracionTurnos, maxHabilidades: config.maxHabilidades, activas: invocacionesDe(c, m.id, h.id).length, maxActivas: config.maxActivas ?? 1 } };
-    });
+    return acciones(m).filter(a => a.invocacion).map(a => ({ ...a, bloqueada: a.bloqueada || motivoNoInvocar(c, m, a.invocacion) }));
+}
+/** Las acciones del combatiente para la barra, con las invocaciones ya limitadas. */
+export function accionesEnCombate(c, m) {
+    const limitadas = new Map(accionesInvocacion(c, m).map(a => [a.id, a]));
+    return acciones(m).map(a => limitadas.get(a.id) || a);
 }
 /** Las criaturas cuyo invocador cae o deja el combate se desvanecen al instante. */
 function desvanecerHuerfanas(n) {
@@ -5615,15 +5618,21 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
     const actor = c.miembros.find(m => m.id === actorId);
     if (c.fase !== "en_curso" || c.actual !== actorId || !actor || !combatienteActivo(actor) || presupuestoRestante(c, actor).principal <= 0)
         throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
-    if (!fuentesInvocacion(actor).some(h => h.id === habilidad.id))
+    // La configuración sale de la habilidad que tiene equipada, nunca de la que llega del cliente.
+    const equipada = fuentesInvocacion(actor).find(h => h.id === habilidad.id);
+    if (!equipada)
         throw Error("Habilidad no equipada.");
-    const config = habilidad.configuracion_invocacion;
+    const config = equipada.configuracion_invocacion;
     if (!config || !Number.isInteger(duracion) || duracion < 1 || !Number.isInteger(maxActivas) || maxActivas < 1)
         throw Error("Configuración de invocación inválida.");
+    if (config.duracionTurnos != null && duracion !== config.duracionTurnos || maxActivas !== (config.maxActivas ?? 1))
+        throw Error("Los límites de invocación cambiaron.");
+    if (actor.rafaga?.restantes)
+        throw Error("No puedes invocar en este momento.");
     const ph = config.costePh ?? 0, fatiga = config.costeFatiga ?? 0;
     if (!Number.isInteger(ph) || !Number.isInteger(fatiga) || ph < 0 || fatiga < 0)
         throw Error("Costes inválidos.");
-    const motivo = motivoNoInvocar(c, actor, { ...habilidad, configuracion_invocacion: { ...config, maxActivas } });
+    const motivo = motivoNoInvocar(c, actor, equipada);
     if (motivo)
         throw Error(motivo.startsWith('PH') || motivo.startsWith('Fatiga') ? "No tienes recursos suficientes para invocar." : motivo.startsWith('Ya tienes') ? "Ya alcanzaste el límite de invocaciones activas." : motivo);
     return registrar(c, () => {
@@ -5642,6 +5651,7 @@ export function incorporarInvocacion(c, actorId, habilidad, preparado, duracion,
             a.uso_fatiga = true;
         a.accion_usada = true;
         cerrarPrincipal(n, a);
+        delete a.solicitud_invocacion;
         criatura.invocacion = { invocador: actorId, habilidad: habilidad.id, restantes: duracion, ...(apariencia ? { apariencia } : {}) };
         if (n.solicitud_invocacion?.actor === actorId)
             delete n.solicitud_invocacion;

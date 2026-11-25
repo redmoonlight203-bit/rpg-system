@@ -104,6 +104,8 @@ export type Terreno = "muro"|"dificil"|"cobertura"|"peligro";
 export type MapaCombate = {id:string;version:1;nombre:string;columnas:number;filas:number;celdas:Record<string,Terreno>;procedural?:import('./mapas-procedurales').ProcedenciaMapa};
 export type Posicion = { x: number; y: number };
 export type Combatiente = {
+  /** Formato antiguo de solicitud (por combatiente); hoy vive en `Combate.solicitud_invocacion`. Se borra al invocar. */
+  solicitud_invocacion?: {accion:string;turno:number};
   ultima_defensa?:{id:string;animacion:string};
   recursos_especiales?:Record<string,number>;
   hechizos_observados?:Record<string,string>;
@@ -225,6 +227,7 @@ export type Combate = {
 };
 export type Accion = {
   ilustracion?: { forja_id?: string; imagen_url?: string };
+  invocacion?: Fuente;
   regla_detalle?: Regla;
   bloqueada?: string;
   id: string;
@@ -238,8 +241,6 @@ export type Accion = {
   potenciadores?: PotenciadorDisponible[];
   /** Transformación por grafo: forma a la que lleva esta acción. */
   forma_destino?: string;
-  /** Acción de invocar: se resuelve en su ventana (diseño, validación de clase), no con `actuar`. */
-  invocacion?: {habilidad:string;modo:import("./invocaciones").ConfiguracionInvocacion['modo'];claseMaxima:string;duracionTurnos:number;maxHabilidades:number;activas:number;maxActivas:number};
 };
 export type PotenciadorDisponible={rasgo:string;rasgo_nombre:string;potenciador:string;nombre:string;ph:number;fatiga:number;
   recurso?:{id:string;nombre:string;min:number;max:number;saldo:number};componentes:{elemento:string;cantidad:number;caras:number;por_unidad?:boolean}[]};
@@ -1306,6 +1307,10 @@ export function acciones(m: Combatiente) {
   if ((m.arma || lista.some(a=>a.id==='ataque'&&a.efecto.id!=='basico')) && (manosLibres(m)>0||conceptosDe(m).desarmado.requiere_mano===false))
     lista.push({id:'desarmado',nombre:`${conceptosDe(m).desarmado.nombre} · ${conceptosDe(m).desarmado.requiere_mano===false?'arma natural':'mano libre'}`,efecto:desarmadoDe(m),enfriamiento:0});
   for (const h of habilidadesDe(m).filter(h=>!requisitosFuente(m,h).length))
+    {
+    const config=h.configuracion_invocacion;
+    if(config)lista.push({id:`invocar:${h.id}`,nombre:`Invocar · ${h.nombre}`,invocacion:h,ilustracion:ilustracionFuente(h),enfriamiento:0,
+      efecto:{...basico(),efecto:'invocar',cantidad:0,coste_ph:config.costePh??0,coste_fatiga:config.costeFatiga??0}});
     for (const e of h.efectos || [])
       lista.push({
         id: `hab:${h.id}:${e.id}`,
@@ -1317,6 +1322,7 @@ export function acciones(m: Combatiente) {
           h.stats.enfriamiento || h.stats.cooldown || 0,
         ),
       });
+    }
   for (const [slot, p] of Object.entries(piezas(m)).filter(([,p])=>!requisitosFuente(m,p).length))
     for (const e of p.efectos || [])
       lista.push({
@@ -2632,7 +2638,7 @@ export function usarObjeto(c:Combate,actorId:string,objetoId:string,efectoId:str
 export const PREFIJO_INVOCAR='invocar:';
 /** Habilidades del combatiente que traen una criatura. */
 export function fuentesInvocacion(m:Combatiente):Fuente[]{
- return (m.configuracion.habilidades||[]).filter(h=>!!h.id&&!!h.configuracion_invocacion&&typeof h.configuracion_invocacion==='object');
+ return habilidadesDe(m).filter(h=>!!h.id&&!!h.configuracion_invocacion&&typeof h.configuracion_invocacion==='object');
 }
 /** Criaturas en pie que `actorId` mantiene (opcionalmente, de una habilidad). */
 export function invocacionesDe(c:Pick<Combate,'miembros'>,actorId:string,habilidad?:string):Combatiente[]{
@@ -2651,16 +2657,14 @@ export function motivoNoInvocar(c:Combate,actor:Combatiente,habilidad:Fuente):st
  if(c.miembros.length>=100)return 'Máximo cien participantes.';
  return undefined;
 }
-/** Acciones de invocar para la barra. Aparecen aunque la habilidad no tenga dados; se ejecutan en su ventana. */
+/** Acciones de invocar de `acciones()` con los límites que dependen del combate (criaturas activas, recursos, aforo). */
 export function accionesInvocacion(c:Combate,m:Combatiente):Accion[]{
- return fuentesInvocacion(m).map(h=>{
-  const config=h.configuracion_invocacion!;
-  return {id:PREFIJO_INVOCAR+h.id,nombre:h.nombre,enfriamiento:0,presupuesto:'principal' as const,
-   ...(h.forja_id||h.imagen_url?{ilustracion:{forja_id:h.forja_id,imagen_url:h.imagen_url}}:{}),
-   bloqueada:motivoNoInvocar(c,m,h),
-   efecto:{id:PREFIJO_INVOCAR+h.id,nombre:h.nombre,efecto:'estado' as const,cantidad:0,caras:6,modificador:0,tipo_dano:'',estado:'',duracion:0,coste_ph:config.costePh??0,coste_fatiga:config.costeFatiga??0},
-   invocacion:{habilidad:h.id!,modo:config.modo,claseMaxima:config.claseMaxima,duracionTurnos:config.duracionTurnos,maxHabilidades:config.maxHabilidades,activas:invocacionesDe(c,m.id,h.id).length,maxActivas:config.maxActivas??1}};
- });
+ return acciones(m).filter(a=>a.invocacion).map(a=>({...a,bloqueada:a.bloqueada||motivoNoInvocar(c,m,a.invocacion!)}));
+}
+/** Las acciones del combatiente para la barra, con las invocaciones ya limitadas. */
+export function accionesEnCombate(c:Combate,m:Combatiente):Accion[]{
+ const limitadas=new Map(accionesInvocacion(c,m).map(a=>[a.id,a]));
+ return acciones(m).map(a=>limitadas.get(a.id)||a);
 }
 /** Las criaturas cuyo invocador cae o deja el combate se desvanecen al instante. */
 function desvanecerHuerfanas(n:Combate){
@@ -2717,12 +2721,16 @@ export function cancelarInvocacion(c:Combate,actorId:string,motivo?:string):Comb
 export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,preparado:Parameters<typeof agregar>[1],duracion:number,maxActivas=1,rng:RNG=dadoSeguro,apariencia?:string){
  const actor=c.miembros.find(m=>m.id===actorId);
  if(c.fase!=="en_curso"||c.actual!==actorId||!actor||!combatienteActivo(actor)||presupuestoRestante(c,actor).principal<=0)throw Error("Solo puedes invocar durante tu turno con una acción disponible.");
- if(!fuentesInvocacion(actor).some(h=>h.id===habilidad.id))throw Error("Habilidad no equipada.");
- const config=habilidad.configuracion_invocacion;
+ // La configuración sale de la habilidad que tiene equipada, nunca de la que llega del cliente.
+ const equipada=fuentesInvocacion(actor).find(h=>h.id===habilidad.id);
+ if(!equipada)throw Error("Habilidad no equipada.");
+ const config=equipada.configuracion_invocacion;
  if(!config||!Number.isInteger(duracion)||duracion<1||!Number.isInteger(maxActivas)||maxActivas<1)throw Error("Configuración de invocación inválida.");
+ if(config.duracionTurnos!=null&&duracion!==config.duracionTurnos||maxActivas!==(config.maxActivas??1))throw Error("Los límites de invocación cambiaron.");
+ if(actor.rafaga?.restantes)throw Error("No puedes invocar en este momento.");
  const ph=config.costePh??0,fatiga=config.costeFatiga??0;
  if(!Number.isInteger(ph)||!Number.isInteger(fatiga)||ph<0||fatiga<0)throw Error("Costes inválidos.");
- const motivo=motivoNoInvocar(c,actor,{...habilidad,configuracion_invocacion:{...config,maxActivas}});
+ const motivo=motivoNoInvocar(c,actor,equipada);
  if(motivo)throw Error(motivo.startsWith('PH')||motivo.startsWith('Fatiga')?"No tienes recursos suficientes para invocar.":motivo.startsWith('Ya tienes')?"Ya alcanzaste el límite de invocaciones activas.":motivo);
  return registrar(c,()=>{
   const posiciones=posicionesTablero(c);
@@ -2732,6 +2740,7 @@ export function incorporarInvocacion(c:Combate,actorId:string,habilidad:Fuente,p
   if(!p)throw Error('No hay espacio libre para la ficha invocada.');
   criatura.posicion=p;
   const a=n.miembros.find(m=>m.id===actorId)!;a.ph=phDisponibles(a)-ph;a.fatiga+=fatiga;if(fatiga)a.uso_fatiga=true;a.accion_usada=true;cerrarPrincipal(n,a);
+  delete a.solicitud_invocacion;
   criatura.invocacion={invocador:actorId,habilidad:habilidad.id!,restantes:duracion,...(apariencia?{apariencia}:{})};
   if(n.solicitud_invocacion?.actor===actorId)delete n.solicitud_invocacion;
   if(n.invocacion_rechazada?.actor===actorId)delete n.invocacion_rechazada;

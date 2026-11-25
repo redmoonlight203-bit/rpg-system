@@ -91,7 +91,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
    {e.concepto&&<EditorConcepto valor={e.concepto} onChange={concepto=>patch({concepto})}/>}
   </>}
   {!pasivo&&<>
-  <Fichas etiqueta="Qué hace" opciones={EFECTOS} valor={e.efecto} onChange={cambiarEfecto}/>
+  <Fichas etiqueta="Qué hace" opciones={b.tipo==='habilidad'?[...EFECTOS,{valor:'invocar',nombre:'Invocar',icono:'espectro',ayuda:'Convertir en una acción de invocación.'}]:EFECTOS} valor={e.efecto} onChange={v=>v==='invocar'?operar({op:'convertir_invocacion',id:e.id}):cambiarEfecto(v)}/>
   {e.efecto==='desplazamiento'&&<label className="yq-campo"><span>Casillas de dash</span><Rueda nombre="dash" etiqueta="Alcance del desplazamiento" valor={e.tablero?.alcance||1} min={1} max={30} onChange={alcance=>patch({tablero:{alcance,forma:'individual',tamano:0,afecta:'todos'}})}/></label>}
   {dados&&<div className="yq-dados" aria-label={`Dados: ${formula(e)}`}>
    <span className="yq-dados-etiqueta">{e.efecto==='crear_arma'?'Daño del arma':'Dados'}</span>

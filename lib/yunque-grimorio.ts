@@ -61,7 +61,7 @@ const MODULOS_PIEZAS:Pieza[]=[
  una('modulo:vision','modulos','vision','Visión ocular','Un ojo: puntos débiles, revelar…','ojo',nuevaVision()),
  una('modulo:vision-analitica','modulos','vision','Ojo analítico','Revela vida, acciones y pasivas','ojo',{...nuevaVision(),nombre:'Ojo analítico',duracion:0,mantenimiento_ph:1,alcance:0,apariencia:{color:'#3a8fd6',secundario:'#0a1a2a',patron:'rejilla',marcas:4,velo:1},revelar:{vida:true,atributos:true,acciones:true,pasivas:true,estados:true},puntos_debiles:undefined}),
  una('modulo:vision-cazadora','modulos','vision','Ojo cazador','Puntos débiles con crítico','ojo',{...nuevaVision(),nombre:'Ojo cazador',modo:'con_accion',duracion:2,apariencia:{color:'#e0a21a',secundario:'#2a1400',patron:'rendija',marcas:1,velo:2},revelar:{vida:true},puntos_debiles:{cantidad:2,cambia:'ronda',recompensa:{critico:true}}}),
- una('modulo:invocacion','modulos','invocacion','Invocación','Traer a una criatura','espectro',{claseMaxima:'C',maxHabilidades:1,modo:'jugador_en_combate',duracionTurnos:3}),
+ una('accion:invocacion','acciones','invocacion','Invocación','Traer a una criatura','espectro',{claseMaxima:'C',maxHabilidades:1,modo:'jugador_en_combate',duracionTurnos:3}),
 ];
 // ---- Eventos: una regla nueva con ese evento ----
 export const ICONO_EVENTO:Record<EventoRegla,string>={equipar:'armadura',desequipar:'anillo',fin_efecto:'alma',usar:'rayo',inicio_combate:'escudo',inicio_turno:'ojo',fin_turno:'libro',atacar:'arco',impactar:'espada',fallar:'hielo',recibir_dano:'vida',causar_dano:'fuego',matar:'espectro',morir:'yugen',fin_combate:'corona'};
@@ -132,7 +132,7 @@ export const PIEZAS:Pieza[]=[...ACCIONES,...MODULOS_PIEZAS,...EVENTOS_PIEZAS,...
 
 /** Tipos de nodo que el núcleo puede llevar → si la creación admite el tipo `t`. */
 export function tipoPermitido(t:TipoNodo,lleva:readonly TipoNodo[]):boolean{
- if(MODULOS.includes(t)||t==='invocacion')return lleva.includes('accion');
+ if(MODULOS.includes(t))return lleva.includes('accion');
  if(t==='si'||t==='entonces')return lleva.includes('cuando');
  return lleva.includes(t);
 }

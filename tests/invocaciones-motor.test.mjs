@@ -5,22 +5,27 @@ const i=cargar('invocaciones'),c=cargar('combate');
 // Habilidad de invocar sin dados (como «Sol sagrado»): debe aparecer igual en la barra.
 const config={claseMaxima:'C',maxHabilidades:1,modo:'jugador_en_combate',duracionTurnos:2,costePh:2,maxActivas:1};
 const habilidad={id:'h',nombre:'Llamada',stats:{},efectos:[],configuracion_invocacion:config};
-function ficha(id,extra={}){return {id,forja_id:null,nombre:id,stats:{vida:20,ph:10,fatiga:10,iniciativa:id==='a'?20:0},configuracion:{tipo_creacion:'personaje',habilidades:[habilidad]},...extra};}
-function campo(){return c.iniciar(c.agregar(c.agregar(c.nuevoCombate(),ficha('a'),'jugador',()=>20),ficha('b'),'enemigo',()=>1),()=>1);}
+function ficha(id,h=habilidad){return {id,forja_id:null,nombre:id,stats:{vida:20,ph:10,fatiga:10,iniciativa:id==='a'?20:0},configuracion:{tipo_creacion:'personaje',habilidades:[h]}};}
+function campo(h=habilidad){return c.iniciar(c.agregar(c.agregar(c.nuevoCombate(),ficha('a',h),'jugador',()=>20),ficha('b',h),'enemigo',()=>1),()=>1);}
+/** Habilidad con otra duración (la duración la fija la habilidad equipada). */
+const dura=d=>({...habilidad,configuracion_invocacion:{...config,duracionTurnos:d}});
 const de=(x,id)=>x.miembros.find(m=>m.id===id);
 const criatura=(nombre='Lobo')=>({id:'x',forja_id:null,nombre,stats:{vida:8},configuracion:{tipo_creacion:'personaje'}});
 
 test('la acción de invocar aparece aunque la habilidad no tenga dados, con su coste y sus límites',()=>{
  const x=campo();
  const [acc]=c.accionesInvocacion(x,de(x,'a'));
- assert.equal(acc.id,'invocar:h');assert.equal(acc.presupuesto,'principal');assert.equal(acc.efecto.coste_ph,2);
- assert.equal(acc.bloqueada,undefined);assert.equal(acc.invocacion.modo,'jugador_en_combate');
- assert.ok(!c.acciones(de(x,'a')).some(a=>a.id.startsWith('invocar:')),'no se mezcla con las acciones del motor');
- assert.throws(()=>c.actuar(x,'a','invocar:h','b',()=>10),/se elige en su ventana/);
+ assert.equal(acc.id,'invocar:h');assert.equal(acc.presupuesto,'principal');assert.equal(acc.efecto.coste_ph,2);assert.equal(acc.efecto.efecto,'invocar');
+ assert.equal(acc.bloqueada,undefined);assert.equal(acc.invocacion.id,'h');
+ assert.equal(c.acciones(de(x,'a')).filter(a=>a.id.startsWith('invocar:')).length,1);
+ assert.equal(c.accionesEnCombate(x,de(x,'a')).filter(a=>a.id.startsWith('invocar:')).length,1,'sin duplicados en la barra');
+ assert.throws(()=>c.actuar(x,'a','invocar:h','b',()=>10),/se elige en su ventana|Confirma la criatura/);
  const pobre=structuredClone(x);de(pobre,'a').ph=1;
  assert.match(c.accionesInvocacion(pobre,de(pobre,'a'))[0].bloqueada,/PH insuficientes/);
  const y=c.incorporarInvocacion(x,'a',habilidad,criatura(),2,1,()=>5);
  assert.match(c.accionesInvocacion(y,de(y,'a'))[0].bloqueada,/Ya tienes esta criatura/);
+ // La duración y el máximo los fija la habilidad equipada: no se aceptan otros desde fuera.
+ assert.throws(()=>c.incorporarInvocacion(x,'a',habilidad,criatura(),9,1,()=>5),/límites de invocación cambiaron/);
 });
 
 test('solicitud del jugador: queda pendiente sin pagar; el GM la materializa o la rechaza',()=>{
@@ -46,10 +51,10 @@ test('solicitud del jugador: queda pendiente sin pagar; el GM la materializa o l
 });
 
 test('la criatura muerta o expirada deja el campo; si cae el invocador, se desvanece',()=>{
- let x=c.incorporarInvocacion(campo(),'a',habilidad,criatura(),1,1,()=>5);
+ let x=c.incorporarInvocacion(campo(dura(1)),'a',dura(1),criatura(),1,1,()=>5);
  const id=x.miembros[2].id;
  // Muere por daño: sale del tablero en cuanto se registra el golpe.
- const larga=c.incorporarInvocacion(campo(),'a',habilidad,criatura(),5,1,()=>5);
+ const larga=c.incorporarInvocacion(campo(dura(5)),'a',dura(5),criatura(),5,1,()=>5);
  const golpeada=structuredClone(larga);const id2=golpeada.miembros[2].id;de(golpeada,id2).vida=1;de(golpeada,'b').stats.bono_impacto=50;
  let g=golpeada;while(g.actual!=='b')g=c.siguiente(g,()=>1);
  const pb=c.posicionesTablero(g)[ 'b'];de(g,id2).posicion={x:pb.x+1,y:pb.y};
@@ -59,7 +64,7 @@ test('la criatura muerta o expirada deja el campo; si cae el invocador, se desva
  let e=x;for(let k=0;k<6&&de(e,id);k++)e=c.siguiente(e,()=>1);
  assert.equal(de(e,id),undefined);assert.match(e.registro.join('\n'),/termina su invocación/);
  // El invocador cae: la criatura se desvanece aunque le quedaran turnos.
- let f=c.incorporarInvocacion(campo(),'a',habilidad,criatura(),5,1,()=>5);
+ let f=c.incorporarInvocacion(campo(dura(5)),'a',dura(5),criatura(),5,1,()=>5);
  const fid=f.miembros[2].id;
  while(f.actual!=='b')f=c.siguiente(f,()=>1);
  de(f,'a').vida=1;de(f,'b').stats.bono_impacto=50;

@@ -116,3 +116,13 @@ test('un efecto personal se resuelve en el almacenamiento del proyecto con una r
  assert.equal(lib.buscarVFX(id.replace('900','9999')),undefined);
  assert.equal(lib.buscarVFX(id.replace('rayo','../rayo')),undefined);
 });
+
+test('el aro de Aliento sagrado permanece en la salida con cualquier giro o reflejo',()=>{
+ for(const cuartos of [0,1,2,3])for(const horizontal of [false,true])for(const vertical of [false,true]){
+  const animacion=exports.orientarVFX('foundry-divine-beam',{cuartos,horizontal,vertical});
+  const clip={id:'salida',animacion};
+  const transformacion=exports.transformacionClipVFX(clip);
+  assert.equal(transformacion,exports.transformacionVFX(animacion)+` translateY(${-40/96*100}%)`);
+  assert.equal(exports.transformacionClipVFX({...clip,id:'impacto'}),exports.transformacionVFX(animacion));
+ }
+});
