@@ -16,7 +16,8 @@ import {useSincronizacionCombate} from "../../../lib/useSincronizacionCombate";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {elegirVariante,prepararVariante,type ConfiguracionMonstruo,type FuenteMonstruo} from "../../../lib/monstruos";
-import InvocarCombate from "../../../components/InvocarCombate";
+import VentanaInvocacion,{cargarCatalogoInvocacion,disenaEnCombate,materializarInvocacion} from "../../../components/InvocarCombate";
+import type {InvocacionEditor} from "../../../components/EditorInvocacion";
 import {
   Swords,
   Users,
@@ -46,7 +47,7 @@ import {
   iniciar,
   siguiente,
   actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,estadosVisibles,recursosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto,
-  acciones,presupuestoRestante,situacionCombatiente,
+  acciones,presupuestoRestante,situacionCombatiente,accionesEnCombate,fuentesInvocacion,cancelarInvocacion,PREFIJO_INVOCAR,type SolicitudInvocacion,
   estadisticas,
   maxVida,
   reglas,
@@ -125,7 +126,9 @@ export default function CampoCombate() {
   const {confirmar}=useDialogo();
   const [centro,setCentro]=useState<import("../../../lib/combate").Posicion|null>(null);
   const [modoMovimiento,setModoMovimiento]=useState(false);
-  const [invocar,setInvocar]=useState<Fuente|null>(null);
+  // Ventana de invocación del GM: la suya (turno de un PNJ) o la de un jugador en modo «GM crea durante combate».
+  const [invocar,setInvocar]=useState<{habilidad:Fuente;actorId:string;solicitud?:SolicitudInvocacion}|null>(null);
+  const solicitudesVistas=useRef(new Set<string>());
   // Artefactos con voces o espejo: el GM los usa desde la tarjeta de cada combatiente.
   const [artefactosGM,setArtefactosGM]=useState<ArtefactoGM[]>([]);
   useEffect(()=>{let vivo=true;void supabase.from('forja_maestra').select('id,nombre,configuracion_artefacto').not('configuracion_artefacto','is',null).then(r=>{if(vivo&&!r.error)setArtefactosGM((r.data||[]) as ArtefactoGM[]);});return()=>{vivo=false;};},[]);
@@ -346,7 +349,7 @@ export default function CampoCombate() {
     if (!actor) return;
     const id=opciones?.accion || elegidaActual;
     const invocacion=listaTurno.find(a=>a.id===id)?.invocacion;
-    if(invocacion){setInvocar(invocacion);return;}
+    if(invocacion&&actor){setInvocar({habilidad:invocacion,actorId:actor.id});return;}
     await actuar(actor, listaTurno, id, objetivoId, opciones);
   }
   /** Legendaria fuera de turno: solo la dispara el botón «Usar legendaria», con su propio objetivo. */
@@ -358,6 +361,12 @@ export default function CampoCombate() {
   async function actuar(actor: Combatiente, lista: ReturnType<typeof acciones>, elegida: string, objetivoId?: string, opciones?: {accion?: string; centro?: Posicion}, alExito?: () => void) {
     const efecto = lista.find((a) => a.id === elegida)?.efecto;
     if (!elegida) return;
+    // Invocar abre su ventana: diseño o confirmación y, al aceptar, se paga.
+    if (elegida.startsWith(PREFIJO_INVOCAR)) {
+      const h = fuentesInvocacion(actor).find((x) => PREFIJO_INVOCAR + x.id === elegida);
+      if (h) setInvocar({habilidad: h, actorId: actor.id});
+      return;
+    }
     await ejecutar(async () => {
      try {
       const dados: TiradaVisual[] = [];
@@ -512,6 +521,44 @@ export default function CampoCombate() {
       ].slice(0, 20),
     );
   }
+  // Solicitudes de invocación de los jugadores: esta pantalla las valida y materializa sola (sin clics),
+  // salvo en «GM crea durante combate», donde abre la ventana para diseñarla.
+  useEffect(()=>{
+    const sol=c.solicitud_invocacion;
+    if(!sol||c.fase!=='en_curso'||ocupado||bloqueo.current||solicitudesVistas.current.has(sol.id))return;
+    const quien=c.miembros.find(m=>m.id===sol.actor);
+    const h=quien&&fuentesInvocacion(quien).find(x=>x.id===sol.habilidad);
+    // «GM crea durante combate»: la ventana se abre sola (ventanaInvocacion) y el GM la diseña.
+    if(quien&&h&&(h.configuracion_invocacion as InvocacionEditor).modo==='gm_en_combate')return;
+    solicitudesVistas.current.add(sol.id);
+    const base=c;
+    void ejecutar(async()=>{
+      let next:Combate;
+      try{
+        if(!quien||!h)throw Error('La habilidad de invocar ya no está disponible.');
+        next=await materializarInvocacion({combate:base,actorId:quien.id,habilidad:h,propuesta:sol.propuesta,datos:await cargarCatalogoInvocacion()});
+      }catch(e){next=cancelarInvocacion(base,sol.actor,mensajeError(e,'No se pudo invocar.'));}
+      try{await guardar(next);}catch(e){solicitudesVistas.current.delete(sol.id);throw e;}
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[c.solicitud_invocacion?.id,c.fase,ocupado]);
+  /** La solicitud que el GM debe diseñar («GM crea durante combate»), si la hay. */
+  function solicitudParaGM(){
+    const sol=c.solicitud_invocacion;if(!sol||c.fase!=='en_curso')return null;
+    const quien=c.miembros.find(m=>m.id===sol.actor),h=quien&&fuentesInvocacion(quien).find(x=>x.id===sol.habilidad);
+    return h&&(h.configuracion_invocacion as InvocacionEditor).modo==='gm_en_combate'?{habilidad:h,actorId:sol.actor,solicitud:sol}:null;
+  }
+  function ventanaInvocacion(){
+    const abierta=invocar||solicitudParaGM();
+    if(!abierta)return null;
+    const quien=c.miembros.find(m=>m.id===abierta.actorId),config=abierta.habilidad.configuracion_invocacion as InvocacionEditor|undefined;
+    if(!quien||!config)return null;
+    const sol=abierta.solicitud;
+    return <VentanaInvocacion key={sol?.id||abierta.habilidad.id} titulo={sol?`${quien.nombre} invoca con ${abierta.habilidad.nombre}`:abierta.habilidad.nombre} config={config} nivel={estadisticas(quien).nivel||1} disenar={disenaEnCombate(config.modo)}
+      nota={sol?'Un jugador pidió esta invocación y el GM la diseña. Si cancelas, se le avisa.':undefined}
+      onCerrar={()=>{setInvocar(null);if(sol&&c.solicitud_invocacion?.id===sol.id)void ejecutar(()=>guardar(cancelarInvocacion(c,sol.actor,'El GM canceló la invocación.')));}}
+      onConfirmar={async p=>{const next=await materializarInvocacion({combate:c,actorId:quien.id,habilidad:abierta.habilidad,propuesta:p,datos:await cargarCatalogoInvocacion()});await guardar(next);setInvocar(null);}}/>;
+  }
   function nuevo() {
     setPendiente(null);
     setRoll(null);
@@ -610,8 +657,7 @@ export default function CampoCombate() {
     }
   }
   const actor = c.miembros.find((m) => m.id === c.actual),
-    lista = useMemo(()=>actor ? acciones(actor) : [],[actor]),
-    solicitudInvocacion = actor?.solicitud_invocacion && actor.solicitud_invocacion.turno===actor.turnos ? lista.find(a=>a.id===actor.solicitud_invocacion?.accion)?.invocacion : undefined,
+    lista = useMemo(()=>actor ? accionesEnCombate(c,actor) : [],[actor,c]),
     restante = actor && c.fase === "en_curso" ? presupuestoRestante(c, actor) : null,
     // Quien no tiene el turno, sigue en pie y conserva legendarias, con sus acciones legendarias.
     legendarias = c.fase === "en_curso" ? c.miembros.filter((m) => m.id !== c.actual && situacionCombatiente(m) === "activo" && presupuestoRestante(c, m).legendaria > 0).map((m) => ({m, restantes: presupuestoRestante(c, m).legendaria, acciones: acciones(m).filter((a) => a.presupuesto === "legendaria")})).filter((x) => x.acciones.length) : [],
@@ -1077,8 +1123,7 @@ export default function CampoCombate() {
       <ConfigurarCiclo combate={c} ocupado={bloqueado} onGuardar={next=>ejecutar(()=>guardar(next))}/>
       {c.fase==='finalizado'&&<ResumenEncuentro onRecargar={refrescarEncuentro} id={id} version={version} combate={c} ocupado={bloqueado}/>}
       {c.politica?.modo!=='entrenamiento'&&c.fase==='finalizado'&&c.miembros.some(m=>m.personaje_id&&m.motor?.progreso.length)&&<section className="rounded-xl border border-amber-800 p-4"><h2 className="font-semibold">Progreso permanente de jugadores</h2><p className="my-2 text-sm text-neutral-400">El crecimiento de reglas se confirma junto con las recompensas. También puedes aplicarlo aquí; después el resultado queda cerrado para revisiones. Las plantillas de la Forja conservan sus valores originales.</p><button className="battle-button" disabled={bloqueado||!!c.progreso_confirmado} onClick={()=>void confirmarProgreso()}>{c.progreso_confirmado?'Progreso aplicado':'Aplicar progreso a las fichas'}</button></section>}
-      {actor&&solicitudInvocacion&&!actor.accion_usada&&c.fase==='en_curso'&&<button className="rounded border border-sky-700 p-2" disabled={bloqueado} onClick={()=>setInvocar(solicitudInvocacion)}>Revisar invocación de {actor.nombre} · {solicitudInvocacion.nombre}</button>}
-      {invocar&&actor&&lista.some(a=>a.invocacion===invocar)&&<InvocarCombate combate={c} actorId={actor.id} habilidad={invocar} onCerrar={()=>setInvocar(null)} onConfirmar={async next=>{await guardar(next);}}/>}
+      {ventanaInvocacion()}
       <VentanaInventario abierta={!!editorEquipo} onCerrar={()=>setEditorEquipo(null)} titulo={`Inventario de ${c.miembros.find(m=>m.id===editorEquipo?.actor)?.nombre||'participante'}`} consumibles={editorEquipo?.actor===actor?.id?consumiblesBarra(mochilaActor,[]).map(x=>({id:x.nombre,nombre:x.nombre,cantidad:x.cantidad,imagen_url:x.imagen_url})):[]} fijados={fijados} onFijados={editorEquipo?.actor===actor?.id?ids=>{setFijados(ids);guardarFijados(actor?.id||'',ids);}:undefined}>{editorEquipo&&<EditorEquipoCombate key={`${editorEquipo.actor}:${editorEquipo.contexto.version}`} catalogo={c.fase==='preparacion'&&!c.miembros.find(m=>m.id===editorEquipo.actor)?.personaje_id?objetosMochila:undefined} onAgregar={agregarObjetoMochila} contexto={editorEquipo.contexto} solicitud={{combate_id:id,actor_id:editorEquipo.actor}} onCerrar={()=>setEditorEquipo(null)} onGuardado={async()=>{await refrescarEncuentro();setEditorEquipo(null);}}/>}</VentanaInventario>
       <MetricasCombate/>
       <EstadoAccionCombate estado={segura.estado} revisando={segura.revisando} onComprobar={segura.comprobar} onReintentar={segura.reintentar} onDescartar={segura.descartar} conexion={conexion}/>

@@ -4,8 +4,8 @@ import {readFileSync} from 'node:fs';
 import * as motor from '../supabase/functions/equipo-combate/motor.js';
 const entrada=readFileSync(new URL('../supabase/functions/combate-jugador/index.ts',import.meta.url),'utf8').replace(/^import (\{[^}]+\}) from '\.\.\/equipo-combate\/motor.js';/m,'const $1=motor;');
 const jugador='00000000-0000-0000-0000-000000000001', combate='00000000-0000-0000-0000-000000000002';
-function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false,ojo=null,legendaria=false}={}){
- let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);if(ojo)c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'ojo',nombre:'Ojo',efecto:'estado',estado:'Ojo',cantidad:0,caras:4,modificador:0,tipo_dano:'',duracion:0,coste_ph:0,vision:ojo}]}];if(legendaria){c.miembros[0].stats.acciones_legendaria=1;c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'leg',nombre:'Zarpa',efecto:'dano',cantidad:1,caras:6,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0,presupuesto:'legendaria'},{id:'nor',nombre:'Tajo',efecto:'dano',cantidad:1,caras:6,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:2,y:1};}c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
+function servidor({auth=true,turno=true,usada=false,area=false,sinPH=false,sinCambios=false,timeoutCommit=false,ojo=null,legendaria=false,invoca=false,invocada=null,pendiente=false}={}){
+ let handler,versionActual=3;const escrituras=[],lecturas=[],recibos=new Map();let c=motor.agregar(motor.nuevoCombate(),{id:'a',nombre:'Axel',stats:{vida:20,ph:10,fatiga:5},configuracion:{tipo_creacion:"personaje"}},'jugador',()=>10);c=motor.agregar(c,{id:'b',nombre:'Secreto enemigo',stats:{vida:100,ph:500},configuracion:{tipo_creacion:"personaje",habilidades:[{nombre:'Ataque secreto',stats:{}}]}},'enemigo',()=>1);if(ojo)c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'ojo',nombre:'Ojo',efecto:'estado',estado:'Ojo',cantidad:0,caras:4,modificador:0,tipo_dano:'',duracion:0,coste_ph:0,vision:ojo}]}];if(legendaria){c.miembros[0].stats.acciones_legendaria=1;c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Linaje',stats:{},efectos:[{id:'leg',nombre:'Zarpa',efecto:'dano',cantidad:1,caras:6,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0,presupuesto:'legendaria'},{id:'nor',nombre:'Tajo',efecto:'dano',cantidad:1,caras:6,modificador:0,tipo_dano:'físico',estado:'',duracion:0,coste_ph:0}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:2,y:1};}if(invoca){c.miembros[0].configuracion.habilidades=[{id:'sol',nombre:'Sol sagrado',stats:{},efectos:[],configuracion_invocacion:{modo:'jugador_en_combate',claseMaxima:'C',duracionTurnos:3,maxHabilidades:1,costePh:2}}];}c=motor.iniciar(c,()=>10);c.actual=turno?'a':'b';if(pendiente)c.solicitud_invocacion={id:'s1',actor:'a',habilidad:'sol',ronda:c.ronda};if(invocada){c.miembros.push({...structuredClone(c.miembros[1]),id:'inv',nombre:'Lobo',personaje_id:undefined,bando:'jugador',vida:8,stats:{vida:8,movimiento:4},configuracion:{tipo_creacion:'personaje'},invocacion:{invocador:invocada,habilidad:'sol',restantes:3},posicion:{x:3,y:3},estados:[]});c.actual='inv';}c.miembros[0].personaje_id='1';c.miembros[0].accion_usada=usada;
  if(area){c.miembros[0].configuracion.habilidades=[{id:'h',nombre:'Azul',stats:{},efectos:[{id:'azul',nombre:'Azul',efecto:'dano',cantidad:2,caras:6,modificador:0,tipo_dano:'energia',estado:'',duracion:0,coste_ph:2,salvacion:{cd:12,atributo:'salvacion',exito:'mitad'},tablero:{alcance:6,forma:'circulo',tamano:2,afecta:'enemigos',desplazamiento:{tipo:'atraer',casillas:2,cuando:'siempre'},derribo:'fallo_salvacion'}}]}];c.miembros[0].posicion={x:1,y:1};c.miembros[1].posicion={x:6,y:1};}
 
  if(sinPH){c.miembros[0].stats.ph=0;c.miembros[0].ph=99;}
@@ -68,4 +68,53 @@ test('fuera de turno solo se acepta una acción legendaria propia',async()=>{
  // Sin acciones legendarias no se ofrecen fuera de turno.
  const t=servidor({turno:false,legendaria:false});
  data=await (await t.handler(req({}))).json();assert.equal(data.puede_legendaria,false);
+});
+
+test('invocar deja la solicitud para el GM sin pagar, bloquea el turno y se puede cancelar',async()=>{
+ const s=servidor({invoca:true});
+ const data=await (await s.handler(req({}))).json();
+ const acc=data.acciones.find(a=>a.id==='invocar:sol');
+ assert.ok(acc,'la acción de invocar viaja a la barra');assert.equal(acc.efecto.efecto,'invocar');assert.equal(acc.invocacion,undefined,'sin la habilidad completa');
+ assert.equal(data.invocaciones[0].config.modo,'jugador_en_combate');
+ assert.equal(data.acciones.filter(a=>a.id==='invocar:sol').length,1);
+ assert.equal((await s.handler(req({operacion:'invocar',version:3,habilidad_id:'sol'}))).status,400,'sin diseño no se pide');
+ const r=await s.handler(req({operacion:'invocar',version:3,habilidad_id:'sol',propuesta:{nombre:'Lobo',stats:{vida:6},habilidades:[],pasivas:[]}}));
+ assert.equal(r.status,200);
+ const d=s.escrituras[0].p_datos;
+ assert.equal(d.solicitud_invocacion.actor,'a');assert.equal(d.solicitud_invocacion.propuesta.nombre,'Lobo');
+ assert.equal(d.miembros.find(m=>m.id==='a').ph,10,'no paga hasta que el GM la valide');
+ assert.equal(d.miembros.length,2);
+});
+test('con una invocación pendiente solo se puede esperar o cancelar',async()=>{
+ let s=servidor({invoca:true,pendiente:true});
+ const data=await (await s.handler(req({}))).json();
+ assert.equal(data.solicitud_invocacion.id,'s1');
+ for(const body of [{operacion:'actuar',accion_id:'guardia',objetivo_id:'a'},{operacion:'pasar'},{operacion:'mover',destino:{x:1,y:2}}])
+  assert.equal((await s.handler(req({version:3,...body}))).status,400,body.operacion);
+ assert.equal(s.escrituras.length,0);
+ assert.equal((await s.handler(req({version:3,operacion:'cancelar_invocacion'}))).status,200);
+ assert.equal(s.escrituras[0].p_datos.solicitud_invocacion,undefined);
+ // La de otro jugador no se puede cancelar.
+ s=servidor({invoca:true});
+ assert.equal((await s.handler(req({version:3,operacion:'cancelar_invocacion'}))).status,400);
+});
+test('el jugador maneja su invocación en el turno de esta: mover y terminar turno',async()=>{
+ const s=servidor({invocada:'a',turno:false});
+ const data=await (await s.handler(req({}))).json();
+ const x=data.actor.controlados.find(v=>v.id==='inv');
+ assert.ok(x&&x.turno&&x.invocada,'aparece como controlada y es su turno');
+ assert.ok(Object.keys(x.alcanzables).length>0,'tiene casillas a las que moverse');
+ const destino=Object.keys(x.alcanzables)[0].split(',').map(Number);
+ assert.equal((await s.handler(req({operacion:'mover',version:3,controlado_id:'inv',destino:{x:destino[0],y:destino[1]}}))).status,200);
+ assert.deepEqual(s.escrituras[0].p_datos.miembros.find(m=>m.id==='inv').posicion,{x:destino[0],y:destino[1]});
+ const p=servidor({invocada:'a',turno:false});
+ assert.equal((await p.handler(req({operacion:'pasar',version:3,controlado_id:'inv'}))).status,200);
+ assert.notEqual(p.escrituras[0].p_datos.actual,'inv');
+ // Sin indicar la criatura no puede mover a su personaje fuera de turno.
+ assert.equal((await servidor({invocada:'a',turno:false}).handler(req({operacion:'mover',version:3,destino:{x:1,y:2}}))).status,400);
+});
+test('no se puede manejar la invocación de otro',async()=>{
+ const s=servidor({invocada:'b',turno:false});
+ assert.equal((await s.handler(req({operacion:'pasar',version:3,controlado_id:'inv'}))).status,400);
+ assert.equal(s.escrituras.length,0);
 });
