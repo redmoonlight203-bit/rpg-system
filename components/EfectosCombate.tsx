@@ -2,7 +2,7 @@
 import {createPortal} from 'react-dom';
 import {useEffect,useRef,useState} from 'react';
 import type {EventoVisual} from '../lib/combate';
-import {buscarVFX,planificarVFX,type ClipVFX} from '../lib/vfx';
+import {buscarVFX,separarVFX,transformacionVFX,planificarVFX,type ClipVFX} from '../lib/vfx';
 import {ColaVisual} from '../lib/cola-visual';
 import {precargarVFX} from '../lib/precarga-vfx';
 import './vfx.css';
@@ -26,13 +26,13 @@ function Sprite({clip,columnas,filas}:{clip:ClipVFX;columnas:number;filas:number
 function ImagenDiferida({clip,src}:{clip:ClipVFX;src:string}){
  const [visible,setVisible]=useState(clip.inicio===0);
  useEffect(()=>{const timer=setTimeout(()=>setVisible(true),clip.inicio);return()=>clearTimeout(timer);},[clip.inicio]);
- return visible?<img src={src} alt="" style={{transform:`rotate(${clip.giro||0}deg)`}}/>:null;
+ return visible?<img src={src} alt="" style={{transform:transformacionVFX(clip.animacion,clip.giro)}}/>:null;
 }
 export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVisual;columnas:number;filas:number}){
  const [lote,setLote]=useState<Lote>(),propio=useRef<string|undefined>(undefined);
  const capa=useRef<HTMLDivElement>(null);
  useEffect(()=>{
-   if(!lote?.clips.some(c=>c.animacion==='axioma-defensa') || matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+   if(!lote?.clips.some(c=>separarVFX(c.animacion).base==='axioma-defensa') || matchMedia('(prefers-reduced-motion: reduce)').matches)return;
    const tablero=capa.current?.parentElement;
    if(!tablero)return;
    const animaciones=tablero.getAnimations({subtree:true}).filter(anim=>{
@@ -62,5 +62,5 @@ export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVi
 export function AuraTransformacion({id,escala=1.5}:{id?:string;escala?:number}){
  const a=buscarVFX(id);if(!a)return null;
  const margen=(1-Math.max(.5,Math.min(4,escala)))*50;
- return <span className="vfx-aura" style={{inset:margen+'%'}} aria-hidden="true"><img src={a.bucle} alt="" loading="lazy"/></span>;
+ return <span className="vfx-aura" style={{inset:margen+'%'}} aria-hidden="true"><img style={{transform:transformacionVFX(id!)}} src={a.bucle} alt="" loading="lazy"/></span>;
 }

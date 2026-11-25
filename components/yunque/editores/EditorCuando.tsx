@@ -1,5 +1,6 @@
 'use client';
 // Editor del nodo «Cuándo» (cabecera de una regla): los 15 eventos como fichas con icono, costes y límites como ruedas.
+import {SelectorAnimacionRegla} from '../../SelectorVFX';
 import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
 import {describirRegla} from '../../../lib/descripciones';
 import {EVENTOS,type EventoRegla,type Regla} from '../../../lib/reglas';
@@ -30,6 +31,7 @@ export default function EditorCuando({b,nodo,operar}:EditorNodoProps){
    <p>{EVENTOS[r.evento]}: {ayuda.resumen}</p>
    <ul>{ayuda.detalles.map((d,i)=><li key={i}>{d}</li>)}</ul>
   </section>
+  <SelectorAnimacionRegla valor={r.animacion} onChange={animacion=>patch({animacion})}/>
   <fieldset className="yq-limites"><legend>Costes y límites</legend>
    {LIMITES.map(l=><label key={l.clave} title={l.ayuda}><span>{l.nombre}</span><Rueda nombre={l.clave} etiqueta={l.ayuda} valor={r[l.clave]??0} min={l.min} max={l.max} onChange={v=>patch({[l.clave]:Math.round(v)})} compacta/></label>)}
   </fieldset>

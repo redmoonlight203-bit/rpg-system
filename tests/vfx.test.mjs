@@ -93,3 +93,26 @@ test('Inercia resuelve cada impacto y el despertar exime solo las leyes propias'
  const actor=c.miembros.find(m=>m.id==='k');actor.transformacion={definicion_id:'limitless'};
  const barra=motor.acciones(actor);assert.ok(!barra.some(a=>a.efecto.defensa));assert.equal(barra.find(a=>a.efecto.id==='ley').efecto.coste_ph,0);assert.equal(barra.find(a=>a.efecto.id==='aprendida').efecto.coste_ph,2);
 });
+
+test('la orientación de un proyectil se suma a su rumbo y conserva el recurso base',()=>{
+ const id=exports.orientarVFX(vfx.recorrido,{cuartos:1,horizontal:true,vertical:false});
+ const clip=planificarVFX({...evento,hasta:{x:1,y:6},vfx:{recorrido:id}})[0];
+ assert.equal(clip.animacion,id);
+ assert.equal(exports.transformacionVFX(id,clip.giro),'rotate(180deg) scale(-1, 1)');
+ assert.equal(exports.buscarVFX(id).url,exports.buscarVFX(vfx.recorrido).url);
+ assert.equal(validarVFX({impacto:id}),null);
+ assert.equal(exports.orientarVFX(id,{cuartos:0,horizontal:false,vertical:false}),vfx.recorrido);
+ assert.ok(validarVFX({aura:'ori-911-'+vfx.recorrido}));
+});
+
+test('un efecto personal se resuelve en el almacenamiento del proyecto con una referencia válida para reglas y acciones',()=>{
+ const usuario='12345678-1234-1234-1234-123456789abc';
+ const id='usr-'+usuario+'-0123456789abcdef-rayo-900-webp';
+ const lib=cargarDependencia('vfx',{process:{env:{NEXT_PUBLIC_SUPABASE_URL:'https://ejemplo.test'}}});
+ const orientado=lib.orientarVFX(id,{cuartos:3,vertical:true,horizontal:false});
+ assert.match(lib.buscarVFX(orientado).url,/\/imagenes\/12345678-1234-1234-1234-123456789abc\/vfx\/0123456789abcdef-rayo-900.webp$/);
+ assert.equal(lib.validarVFX({aura:orientado}),null);
+ assert.equal(cargarDependencia('creacion').validarEfectos([{...ataque,vfx:{impacto:orientado}}]),null);
+ assert.equal(lib.buscarVFX(id.replace('900','9999')),undefined);
+ assert.equal(lib.buscarVFX(id.replace('rayo','../rayo')),undefined);
+});
