@@ -21,3 +21,15 @@ export function useEvaluacionInvocacion(entrada:Parameters<typeof evaluarInvocac
   },[firma]);
   return resultado?.firma===firma ? resultado.valor : null;
 }
+
+/** Evaluación puntual (sin React) en un worker: la usa la pantalla del GM para validar solicitudes. */
+export function evaluarInvocacionEnWorker(entrada:Parameters<typeof evaluarInvocacion>,limite=30000):Promise<EvaluacionInvocacion>{
+  return new Promise((resolver,rechazar)=>{
+    let tarea:Worker;
+    try{tarea=new Worker(new URL('./invocacion.worker.ts',import.meta.url));}catch{rechazar(Error('No se pudo evaluar la invocación.'));return;}
+    const reloj=window.setTimeout(()=>{tarea.terminate();rechazar(Error('La evaluación de la invocación tardó demasiado.'));},limite);
+    tarea.onmessage=({data})=>{window.clearTimeout(reloj);tarea.terminate();resolver(data);};
+    tarea.onerror=()=>{window.clearTimeout(reloj);tarea.terminate();rechazar(Error('Falló la evaluación de la invocación.'));};
+    tarea.postMessage(JSON.parse(JSON.stringify(entrada)));
+  });
+}
