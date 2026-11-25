@@ -48,7 +48,7 @@ export default function SelectorEstado({etiqueta='Estado o forma',valor,lista,on
    <input autoFocus aria-label={modo==='crear'?'Nombre del estado nuevo':'Nombre nuevo del estado'} maxLength={120} value={texto} placeholder="Furia, Veneno…"
     onChange={e=>{setTexto(e.target.value);setError('');}}
     onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();confirmar();}else if(e.key==='Escape')cerrar();}}/>
-   <button type="button" className="yq-boton" onClick={confirmar}>{modo==='crear'?'Crear':'Guardar'}</button>
+   <button type="button" className="yq-boton" onClick={confirmar}>{modo==='crear'?'Crear':'Cambiar nombre'}</button>
    <button type="button" className="yq-boton" onClick={cerrar}>Cancelar</button>
   </div>}
   {error&&<small className="yq-campo-ayuda is-error" role="alert">{error}</small>}
