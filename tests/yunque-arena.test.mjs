@@ -488,3 +488,24 @@ test('el combate ejecuta la acción propia del personaje',()=>{
  const n=A.usar(c,`hab:propias:${golpe.id}`,'saco',()=>4);
  assert.ok(m(n,'saco').vida<antes);
 });
+
+test('una habilidad con invocación ofrece «Invocar» en la arena y la criatura pasa sus turnos sola',()=>{
+ const C=cargarDependencia('combate');
+ const config={modo:'existente',claseMaxima:'S',duracionTurnos:3,maxHabilidades:1,maxActivas:1,costePh:2};
+ const b={...clon(F.habilidad),invocacion:config};
+ const c=arena(b);
+ const doll=m(c,'doll');
+ const inv=C.accionesEnCombate(c,doll).find(a=>a.invocacion);
+ assert.ok(inv,'la acción de invocar aparece en la barra de la arena');
+ assert.equal(inv.efecto.efecto,'invocar');assert.equal(inv.invocacion.configuracion_invocacion.duracionTurnos,3);
+ // Sin invocación en el borrador no aparece.
+ const sin=arena({...clon(F.habilidad),invocacion:null});
+ assert.ok(!C.accionesEnCombate(sin,m(sin,'doll')).some(a=>a.invocacion));
+ // La criatura aparece (como hace la ventana de invocación) y su turno no atasca la arena.
+ const criatura={id:'x',forja_id:null,nombre:'Sol',stats:{vida:9,iniciativa:50},configuracion:{tipo_creacion:'personaje'}};
+ const n=A.pasoInvocacion(c,C.incorporarInvocacion(c,'doll',inv.invocacion,criatura,3,1,()=>20));
+ assert.equal(n.miembros.filter(x=>x.invocacion).length,1);assert.equal(n.historial.length,(c.historial||[]).length+1,'un paso de deshacer');
+ let t=n;
+ for(let k=0;k<3;k++){t=A.turno(t);assert.equal(t.actual,'doll','vuelve siempre al portador');}
+ assert.equal(t.miembros.filter(x=>x.invocacion).length,0,'a los 3 turnos propios se va');
+});
