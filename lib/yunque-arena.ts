@@ -16,7 +16,7 @@ import {normalizarReaccion} from "./reacciones";
 export type AjustesDoll={vida:number;ph:number;fatiga:number;armadura:number;salvacion:number};
 export const DOLL_BASE:AjustesDoll={vida:40,ph:20,fatiga:10,armadura:0,salvacion:0};
 export const SACO_BASE:AjustesDoll={vida:60,ph:0,fatiga:0,armadura:0,salvacion:0};
-export type PiezaArena = Pick<Creacion,"id"|"nombre"> & Partial<Pick<Creacion,"estado"|"stats"|"configuracion_dados"|"slot_tipo"|"tipo_creacion"|"consumible"|"reglas"|"reglas_pasivas"|"requisitos_uso"|"imagen_url">>;
+export type PiezaArena = Pick<Creacion,"id"|"nombre"> & Partial<Pick<Creacion,"estado"|"stats"|"configuracion_dados"|"slot_tipo"|"tipo_creacion"|"consumible"|"reglas"|"reglas_pasivas"|"requisitos_uso"|"imagen_url"|"configuracion_invocacion">>;
 export type ContextoArena={raciales?:Config['pasivas'];linaje?:string[];creaciones:PiezaArena[];stats:Record<string,number>}; // stats: valores del borrador ya resueltos (valoresBorrador)
 export type Golpe={cantidad:number;caras:number;naturaleza:'fisica'|'magica';elemento?:string};
 const DOLL='doll',SACO='saco',NOMBRE_SACO='Saco de golpes';
@@ -53,7 +53,7 @@ function ranuraDe(tipo:string|undefined,slot:string):string{
 }
 const ranura=(b:Borrador)=>ranuraDe(b.tipo,b.slot);
 function fuenteObjeto(c:PiezaArena):Fuente{
- return {id:c.id,forja_id:c.id,nombre:c.nombre,stats:{...(c.stats||{})},efectos:c.configuracion_dados||[],slot_tipo:c.slot_tipo,tipo_creacion:c.tipo_creacion,consumible:c.consumible,imagen_url:c.imagen_url,reglas:c.reglas||[],reglas_pasivas:c.reglas_pasivas||[],requisitos_uso:c.requisitos_uso};
+ return {id:c.id,forja_id:c.id,nombre:c.nombre,stats:{...(c.stats||{})},efectos:c.configuracion_dados||[],slot_tipo:c.slot_tipo,tipo_creacion:c.tipo_creacion,consumible:c.consumible,imagen_url:c.imagen_url,reglas:c.reglas||[],reglas_pasivas:c.reglas_pasivas||[],requisitos_uso:c.requisitos_uso,...(c.configuracion_invocacion?{configuracion_invocacion:c.configuracion_invocacion}:{})};
 }
 function conEquipo(stats:Record<string,number>,equipo:Record<string,Fuente>){
  const bonos:Record<string,number>={};
@@ -86,7 +86,8 @@ function portador(b:Borrador,ctx:ContextoArena,doll:Partial<AjustesDoll>){
   return {id:DOLL,forja_id:null,nombre:b.nombre.trim()||'Portador',stats,configuracion:config};
  }
  const base:Record<string,number>={...DOLL_BASE,...doll};
- if(b.tipo==='habilidad')config.habilidades=[{id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,reglas:b.reglas,tipo_creacion:'habilidad',imagen_url:b.imagen}];
+ // La invocación del borrador viaja con la habilidad: así la Arena ofrece «Invocar» como el combate.
+ if(b.tipo==='habilidad')config.habilidades=[{id,forja_id:b.id,nombre,stats:{...b.stats},efectos:b.efectos,reglas:b.reglas,tipo_creacion:'habilidad',imagen_url:b.imagen,...(b.invocacion?{configuracion_invocacion:b.invocacion}:{})}];
  else if(b.tipo==='pasiva')config.pasivas=[{id,nombre,reglas:b.reglas_pasivas,reglas_motor:b.reglas,inmunidades:inmunidadesPasiva(b.efectos)}];
  else{
   // objeto, título u otro: la pieza va en su ranura.
@@ -142,11 +143,17 @@ function recomponer(c:Combate){
   c.registro=[`El ${s.id===SACO?'saco':'saco '+s.id.slice(SACO.length+1)} se recompone.`,...c.registro].slice(0,300);
  }
 }
-/** Ningún saco juega su turno: se pasan todos hasta que vuelve a tocarle al portador. */
+/** Ni los sacos ni las criaturas invocadas juegan su turno: pasan solos hasta que vuelve a tocarle al portador
+ *  (la duración de la invocación sigue contando sus turnos). */
+const pasaSolo=(c:Combate,id:string|null)=>esSaco(id)||!!c.miembros.find(m=>m.id===id)?.invocacion;
 function pasarSaco(c:Combate,rng:RNG,activaciones:AparicionVisual[]){
  let n=c;
- for(let i=0;i<2*SACOS.length+2&&n.fase==='en_curso'&&esSaco(n.actual);i++){n=siguiente(n,rng);recomponer(n);activaciones.push(...(n.evento_visual?.activaciones||[]));}
+ for(let i=0;i<2*(SACOS.length+n.miembros.length)+2&&n.fase==='en_curso'&&pasaSolo(n,n.actual);i++){n=siguiente(n,rng);recomponer(n);activaciones.push(...(n.evento_visual?.activaciones||[]));}
  return n;
+}
+/** Invocación del portador ya materializada (la ventana de invocación la prepara): un único paso de deshacer. */
+export function pasoInvocacion(antes:Combate,despues:Combate):Combate{
+ return unPaso(antes,despues,despues);
 }
 /** Todo un paso de la arena es un único punto de «deshacer» del motor. */
 function unPaso(antes:Combate,despues:Combate,visual:Combate,activaciones?:AparicionVisual[]):Combate{
@@ -164,7 +171,7 @@ export function usar(c:Combate,accionId:string,objetivo:string=SACO,rng:RNG=dado
  const hecho=actuar(c,DOLL,accionId,objetivo,rng,forzar,centro,potenciadores);
  recomponer(hecho);
  const activaciones=[...(hecho.evento_visual?.activaciones||[])];
- const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng,activaciones):hecho;
+ const n=hecho.fase==='en_curso'&&pasaSolo(hecho,hecho.actual)?pasarSaco(hecho,rng,activaciones):hecho;
  return unPaso(c,n,hecho,activaciones);
 }
 /** «Terminar turno» (`siguiente`, como en el combate): los sacos pasan sin actuar y vuelve a tocarle al portador. Un único paso de deshacer. */
@@ -202,7 +209,7 @@ export function alternarPieza(c:Combate,rng:RNG=dadoSeguro):Combate{
  const hecho=cambiarEquipo(c,DOLL,sel,rng);
  recomponer(hecho);
  const activaciones=[...(hecho.evento_visual?.activaciones||[])];
- const n=hecho.fase==='en_curso'&&esSaco(hecho.actual)?pasarSaco(hecho,rng,activaciones):hecho;
+ const n=hecho.fase==='en_curso'&&pasaSolo(hecho,hecho.actual)?pasarSaco(hecho,rng,activaciones):hecho;
  return unPaso(c,n,hecho,activaciones);
 }
 /** Movimiento del portador (el mismo `desplazar` del combate): conserva su acción y su turno. */

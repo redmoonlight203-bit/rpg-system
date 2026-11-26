@@ -11,13 +11,15 @@ import IconoYugen from '../IconoYugen';
 import LogoYugen from '../LogoYugen';
 import {TableroCombate,BarraCombate,type FichaTablero} from '../TableroCombate';
 import type {TiradaVisual} from '../AnimacionDados';
-import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,
+import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,pasoInvocacion,
  type PausaArena,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
 import {estadosVisibles,recursosVisibles,vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
- accionUsableAhora,presupuestoRestante,huellaReserva,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
+ accionUsableAhora,presupuestoRestante,huellaReserva,accionesEnCombate,type Fuente,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
 import {huellaDe} from '../../lib/huellas-combate';
 import MenuReaccion,{ListaReacciones} from '../MenuReaccion';
 import MenuPotenciador from '../MenuPotenciador';
+import VentanaInvocacion,{cargarCatalogoInvocacion,disenaEnCombate,materializarInvocacion} from '../InvocarCombate';
+import type {InvocacionEditor} from '../EditorInvocacion';
 import type {EleccionPotenciador} from '../../lib/rasgos';
 import type {Efecto} from '../../lib/creacion';
 import type {ProcedenciaMapa,SuperficieMapa} from '../../lib/mapas-procedurales';
@@ -92,6 +94,8 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const [estado,setEstado]=useState<Estado>(()=>construir({b,creaciones:ctx.creaciones,firma,doll:SIN_AJUSTES,saco:SIN_AJUSTES},ctx,[]));
  const [golpe,setGolpe]=useState<Golpe>({cantidad:1,caras:6,naturaleza:'fisica'});
  const [voz,setVoz]=useState('');
+ // Invocación en pruebas: la habilidad cuya ventana está abierta (la misma ventana que en el combate).
+ const [invocando,setInvocando]=useState<Fuente|null>(null);
  const [reinicio,setReinicio]=useState<{n:number;texto:string}|null>(null);
  // Estado de la jugada, como en la página de combate: acción elegida, objetivo, casilla apuntada y modos.
  const [accion,setAccion]=useState('');
@@ -162,9 +166,9 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   if(!portador)return [];
   return seguro(()=>{
    const mia=(a:Accion)=>propias.has(a.efecto.id)||a.id.startsWith('regla:')?0:1;
-   return acciones(portador).map((a,i)=>({a,i})).sort((x,y)=>mia(x.a)-mia(y.a)||x.i-y.i).map(x=>x.a);
+   return (c?accionesEnCombate(c,portador):acciones(portador)).map((a,i)=>({a,i})).sort((x,y)=>mia(x.a)-mia(y.a)||x.i-y.i).map(x=>x.a);
   },[]);
- },[portador,propias]);
+ },[c,portador,propias]);
  const elegida=lista.some(a=>a.id===accion)||accion==='guardia'?accion:lista[0]?.id||'ataque';
  const efecto=lista.find(a=>a.id===elegida)?.efecto;
  const destino=c?.miembros.some(m=>m.id===objetivo)?objetivo:'';
@@ -173,7 +177,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   if(!c)return [];
   const p=seguro(()=>posicionesTablero(c),{} as Record<string,Posicion>);
   return c.miembros.filter(m=>p[m.id]).map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:seguro(()=>maxVida(m),m.vida),
-   imagen_url:m.transformacion?.imagen_etapa||(m.id===DOLL?imagenDoll:IMAGEN_SACO),estados:m.estados.map(e=>e.nombre),posicion:p[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
+   imagen_url:m.transformacion?.imagen_etapa||(m.id===DOLL?imagenDoll:m.invocacion?m.configuracion.imagen_url||IMAGEN_SACO:IMAGEN_SACO),estados:m.estados.map(e=>e.nombre),posicion:p[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
  },[c,imagenDoll]);
  const columnas=c?.mapa?.columnas,filas=c?.mapa?.filas;
  const mapa=useMemo(()=>columnas&&filas?{id:'arena-yunque',version:1 as const,nombre:'Arena del Yunque',columnas,filas,celdas:{},procedural:sueloArena(columnas,filas)}:undefined,[columnas,filas]);
@@ -206,6 +210,9 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  // Un clic ejecuta: la barra pasa la acción propia y el tablero, el objetivo o el centro del mismo clic.
  function resolver(sel:{accion?:string;objetivo?:string;centro?:Posicion}={},potenciadores?:EleccionPotenciador[]){
   const id=sel.accion||elegida,ef=lista.find(a=>a.id===id)?.efecto;
+  // Invocar abre su ventana (diseño o confirmación); al aceptar aparece la criatura en la arena.
+  const fuente=lista.find(a=>a.id===id)?.invocacion;
+  if(fuente){setInvocando(fuente);return;}
   // Técnica con potenciadores compatibles: primero el menú (cancelar no gasta nada).
   if(potenciadores===undefined&&!portador?.rafaga&&lista.find(a=>a.id===id)?.potenciadores?.length){setPotenciando({accion:id,sel});return;}
   // Igual que la página de combate: guardia, armas creadas, transformaciones y rugidos se lanzan sobre uno mismo.
@@ -296,6 +303,10 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
     onLevantarse={()=>paso(x=>levantar(x),'El doll no puede levantarse.')}
     />
    <ListaReacciones reacciones={seguro(()=>reaccionesDe(c,portador),[])}/>
+   {invocando&&c&&(invocando.configuracion_invocacion as InvocacionEditor|undefined)&&<VentanaInvocacion key={invocando.id} titulo={invocando.nombre} config={invocando.configuracion_invocacion as InvocacionEditor} nivel={estadisticas(portador).nivel||1} disenar={disenaEnCombate((invocando.configuracion_invocacion as InvocacionEditor).modo)}
+    nota="Prueba en la arena: la criatura aparece junto al doll y pasa sus turnos sola, como los sacos. Deshacer la retira."
+    onCerrar={()=>setInvocando(null)}
+    onConfirmar={async p=>{const n=await materializarInvocacion({combate:c,actorId:portador.id,habilidad:invocando,propuesta:p,datos:await cargarCatalogoInvocacion()});setEstado(s=>({...s,combate:pasoInvocacion(c,n)}));setVoz('');setInvocando(null);}}/>}
    <div className="yq-arena-golpe" role="group" aria-label="Golpe del saco">
     <span>Golpe del saco</span>
     {botonGolpe}
