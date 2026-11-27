@@ -248,6 +248,16 @@ export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacio
    if(n.tipo==='accion')return [pegar(f,n.id)];
    return falla('La invocación va en el núcleo o en una acción.');
  }
+ if(!n&&f.tipo==='estado'){
+  const estado=f.datos as Pick<Efecto,'estado'|'duracion'|'estado_tipo'|'bonos_estado'>;
+  return [pegar({tipo:'accion',datos:accion({...estado,nombre:estado.estado||pieza.nombre,efecto:'estado'})},'nucleo')];
+ }
+ if(!n&&f.tipo==='tabla_armas'){
+  return [pegar({tipo:'accion',datos:accion({nombre:pieza.nombre,efecto:'crear_arma',duracion:1,cantidad:1,tabla_armas:f.datos as Efecto['tabla_armas']})},'nucleo')];
+ }
+ if(!n&&f.tipo==='reaccion'){
+  return [pegar({tipo:'accion',datos:accion({nombre:pieza.nombre,cantidad:0,reaccion:f.datos as Efecto['reaccion']})},'nucleo')];
+ }
  if(!n&&f.tipo==='transformacion'){
   const transformacion=f.datos as NonNullable<Efecto['transformacion']>;
   return [pegar({tipo:'accion',datos:accion({nombre:transformacion.nombre,efecto:'transformacion',cantidad:0,transformacion})},'nucleo')];
