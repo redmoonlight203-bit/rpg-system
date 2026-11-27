@@ -6,6 +6,7 @@ import {Maximize,Minus,Plus,X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import NodoYunque,{familiaDe,familiaNodo,puertoLocal,ICONO_TIPO,NOMBRE_TIPO,type Familia} from './NodoYunque';
 import {NODO,encuadre,type Punto} from '../../lib/yunque-disposicion';
+import {PIEZAS} from '../../lib/yunque-grimorio';
 import {conexionValida,type Operacion} from '../../lib/yunque-operaciones';
 import type {Grafo,Nodo,Puerto,TipoNodo} from '../../lib/yunque-grafo';
 
@@ -340,7 +341,12 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   </div>
   {menu&&<div className="yq-menu-forja" style={{left:menu.pantalla.x,top:menu.pantalla.y}} role="dialog" aria-label="Forjar una pieza conectada" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setMenu(null);}}}>
    <header><span>Forjar desde «{menu.puerto.etiqueta||menu.puerto.id}»</span><button type="button" aria-label="Cerrar" onClick={()=>setMenu(null)}><X size={14}/></button></header>
-   {opciones.length?<ul>{opciones.map((t,i)=><li key={t} style={{animationDelay:`${i*25}ms`}}><button type="button" autoFocus={i===0} data-familia={familiaDe(t)} onClick={()=>{const m=menu;setMenu(null);onOperar({op:'agregar',tipo:t,padre:m.origen.nodo,...(m.origen.puerto==='exito'||m.origen.puerto==='fallo'?{rama:m.origen.puerto}:{})},{x:m.punto.x,y:m.punto.y-20});}}>
+   {opciones.length?<ul>{opciones.includes('accion')&&PIEZAS.filter(p=>p.familia==='acciones'&&p.tipo==='accion'&&(!menu.origen.puerto.startsWith('poder:')||p.clave!=='accion:transformacion')).map(p=><li key={p.clave}><button type="button" data-familia="accion" onClick={()=>{
+    const {origen,punto}=menu;
+    setMenu(null);
+    onOperar({op:'pegar',fragmento:p.fragmentos[0],padre:origen.nodo,etapa:origen.puerto.startsWith('poder:')?origen.puerto.slice(6):undefined},{x:punto.x,y:punto.y-20});
+   }}><IconoYugen id={p.icono} size={20}/><span><strong>{p.nombre}</strong><small>{p.ayuda}</small></span></button></li>)}
+   {opciones.filter(t=>t!=='accion').map((t,i)=><li key={t} style={{animationDelay:`${i*25}ms`}}><button type="button" autoFocus={i===0} data-familia={familiaDe(t)} onClick={()=>{const m=menu;setMenu(null);onOperar({op:'agregar',tipo:t,padre:m.origen.nodo,...(m.origen.puerto==='exito'||m.origen.puerto==='fallo'?{rama:m.origen.puerto}:{})},{x:m.punto.x,y:m.punto.y-20});}}>
     <IconoYugen id={ICONO_TIPO[t]} size={20}/><span><strong>{NOMBRE_TIPO[t]}</strong><small>{AYUDA[t]}</small></span>
    </button></li>)}</ul>:<p className="yq-menu-vacio">Esta salida se enlaza desde la Colección del Grimorio.</p>}
   </div>}
