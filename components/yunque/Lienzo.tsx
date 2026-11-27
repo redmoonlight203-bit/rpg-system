@@ -346,6 +346,7 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
     setMenu(null);
     onOperar({op:'pegar',fragmento:p.fragmentos[0],padre:origen.nodo,etapa:origen.puerto.startsWith('poder:')?origen.puerto.slice(6):undefined},{x:punto.x,y:punto.y-20});
    }}><IconoYugen id={p.icono} size={20}/><span><strong>{p.nombre}</strong><small>{p.ayuda}</small></span></button></li>)}
+   {opciones.includes('pasiva')&&PIEZAS.filter(p=>p.clave==='pasiva:rasgo').map(p=><li key={p.clave}><button type="button" data-familia="pasiva" onClick={()=>{const m=menu;setMenu(null);onOperar({op:'pegar',fragmento:p.fragmentos[0],padre:m.origen.nodo},m.punto);}}><IconoYugen id={p.icono} size={20}/><span><strong>{p.nombre}</strong><small>{p.ayuda}</small></span></button></li>)}
    {opciones.filter(t=>t!=='accion').map((t,i)=><li key={t} style={{animationDelay:`${i*25}ms`}}><button type="button" autoFocus={i===0} data-familia={familiaDe(t)} onClick={()=>{const m=menu;setMenu(null);onOperar({op:'agregar',tipo:t,padre:m.origen.nodo,...(m.origen.puerto==='exito'||m.origen.puerto==='fallo'?{rama:m.origen.puerto}:{})},{x:m.punto.x,y:m.punto.y-20});}}>
     <IconoYugen id={ICONO_TIPO[t]} size={20}/><span><strong>{NOMBRE_TIPO[t]}</strong><small>{AYUDA[t]}</small></span>
    </button></li>)}</ul>:<p className="yq-menu-vacio">Esta salida se enlaza desde la Colección del Grimorio.</p>}
