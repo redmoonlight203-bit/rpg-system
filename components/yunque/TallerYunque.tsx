@@ -30,7 +30,10 @@ import {ID_REALIDAD} from '../../lib/transformaciones-grafo';
 import {grafoADefinicion,migrarTransformacion} from '../../lib/transformaciones-migracion';
 import {reaccionDe} from '../../lib/combate';
 import {normalizarReaccion} from '../../lib/reacciones';
-import {activas,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
+import EditorArtefacto from './editores/EditorArtefacto';
+import {pestanasArtefacto} from './editores/pestanas-artefacto';
+import LaboratorioInventario from './LaboratorioInventario';
+import {activas,atributosVisibles,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
 import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
 import type {CondicionRegla,EfectoRegla} from '../../lib/reglas';
@@ -489,6 +492,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  /** Icono, pie y editor de un nodo. El editor solo se crea para el nodo elegido (el único que lo muestra). */
  const contenidoBase=(n:Nodo):ContenidoNodo=>{
   const conEditor=n.id===seleccion;
+  if(n.tipo==='artefacto')return {editor:conEditor?<><EditorArtefacto valor={b.artefacto} onChange={artefacto=>patchFicha({artefacto})} atributos={atributosVisibles(b,ctx)} pestanas={pestanasArtefacto(b.id)}/>{b.artefacto&&<LaboratorioInventario key={JSON.stringify([b.id,b.artefacto])} ctx={ctx} fuente={b.id} config={b.artefacto}/>}</>:undefined};
   if(n.tipo==='nucleo')return {
    icono:b.icono||(b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]),
    pie:<>
