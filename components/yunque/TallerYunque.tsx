@@ -605,7 +605,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   </Grimorio>
   <section className="yq-centro" aria-label={vista==='lista'?'Lista':'Lienzo'}>
    {vista==='lienzo'?<Lienzo api={lienzo} onTamanos={setTamanos} grafo={grafo} posiciones={posicionesLienzo} seleccion={seleccion} nuevos={nuevos} encendidos={encendidos} sueltos={nodosSueltos} guia={guia}
-    onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
+    onMover={mover} onSeleccionar={setSeleccion} onConectar={conectar} onOperar={operar} onElegirPieza={soltarPieza} contenido={contenido} onSoltarSuelto={conectarSuelto} compatiblesSuelto={compatiblesSuelto}/>
     :<div ref={listaCaja} className="yq-vlista-caja"><VistaLista grafo={grafo} seleccion={seleccion} onSeleccionar={setSeleccion} contenido={contenido} operar={o=>operar(o)} encendidos={encendidos} nuevos={nuevos} guia={guiaLista}/></div>}
    {/* Aviso y sello pueden nacer en el mismo milisegundo (al forjar): claves con prefijo para que no choquen. */}
    {cambiosPlantilla&&cambiosPlantilla.length>0&&onCerrarCambios&&<ResumenPlantillas cambios={cambiosPlantilla} onElegir={setSeleccion} onCerrar={onCerrarCambios}/>}

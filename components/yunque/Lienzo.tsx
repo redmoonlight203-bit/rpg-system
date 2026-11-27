@@ -6,7 +6,7 @@ import {Maximize,Minus,Plus,X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
 import NodoYunque,{familiaDe,familiaNodo,puertoLocal,ICONO_TIPO,NOMBRE_TIPO,type Familia} from './NodoYunque';
 import {NODO,encuadre,type Punto} from '../../lib/yunque-disposicion';
-import {PIEZAS} from '../../lib/yunque-grimorio';
+import {PIEZAS,type Pieza} from '../../lib/yunque-grimorio';
 import {conexionValida,type Operacion} from '../../lib/yunque-operaciones';
 import type {Grafo,Nodo,Puerto,TipoNodo} from '../../lib/yunque-grafo';
 
@@ -28,6 +28,7 @@ export type GuiaPieza={compatibles:ReadonlySet<string>;sobre:string|null;cable:E
 type Props={
  grafo:Grafo;posiciones:Record<string,Punto>;seleccion:string|null;encendidos?:ReadonlySet<string>;nuevos?:ReadonlySet<string>;
  onMover:(id:string,p:Punto)=>void;onSeleccionar:(id:string|null)=>void;
+ onElegirPieza:(pieza:Pieza,origen:Extremo,punto:Punto)=>void;
  onConectar:(origen:Extremo,destino:string)=>void;onOperar:(o:Operacion,punto?:Punto)=>void;
  contenido:(n:Nodo)=>ContenidoNodo;
  /** Piezas soltadas en el vacío que aún no pertenecen al borrador (nodos «sin conectar», solo de interfaz). */
@@ -65,7 +66,7 @@ export function encuadrar(pos:Record<string,Punto>,ancho:number,alto:number,tam:
  return {x:Math.max(40,(ancho-w)/2)-x1,y:Math.max(40,(alto-h)/2)-y1,z:1};
 }
 
-export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onMover,onSeleccionar,onConectar,onOperar,contenido,sueltos,guia,api,onSoltarSuelto,compatiblesSuelto,onTamanos}:Props){
+export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onMover,onSeleccionar,onConectar,onOperar,onElegirPieza,contenido,sueltos,guia,api,onSoltarSuelto,compatiblesSuelto,onTamanos}:Props){
  const caja=useRef<HTMLDivElement>(null);
  const [vista,setVista]=useState<Vista>({x:80,y:80,z:1});
  const [suave,setSuave]=useState(false),[desplazando,setDesplazando]=useState(false);
@@ -296,6 +297,11 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   return n.puertos.some(p=>conexionValida(origen,p,n.tipo));
  };
  const opciones=menu?menu.puerto.acepta.filter(t=>AGREGABLES.includes(t)):[];
+ const piezasDelPuerto=menu?PIEZAS.filter(p=>
+  opciones.includes(p.tipo)&&['acciones','modulos','eventos','condiciones','efectos','pasivas'].includes(p.familia)&&
+  (p.tipo!=='cuando'||p.familia==='eventos')&&(!menu.origen.puerto.startsWith('poder:')||p.clave!=='accion:transformacion')
+ ):[];
+ const tiposConPiezas=new Set(piezasDelPuerto.map(p=>p.tipo));
  const sueltoMovido=arrastre?.id.startsWith('suelto:')?porId.get(arrastre.id)??null:null;
  // Cable de vista previa desde el puerto que recibirá la pieza hasta el cursor.
  const guiaCable=(()=>{
@@ -341,12 +347,14 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
   </div>
   {menu&&<div className="yq-menu-forja" style={{left:menu.pantalla.x,top:menu.pantalla.y}} role="dialog" aria-label="Forjar una pieza conectada" onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setMenu(null);}}}>
    <header><span>Forjar desde «{menu.puerto.etiqueta||menu.puerto.id}»</span><button type="button" aria-label="Cerrar" onClick={()=>setMenu(null)}><X size={14}/></button></header>
-   {opciones.length?<ul>{opciones.includes('accion')&&PIEZAS.filter(p=>p.familia==='acciones'&&p.tipo==='accion'&&(!menu.origen.puerto.startsWith('poder:')||p.clave!=='accion:transformacion')).map(p=><li key={p.clave}><button type="button" data-familia="accion" onClick={()=>{
+   {opciones.length?<ul>{piezasDelPuerto.map((p,i)=><li key={p.clave}><button type="button" autoFocus={i===0} data-familia={familiaDe(p.tipo)} onClick={()=>{
     const {origen,punto}=menu;
     setMenu(null);
-    onOperar({op:'pegar',fragmento:p.fragmentos[0],padre:origen.nodo,etapa:origen.puerto.startsWith('poder:')?origen.puerto.slice(6):undefined},{x:punto.x,y:punto.y-20});
+    if(origen.puerto.startsWith('poder:')){
+     onOperar({op:'pegar',fragmento:p.fragmentos[0],padre:origen.nodo,etapa:origen.puerto.slice(6)},punto);
+    }else onElegirPieza(p,origen,punto);
    }}><IconoYugen id={p.icono} size={20}/><span><strong>{p.nombre}</strong><small>{p.ayuda}</small></span></button></li>)}
-   {opciones.filter(t=>t!=='accion').map((t,i)=><li key={t} style={{animationDelay:`${i*25}ms`}}><button type="button" autoFocus={i===0} data-familia={familiaDe(t)} onClick={()=>{const m=menu;setMenu(null);onOperar({op:'agregar',tipo:t,padre:m.origen.nodo,...(m.origen.puerto==='exito'||m.origen.puerto==='fallo'?{rama:m.origen.puerto}:{})},{x:m.punto.x,y:m.punto.y-20});}}>
+   {opciones.filter(t=>!tiposConPiezas.has(t)).map((t,i)=><li key={t} style={{animationDelay:`${i*25}ms`}}><button type="button" autoFocus={i===0} data-familia={familiaDe(t)} onClick={()=>{const m=menu;setMenu(null);onOperar({op:'agregar',tipo:t,padre:m.origen.nodo,...(m.origen.puerto==='exito'||m.origen.puerto==='fallo'?{rama:m.origen.puerto}:{})},{x:m.punto.x,y:m.punto.y-20});}}>
     <IconoYugen id={ICONO_TIPO[t]} size={20}/><span><strong>{NOMBRE_TIPO[t]}</strong><small>{AYUDA[t]}</small></span>
    </button></li>)}</ul>:<p className="yq-menu-vacio">Esta salida se enlaza desde la Colección del Grimorio.</p>}
   </div>}
