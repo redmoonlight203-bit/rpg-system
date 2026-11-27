@@ -41,7 +41,7 @@ const ACCIONES:Pieza[]=[
  una('accion:transformacion','acciones','accion','Transformarse','Adopta una forma con sus propios poderes','alma',accion({nombre:'Transformarse',efecto:'transformacion',cantidad:0,transformacion:formaInicial})),
  una('accion:dash','acciones','accion','Movimiento','Desplazarse, volar, nadar o excavar','ojo',accion({nombre:'Movimiento',efecto:'desplazamiento',animacion:'desplazamiento',tablero:{alcance:3,forma:'individual',tamano:0,afecta:'todos'}})),
  una('accion:reaccion','acciones','accion','Reacción defensiva','Ofrece una defensa al recibir daño','escudo',accion({nombre:'Defensa',reaccion:{principal:{reducir:{modo:'mitad'}}}})),
- una('accion:contraataque','acciones','accion','Reacción ofensiva','Configura el disparador y el daño del contraataque','espada',accion({nombre:'Contraataque',cantidad:0,reaccion:{disparador:'despues_ser_atacado',principal:{contraatacar:{cantidad:1,caras:6}}}})),
+ una('accion:contraataque','acciones','accion','Reacción ofensiva','Configura el disparador y el daño del contraataque','espada',accion({nombre:'Contraataque',cantidad:0,reaccion:{disparador:'aliado_ataca',principal:{contraatacar:{cantidad:1,caras:6}}}})),
  una('accion:ataque','acciones','accion','Ataque','Un golpe que causa daño','espada',accion({nombre:'Ataque',cantidad:1,caras:8})),
  una('accion:curacion','acciones','accion','Recuperaciones','Recuperar vida o PH, o aliviar fatiga','pocion',accion({nombre:'Recuperación',efecto:'curacion',cantidad:2,caras:4})),
  una('accion:veneno','acciones','accion','Estado','Elige o diseña el estado y su duración','fuego',accion({nombre:'Estado',efecto:'estado',estado:'Nuevo estado',estado_tipo:'narrativo',duracion:3,cantidad:1,caras:4})),
