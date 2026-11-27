@@ -129,7 +129,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
    if(!c||typeof c!=='object')c=SIEMPRE;
    const compuesta=c.tipo==='todas'||c.tipo==='alguna'||c.tipo==='no';
    nodo(id,'si',rutaC,c.tipo==='todas'?'Todas':c.tipo==='alguna'?'Alguna':c.tipo==='no'?'No':'Si',texto(()=>condicionClara(c),'Condición sin describir.'),fallo(()=>validarReglas([{...r,condicion:c,efectos:[RELLENO]}])),
-    [entrada(['cuando','si']),...(id===`si:${r.id}`?[salida('entonces',['entonces'],'Entonces')]:[]),...(compuesta?[salida('condiciones',['si'],'Condiciones')]:[])]);
+    [entrada(['cuando','si','entonces']),...(id===`si:${r.id}`?[salida('entonces',['entonces'],'Entonces')]:[]),...(compuesta?[salida('condiciones',['si'],'Condiciones')]:[])]);
    cable(padre,puertoPadre,id);
    if(c.tipo==='todas'||c.tipo==='alguna')(c.condiciones??[]).forEach((h,k)=>condicion(h,`${id}:${k}`,[...rutaC,'condiciones',k],id,'condiciones'));
    if(c.tipo==='no')condicion(c.condicion??SIEMPRE,`${id}:0`,[...rutaC,'condicion'],id,'condiciones');
@@ -142,8 +142,9 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
    const ramas=ef.tipo==='salvacion'||ef.tipo==='condicional';
    nodo(id,'entonces',rutaE,EFECTOS_REGLA[ef.tipo]||ef.tipo||'Efecto',texto(()=>describirRegla({...r,descripcion:'',condicion:SIEMPRE,efectos:[ef],coste_ph:0,coste_fatiga:0,enfriamiento:0,limite_por_turno:0}).resumen,'Efecto sin describir.'),
     fallo(()=>validarReglas([{...r,condicion:SIEMPRE,efectos:[ef]}])),
-    [entrada(['si','entonces']),...(ramas?[salida('exito',['entonces'],'Éxito'),salida('fallo',['entonces'],'Fallo')]:[])]);
+    [entrada(['si','entonces']),...(ef.tipo==='condicional'?[salida('prueba',['si'],'Condición')]:[]),...(ramas?[salida('exito',['entonces'],'Éxito'),salida('fallo',['entonces'],'Fallo')]:[])]);
    cable(padre,puertoPadre,id);
+   if(ef.tipo==='condicional')condicion(ef.condicion??SIEMPRE,`si:${id}`,[...rutaE,'condicion'],id,'prueba');
    if(ramas){efectos(ef.exito||[],`${id}:exito`,[...rutaE,'exito'],id,'exito');efectos(ef.fallo||[],`${id}:fallo`,[...rutaE,'fallo'],id,'fallo');}
   });
   efectos(r.efectos,`entonces:${r.id}`,[...ruta,'efectos'],raiz,'entonces');
