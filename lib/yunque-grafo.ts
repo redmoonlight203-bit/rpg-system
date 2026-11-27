@@ -80,7 +80,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   const error=fallo(()=>validarEfectos([e])||validarTactica(e));
   // La acción dice qué hace; el detalle de cada módulo (p. ej. qué hace el estado) solo aparece en su propio nodo.
   const resumen=e.efecto==='estado'&&!e.solo_pasivo?`Aplica ${e.estado_def?.nombre||e.estado||'un estado'}.`:texto(()=>describirEfecto(e).resumen,'Acción sin describir.');
-  nodo(id,'accion',ruta,String(e.nombre??'').trim()||(e.solo_pasivo?'Rasgo siempre activo':EFECTOS_NOMBRE[e.efecto])||'Acción',resumen,error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos')]);
+  nodo(id,'accion',ruta,String(e.nombre??'').trim()||(e.solo_pasivo?'Rasgo siempre activo':EFECTOS_NOMBRE[e.efecto])||'Acción',resumen,error,[entrada(e.efecto==='transformacion'?['nucleo']:['nucleo','transformacion']),salida('modulos',MODULOS,'Módulos')]);
   sellar(id,e);
   if(e.solo_pasivo){nodos[nodos.length-1].pasivo=true;cable('nucleo','pasivas',id);}else cable('nucleo','acciones',id);
   const modulo=(tipo:TipoNodo,sub:string|null,titulo:string,frase:string,err:string|null=null)=>{
@@ -95,6 +95,17 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',texto(()=>describirReaccion(reaccion,e.coste_ph||0),'Reacción.'),fallo(()=>validarReaccion(reaccion)));
   if(reaccion){const n=nodos.find(x=>x.id===`reaccion:${e.id}`);if(n)n.insignia=texto(()=>lineaCosteReaccion(reaccion,e.coste_ph||0),'Sin coste');}
   if(e.transformacion||e.efecto==='transformacion')modulo('transformacion','transformacion','Transformación',e.transformacion?.nombre||'Transformación sin configurar.');
+  if(Array.isArray(e.transformacion?.etapas)){
+   const padre=nodos.find(n=>n.id===`transformacion:${e.id}`);
+   for(const etapa of e.transformacion.etapas){
+    if(!padre||!etapa?.id)continue;
+    const puerto=salida('poder:'+etapa.id,['accion'],`${etapa.nombre} · Acciones exclusivas`);
+    padre.puertos.push(puerto);
+    for(const poder of new Set(Array.isArray(etapa.habilidades)?etapa.habilidades:[])){
+     if(b.efectos.some(a=>a?.id===poder&&a.efecto!=='transformacion'))cable(padre.id,puerto.id,'accion:'+poder);
+    }
+   }
+  }
   if(e.transformacion)animacionContextual(`transformacion:${e.id}`,'transformacion',[...ruta,'transformacion'],'Animaciones de transformación','Entrada y aura por etapa.','etapas');
   if(reaccion?.principal&&!reaccion.esquiva_opuesta)animacionContextual(`reaccion:${e.id}`,'reaccion',ruta,'Animación de reacción','Efecto al activar la reacción.','reaccion');
   if(e.recurso)modulo('recurso','recurso','Recurso',`${e.recurso.nombre}: inicia en ${e.recurso.inicial}, cambia ${e.recurso.cambio}.`);

@@ -36,16 +36,15 @@ const una=(clave:string,familia:FamiliaGrimorio,tipo:TipoNodo,nombre:string,ayud
 
 // ---- Acciones ----
 const accion=(p:Partial<Efecto>):Efecto=>({...nuevoEfecto(),...p});
+const formaInicial:NonNullable<Efecto['transformacion']>={id:'forma',nombre:'Transformación',tipo:'forma',etapas:[{id:'etapa',nombre:'Primera forma',stats:{vida:10}}]};
 const ACCIONES:Pieza[]=[
- una('accion:dash','acciones','accion','Dash','Desplazarse hasta una casilla libre sin gastar movimiento','ojo',accion({nombre:'Dash',efecto:'desplazamiento',animacion:'desplazamiento',tablero:{alcance:3,forma:'individual',tamano:0,afecta:'todos'}})),
+ una('accion:transformacion','acciones','accion','Transformarse','Adopta una forma con sus propios poderes','alma',accion({nombre:'Transformarse',efecto:'transformacion',cantidad:0,transformacion:formaInicial})),
+ una('accion:dash','acciones','accion','Movimiento','Desplazarse, volar, nadar o excavar','ojo',accion({nombre:'Movimiento',efecto:'desplazamiento',animacion:'desplazamiento',tablero:{alcance:3,forma:'individual',tamano:0,afecta:'todos'}})),
  una('accion:reaccion','acciones','accion','Reacción defensiva','Ofrece una defensa al recibir daño','escudo',accion({nombre:'Defensa',reaccion:{principal:{reducir:{modo:'mitad'}}}})),
+ una('accion:contraataque','acciones','accion','Reacción ofensiva','Configura el disparador y el daño del contraataque','espada',accion({nombre:'Contraataque',cantidad:0,reaccion:{disparador:'aliado_ataca',principal:{contraatacar:{cantidad:1,caras:6}}}})),
  una('accion:ataque','acciones','accion','Ataque','Un golpe que causa daño','espada',accion({nombre:'Ataque',cantidad:1,caras:8})),
- una('accion:hechizo','acciones','accion','Hechizo de fuego','Daño mágico de fuego','fuego',accion({nombre:'Hechizo de fuego',cantidad:2,caras:6,elemento:'fuego',naturaleza:'magica',coste_ph:2})),
- una('accion:curacion','acciones','accion','Curación','Recupera vida','pocion',accion({nombre:'Curación',efecto:'curacion',cantidad:2,caras:4})),
- una('accion:veneno','acciones','accion','Veneno','Daño al inicio de cada turno','fuego',accion({nombre:'Veneno',efecto:'estado',estado:'Veneno',estado_tipo:'veneno',duracion:3,cantidad:1,caras:4})),
- una('accion:arma','acciones','accion','Crear arma','Un arma temporal en la mano','arco',accion({nombre:'Hoja de luz',efecto:'crear_arma',arma_nombre:'Hoja de luz',arma_slot:'mano_der',duracion:3,cantidad:1,caras:8})),
- una('accion:ph','acciones','accion','Recuperar PH','Devuelve puntos de habilidad','agua',accion({nombre:'Meditar',efecto:'recuperar_ph',cantidad:1,caras:6})),
- una('accion:fatiga','acciones','accion','Aliviar fatiga','Reduce el cansancio','vida',accion({nombre:'Respiro',efecto:'reducir_fatiga',cantidad:1,caras:4})),
+ una('accion:curacion','acciones','accion','Recuperaciones','Recuperar vida o PH, o aliviar fatiga','pocion',accion({nombre:'Recuperación',efecto:'curacion',cantidad:2,caras:4})),
+ una('accion:veneno','acciones','accion','Estado','Elige o diseña el estado y su duración','fuego',accion({nombre:'Estado',efecto:'estado',estado:'Nuevo estado',estado_tipo:'narrativo',duracion:3,cantidad:1,caras:4})),
 ];
 // ---- Módulos de acción (mismos valores mínimos que `agregar`, más variantes de área) ----
 const MODULOS_PIEZAS:Pieza[]=[
@@ -132,6 +131,7 @@ const PASIVAS_PIEZAS:Pieza[]=[
  */
 const siempreActiva=(p:Partial<Efecto>&{nombre:string}):Efecto=>accion({solo_pasivo:true,efecto:'estado',estado:p.nombre,estado_tipo:'narrativo',cantidad:0,coste_ph:0,coste_fatiga:0,...p});
 PASIVAS_PIEZAS.push(
+ una('pasiva:rasgo','pasivas','accion','Rasgo siempre activo','Configura una propiedad permanente del portador','escudo',siempreActiva({nombre:'Rasgo siempre activo'})),
  una('pasiva:defensas','pasivas','accion','Defensas e inmunidades','Inmune o resistente a daños, estados o la mente','escudo',siempreActiva({nombre:'Defensas',inmunidades:[{tipo:'dano',valor:'fuego',modo:'bloquear_dano'}]})),
  una('pasiva:desarmado','pasivas','accion','Ataque desarmado propio','Mordisco, garras… en lugar del puñetazo','bestia',siempreActiva({nombre:'Mordisco',concepto:{...structuredClone(DESARMADO_BASE),nombre:'Mordisco',dano:{...DESARMADO_BASE.dano,cantidad:2,caras:6,tipo_dano:'perforante'},requiere_mano:false}})),
  una('pasiva:guardia','pasivas','accion','Guardia propia','Caparazón, mente serena… en lugar de la guardia','armadura',siempreActiva({nombre:'Caparazón',concepto:{...structuredClone(GUARDIA_BASE),nombre:'Caparazón'}})),
@@ -245,6 +245,20 @@ export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacio
    if(!n)return [pegar(f,'nucleo')];
    if(n.tipo==='accion')return [pegar(f,n.id)];
    return falla('La invocación va en el núcleo o en una acción.');
+ }
+ if(!n&&f.tipo==='estado'){
+  const estado=f.datos as Pick<Efecto,'estado'|'duracion'|'estado_tipo'|'bonos_estado'>;
+  return [pegar({tipo:'accion',datos:accion({...estado,nombre:estado.estado||pieza.nombre,efecto:'estado'})},'nucleo')];
+ }
+ if(!n&&f.tipo==='tabla_armas'){
+  return [pegar({tipo:'accion',datos:accion({nombre:pieza.nombre,efecto:'crear_arma',duracion:1,cantidad:1,tabla_armas:f.datos as Efecto['tabla_armas']})},'nucleo')];
+ }
+ if(!n&&f.tipo==='reaccion'){
+  return [pegar({tipo:'accion',datos:accion({nombre:pieza.nombre,cantidad:0,reaccion:f.datos as Efecto['reaccion']})},'nucleo')];
+ }
+ if(!n&&f.tipo==='transformacion'){
+  const transformacion=f.datos as NonNullable<Efecto['transformacion']>;
+  return [pegar({tipo:'accion',datos:accion({nombre:transformacion.nombre,efecto:'transformacion',cantidad:0,transformacion})},'nucleo')];
  }
  if(!destino)return null;
  if(!n)return falla(`«${pieza.nombre}» no cuelga del núcleo: suéltala sobre ${f.tipo==='si'?'una regla':f.tipo==='entonces'?'una regla':'una acción'}.`);

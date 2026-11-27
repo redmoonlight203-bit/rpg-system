@@ -347,8 +347,17 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  /** Soltar un cable sobre un nodo compatible: un módulo cambia de acción (se copia y se quita del origen). */
  function conectar(origen:{nodo:string;puerto:string},destino:string){
   if(destino.startsWith('suelto:')){conectarSuelto(destino,{nodo:origen.nodo,puerto:origen.puerto});return;}
-  if(grafo.cables.some(c=>c.desde.nodo===origen.nodo&&c.hasta.nodo===destino))return;
+  if(grafo.cables.some(c=>c.desde.nodo===origen.nodo&&c.desde.puerto===origen.puerto&&c.hasta.nodo===destino))return;
   const n=grafo.nodos.find(x=>x.id===destino),o=grafo.nodos.find(x=>x.id===origen.nodo);if(!n||!o)return;
+  if(o.tipo==='transformacion'&&origen.puerto.startsWith('poder:')){
+   const forma=bRef.current.efectos[o.ruta[1] as number]?.transformacion;
+   const accion=bRef.current.efectos[n.ruta[1] as number];
+   const indice=forma?.etapas.findIndex(et=>et.id===origen.puerto.slice(6))??-1;
+   if(!forma||indice<0||n.tipo!=='accion'||!accion||accion.efecto==='transformacion')return;
+   const etapa=forma.etapas[indice];
+   ejecutar([{op:'fijar',ruta:[...o.ruta,'etapas',indice,'habilidades'],valor:[...new Set([...(etapa.habilidades||[]),accion.id])]}],undefined,`${accion.nombre} disponible en ${etapa.nombre}.`);
+   return;
+  }
   if(!MODULOS.includes(n.tipo)){avisar(`«${n.titulo}» ya está unido a su sitio. Para usarlo en otro lugar, duplícalo.`,'info');return;}
   let fragmento;try{fragmento=copiar(bRef.current,destino);}catch(e){avisar(mensajeError(e,'No se pudo mover ese módulo.'));return;}
   ejecutar([{op:'pegar',fragmento,padre:origen.nodo},{op:'quitar',nodo:destino}],undefined,`${NOMBRE_TIPO[n.tipo]} pasa a «${o.titulo}».`);

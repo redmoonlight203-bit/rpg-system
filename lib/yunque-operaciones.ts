@@ -19,7 +19,7 @@ export type Operacion=
  |{op:'convertir_invocacion';id:string}
  |{op:'quitar';nodo:string}
  |{op:'duplicar';nodo:string}
- |{op:'pegar';fragmento:Fragmento;padre?:string;rama?:'exito'|'fallo'}
+ |{op:'pegar';fragmento:Fragmento;padre?:string;etapa?:string;rama?:'exito'|'fallo'}
  |{op:'desplegar';plantilla:string}
  |{op:'desvincular';nodo:string};
 const MODULOS:TipoNodo[]=['alcance','salvacion','estado','reaccion','transformacion','recurso','vfx','tabla_armas','vision'];
@@ -231,6 +231,17 @@ function aplicarSinMarcar(b:Borrador,o:Operacion):Borrador{
   case 'agregar':insertar(r,o.tipo,datosNuevos(o.tipo),o.padre,o.rama);return r;
   case 'pegar':{
    if(!o.fragmento||!o.fragmento.tipo)falla('Fragmento inválido.');
+   if(o.etapa){
+    const padre=buscar(r,o.padre??'');
+    const forma=padre.tipo==='transformacion'?r.efectos[Number(padre.ruta[1])]?.transformacion:undefined;
+    const etapa=forma?.etapas.find(et=>et.id===o.etapa)??falla('Esta forma ya no existe.');
+    if(o.fragmento.tipo!=='accion')falla('Selecciona una acción para esta forma.');
+    const accion=nuevosIdsEfecto(o.fragmento.datos as Efecto);
+    if(accion.efecto==='transformacion')falla('Selecciona una acción distinta de transformación.');
+    insertar(r,'accion',accion,'nucleo');
+    etapa.habilidades=[...(etapa.habilidades||[]),accion.id];
+    return r;
+   }
    insertar(r,o.fragmento.tipo,regenerarFragmento(o.fragmento),o.padre,o.rama);return r;
   }
   case 'desplegar':{
