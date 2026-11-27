@@ -492,7 +492,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  /** Icono, pie y editor de un nodo. El editor solo se crea para el nodo elegido (el único que lo muestra). */
  const contenidoBase=(n:Nodo):ContenidoNodo=>{
   const conEditor=n.id===seleccion;
-  if(n.tipo==='artefacto')return {editor:conEditor?<><EditorArtefacto valor={b.artefacto} onChange={artefacto=>patchFicha({artefacto})} atributos={atributosVisibles(b,ctx)} pestanas={pestanasArtefacto(b.id)}/>{b.artefacto&&<LaboratorioInventario key={JSON.stringify([b.id,b.artefacto])} ctx={ctx} fuente={b.id} config={b.artefacto}/>}</>:undefined};
+  if(n.tipo==='artefacto')return {editor:conEditor?<><EditorArtefacto valor={b.artefacto} onChange={artefacto=>patchFicha({artefacto})} atributos={atributosVisibles(b,ctx)} pestanas={pestanasArtefacto(b.id)}/>{b.artefacto&&<LaboratorioInventario key={b.id||'borrador'} configurar={artefacto=>patchFicha({artefacto})} ctx={ctx} fuente={b.id} config={b.artefacto}/>}</>:undefined};
   if(n.tipo==='nucleo')return {
    icono:b.icono||(b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]),
    pie:<>
