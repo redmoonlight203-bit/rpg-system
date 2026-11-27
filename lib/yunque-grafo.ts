@@ -13,7 +13,7 @@ import {definicionBase,definicionAplicada,describirEstado,TIPOS_ESTADO_LEGADO} f
  * Grafo DERIVADO del Borrador (solo lectura): `aGrafo` nunca modifica `b`.
  * El Borrador es la única fuente de verdad; las ediciones son operaciones puras sobre él.
  */
-export type TipoNodo='nucleo'|'accion'|'alcance'|'salvacion'|'estado'|'reaccion'|'transformacion'|'recurso'|'vfx'|'tabla_armas'|'vision'|'cuando'|'si'|'entonces'|'pasiva'|'vinculo'|'invocacion'|'requisitos';
+export type TipoNodo='artefacto'|'nucleo'|'accion'|'alcance'|'salvacion'|'estado'|'reaccion'|'transformacion'|'recurso'|'vfx'|'tabla_armas'|'vision'|'cuando'|'si'|'entonces'|'pasiva'|'vinculo'|'invocacion'|'requisitos';
 export type Ruta=(string|number)[];
 export type Puerto={id:string;lado:'entrada'|'salida';acepta:TipoNodo[];etiqueta?:string};
 /** Vínculo del nodo con su plantilla viva; `huerfana`: la plantilla ya no existe en el catálogo. */
@@ -166,6 +166,11 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   const partes=[q.nivel_minimo?`Nivel ${q.nivel_minimo}`:'',q.razas?.length?`Razas: ${q.razas.join(', ')}`:'',q.habilidades?.length?`${q.habilidades.length} habilidad(es) previa(s)`:'',Object.keys(q.minimos||{}).length?'Mínimos de atributos':''].filter(Boolean);
   nodo('requisitos','requisitos',['requisitos_uso'],'Requisitos',partes.join(' · ')||'Sin requisitos.',fallo(()=>validarRequisitos(q)),[entrada(['nucleo'])]);
   cable('nucleo','requisitos','requisitos');
+ }
+ if(b.tipo==='objeto'){
+  nodos.find(n=>n.id==='nucleo')!.puertos.push(salida('artefacto',['artefacto'],'Artefacto'));
+  if(b.artefacto){nodo('artefacto','artefacto',['artefacto'],'Artefacto',b.artefacto?`${b.artefacto.niveles?.length??0} niveles · Inventario de prueba`:'Configurar niveles, formas y absorción.',null,[entrada(['nucleo'])]);
+  cable('nucleo','artefacto','artefacto');}
  }
  return {nodos,cables};
 }

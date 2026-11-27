@@ -30,7 +30,10 @@ import {ID_REALIDAD} from '../../lib/transformaciones-grafo';
 import {grafoADefinicion,migrarTransformacion} from '../../lib/transformaciones-migracion';
 import {reaccionDe} from '../../lib/combate';
 import {normalizarReaccion} from '../../lib/reacciones';
-import {activas,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
+import EditorArtefacto from './editores/EditorArtefacto';
+import {pestanasArtefacto} from './editores/pestanas-artefacto';
+import LaboratorioInventario from './LaboratorioInventario';
+import {activas,atributosVisibles,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
 import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
 import type {CondicionRegla,EfectoRegla} from '../../lib/reglas';
@@ -429,7 +432,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  const patchFicha=(p:Partial<Borrador>)=>{ejecutar(Object.entries(p).map(([k,v])=>({op:'fijar',ruta:[k],valor:v})));};
  const piezasColeccion=useMemo(()=>b.tipo==='personaje'?piezasVinculo(piezasEnlace,{id:b.id,nombre:b.nombre},ctx.creaciones):[],[b.tipo,b.id,b.nombre,piezasEnlace,ctx.creaciones]);
  const errores=grafo.nodos.filter(n=>n.error);
- const lleva=NUCLEO_LLEVA[b.tipo]||[];
+ const lleva:TipoNodo[]=b.tipo==='objeto'?[...(NUCLEO_LLEVA[b.tipo]||[]),'artefacto']:(NUCLEO_LLEVA[b.tipo]||[]);
  const agregar=(tipo:TipoNodo)=>operar({op:'agregar',tipo,padre:'nucleo'});
  const marco=useRef(0);
  useEffect(()=>()=>cancelAnimationFrame(marco.current),[]);
@@ -489,6 +492,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  /** Icono, pie y editor de un nodo. El editor solo se crea para el nodo elegido (el único que lo muestra). */
  const contenidoBase=(n:Nodo):ContenidoNodo=>{
   const conEditor=n.id===seleccion;
+  if(n.tipo==='artefacto')return {editor:conEditor?<><EditorArtefacto valor={b.artefacto} onChange={artefacto=>patchFicha({artefacto})} atributos={atributosVisibles(b,ctx)} pestanas={pestanasArtefacto(b.id)}/>{b.artefacto&&<LaboratorioInventario key={b.id||'borrador'} configurar={artefacto=>patchFicha({artefacto})} ctx={ctx} fuente={b.id} config={b.artefacto}/>}</>:undefined};
   if(n.tipo==='nucleo')return {
    icono:b.icono||(b.ramaMonstruo?'bestia':ICONO_CREACION[b.tipo]),
    pie:<>

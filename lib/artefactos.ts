@@ -5,7 +5,7 @@ import {validarVoces,type ConfigVoces} from "./artefactos-voces";
  */
 export type CondicionSubida={tipo:'contador';contador:string;meta:number}|{tipo:'evento';evento:string};
 export type NivelArtefacto={nivel:number;nombre:string;condicion_subida:CondicionSubida|null;cambios:{stats?:Record<string,number>;descripcion?:string}};
-export type ConfiguracionArtefacto={niveles:NivelArtefacto[];
+export type ConfiguracionArtefacto={niveles:NivelArtefacto[];interaccionInventario?:{id:string;nombre:string;categoria:string;metodo:'tabla'|'completa'};contadoresConsumo?:{id:string;nombre:string}[];
   /** Tabla d100: la fila `tirada-1` es la forma que toma el artefacto con un portador. Vacía = «Forma N». */
   formas?:string[];
   /** Tramos de la tirada d100 al devorar un arma. Sin tramos se usan TRAMOS_BASE. */
@@ -30,6 +30,9 @@ const entero=(v:unknown,min:number,max:number)=>typeof v==='number'&&Number.isIn
 export function validarArtefacto(a:unknown):string|null{
   if(!a||typeof a!=='object')return 'Configuración de artefacto inválida.';
   const x=a as ConfiguracionArtefacto;
+  const inter=x.interaccionInventario;
+  if(inter&&(!texto(inter.id)||!texto(inter.nombre)||typeof inter.categoria!=='string'||!['tabla','completa'].includes(inter.metodo)))return 'Revisa la interacción de inventario.';
+  if(x.contadoresConsumo!==undefined&&(!Array.isArray(x.contadoresConsumo)||x.contadoresConsumo.length>40||x.contadoresConsumo.some(c=>!c||!/^consumo_[a-f0-9-]{36}$/.test(c.id)||!texto(c.nombre))||new Set(x.contadoresConsumo.map(c=>c.id)).size!==x.contadoresConsumo.length))return 'Revisa los contadores de consumo.';
   if(!Array.isArray(x.niveles)||!x.niveles.length)return 'El artefacto necesita al menos un nivel.';
   if(x.niveles.length>30)return 'Como mucho 30 niveles.';
   for(const [i,n] of x.niveles.entries()){
@@ -128,8 +131,11 @@ export const CONTADOR_DEVORADAS='armas devoradas';
 /** El artefacto devora un arma: guarda la absorción, suma el contador y recalcula el nivel. */
 export function devorar(a:ConfiguracionArtefacto,p:EstadoPortador,arma:ArmaDevorable,rng:Dado):EstadoPortador{
   const absorbidas=[...p.absorbidas,absorber(arma,a.tramos||TRAMOS_BASE,rng)];
-  const nivel=Math.max(p.nivel,nivelAlcanzado(a,{contadores:{[CONTADOR_DEVORADAS]:absorbidas.length},eventos:p.eventos||[]}));
-  return {...p,absorbidas,nivel};
+  const contadores=Object.fromEntries((a.contadoresConsumo||[]).map(c=>[c.id,absorbidas.length]));
+  contadores[CONTADOR_DEVORADAS]=absorbidas.length;
+  const eventos=[...new Set([...(p.eventos||[]),'consumo_confirmado'])];
+  const nivel=Math.max(p.nivel,nivelAlcanzado(a,{contadores,eventos}));
+  return {...p,absorbidas,nivel,eventos};
 }
 /** Todo lo absorbido sumado: estadísticas acumuladas y habilidades/pasivas sin repetir. */
 export function bonosAbsorbidos(p:EstadoPortador){

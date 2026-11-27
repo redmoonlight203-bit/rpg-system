@@ -9,7 +9,7 @@ import './artefacto.css';
 type Props={valor:ConfiguracionArtefacto|null|undefined;onChange:(a:ConfiguracionArtefacto|null)=>void;atributos:{clave:string;etiqueta:string}[]};
 export type PestanaArtefacto={id:string;nombre:string;contenido:(a:ConfiguracionArtefacto,set:(p:Partial<ConfiguracionArtefacto>)=>void)=>React.ReactNode};
 
-function EditorNivel({n,atributos,onChange}:{n:NivelArtefacto;atributos:Props['atributos'];onChange:(n:NivelArtefacto)=>void}){
+function EditorNivel({n,atributos,onChange,config,actualizar}:{config:ConfiguracionArtefacto;actualizar:(p:Partial<ConfiguracionArtefacto>)=>void;n:NivelArtefacto;atributos:Props['atributos'];onChange:(n:NivelArtefacto)=>void}){
  const c=n.condicion_subida;
  const stats=Object.entries(n.cambios.stats||{});
  const setStats=(s:Record<string,number>)=>onChange({...n,cambios:{...n.cambios,stats:Object.keys(s).length?s:undefined}});
@@ -17,11 +17,13 @@ function EditorNivel({n,atributos,onChange}:{n:NivelArtefacto;atributos:Props['a
  return <div className="ya-nivel-cuerpo">
   <label className="yq-campo"><span>Nombre del nivel</span><input value={n.nombre} maxLength={120} onChange={e=>onChange({...n,nombre:e.target.value})}/></label>
   {c&&<div className="ya-condicion">
-   <label className="yq-campo"><span>Sube cuando</span><select value={c.tipo} onChange={e=>onChange({...n,condicion_subida:e.target.value==='evento'?{tipo:'evento',evento:'Un juramento cumplido'}:{tipo:'contador',contador:'armas devoradas',meta:3}})}><option value="contador">Un contador llega a una meta</option><option value="evento">Ocurre un evento</option></select></label>
+   <label className="yq-campo"><span>Sube cuando</span><select value={c.tipo} onChange={e=>onChange({...n,condicion_subida:e.target.value==='evento'?{tipo:'evento',evento:'consumo_confirmado'}:{tipo:'contador',contador:'armas devoradas',meta:3}})}><option value="contador">Un contador llega a una meta</option><option value="evento">Ocurre un evento</option></select></label>
    {c.tipo==='contador'?<>
-    <label className="yq-campo"><span>Contador</span><input value={c.contador} maxLength={60} onChange={e=>onChange({...n,condicion_subida:{...c,contador:e.target.value}})}/></label>
+    <label className="yq-campo"><span>Contador</span><select value={c.contador} onChange={e=>onChange({...n,condicion_subida:{...c,contador:e.target.value}})}><option value="armas devoradas">Objetos devorados</option>{config.contadoresConsumo?.map(x=><option key={x.id} value={x.id}>{x.nombre}</option>)}{c.contador!=='armas devoradas'&&!config.contadoresConsumo?.some(x=>x.id===c.contador)&&<option value={c.contador}>{c.contador} (existente)</option>}</select></label>
+    <button type="button" onClick={()=>{const id='consumo_'+crypto.randomUUID();actualizar({contadoresConsumo:[...(config.contadoresConsumo||[]),{id,nombre:'Nuevo contador'}],niveles:config.niveles.map(x=>x.nivel===n.nivel?{...x,condicion_subida:{...c,contador:id}}:x)});}}>Crear contador de consumo</button>
+    {config.contadoresConsumo?.some(x=>x.id===c.contador)&&<label className="yq-campo">Nombre visible<input maxLength={120} value={config.contadoresConsumo.find(x=>x.id===c.contador)?.nombre||''} onChange={e=>actualizar({contadoresConsumo:config.contadoresConsumo?.map(x=>x.id===c.contador?{...x,nombre:e.target.value}:x)})}/></label>}
     <label className="yq-campo ya-corto"><span>Meta</span><input type="number" min={1} value={c.meta} onChange={e=>onChange({...n,condicion_subida:{...c,meta:Math.max(1,Math.round(Number(e.target.value))||1)}})}/></label>
-   </>:<label className="yq-campo"><span>Evento</span><input value={c.evento} maxLength={120} onChange={e=>onChange({...n,condicion_subida:{...c,evento:e.target.value}})}/></label>}
+   </>:<label className="yq-campo"><span>Evento</span><select value={c.evento} onChange={e=>onChange({...n,condicion_subida:{...c,evento:e.target.value}})}><option value="consumo_confirmado">Consumo confirmado</option>{c.evento!=='consumo_confirmado'&&<option value={c.evento}>{c.evento} (existente)</option>}</select></label>}
   </div>}
   <div className="ya-stats">
    {stats.map(([k,v])=><label key={k} className="ya-stat"><span>{atributos.find(a=>a.clave===k)?.etiqueta||k}</span>
@@ -56,7 +58,7 @@ export default function EditorArtefacto({valor,onChange,atributos,pestanas=[]}:P
      <span className="ya-gema-texto"><strong>{n.nombre||'Sin nombre'}</strong>
       <small>{n.condicion_subida?n.condicion_subida.tipo==='contador'?`${n.condicion_subida.meta} ${n.condicion_subida.contador}`:n.condicion_subida.evento:'Al empuñarlo'}{Object.keys(statsDeNivel(a,n.nivel)).length?' · '+Object.entries(statsDeNivel(a,n.nivel)).map(([k,v])=>`${k} ${v>0?'+':''}${v}`).join(', '):''}</small></span>
     </button>
-    {abierto===n.nivel&&<EditorNivel n={n} atributos={atributos} onChange={x=>setNivel(i,x)}/>}
+    {abierto===n.nivel&&<EditorNivel config={a} actualizar={set} n={n} atributos={atributos} onChange={x=>setNivel(i,x)}/>}
    </li>)}</ol>
    <div className="ya-acciones">
     <button type="button" onClick={()=>{set({niveles:[...a.niveles,nivelVacio(a.niveles.length+1)]});setAbierto(a.niveles.length+1);}} disabled={a.niveles.length>=30}><Plus size={15}/>Añadir nivel</button>

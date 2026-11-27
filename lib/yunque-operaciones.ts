@@ -1,3 +1,4 @@
+import {artefactoVacio,validarArtefacto,type ConfiguracionArtefacto} from './artefactos';
 import type {Borrador} from "./yunque-borrador";
 import {nuevoEfecto,EFECTOS_NOMBRE,type Efecto} from "./creacion";
 import {nuevaRegla,type Regla,type EfectoRegla,type CondicionRegla} from "./reglas";
@@ -112,6 +113,7 @@ const pasivaNueva=():ReglaPasiva=>({id:uuid(),nombre:'Nueva pasiva',condicion:'s
 const invocacionNueva=()=>({claseMaxima:'C',maxHabilidades:1,modo:'jugador_en_combate',duracionTurnos:3});
 function datosNuevos(tipo:TipoNodo):unknown{
  switch(tipo){
+  case 'artefacto':return artefactoVacio();
   case 'accion':return nuevoEfecto();
   case 'cuando':return nuevaRegla();
   case 'si':return clon(CONDICION_NUEVA);
@@ -126,6 +128,11 @@ function datosNuevos(tipo:TipoNodo):unknown{
 }
 /** Inserta `datos` (ya con ids nuevos si procede) como un nodo `tipo` bajo `padre`. Muta `b` (que es un clon). */
 function insertar(b:Borrador,tipo:TipoNodo,datos:unknown,padre:string|undefined,rama?:'exito'|'fallo'):void{
+ if(tipo==='artefacto'){
+  if(b.tipo!=='objeto'||b.artefacto||(padre&&padre!=='nucleo'))falla('El artefacto necesita el núcleo de un objeto sin artefacto.');
+  const error=validarArtefacto(datos);if(error)falla(error);
+  b.artefacto=clon(datos as ConfiguracionArtefacto);return;
+ }
  if(tipo==='nucleo')falla('El núcleo no se puede agregar.');
  if(tipo==='vinculo')falla('Usa la colección para enlazar creaciones.');
  if(rama&&tipo!=='entonces')falla('Solo los efectos «entonces» van en una rama de éxito o fallo.');
@@ -263,6 +270,7 @@ function aplicarSinMarcar(b:Borrador,o:Operacion):Borrador{
      else leer(r,n.ruta.slice(0,-1)).condicion={tipo:'siempre'};
      return r;
     }
+    case 'artefacto':r.artefacto=null;return r;
     case 'alcance':delete e!.tablero;return r;
     case 'salvacion':delete e!.salvacion;return r;
     case 'estado':e!.efecto='dano';e!.estado='';e!.duracion=0;delete e!.estado_tipo;delete e!.bonos_estado;return r;

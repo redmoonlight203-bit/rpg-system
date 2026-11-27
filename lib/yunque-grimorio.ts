@@ -1,3 +1,4 @@
+import {artefactoVacio} from './artefactos';
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {agruparPorAmbito} from './creaciones-personales';
 import {nuevoEfecto,type Efecto} from "./creacion";
@@ -13,8 +14,9 @@ import {PLANTILLAS,desplegar} from "./yunque-plantillas";
  * Piezas del Grimorio del Yunque y qué operaciones produce soltarlas en el lienzo. Puro: nunca toca el Borrador;
  * `planSoltar` devuelve las `Operacion` que el taller pasa a `aplicar` (o `null` si la pieza queda sin conectar).
  */
-export type FamiliaGrimorio='acciones'|'modulos'|'eventos'|'condiciones'|'efectos'|'pasivas'|'plantillas'|'coleccion';
+export type FamiliaGrimorio='acciones'|'modulos'|'eventos'|'condiciones'|'efectos'|'pasivas'|'plantillas'|'coleccion'|'objetos';
 export const FAMILIAS_GRIMORIO:{clave:FamiliaGrimorio;nombre:string;ayuda:string}[]=[
+ {clave:'objetos',nombre:'Objetos interactivos',ayuda:'Se conectan al núcleo de un objeto'},
  {clave:'acciones',nombre:'Acciones',ayuda:'Lo que se usa en el turno'},
  {clave:'modulos',nombre:'Módulos',ayuda:'Se enganchan a una acción'},
  {clave:'eventos',nombre:'Eventos',ayuda:'Cuándo empieza una regla'},
@@ -140,7 +142,7 @@ PASIVAS_PIEZAS.push(
 // ---- Plantillas: subgrafos listos para usar (lib/yunque-plantillas.ts) ----
 const PLANTILLAS_PIEZAS:Pieza[]=PLANTILLAS.map(p=>({clave:'plantilla:'+p.id,familia:'plantillas',tipo:p.fragmentos[0].tipo,nombre:p.nombre,ayuda:p.descripcion,icono:p.icono,plantilla:p.id,fragmentos:desplegar(p)}));
 
-export const PIEZAS:Pieza[]=[...ACCIONES,...MODULOS_PIEZAS,...EVENTOS_PIEZAS,...CONDICIONES_PIEZAS,...EFECTOS_PIEZAS,...PASIVAS_PIEZAS,...PLANTILLAS_PIEZAS];
+export const PIEZAS:Pieza[]=[una('objeto:artefacto','objetos','artefacto','Artefacto','Formas, niveles y absorción','alma',artefactoVacio()),...ACCIONES,...MODULOS_PIEZAS,...EVENTOS_PIEZAS,...CONDICIONES_PIEZAS,...EFECTOS_PIEZAS,...PASIVAS_PIEZAS,...PLANTILLAS_PIEZAS];
 
 /** Tipos de nodo que el núcleo puede llevar → si la creación admite el tipo `t`. */
 export function tipoPermitido(t:TipoNodo,lleva:readonly TipoNodo[]):boolean{
@@ -234,7 +236,7 @@ export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacio
  }
  const f=pieza.fragmentos[0];
  switch(f.tipo){
-  case 'accion':case 'pasiva':
+  case 'artefacto':case 'accion':case 'pasiva':
    if(n)falla(`«${pieza.nombre}» cuelga del núcleo: suéltala en el vacío o sobre el núcleo.`);
    return [pegar(f,'nucleo')];
   case 'cuando':
