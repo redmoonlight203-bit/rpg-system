@@ -3,7 +3,7 @@
 // primitivas como pips. La usan la cuadrícula del grimorio y la vista previa en vivo del editor.
 import type {CSSProperties,ReactNode} from 'react';
 import IconoYugen from '../IconoYugen';
-import {ICONO_PRIMITIVA,NOMBRE_PRIMITIVA,describirEstado,type DefinicionEstado} from '../../lib/estados';
+import {iconoEstado,ICONO_PRIMITIVA,NOMBRE_PRIMITIVA,describirEstado,type DefinicionEstado} from '../../lib/estados';
 import {NOMBRE_CATEGORIA,poderEstado} from '../../lib/estados-biblioteca';
 
 const SELLO:Record<string,string>={mental:'心',fisico:'体',elemental:'元',narrativo:'語'};
@@ -15,7 +15,7 @@ export default function CartaEstado({def,color,base=false,grande=false,onClick,p
   <span className="ge-aura" aria-hidden="true"/>
   <span className="ge-sello" aria-hidden="true">{SELLO[def.categoria]}</span>
   {base&&<span className="ge-base">Base</span>}
-  <span className="ge-icono" aria-hidden="true"><IconoYugen id={def.icono||'fuego'} size={grande?64:40}/></span>
+  <span className="ge-icono" aria-hidden="true"><IconoYugen id={iconoEstado(def)} size={grande?64:40}/></span>
   <strong className="ge-nombre">{def.nombre.split(':')[0]}</strong>
   <span className="ge-meta"><span>{NOMBRE_CATEGORIA[def.categoria]}</span><span className="ge-dur" title="Duración">⧗ {duracionCorta(def)}</span></span>
   <span className="ge-poder" aria-label={`Poder ${poder} de 5`}>{[1,2,3,4,5].map(i=><i key={i} className={i<=poder?'is-on':''}/>)}</span>

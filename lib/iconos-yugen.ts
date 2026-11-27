@@ -26,6 +26,18 @@ export const ICONOS_YUGEN = [
  { id:'corona', nombre:'Corona', grupo:'Símbolos', trazos:['M5 10l7 5 4-11 4 11 7-5-3 16H8L5 10Z','M9 21h14M12 26v2M20 26v2'] },
  { id:'vida', nombre:'Vida', grupo:'Símbolos', trazos:['M16 28 5 17C-2 6 11 2 16 11 21 2 34 6 27 17L16 28Z','M8 17h5l2-4 3 8 2-4h5'] },
  { id:'libro', nombre:'Grimorio', grupo:'Símbolos', trazos:['M16 8C11 4 6 4 3 6v21c5-3 9-2 13 1 4-3 8-4 13-1V6c-3-2-8-2-13 2v20','M7 11l5 1M7 17l5 1M20 12l5-1M20 18l5-1'] },
+ { id:'sueno', nombre:'Sueño', grupo:'Estados', trazos:['M21 5a11 11 0 1 0 6 18A12 12 0 0 1 21 5Z','M5 5h5l-5 5h5'] },
+ { id:'calavera', nombre:'Calavera', grupo:'Estados', trazos:['M16 4C10 4 6 8 6 14c0 3 2 5 4 6v5h12v-5c2-1 4-3 4-6 0-6-4-10-10-10Z','M12 12h.1M20 12h.1M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0M18.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0M14 25v3M18 25v3M15 18l1 2 1-2'] },
+ { id:'sangre', nombre:'Sangrado', grupo:'Estados', trazos:['M11 4C9 9 5 12 5 17a6 6 0 0 0 12 0c0-5-4-8-6-13Z','M23 13c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8Z','M8 18a3 3 0 0 0 3 3'] },
+ { id:'cadenas', nombre:'Cadenas', grupo:'Estados', trazos:['M13 19l-3 3a4 4 0 0 1-6-6l3-3a4 4 0 0 1 6 0','M19 13l3-3a4 4 0 0 1 6 6l-3 3a4 4 0 0 1-6 0','M12 20l8-8'] },
+ { id:'espiral', nombre:'Espiral', grupo:'Estados', trazos:['M16 16a2 2 0 1 1 2 2 5 5 0 1 1-6-6 8 8 0 1 1 10 10 11 11 0 1 1-14-14'] },
+ { id:'estrellas', nombre:'Aturdimiento', grupo:'Estados', trazos:['M4 21c0-3 5-5 12-5s12 2 12 5-5 5-12 5-12-2-12-5Z','M9 6l1 2.5 2.5.5-2 1.5.5 2.5L9 12l-2 1 .5-2.5-2-1.5L8 8.5Z','M22 4l1 2 2 .3-1.5 1.4.4 2L22 8.8l-1.9.9.4-2L19 6.3l2-.3Z'] },
+ { id:'miedo', nombre:'Miedo', grupo:'Estados', trazos:['M16 4a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z','M10 11l4 2M22 11l-4 2M12 23c0-3 2-5 4-5s4 2 4 5Z'] },
+ { id:'ojo_cerrado', nombre:'Ceguera', grupo:'Estados', trazos:['M3 16c7-12 19-12 26 0-7 12-19 12-26 0Z','M16 12a4 4 0 1 0 0 8','M5 27 27 5'] },
+ { id:'escudo_roto', nombre:'Vulnerable', grupo:'Estados', trazos:['M16 3 27 8v8c0 6-6 11-11 13C11 27 5 22 5 16V8l11-5Z','M16 3l-3 9 5 4-3 6 1 7'] },
+ { id:'ala', nombre:'Vuelo', grupo:'Estados', trazos:['M4 25C8 13 18 6 28 6c-2 4-5 6-9 7 3 0 5 1 6 2-3 2-7 3-11 2 2 2 2 3 1 5-4 1-7 2-11 3Z'] },
+ { id:'subsuelo', nombre:'Bajo tierra', grupo:'Estados', trazos:['M3 13h26','M6 13l3 5 4-3 3 6 4-4 3 5 3-4','M16 4v5M13 7l3 3 3-3'] },
+ { id:'portal', nombre:'Otro plano', grupo:'Estados', trazos:['M16 4a8 12 0 1 0 0 24 8 12 0 1 0 0-24Z','M16 9a4 7 0 1 0 0 14 4 7 0 1 0 0-14Z','M5 9l2 1M27 9l-2 1M5 23l2-1M27 23l-2-1'] },
  { id:'yugen', nombre:'Sello de Yugen', grupo:'Símbolos', trazos:['M16 2 29 16 16 30 3 16 16 2Z','M10 10l6 6 6-6M16 16v8M8 19l8-3 8 3'] },
 ] as const;
 export type IconoYugenId = typeof ICONOS_YUGEN[number]['id'];

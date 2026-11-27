@@ -13,7 +13,7 @@ import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type Disp
 import { type ReglaPasiva } from "./pasivas";
 import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./inmunidades";
 import {definicionElemento,type EfectoImpacto} from "./elementos";
-import {describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
+import {iconoEstado,capaDeEstados,type CapaEstado,describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
 import {potenciar,potenciadoresPara,etiquetasDe,describirPotenciado,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
 import {DESARMADO_BASE,GUARDIA_BASE,describirConcepto,type ConceptoDesarmado,type ConceptoGuardia} from "./conceptos-basicos";
@@ -2277,8 +2277,10 @@ export function recursosDe(m: Combatiente): DefinicionRecurso[] {
 }
 export const saldoRecurso = (m: Combatiente, d: DefinicionRecurso) => m.recursos_especiales?.[d.id] ?? d.inicial;
 /** Estados para la tarjeta del combatiente: icono, duración y la misma frase que el editor del Yunque. */
+/** Capa del tablero en la que está: la marca la primitiva «Capa» de sus estados (o el vuelo del motor). */
+export const capaCombatiente = (m: Pick<Combatiente, 'estados'>): CapaEstado | 'suelo' => capaDeEstados(m.estados);
 export function estadosVisibles(m: Pick<Combatiente, 'estados'>) {
-  return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d?.icono || 'yugen', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
+  return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d ? iconoEstado(d) : (e.tipo || e.id) === 'vuelo' ? 'ala' : 'libro', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
 }
 /** Barra de recursos para la tarjeta y la ficha, con su nombre configurado. */
 export function recursosVisibles(m: Combatiente, gm = false) {
@@ -3175,8 +3177,7 @@ export type VistaOcular = {
   objetivos: Record<string, ObjetivoOcular>;
   amenaza?: string[];
 };
-const BAJO_TIERRA = /\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i;
-const bajoTierra = (m: Combatiente) => m.estados.some(e => BAJO_TIERRA.test(e.nombre || '') || BAJO_TIERRA.test(e.tipo || ''));
+const bajoTierra = (m: Combatiente) => capaCombatiente(m) === 'subsuelo';
 /** Ojos abiertos de un combatiente: los activados (estados) y los permanentes de sus habilidades y equipo. */
 export function visionesActivas(m: Combatiente): VisionActiva[] {
   if (m.vida <= 0) return [];

@@ -6,7 +6,7 @@ import {EditorDados} from '../../EditorDados';
 import {Fichas,Rueda,type Opcion} from '../Controles';
 import {elementoDe,tipoPresupuesto,type TipoPresupuesto} from '../../../lib/combate';
 import {formula,type Efecto} from '../../../lib/creacion';
-import {CATALOGO_ESTADOS,estadoVacio,definicionBase} from '../../../lib/estados';
+import {CATALOGO_ESTADOS,estadoVacio,definicionBase,iconoEstado} from '../../../lib/estados';
 import {Interruptor} from '../Controles';
 import EditorDefensas from './EditorDefensas';
 import EditorEstados from './EditorEstados';
@@ -41,7 +41,7 @@ const NATURALEZAS:Opcion<NonNullable<Efecto['naturaleza']>>[]=[
 ];
 /** Estados del catálogo (lib/estados.ts) y «propio»: uno nuevo hecho de primitivas. */
 const ESTADOS:Opcion<string>[]=[
- ...CATALOGO_ESTADOS.filter(d=>!['guardia','ciego','escarcha','marca_luz'].includes(d.id)).map(d=>({valor:d.id,nombre:d.nombre.split(':')[0],icono:d.icono,ayuda:d.descripcion})),
+ ...CATALOGO_ESTADOS.filter(d=>!['guardia','ciego','escarcha','marca_luz'].includes(d.id)).map(d=>({valor:d.id,nombre:d.nombre.split(':')[0],icono:iconoEstado(d),ayuda:d.descripcion})),
  {valor:'propio',nombre:'Estado propio',icono:'libro',ayuda:'Combina primitivas en un estado nuevo.'},
 ];
 const SUBMENTE:Opcion<string>[]=['control','miedo','ilusion','confusion','memoria','posesion'].map(v=>({valor:v,nombre:v.replace('ilusion','ilusión').replace('confusion','confusión').replace('posesion','posesión')}));

@@ -22,7 +22,7 @@ import {alcanceVisibleEntreFichas,alcanceDesdeFicha,areaDesdeFicha, type VistaOc
 import type {Efecto} from '../lib/creacion';
 import type {TiradaVisual} from './AnimacionDados';
 import {BarraVital} from './ui/Juego';
-import {capaDe,CAPAS,esAccionPropia,objetivoValido,previsualizar,alcanzaCapa,resumenTurno,ranuraDeTecla,leerSegundoClic,guardarSegundoClic,notaPendiente,marcarNota,TUTORIAL_ALCANCE,type Capa,type Instantanea,type Previsualizacion} from '../lib/combate-interfaz';
+import {capaDe,capaFicha,CAPAS,esAccionPropia,objetivoValido,previsualizar,alcanzaCapa,resumenTurno,ranuraDeTecla,leerSegundoClic,guardarSegundoClic,notaPendiente,marcarNota,TUTORIAL_ALCANCE,type Capa,type Instantanea,type Previsualizacion} from '../lib/combate-interfaz';
 import '../app/ficha/jugador.css';
 import './tablero-combate.css';
 import './tablero-campo.css';
@@ -43,7 +43,9 @@ function useSegundoClic():[boolean,(v:boolean)=>void]{
  return [valor,v=>{guardarSegundoClic(v);setValor(v);if(typeof window!=='undefined')window.dispatchEvent?.(new Event(EVENTO_SEGUNDO_CLIC));}];
 }
 const editable=(t:EventTarget|null)=>typeof HTMLElement!=='undefined'&&t instanceof HTMLElement&&(t.isContentEditable||!!t.closest('input,select,textarea'));
-export type FichaTablero={vfx?:AnimacionEtapa;id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion;huella?:Huella;huella_reserva?:Huella};
+export type FichaTablero={vfx?:AnimacionEtapa;id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];
+ /** Capa calculada por el motor y estados con icono (las fichas antiguas solo traen nombres). */
+ capa?:Capa;estados_detalle?:EstadoBarra[];posicion:Posicion;huella?:Huella;huella_reserva?:Huella};
 export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,mapa,perspectiva,onEjecutar,puedeEjecutar=false,ocular,turnoPropio=false,reflejado=false}:{reflejado?:boolean;ocular?:VistaOcular|null;turnoPropio?:boolean;fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;mapa?:MapaCombate;perspectiva?:string;
   /** Si existe, un clic sobre un objetivo válido ejecuta la acción (con «segundo clic» activo, el primero solo previsualiza). */
   onEjecutar?:(sel:{objetivo?:string;centro?:Posicion})=>void;puedeEjecutar?:boolean}){
@@ -79,7 +81,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const punto=apuntaPatron?direccionVistaPatron(anclaPatron,hover,centro):t?.origen_area==='lanzador'?origen?.posicion:centro||hover;
  const area=useMemo(()=>t&&origen&&punto?areaDesdeFicha(origen,origen.posicion,punto,t,{columnas,filas},mapa,reflejado):[],[t,origen?.posicion.x,origen?.posicion.y,origen?.huella?.ancho,origen?.huella?.alto,punto?.x,punto?.y,columnas,filas,mapa,reflejado]);
  const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
- const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&casillasHuella(f,f.posicion).some(p=>afectadas.has(`${p.x},${p.y}`))&&objetivoDelArea(origen,f,habilidad!)&&(!patron||alcanzaCapa(habilidad,capaDe(f.estados)).ok)):[],[fichas,origen,t,afectadas,habilidad,patron]);
+ const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&casillasHuella(f,f.posicion).some(p=>afectadas.has(`${p.x},${p.y}`))&&objetivoDelArea(origen,f,habilidad!)&&(!patron||alcanzaCapa(habilidad,capaFicha(f)).ok)):[],[fichas,origen,t,afectadas,habilidad,patron]);
  const pixelArt=!!(evento?.vfx?.lanzamiento||evento?.vfx?.recorrido||evento?.vfx?.impacto);
  const fichaObjetivo=fichas.find(f=>f.id===objetivo);
  const porCasilla=useMemo(()=>new Map(fichas.flatMap(f=>casillasHuella(f,f.posicion).map(p=>[claveCasilla(p),f] as const))),[fichas]);
@@ -111,7 +113,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const propio=fichas.find(f=>f.id===perspectiva),herida=intensidadHerida(propio?.vida,propio?.max_vida);
  const golpePropio=cambios.some(c=>c.id===perspectiva&&c.delta<0);
  // Capas: se deducen de los estados del motor. Al cambiar de capa se reproduce la transición (nubes, tierra, ondas, halo).
- const capas=useMemo(()=>new Map(fichas.map(f=>[f.id,capaDe(f.estados)])),[fichas]);
+ const capas=useMemo(()=>new Map(fichas.map(f=>[f.id,capaFicha(f)])),[fichas]);
  const capasPrevias=useRef(new Map<string,Capa>()),[transiciones,setTransiciones]=useState<Record<string,string>>({});
  useEffect(()=>{
   const nuevas:Record<string,string>={};
@@ -206,7 +208,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
     {verAmenazas&&amenazaOcular.has(k)&&<span className="ocular-amenaza" aria-hidden="true"/>}
     {f&&ancla&&!oculta&&<MarcasOculares objetivo={ocular?.objetivos[f.id]}/>}
     {f&&ancla?<FichaAnimada key={f.id} ficha={f} fichas={fichas} evento={evento} columnas={columnas} filas={filas} mapa={mapa}>{(()=>{const golpe=cambios.some(c=>c.id===f.id&&c.delta<0),cura=cambios.some(c=>c.id===f.id&&c.delta>0),embiste=atacante?.id===f.id,ref=embiste?evento?.hasta:evento?.desde,signo=embiste?1:-1,vida=`${Math.max(0,Math.min(100,100*(f.vida||0)/Math.max(1,f.max_vida||1)))}%`;
-     return <><span key={golpe||cura||embiste?evento?.id:'reposo'} className={`ficha-cuerpo ${golpe?'golpeada':''} ${cura?'curada':''} ${embiste?'embiste':''}`} style={{'--lx':ref?signo*Math.sign(ref.x-f.posicion.x):0,'--ly':ref?signo*Math.sign(ref.y-f.posicion.y):0} as React.CSSProperties}>{f.vida!==0&&<AuraTransformacion id={f.vfx?.aura} escala={f.vfx?.escala}/>}<RetratoCombate nombre={f.nombre} src={f.imagen_url} circular/></span><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span className="estela" style={{width:vida}}/><span style={{width:vida}}/></span>}</>;})()}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.some(e=>e.includes('Derribado'))?'↘':`${f.estados.length} ✦`}</span>}{cambios.some(c=>c.id===f.id&&c.delta<0)&&<span key={evento?.id} className="tactical-hit-flash" aria-hidden="true"/>}<span className="tactical-token-danger" style={{opacity:intensidadHerida(f.vida,f.max_vida)}} aria-hidden="true"/></FichaAnimada>:disponible?<span className="tactical-move-step">{elegida?'✓':alcanzables[k]}</span>:esCentro?<Crosshair size={18}/>:f?null:<span className="tactical-coordinate">{mapa?.celdas[k]==='muro'?'■':mapa?.celdas[k]==='peligro'?'⚠':`${p.x+1}·${p.y+1}`}</span>}
+     return <><span key={golpe||cura||embiste?evento?.id:'reposo'} className={`ficha-cuerpo ${golpe?'golpeada':''} ${cura?'curada':''} ${embiste?'embiste':''}`} style={{'--lx':ref?signo*Math.sign(ref.x-f.posicion.x):0,'--ly':ref?signo*Math.sign(ref.y-f.posicion.y):0} as React.CSSProperties}>{f.vida!==0&&<AuraTransformacion id={f.vfx?.aura} escala={f.vfx?.escala}/>}<RetratoCombate nombre={f.nombre} src={f.imagen_url} circular/></span><span className="tactical-token-name">{f.nombre}</span>{f.vida!==undefined&&<span className="tactical-health"><span className="estela" style={{width:vida}}/><span style={{width:vida}}/></span>}{f.vida!==0&&!!f.estados_detalle?.length&&<span className="ficha-estados" aria-hidden="true">{f.estados_detalle.slice(0,3).map(e=><span key={e.id} className={`estado-${e.categoria||'narrativo'}`}><IconoYugen id={e.icono} size={11}/></span>)}{f.estados_detalle.length>3&&<b>+{f.estados_detalle.length-3}</b>}</span>}</>;})()}{f.id===actual&&<span className="tactical-turn-marker">◆</span>}{!!f.estados?.length&&<span className="tactical-states" title={f.estados.join(', ')}>{f.estados.some(e=>e.includes('Derribado'))?'↘':`${f.estados.length} ✦`}</span>}{cambios.some(c=>c.id===f.id&&c.delta<0)&&<span key={evento?.id} className="tactical-hit-flash" aria-hidden="true"/>}<span className="tactical-token-danger" style={{opacity:intensidadHerida(f.vida,f.max_vida)}} aria-hidden="true"/></FichaAnimada>:disponible?<span className="tactical-move-step">{elegida?'✓':alcanzables[k]}</span>:esCentro?<Crosshair size={18}/>:f?null:<span className="tactical-coordinate">{mapa?.celdas[k]==='muro'?'■':mapa?.celdas[k]==='peligro'?'⚠':`${p.x+1}·${p.y+1}`}</span>}
     </button>;
    })}
   {ruta.length>1&&<svg className="campo-ruta" viewBox={`0 0 ${columnas*100} ${filas*100}`} preserveAspectRatio="none" aria-hidden="true"><polyline points={ruta.map(p=>`${p.x*100+50},${p.y*100+50}`).join(' ')}/>{(()=>{const a=ruta[ruta.length-2],b=ruta[ruta.length-1],g=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;return <polygon points="-4,-26 34,0 -4,26" transform={`translate(${b.x*100+50} ${b.y*100+50}) rotate(${g})`}/>;})()}</svg>}
@@ -221,7 +223,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
   <div className={`campo-info ${enfocada?enfocada.bando==='jugador'?'ally':'enemy':''}`}>
    {enfocada?<><RetratoCombate nombre={enfocada.nombre} src={enfocada.imagen_url}/><div className="campo-info-nombre"><small>{enfocada.bando==='jugador'?'Aliado':'Enemigo'}{enfocada.id===actual?' · en turno':''}{enfocada.id===objetivo?' · objetivo':''}</small><strong>{enfocada.nombre}</strong></div>
     {enfocada.vida!==undefined&&<div className="campo-info-vida"><small>Vida</small><strong>{Number(enfocada.vida.toFixed(1))}<i>/{enfocada.max_vida}</i></strong><span className="tactical-health"><span className="estela" style={{width:`${Math.max(0,Math.min(100,100*enfocada.vida/Math.max(1,enfocada.max_vida||1)))}%`}}/><span style={{width:`${Math.max(0,Math.min(100,100*enfocada.vida/Math.max(1,enfocada.max_vida||1)))}%`}}/></span></div>}
-    <div className="campo-info-estados">{enfocada.vida===0?<span className="caido">Fuera de combate</span>:enfocada.estados?.length?enfocada.estados.map(e=><span key={e}>{e}</span>):<small>Sin estados activos</small>}</div></>:<small>Pasa el cursor por una unidad para ver su estado.</small>}
+    <div className="campo-info-estados">{enfocada.vida===0?<span className="caido">Fuera de combate</span>:enfocada.estados_detalle?.length?<ChipsEstado estados={enfocada.estados_detalle}/>:enfocada.estados?.length?enfocada.estados.map(e=><span key={e}>{e}</span>):<small>Sin estados activos</small>}</div></>:<small>Pasa el cursor por una unidad para ver su estado.</small>}
    {terreno&&<div className="campo-info-terreno"><small>Casilla {cursor!.x+1}·{cursor!.y+1}</small><strong>{terreno[0]}</strong><span>{terreno[1]}{moviendo&&alcanzables[`${cursor!.x},${cursor!.y}`]?` · ${alcanzables[`${cursor!.x},${cursor!.y}`]} de movimiento`:''}</span></div>}
   </div>
   {enfocada&&ocular?.objetivos[enfocada.id]&&<PanelOcular nombre={enfocada.nombre} objetivo={ocular.objetivos[enfocada.id]} posicion={enfocada.posicion} origen={(fichas.find(f=>f.id===lanzador)||propio)?.posicion}/>}
@@ -234,7 +236,7 @@ export type ActorBarra={nombre:string;vida:number;max_vida:number;ph:number;fati
  /** Ataque múltiple a medias: solo esa acción (otro disparo) sigue disponible. */
  rafaga?:{accion:string;nombre:string;total:number;restantes:number};
  /** Acciones que le quedan según el motor (lo ya gastado incluido). Sin él se estima con las estadísticas. */
- presupuesto?:PresupuestoAcciones;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[];
+ presupuesto?:PresupuestoAcciones;capa?:Capa;derribado?:boolean;agotado?:boolean;stats?:Record<string,number>;imagen_url?:string;estados?:string[];
  /** Estados con icono, duración y la frase del Yunque (tooltip). */
  estados_detalle?:EstadoBarra[];
  /** Recursos del catálogo (Carga Bioeléctrica, Furia…) con su nombre configurado. */
@@ -247,7 +249,7 @@ export type ConsumibleBarra={id:string;nombre:string;cantidad:number;detalle?:st
 /** Panel fijo del héroe que tiene el turno: retrato, recursos, estados y acción. Cambia con una transición corta. */
 export function PanelHeroe({actor,phReal,puede}:{actor:ActorBarra;phReal:number;puede:boolean}){
  const maxPh=actor.stats&&Number.isFinite(actor.stats.ph)?actor.stats.ph:Math.max(phReal,0),maxFatiga=actor.stats?.fatiga||0;
- const estados=actor.estados||[],capa=capaDe(estados);
+ const estados=actor.estados||[],capa=actor.capa??capaDe(estados);
  return <div key={actor.nombre} className={`heroe-activo ${puede?'en-turno':''}`} aria-label={`Héroe activo: ${actor.nombre}`}>
   <div className="heroe-retrato"><RetratoCombate nombre={actor.nombre} src={actor.imagen_url} activo={puede}/><span className={`tactical-action-pip ${actor.accion_usada?'spent':''}`} title={actor.accion_usada?'Acción utilizada':'Una acción disponible'}>◆</span></div>
   <div className="heroe-datos">
@@ -255,7 +257,7 @@ export function PanelHeroe({actor,phReal,puede}:{actor:ActorBarra;phReal:number;
    <BarraVital etiqueta="Vida" valor={Number(actor.vida.toFixed(1))} max={actor.max_vida} tipo="vida"/>
    <div className="heroe-reservas"><BarraVital etiqueta="PH" valor={phReal} max={maxPh} tipo="ph"/>{maxFatiga>0&&<BarraVital etiqueta="Fatiga" valor={actor.fatiga} max={maxFatiga} tipo="fatiga"/>}</div>
    {!!actor.recursos?.length&&<div className="heroe-recursos">{actor.recursos.map(r=><RecursoGemas key={r.id} r={r}/>)}</div>}
-   {actor.estados_detalle?.length?<ul className="heroe-estados heroe-estados--detalle" aria-label="Estados">{actor.estados_detalle.map(e=><li key={e.id} className={`estado-chip estado-${e.categoria||'narrativo'}`} title={e.frase} aria-label={e.frase} tabIndex={0}><IconoYugen id={e.icono} size={14}/><span>{e.nombre.split(':')[0]}</span>{e.restantes>0&&<b>{e.restantes}</b>}</li>)}</ul>:
+   {actor.estados_detalle?.length?<ChipsEstado estados={actor.estados_detalle} clase="heroe-estados heroe-estados--detalle"/>:
    <div className="heroe-estados">{estados.length?<>{estados.slice(0,3).map(e=><span key={e}>{e}</span>)}{estados.length>3&&<span title={estados.slice(3).join(', ')}>+{estados.length-3}</span>}</>:<small>{actor.accion_usada?'Acción utilizada':'Acción disponible'}</small>}</div>}
   </div>
  </div>;
@@ -326,7 +328,7 @@ export function BarraCombate({legendariaFuera=false,restante,actor,acciones,sele
  };});
  useEffect(()=>{if(typeof window==='undefined')return;const f=(e:KeyboardEvent)=>teclas.current(e);window.addEventListener('keydown',f);return()=>window.removeEventListener('keydown',f);},[]);
  // Resumen de turno: se toma una instantánea al empezar y se compara con el último estado visto al terminar.
- const instantanea=():Instantanea=>({vida:actor.vida,max_vida:actor.max_vida,ph:phReal,fatiga:actor.fatiga,accion_usada:actor.accion_usada,estados:actor.estados,capa:capaDe(actor.estados),movimiento});
+ const instantanea=():Instantanea=>({vida:actor.vida,max_vida:actor.max_vida,ph:phReal,fatiga:actor.fatiga,accion_usada:actor.accion_usada,estados:actor.estados,capa:actor.capa??capaDe(actor.estados),movimiento});
  const turno=useRef<{nombre:string;inicio:Instantanea;ultimo:Instantanea}|null>(null),[resumen,setResumen]=useState<{nombre:string;lineas:string[]}|null>(null);
  useEffect(()=>{
   const previo=turno.current;
@@ -371,4 +373,9 @@ export function BarraCombate({legendariaFuera=false,restante,actor,acciones,sele
   <div className="tactical-description" aria-live="polite"><div><strong>{titulo}</strong><p>{texto}</p>{ayuda&&!!ayuda.detalles.length&&<details><summary>Detalles</summary>{ayuda.detalles.map((d,i)=><p key={i}>{d}</p>)}</details>}</div>
    <div>{pista&&<span className={enEspera?'is-pendiente':''}><Crosshair size={14}/> {pista}</span>}{!!accionInfo?.efecto.coste_fatiga&&<label><input type="checkbox" checked={forzar} onChange={e=>onForzar(e.target.checked)}/> Forzar natural al agotarte: sufres 1d4.</label>}</div></div>
  </section>;
+}
+
+/** Estados como chips con icono, duración y la frase del Yunque en el tooltip. Los usan la barra y el panel de la ficha. */
+export function ChipsEstado({estados,clase='campo-estados-chips'}:{estados:EstadoBarra[];clase?:string}){
+ return <ul className={clase} aria-label="Estados">{estados.map(e=><li key={e.id} className={`estado-chip estado-${e.categoria||'narrativo'}`} title={e.frase} aria-label={e.frase} tabIndex={0}><IconoYugen id={e.icono} size={14}/><span>{e.nombre.split(':')[0]}</span>{e.restantes>0&&<b>{e.restantes}</b>}</li>)}</ul>;
 }

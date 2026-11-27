@@ -166,3 +166,13 @@
 .campo .tactical-cell.footprint-occupied:focus-visible{outline:2px solid #fff;outline-offset:-3px;z-index:5}
 
 .campo .tactical-cell.footprint-hover .tactical-token-name{opacity:1}
+
+/* Estados en la ficha del tablero: hasta tres iconos en la esquina, coloreados por categoría. */
+.campo .ficha-estados,.ficha-estados{position:absolute;top:-6%;right:-8%;display:flex;align-items:center;gap:1px;z-index:6;pointer-events:none}
+.ficha-estados>span{display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#0c0a13ee;border:1px solid var(--color-line,#555);color:#f1e4bd;box-shadow:0 1px 2px #000}
+.ficha-estados>span.estado-mental{color:#d8c1ff;border-color:#b583ff99}
+.ficha-estados>span.estado-elemental{color:#a8ddff;border-color:#6cc8ff99}
+.ficha-estados>span.estado-fisico{color:#ffc3a8;border-color:#d9734a99}
+.ficha-estados b{padding:0 3px;border-radius:999px;background:#0c0a13ee;font:700 9px/1.5 var(--font-sans,sans-serif);color:#f1e4bd}
+.campo-estados-chips{display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0;list-style:none}
+@media (prefers-reduced-motion:reduce){.campo-estados-chips .estado-chip{animation:none}}
