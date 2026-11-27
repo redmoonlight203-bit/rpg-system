@@ -8,7 +8,6 @@ import EditorInvocacion from '../../EditorInvocacion';
 import RequisitosYunque from '../../RequisitosYunque';
 import {EditorTransformacion} from '../../EditorTransformacion';
 import {TablaArmas} from '../../TablaArmas';
-import SelectorVFX from '../../SelectorVFX';
 import EditorVision from './EditorVision';
 import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
 import {SelectorRegla} from '../../SelectorRegla';
@@ -99,7 +98,6 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
     </div>
    </div>;
   }
-  case 'vfx':return <div className="yq-editor yq-legado"><SelectorVFX valor={e.vfx} onChange={vfx=>patch({vfx})}/></div>;
   case 'vision':return e.vision?<EditorVision vision={e.vision} efecto={e} onChange={vision=>patch({vision})}/>:null;
   case 'tabla_armas':{
    const armas=ctx.creaciones.filter(c=>(c.tipo_creacion??tipoDe(c,ctx.categorias))==='objeto'&&['mano','dos_manos'].includes(c.slot_tipo));

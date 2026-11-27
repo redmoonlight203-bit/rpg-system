@@ -7,7 +7,7 @@ import {ColaVisual} from '../lib/cola-visual';
 import {precargarVFX} from '../lib/precarga-vfx';
 import './vfx.css';
 
-type Lote={id:string;clips:ClipVFX[];pantalla?:string};
+type Lote={id:string;clips:ClipVFX[];pantalla?:string;contenedorPantalla?:HTMLElement};
 const reproducidos=new Set<string>();
 function Sprite({clip,columnas,filas}:{clip:ClipVFX;columnas:number;filas:number}){
  const ref=useRef<HTMLSpanElement>(null),asset=buscarVFX(clip.animacion)!;
@@ -54,9 +54,11 @@ export default function EfectosCombate({evento,columnas,filas}:{evento?:EventoVi
   if(!evento||(reproducidos.has(evento.id)&&propio.current!==evento.id)||!evento.creado_en||Date.now()-(evento.recibido_en||evento.creado_en)>10000)return;
   const clips=planificarVFX(evento).slice(0,24).map(c=>({...c,inicio:Math.min(c.inicio,800),duracion:Math.min(c.duracion,2400)}));if(!clips.length&&!evento.vfx?.pantalla)return;
   propio.current=evento.id;reproducidos.add(evento.id);if(reproducidos.size>250)reproducidos.delete(reproducidos.values().next().value!);
-  precargarVFX(clips.map(c=>c.animacion));cola.current?.agregar({id:evento.id,clips,pantalla:evento.vfx?.pantalla?evento.nombre.split(" · ").pop():undefined});
+  precargarVFX(clips.map(c=>c.animacion));
+  cola.current?.agregar({id:evento.id,clips,pantalla:evento.vfx?.pantalla?evento.nombre.split(" · ").pop():undefined,
+   contenedorPantalla:capa.current?.closest('dialog')??undefined});
  },[evento?.id]);
- return <div ref={capa} className="vfx-layer" aria-hidden="true">{lote?.pantalla&&createPortal(<div key={lote.id} className="vfx-paradoja" aria-hidden="true"><strong>{lote.pantalla}</strong></div>,document.body)}{lote?.clips.map(c=><Sprite key={lote.id+':'+c.id} clip={c} columnas={columnas} filas={filas}/>)}</div>;
+ return <div ref={capa} className="vfx-layer" aria-hidden="true">{lote?.pantalla&&createPortal(<div key={lote.id} className="vfx-paradoja" aria-hidden="true"><strong>{lote.pantalla}</strong></div>,lote.contenedorPantalla??document.body)}{lote?.clips.map(c=><Sprite key={lote.id+':'+c.id} clip={c} columnas={columnas} filas={filas}/>)}</div>;
 }
 
 export function AuraTransformacion({id,escala=1.5}:{id?:string;escala?:number}){

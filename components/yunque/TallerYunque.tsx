@@ -24,6 +24,7 @@ import EditorSi from './editores/EditorSi';
 import EditorEntonces from './editores/EditorEntonces';
 import EditorPasivaNodo from './editores/EditorPasivaNodo';
 import EditorModulo from './editores/EditorModulo';
+import EditorAnimacion from './editores/EditorAnimacion';
 import {activas,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
 import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
@@ -115,6 +116,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  const posiciones=useMemo(()=>disponer(grafo,guardadas.p,tamanos),[grafo,guardadas.p,tamanos]);
  const historial=useHistorial(b,setB,onNuevaSesion);
  const [eleccion,setSeleccion]=useState<string|null>('nucleo');
+ const [animacion,setAnimacion]=useState<{documento:string;accion:string|null}|null>(null);
  // Las piezas sin conectar se conservan al navegar dentro de la misma página.
  const [sueltosDe,setSueltosDe]=useState<{clave:string;lista:Suelto[]}>(()=>({clave,lista:hijo?[]:mesa.get(b.id||documento)||[]}));
  const sueltos=useMemo(()=>mismaSesion(sueltosDe.clave,clave)?sueltosDe.lista:[],[sueltosDe,clave]);
@@ -200,10 +202,28 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   if(info)avisar(info,'info');
  }
 
+ /** El nodo se enlaza al borrador antes de abrir el editor. Si ya existe, conserva su configuración. */
+ function abrirAnimacion(accion:string,punto?:Punto){
+  const efecto=bRef.current.efectos.find(e=>e.id===accion);
+  if(!efecto)return;
+  if(!efecto.vfx&&!ejecutar([{op:'agregar',tipo:'vfx',padre:`accion:${accion}`}],punto))return;
+  setSeleccion(`vfx:${accion}`);
+  setAnimacion({documento,accion});
+ }
+ function accionDeNodo(id:string|null){
+  const nodo=grafo.nodos.find(n=>n.id===id);
+  return nodo?.ruta[0]==='efectos'?bRef.current.efectos[nodo.ruta[1] as number]?.id:undefined;
+ }
+
  /** Soltar una pieza del Grimorio: sobre un nodo, se engancha; en el vacío, se une al núcleo o queda suelta. */
  function soltarPieza(pieza:Pieza,destino:Destino|null,punto:Punto|null,puntoSuelto=punto){
   const item=enlazableDe(pieza);
   if(item){enlazar(item,destino);return;}
+  if(pieza.clave==='modulo:vfx'){
+   const accion=accionDeNodo(destino?.nodo??seleccion)??(!destino&&bRef.current.efectos.length===1?bRef.current.efectos[0].id:undefined);
+   if(accion){abrirAnimacion(accion,destino?undefined:punto??undefined);return;}
+   if(!destino){setAnimacion({documento,accion:null});return;}
+  }
   let ops:Operacion[]|null;
   try{ops=planSoltar(bRef.current,pieza,destino);}catch(e){avisar(mensajeError(e,'Esa pieza no encaja ahí.'));return;}
   if(ops){ejecutar(ops,destino?undefined:punto??undefined,undefined,destino?.nodo??'nucleo');return;}
@@ -343,7 +363,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  const teclas=useRef<(e:KeyboardEvent)=>void>(()=>{});
  useEffect(()=>{
   teclas.current=(e:KeyboardEvent)=>{
-   if(e.defaultPrevented||e.altKey||escribiendo(e.target))return;
+   if(e.defaultPrevented||e.altKey||escribiendo(e.target)||(e.target instanceof HTMLElement&&e.target.closest('.yq-animacion')))return;
    const ctrl=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();
    if(ctrl&&(k==='z'&&!e.shiftKey)){e.preventDefault();deshacer();return;}
    if(ctrl&&(k==='y'||(k==='z'&&e.shiftKey))){e.preventDefault();rehacer();return;}
@@ -432,6 +452,11 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
    if(faltantes(item.id).length)return {texto:'No cumple sus requisitos',tono:'mal'};
    return {texto:slot?`Equipa en ${nombreHueco(slot)}`:item.tipo==='habilidad'||item.tipo==='pasiva'?'Se enlaza al personaje':'Se equipa en un hueco libre',tono:'bien'};
   }
+  if(pieza.clave==='modulo:vfx'){
+   if(!sobre)return {texto:'Abre el editor de animaciones',tono:'bien'};
+   const nodo=grafo.nodos.find(n=>n.id===sobre.nodo);
+   if(nodo?.ruta[0]==='efectos')return {texto:'Edita la animación de esta acción',tono:'bien'};
+  }
   if(sobre){
    const n=grafo.nodos.find(x=>x.id===sobre.nodo);if(!n)return null;
    if(!compatibles.has(n.id))return {texto:`«${n.titulo}» no la admite`,tono:'mal'};
@@ -461,7 +486,11 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   if(n.id.startsWith('suelto:')){const s=sueltos.find(x=>x.id===n.id);return {icono:s?.pieza.icono,pie:<button type="button" className="yq-boton is-peligro" onClick={()=>setSueltos(l=>l.filter(x=>x.id!==n.id))}>Descartar</button>};}
   const props={b,nodo:n,operar:(o:Operacion)=>operar(o)};
   switch(n.tipo){
-   case 'accion':{const e=b.efectos[n.ruta[1] as number];return {icono:e?ICONO_EFECTO[e.efecto]:undefined,editor:!conEditor?undefined:<EditorAccion {...props}/>};}
+   case 'accion':{const e=b.efectos[n.ruta[1] as number];return {icono:e?ICONO_EFECTO[e.efecto]:undefined,editor:!conEditor||!e?undefined:<EditorAccion {...props} onAnimacion={()=>abrirAnimacion(e.id)}/>};}
+   case 'vfx':{
+    const e=b.efectos[n.ruta[1] as number];
+    return {icono:'rayo',editor:!conEditor||!e?undefined:<div className="yq-editor"><button type="button" className="yq-boton" onClick={()=>abrirAnimacion(e.id)}>Abrir editor de animaciones</button></div>};
+   }
    case 'cuando':{const r=b.reglas[n.ruta[1] as number];return {icono:r?ICONO_EVENTO[r.evento]:undefined,editor:!conEditor?undefined:<EditorCuando {...props}/>};}
    case 'si':{const c=leer(b,n.ruta) as CondicionRegla|undefined;return {icono:c?ICONO_SI[c.tipo]:undefined,editor:!conEditor?undefined:<EditorSi {...props}/>};}
    case 'entonces':{const e=leer(b,n.ruta) as EfectoRegla|undefined;return {icono:e?ICONO_EFECTO_REGLA[e.tipo]:undefined,editor:!conEditor?undefined:<EditorEntonces {...props} avisar={t=>avisar(t)}/>};}
@@ -478,6 +507,9 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  };
 
  const guiaLista=arrastre&&vista==='lista'?{compatibles:arrastre.compatibles,sobre:arrastre.sobre?.nodo??null}:null;
+ const indiceAnimacion=animacion?.documento===documento&&animacion.accion!==null?b.efectos.findIndex(e=>e.id===animacion.accion):-1;
+ const efectoAnimacion=b.efectos[indiceAnimacion];
+ const editorAbierto=animacion?.documento===documento&&(animacion.accion===null||!!efectoAnimacion?.vfx);
  return <CatalogoReglas atributos={ctx.atributos} fuentes={fuentesColeccion}><CatalogoReglas fuentes={fuentesBorrador}><div className={`yq-taller is-${vista}`} data-creacion={b.id||'nueva'}>
   <header className="yq-barra">
    <span className="yq-barra-runa"><Runa seccion="forja" size={30}/></span>
@@ -498,6 +530,13 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
    <button type="button" className="yq-barra-ficha" disabled={guardando} onClick={()=>void forjar()}>{guardando?'Guardando…':'Guardar'}</button>
    <button type="button" className="yq-forjar" disabled={guardando||hijo} onClick={onNuevo} title="Abrir un lienzo vacío"><Hammer size={16} aria-hidden="true"/>Forjar</button>
   </header>
+  {editorAbierto&&<EditorAnimacion key={efectoAnimacion?.id??'elegir'} efecto={efectoAnimacion} acciones={b.efectos}
+   onElegir={abrirAnimacion} onCerrar={()=>setAnimacion(null)} onChange={cambio=>{
+    const indice=bRef.current.efectos.findIndex(e=>e.id===efectoAnimacion?.id);
+    if(indice<0)return;
+    const datos={...bRef.current.efectos[indice],...cambio};
+    operar({op:'fijar',ruta:['efectos',indice],valor:Object.fromEntries(Object.entries(datos).filter(([,v])=>v!==undefined))});
+   }}/>}
   {error&&<p role="alert" className="yq-error-global">{error}</p>}
   <Grimorio filtro={lleva} creaciones={ctx.creaciones} excluir={b.id} enlazar={piezasColeccion} onSoltar={alSoltar} onArrastrar={alArrastrar} pista={pista}>
    <h3 className="yq-indice-titulo">{vista==='lista'?'En la lista':'En el lienzo'}</h3>
