@@ -196,10 +196,14 @@ function combinar(actual:CondicionRegla,nueva:CondicionRegla):CondicionRegla{
  if(esGrupo(actual))return {...actual,condiciones:[...(actual as {condiciones:CondicionRegla[]}).condiciones,nueva]} as CondicionRegla;
  return {tipo:'todas',condiciones:[actual,nueva]};
 }
-function planCondicion(b:Borrador,n:Nodo,nueva:CondicionRegla):Operacion[]{
+function planCondicion(b:Borrador,n:Nodo,nueva:CondicionRegla,puerto?:string):Operacion[]{
  let ruta:Ruta;
  if(n.tipo==='cuando')ruta=[...n.ruta,'condicion'];
- else if(n.tipo==='si'){const c=leer(b,n.ruta) as CondicionRegla;ruta=c.tipo==='no'?[...n.ruta,'condicion']:n.ruta;}
+ else if(n.tipo==='si'){const c=leer(b,n.ruta) as CondicionRegla;
+  if(puerto==='condiciones'&&(c.tipo==='todas'||c.tipo==='alguna')){
+   return [{op:'fijar',ruta:[...n.ruta,'condiciones'],valor:[...c.condiciones,clon(nueva)]}];
+  }
+  ruta=c.tipo==='no'?[...n.ruta,'condicion']:n.ruta;}
  else if(n.tipo==='entonces'&&(leer(b,n.ruta) as EfectoRegla).tipo==='condicional')ruta=[...n.ruta,'condicion'];
  else return falla('Una condición va en una regla: suéltala sobre «Cuándo», otra condición o un efecto condicional.');
  return [{op:'fijar',ruta,valor:combinar((leer(b,ruta) as CondicionRegla|undefined)??{tipo:'siempre'},clon(nueva))}];
@@ -254,7 +258,7 @@ export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacio
  }
  if(!destino)return null;
  if(!n)return falla(`«${pieza.nombre}» no cuelga del núcleo: suéltala sobre ${f.tipo==='si'?'una regla':f.tipo==='entonces'?'una regla':'una acción'}.`);
- if(f.tipo==='si')return planCondicion(b,n,f.datos as CondicionRegla);
+ if(f.tipo==='si')return planCondicion(b,n,f.datos as CondicionRegla,destino.puerto);
  if(f.tipo==='entonces')return planEfecto(b,n,f,destino.puerto);
  if(MODULOS.includes(f.tipo)){
   if(f.tipo==='vfx'&&(n.animacionContexto||['transformacion','reaccion','cuando'].includes(n.tipo)))return falla('Edita esta animación desde su Editor de animaciones.');
