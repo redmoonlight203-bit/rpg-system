@@ -9,7 +9,7 @@ import type {CondicionRegla,EfectoRegla,Regla} from '../lib/reglas';
 import type {Efecto,Reaccion,ResultadoReaccion} from '../lib/creacion';
 
 type Opciones=Map<string,string>;
-export type TipoClave='atributo'|'estado'|'forma'|'recurso';
+export type TipoClave='atributo'|'estado'|'forma'|'recurso'|'grupo';
 type Catalogo=Record<TipoClave,Opciones>;
 type Stat={clave:string;etiqueta:string};
 export type FuenteReglas={reglas?:Regla[];efectos?:Efecto[];stats?:Record<string,number>};
@@ -18,6 +18,7 @@ const base:Catalogo={
  estado:new Map([['furia','Furia'],...CATALOGO_ESTADOS.map(e=>[e.id,e.nombre.split(':')[0]] as const)]),
  forma:new Map(),
  recurso:new Map(),
+ grupo:new Map(),
 };
 const Contexto=createContext(base);
 const legible=(v:string)=>v.replaceAll('_',' ').replace(/^./,c=>c.toLocaleUpperCase('es'));
@@ -74,6 +75,8 @@ function leerAccion(e:Efecto,c:Catalogo){
  if(e.estado_impacto)agregar(c.estado,e.estado_impacto.id,e.estado_impacto.nombre);
  if(e.transformacion?.id)agregar(c.forma,e.transformacion.id,e.transformacion.nombre);
  if(e.recurso?.nombre)agregar(c.recurso,e.recurso.nombre,e.recurso.nombre);
+ const grupo=e.grupo_barra?.trim()||(e.axioma?'Axioma':'');if(grupo)agregar(c.grupo,grupo,grupo);
+ if(e.gratis_en_forma)agregar(c.forma,e.gratis_en_forma);else if(e.ley_limitless)agregar(c.forma,'limitless','Limitless');
  for(const d of e.rasgo?.recursos||[])agregar(c.recurso,d.id,d.nombre);
  leerReaccion(e.reaccion,c);
 }
@@ -85,7 +88,7 @@ export function CatalogoReglas({atributos,fuentes,children}:{atributos?:Stat[];f
  const [grimorio,setGrimorio]=useState<[string,string][]>([]);
  useEffect(()=>{if(!raiz)return;let vivo=true;void leerGrimorio().then(l=>{if(vivo)setGrimorio(l);});return()=>{vivo=false;};},[raiz]);
  const catalogo=useMemo(()=>{
-  const c:Catalogo={atributo:new Map(anterior.atributo),estado:new Map(anterior.estado),forma:new Map(anterior.forma),recurso:new Map(anterior.recurso)};
+  const c:Catalogo={atributo:new Map(anterior.atributo),estado:new Map(anterior.estado),forma:new Map(anterior.forma),recurso:new Map(anterior.recurso),grupo:new Map(anterior.grupo)};
   for(const [id,nombre] of grimorio)agregar(c.estado,id,nombre);
   for(const a of atributos||[])agregar(c.atributo,a.clave,a.etiqueta);
   for(const fuente of fuentes){
@@ -105,6 +108,7 @@ const TEXTOS:Record<TipoClave,{crear:string;campo:string;vacio:string}>={
  estado:{crear:'Crear estado o forma',campo:'Nombre del nuevo estado o forma',vacio:'Selecciona un estado'},
  forma:{crear:'',campo:'',vacio:'Selecciona una transformación'},
  recurso:{crear:'Crear recurso',campo:'Nombre del nuevo recurso',vacio:'Selecciona un recurso'},
+ grupo:{crear:'Crear grupo',campo:'Nombre del nuevo grupo',vacio:'Selecciona un grupo'},
 };
 type Props={tipo:TipoClave;etiqueta:string;valor:string;opcional?:boolean;textoOpcional?:string;onChange:(valor:string,nombre:string)=>void;crear?:boolean;ayuda?:string};
 /**
@@ -126,7 +130,7 @@ export function SelectorRegla({tipo,etiqueta,valor,opcional,textoOpcional,onChan
  const t=TEXTOS[tipo];
  function confirmar(){
   if(!nuevo||repetido)return;
-  const clave=tipo==='recurso'?nuevo:claveLibre(nuevo,opciones.keys(),tipo);
+  const clave=tipo==='recurso'||tipo==='grupo'?nuevo:claveLibre(nuevo,opciones.keys(),tipo);
   onChange(clave,nuevo);setNombre(null);
  }
  return <div><label className="yq-campo"><span>{etiqueta}</span><select className="w-full rounded-lg border border-neutral-700 bg-well p-2 text-sm" value={valor} onChange={e=>{setNombre(null);onChange(e.target.value,opciones.get(e.target.value)||'');}}>

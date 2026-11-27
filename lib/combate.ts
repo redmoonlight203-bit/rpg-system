@@ -679,9 +679,14 @@ export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion;}
 function efectosConReaccion(m:Combatiente):Efecto[]{return habilidadesDe(m).flatMap(h=>h.efectos||[]).map(normalizarReaccion);}
 type ReaccionDisponible={p:Efecto;r:Reaccion;coste:number;restantes:number|null};
 /** Coste, usos y enfriamiento: null si ahora no se puede ofrecer. */
+/** Forma en la que la acción no cuesta PH (los datos antiguos de Kion usaban `ley_limitless`). */
+export const formaGratis=(e:Pick<Efecto,'gratis_en_forma'|'ley_limitless'>):string|undefined=>e.gratis_en_forma||(e.ley_limitless?'limitless':undefined);
+const enFormaGratis=(m:Pick<Combatiente,'transformacion'>,e:Efecto)=>{const f=formaGratis(e);return !!f&&m.transformacion?.definicion_id===f;};
+/** Grupo de la barra de combate en que aparece la acción (los datos antiguos de Kion usaban `axioma`). */
+export const grupoBarra=(e:Pick<Efecto,'grupo_barra'|'axioma'>):string|undefined=>e.grupo_barra?.trim()||(e.axioma?'Axioma':undefined);
 function disponibilidad(c:Combate,t:Combatiente,p:Efecto,r:Reaccion):ReaccionDisponible|null{
   if(!permiteReacciones(t.estados.map(definicionDe)))return null;
-  const coste=t.transformacion?.definicion_id==='limitless'&&p.ley_limitless?0:(r.coste??p.coste_ph??0);
+  const coste=enFormaGratis(t,p)?0:(r.coste??p.coste_ph??0);
   if(phDisponibles(t)<coste||(r.una_por_ronda&&t.rondas_reacciones?.[p.id]===c.ronda))return null;
   const u=t.usos_reaccion?.[p.id];
   if(r.enfriamiento&&u&&c.ronda<=u.ultima+r.enfriamiento)return null;
@@ -801,7 +806,7 @@ export function reaccionesDe(c:Combate,m:Combatiente):{id:string;nombre:string;d
   return efectosConReaccion(m).filter((p):p is Efecto&{reaccion:Reaccion}=>!!p.reaccion).map(p=>{
     const r=p.reaccion,u=m.usos_reaccion?.[p.id];
     const restantes=r.usos&&r.usos.tipo!=='ilimitado'?Math.max(0,(r.usos.maximo||1)-(r.usos.tipo==='encuentro'?(u?.encuentro||0):(u&&u.ronda===c.ronda?u.en_ronda:0))):null;
-    const coste=m.transformacion?.definicion_id==='limitless'&&p.ley_limitless?0:(r.coste??p.coste_ph??0);
+    const coste=enFormaGratis(m,p)?0:(r.coste??p.coste_ph??0);
     return {id:p.id,nombre:p.nombre,disparador:disparadorDe(r),linea:lineaCosteReaccion({...r,coste},0,restantes),lista:!!disponibilidad(c,m,p,r)};
   });
 }
@@ -1345,8 +1350,7 @@ export function acciones(m: Combatiente) {
    if(d?.transiciones?.length)return opcionesDeForma(m,a,d);
    if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':d.etapas[i+1]?.descontrolada?'Esta fase requiere fallar la salvación de posesión.':undefined};}
    if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
-   const efecto=m.transformacion?.definicion_id==='limitless' && a.efecto.ley_limitless
-     ? {...a.efecto,coste_ph:0} : a.efecto;
+   const efecto=enFormaGratis(m,a.efecto) ? {...a.efecto,coste_ph:0} : a.efecto;
    if(vozNiega(m.voz_artefacto,a))return {...a,efecto:conAlcance(efecto,a.nombre),bloqueada:'La voz del artefacto te lo niega.'};
    const conTablero=conAlcance(efecto,a.nombre),pots=rasgos.length&&efecto.efecto==='dano'?potenciadoresDisponibles(m,conTablero,rasgos):[];
    return {...a,efecto:conTablero,...(pots.length?{potenciadores:pots}:{})};

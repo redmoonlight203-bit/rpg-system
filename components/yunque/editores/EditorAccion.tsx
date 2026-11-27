@@ -3,7 +3,7 @@
 import {OPCIONES_ELEMENTO_O_NINGUNO} from '../../../lib/catalogos';
 import {SelectorRegla} from '../../SelectorRegla';
 import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
-import {elementoDe,tipoPresupuesto,type TipoPresupuesto} from '../../../lib/combate';
+import {elementoDe,formaGratis,grupoBarra,tipoPresupuesto,type TipoPresupuesto} from '../../../lib/combate';
 import {formula,type Efecto} from '../../../lib/creacion';
 import {Interruptor} from '../Controles';
 import EditorDefensas from './EditorDefensas';
@@ -119,7 +119,9 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
    <fieldset className="yq-fichas"><legend>Atraviesa inmunidades</legend><div>{IGNORA.map(o=>{const on=!!e.ignora?.includes(o.valor);return <button key={o.valor} type="button" aria-pressed={on} onClick={()=>{const l=on?(e.ignora||[]).filter(x=>x!==o.valor):[...(e.ignora||[]),o.valor];patch({ignora:l.length?l:undefined});}}><span>{o.nombre}</span></button>;})}</div></fieldset>
   </details>}
   </>}
-  <details className="yq-mente"><summary>Avanzado{e.requisito_forma?' · requisito de forma':''}{e.companero_magico?' · compañero':''}</summary>
+  <details className="yq-mente"><summary>Avanzado{e.requisito_forma?' · requisito de forma':''}{e.companero_magico?' · compañero':''}{formaGratis(e)?' · gratis en forma':''}{grupoBarra(e)?` · grupo ${grupoBarra(e)}`:''}</summary>
+   <SelectorRegla tipo="forma" opcional textoOpcional="Siempre cuesta lo indicado" etiqueta="Gratis (0 PH) mientras esté en la forma" valor={formaGratis(e)||''} onChange={f=>patch({gratis_en_forma:f||undefined,ley_limitless:undefined})}/>
+   <SelectorRegla tipo="grupo" crear opcional textoOpcional="En la barra normal" etiqueta="Grupo en la barra de combate" ayuda="Las acciones del mismo grupo se abren juntas desde un botón (p. ej. «Axioma»)." valor={grupoBarra(e)||''} onChange={g=>patch({grupo_barra:g||undefined,axioma:undefined})}/>
    <Interruptor etiqueta="Solo se puede usar al alcanzar un atributo o etapa" valor={!!e.requisito_forma} onChange={v=>patch({requisito_forma:v?{atributo:'etapa',minimo:1}:undefined})}/>
    {e.requisito_forma&&<div className="yq-fila">
     <SelectorRegla tipo="atributo" etiqueta="Atributo o etapa" valor={e.requisito_forma.atributo} onChange={atributo=>patch({requisito_forma:{...e.requisito_forma!,atributo}})}/>

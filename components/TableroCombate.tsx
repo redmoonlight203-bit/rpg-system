@@ -18,7 +18,7 @@ import {imagenCreacion} from '../lib/arte-creacion';
 import Dado3D from './Dado3D';
 import {describirEfecto,describirRegla} from '../lib/descripciones';
 import {HudOcular,MarcasOculares,PanelOcular,casillasDebiles,estiloOcular,lineaOcular} from './CapaOcular';
-import {alcanceVisibleEntreFichas,alcanceDesdeFicha,areaDesdeFicha, type VistaOcular, type MapaCombate,objetivoDelArea, type Accion, type PresupuestoAcciones, presupuestoEstimado, accionUsableAhora, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
+import {grupoBarra,alcanceVisibleEntreFichas,alcanceDesdeFicha,areaDesdeFicha, type VistaOcular, type MapaCombate,objetivoDelArea, type Accion, type PresupuestoAcciones, presupuestoEstimado, accionUsableAhora, type Posicion, type EventoVisual, type CambioVida} from '../lib/combate';
 import type {Efecto} from '../lib/creacion';
 import type {TiradaVisual} from './AnimacionDados';
 import {BarraVital} from './ui/Juego';
@@ -295,7 +295,10 @@ export function BarraCombate({legendariaFuera=false,restante,actor,acciones,sele
  const [segundoClic]=useSegundoClic();
  const phReal=Number.isFinite(actor.ph)?Math.max(0,Math.min(actor.ph,actor.stats?(Number.isFinite(actor.stats.ph)?actor.stats.ph:0):actor.ph)):0;
  const motivoDe=(a?:Accion)=>a?.bloqueada||((a?.efecto.coste_fatiga||0)>0&&(actor.agotado||actor.stats&&actor.fatiga+(a?.efecto.coste_fatiga||0)>(actor.stats.fatiga||0))&&(!forzar||!!a?.regla)?'Fatiga insuficiente.':a?.enfriamiento?`Espera ${a.enfriamiento} turnos`:a&&phReal<a.efecto.coste_ph?'PH insuficientes':'');
- const visibles=acciones.filter(a=>categoria==='axioma'?a.efecto.axioma:!a.efecto.axioma&&(categoria==='todas'||a.id!=='ataque'));
+ // Acciones con grupo propio («Axioma»…) se abren desde su botón; el resto va en la barra.
+ const grupos=[...new Set(acciones.map(a=>grupoBarra(a.efecto)).filter((g):g is string=>!!g))];
+ const grupoAbierto=categoria.startsWith('grupo:')?categoria.slice(6):null;
+ const visibles=acciones.filter(a=>grupoAbierto!==null?grupoBarra(a.efecto)===grupoAbierto:!grupoBarra(a.efecto)&&(categoria==='todas'||a.id!=='ataque'));
  const libre=puede&&!ocupado&&!actor.accion_usada;
  const cupo=restante||actor.presupuesto||(actor.stats?presupuestoEstimado(actor.stats,actor.accion_usada):undefined);
  const usable=(a:Accion)=>(puede||legendariaFuera&&a.presupuesto==='legendaria')&&!ocupado&&accionUsableAhora(a.presupuesto,actor,cupo);
@@ -360,7 +363,7 @@ export function BarraCombate({legendariaFuera=false,restante,actor,acciones,sele
     <div className="tactical-slots" role="group" aria-label="Barra de acciones">
      <button className={moviendo?'chosen':''} disabled={!puede||ocupado||movimiento<=0||actor.derribado} aria-pressed={moviendo} onClick={onMovimiento} {...hover('mover')}><Footprints/><strong>Mover</strong><small>{movimiento} casillas</small></button>
      {actor.derribado&&<button disabled={!puede||ocupado} onClick={onLevantarse}><Footprints/><strong>Levantarse</strong><small>½ movimiento</small></button>}
-     {acciones.some(a=>a.efecto.axioma)&&<button type="button" aria-pressed={categoria==='axioma'} onClick={()=>setCategoria(categoria==='axioma'?'todas':'axioma')}><Sparkles/><strong>Axioma</strong><small>{categoria==='axioma'?'Volver':'Elegir técnica'}</small></button>}
+     {grupos.map(g=><button key={g} type="button" aria-pressed={grupoAbierto===g} onClick={()=>setCategoria(grupoAbierto===g?'todas':'grupo:'+g)}><Sparkles/><strong>{g}</strong><small>{grupoAbierto===g?'Volver':'Elegir técnica'}</small></button>)}
      {visibles.map(a=>{const r=ranuraDe(a.id,'accion'),n=numero(a.id,'accion'),elegida=!moviendo&&seleccion===a.id;return <button key={a.id} disabled={r.deshabilitada} aria-pressed={elegida} aria-keyshortcuts={n?String(n):undefined} title={phReal<(a.efecto.coste_ph||0)?`PH insuficientes: necesitas ${a.efecto.coste_ph}, tienes ${phReal}.`:a.bloqueada||a.nombre} className={`${elegida?'chosen':''} ${pendiente==='accion:'+a.id?'pending':''}`} onClick={()=>activar(r)} {...hover('accion:'+a.id)}>{n&&<span className="tactical-key">{n}</span>}{a.enfriamiento>0&&<span className="tactical-cooldown" aria-hidden="true">{a.enfriamiento}</span>}<ArteRanura src={a.efecto.imagen||imagenCreacion(a.ilustracion?.forja_id || /^(?:regla:)?(?:hab|pasiva|equipo):([^:]+)/.exec(a.id)?.[1], a.ilustracion?.imagen_url)} respaldo={a.efecto.efecto==='dano'?<Swords/>:<Sparkles/>}/><strong>{a.nombre}</strong><small>{rafaga?.accion===a.id?`Disparo ${rafaga.total-rafaga.restantes+1}/${rafaga.total}`:phReal<(a.efecto.coste_ph||0)?'PH insuficientes':a.enfriamiento?`${a.enfriamiento} turnos`:`${a.efecto.rafaga?`${a.efecto.cantidad} disparos · `:''}${a.efecto.coste_ph?`${a.efecto.coste_ph} PH`:a.efecto.coste_fatiga?`${a.efecto.coste_fatiga} Fatiga`:'1 acción'}`}</small></button>;})}
      {(()=>{const r=ranuraDe('guardia','guardia'),n=numero('guardia','guardia');return <button disabled={r.deshabilitada} className={`${!moviendo&&seleccion==='guardia'?'chosen':''} ${pendiente==='guardia:guardia'?'pending':''}`} aria-pressed={!moviendo&&seleccion==='guardia'} aria-keyshortcuts={n?String(n):undefined} onClick={()=>activar(r)} {...hover('guardia:guardia')}>{n&&<span className="tactical-key">{n}</span>}<Shield/><strong>{actor.guardia?.nombre||'Guardia'}</strong><small>{actor.guardia?.frase.split(': ').slice(1).join(': ').replace(/\.$/,'')||'+2 ARM'}</small></button>;})()}
      {!!consumibles.length&&<span className="tactical-slots-sep" aria-hidden="true"/>}
