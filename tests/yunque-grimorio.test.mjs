@@ -168,3 +168,19 @@ test('la familia Pasivas reúne todas las formas de crear una pasiva',()=>{
  const g=aGrafo(soltar(base(),PIEZAS.find(p=>p.familia==='acciones'&&p.tipo==='accion'),null),ctx);
  assert.ok(g.nodos.some(x=>x.tipo==='accion'&&!x.pasivo));
 });
+
+test('transformarse y curar nacen directamente del núcleo; una forma concede su acción mediante un cable',()=>{
+ for(const entrada of ['Transformarse','Transformación']){
+  const b=soltar(base(),pieza(entrada),null);
+  const forma=b.efectos[0];
+  assert.equal(forma.efecto,'transformacion');
+  const etapa=forma.transformacion.etapas[0].id;
+  const padre='transformacion:'+forma.id;
+  const r=aplicar(b,{op:'pegar',padre,etapa,fragmento:pieza('Curación').fragmentos[0]});
+  const cura=r.efectos[1];
+  assert.equal(cura.efecto,'curacion');
+  assert.deepEqual(json(r.efectos[0].transformacion.etapas[0].habilidades),[cura.id]);
+  assert.ok(aGrafo(r,ctx).cables.some(c=>c.desde.nodo===padre&&c.desde.puerto==='poder:'+etapa&&c.hasta.nodo==='accion:'+cura.id));
+  assert.equal(b.efectos.length,1);
+ }
+});
