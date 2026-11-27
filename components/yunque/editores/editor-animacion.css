@@ -165,7 +165,7 @@
 .yq-animacion-pistas > p {padding:0 8px}
 .yq-animacion-pista {position:relative;height:30px}
 .yq-animacion-pista > button {
-  position:absolute;top:2px;min-width:18px;height:25px;padding:0 5px;
+  position:absolute;top:2px;min-width:18px;min-height:0;height:25px;padding:0 5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;
   border:1px solid var(--color-line);border-radius:3px;
   color:var(--color-text);background:color-mix(in srgb,var(--color-arcane) 18%,var(--color-raised));

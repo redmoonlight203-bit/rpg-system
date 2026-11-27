@@ -15,6 +15,7 @@ export type GeometriaVFX={
  origen:Punto; objetivo?:Punto; area?:Punto[]; patron?:boolean; girar?:boolean;
  impactos:Punto[][]; espejo?:boolean; tablero:{columnas:number;filas:number};
 };
+export const FRACCION_AVANCE_HAZ=.44;
 export const MAX_CLIPS_VFX=48;
 export const MAX_INICIO_VFX=10000;
 export const MAX_DURACION_VFX=4000;

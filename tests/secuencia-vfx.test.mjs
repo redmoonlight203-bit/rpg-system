@@ -23,7 +23,7 @@ test('tres haces y un impacto por objetivo, con tiempos calculados a lo largo de
  assert.equal(haces.length,3);
  assert.deepEqual(haces.map(c=>c.hasta),[{x:7,y:4},{x:7,y:8},{x:7,y:0}]);
  assert.ok(haces.every(c=>c.inicio===0&&c.duracion===1000));
- assert.deepEqual(golpes.sort((a,b)=>a.inicio-b.inicio).map(c=>[c.desde.x,c.inicio]),[[4,155],[5,310],[6,465]]);
+ assert.deepEqual(golpes.sort((a,b)=>a.inicio-b.inicio).map(c=>[c.desde.x,c.inicio]),[[4,110],[5,220],[6,330]]);
  assert.equal(clips.find(c=>c.id==='eco-casilla').inicio,1800);
  assert.deepEqual(clips.find(c=>c.id==='eco-casilla').desde,{x:6,y:1});
 });

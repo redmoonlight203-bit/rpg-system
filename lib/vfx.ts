@@ -1,5 +1,5 @@
 import catalogo from './catalogo-vfx.json';
-import {casillaDeClip,mismaCasillaVFX,rutasVFX,validarSecuenciaVFX,type PasoVFX,type SecuenciaVFX} from './secuencia-vfx';
+import {casillaDeClip,mismaCasillaVFX,rutasVFX,FRACCION_AVANCE_HAZ,validarSecuenciaVFX,type PasoVFX,type SecuenciaVFX} from './secuencia-vfx';
 /** Referencias estables; las imágenes se descargan únicamente al previsualizar/reproducir. */
 export type ConfiguracionVFX = {
  pantalla?:boolean;
@@ -91,7 +91,7 @@ function planificarSecuencia(evento:EventoVisual):ClipVFX[]{
   const punto=posibles[0]?.p??huella.find(p=>g.area?.some(q=>mismaCasillaVFX(p,q)))??huella[0];
   if(!punto)return null;
   const proporcion=posibles[0]?distancia(g.origen,punto)/Math.max(1,distancia(g.origen,posibles[0].fin)):1;
-  const tiempos=viajes.filter(v=>posibles[0]?corresponde(v,posibles[0].rama):!v.rama).map(v=>v.inicio+v.duracion*proporcion*(v.disparador==='haz'?.62:1));
+  const tiempos=viajes.filter(v=>posibles[0]?corresponde(v,posibles[0].rama):!v.rama).map(v=>v.inicio+v.duracion*proporcion*(v.disparador==='haz'?FRACCION_AVANCE_HAZ:1));
   return {punto,tiempo:tiempos.length?Math.min(...tiempos):0};
  }
  return pasos.flatMap(paso=>{
@@ -110,7 +110,7 @@ function planificarSecuencia(evento:EventoVisual):ClipVFX[]{
    case 'haz':case 'trayecto':case 'final':return aRumbo(paso).map((rama,i)=>{
     const p=rama.at(-1)!;
     if(paso.disparador==='final'){
-     const fin=viajes.filter(v=>corresponde(v,rama)).map(v=>v.inicio+v.duracion*(v.disparador==='haz'?.62:1));
+     const fin=viajes.filter(v=>corresponde(v,rama)).map(v=>v.inicio+v.duracion*(v.disparador==='haz'?FRACCION_AVANCE_HAZ:1));
      return clip(String(i),p,p,{inicio:paso.inicio+(fin.length?Math.min(...fin):0)});
     }
     return clip(String(i),desde,p,{haz:paso.disparador==='haz',giro:paso.giro+rumbo(p)});

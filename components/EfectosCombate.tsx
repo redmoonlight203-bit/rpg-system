@@ -4,6 +4,7 @@ import {useEffect,useId,useRef,useState,type CSSProperties} from 'react';
 import type {EventoVisual} from '../lib/combate';
 import {buscarVFX,esLanzamientoRayoDivino,separarVFX,transformacionClipVFX,transformacionVFX,planificarVFX,type ClipVFX} from '../lib/vfx';
 import {ColaVisual} from '../lib/cola-visual';
+import {FRACCION_AVANCE_HAZ} from '../lib/secuencia-vfx';
 import {precargarVFX} from '../lib/precarga-vfx';
 import './vfx.css';
 
@@ -39,7 +40,7 @@ function Haz({clip,columnas,filas}:{clip:ClipVFX;columnas:number;filas:number}){
  return <svg className="vfx-haz" data-clip={clip.id} viewBox={`0 0 ${columnas} ${filas}`} preserveAspectRatio="none" style={estilado} aria-hidden="true">
   <g transform={`translate(${clip.desde.x+.5} ${clip.desde.y+.5}) rotate(${angulo})`}>
    <defs><clipPath id={mascara}><rect x={0} y={-alto/2} width={largo} height={alto}>
-    <animate attributeName="width" from="0" to={largo} dur={`${Math.round(clip.duracion*.62)}ms`} fill="freeze"/>
+    <animate attributeName="width" from="0" to={largo} dur={`${Math.round(clip.duracion*FRACCION_AVANCE_HAZ)}ms`} fill="freeze"/>
    </rect></clipPath></defs>
    <g clipPath={`url(#${mascara})`}>
     <g transform={`translate(${largo/2} 0) scale(${sx} ${sy}) rotate(${giro}) translate(${-largo/2} 0)`}>
