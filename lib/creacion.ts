@@ -2,6 +2,7 @@ import type {OrigenPlantilla} from './yunque-origen';
 import {validarPatron,type PatronArea} from './patron-area';
 import {validarHuella} from './huellas-combate';
 import type {ConfiguracionVFX} from "./vfx";
+import {validarSecuenciaVFX} from "./secuencia-vfx";
 import {validarEmpujeHuella,type DefinicionTransformacion} from "./transformaciones";
 import {validarGrafo} from "./transformaciones-grafo";
 import {migrarTransformacion} from "./transformaciones-migracion";
@@ -303,6 +304,7 @@ function validarAnimacion(v:unknown):string|null {
  if(!v||typeof v!=='object'||Array.isArray(v))return 'Configuración de animación inválida.';
  const c=v as Record<string,unknown>;
  for(const k of ['lanzamiento','recorrido','impacto','entrada','aura'])if(c[k]!==undefined&&(typeof c[k]!=='string'||!/^[a-z0-9_-]{1,100}$/.test(c[k] as string)))return 'Referencia de animación inválida.';
+ if(c.secuencia!==undefined){const error=validarSecuenciaVFX(c.secuencia);if(error)return error;}
  if(c.escala!==undefined&&(typeof c.escala!=='number'||!Number.isFinite(c.escala)||c.escala<0.5||c.escala>4))return 'Tamaño visual inválido (0.5–4 casillas).';
  return null;
 }
