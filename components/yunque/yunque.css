@@ -713,3 +713,7 @@
  .yq-taller .yq-resumen-plantillas{animation:none}
  .yq-taller .yq-resumen-cerrar,.yq-taller .yq-resumen-plantillas li button{transition:none}
 }
+
+/* Los rasgos permanentes reservan espacio para sus propiedades y conexiones. */
+.yq-taller .yq-nodo[data-familia=pasiva][data-tipo=accion]{width:min(400px,88vw)}
+.yq-taller .yq-nodo[data-familia=pasiva][data-tipo=accion].is-seleccionado{width:min(620px,92vw)}
