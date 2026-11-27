@@ -1,8 +1,9 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {buscarVFX} from '../lib/vfx';
+import MiniaturaVFX from './MiniaturaVFX';
 
-export default function BibliotecaVFX({elegir}:{elegir:(id:string)=>void}){
+export default function BibliotecaVFX({elegir,previsualizar=false}:{elegir:(id:string)=>void;previsualizar?:boolean}){
  const [ids,setIds]=useState<string[]>([]),[archivo,setArchivo]=useState<File>();
  const [nombre,setNombre]=useState(''),[duracion,setDuracion]=useState(900),[ocupado,setOcupado]=useState(false);
  const [error,setError]=useState(''),[carga,setCarga]=useState(0),[leyendo,setLeyendo]=useState(true);
@@ -35,7 +36,9 @@ export default function BibliotecaVFX({elegir}:{elegir:(id:string)=>void}){
   finally{subiendo.current=false;if(vigente.current)setOcupado(false);}
  }
  return <section className="vfx-personal">
-  {leyendo?<p>Cargando tus efectos…</p>:ids.length>0?<label>Efectos subidos<select defaultValue="" onChange={e=>elegir(e.target.value)}><option value="" disabled>Elegir un efecto</option>{ids.map(id=><option key={id} value={id}>{buscarVFX(id)?.nombre} · {buscarVFX(id)?.duracion} ms</option>)}</select></label>:<p>Tu biblioteca está vacía.</p>}
+  {leyendo?<p>Cargando tus efectos…</p>:ids.length>0?previsualizar?<div className="yq-animacion-recursos">{ids.map(id=><button type="button" key={id} onClick={()=>elegir(id)}>
+   <MiniaturaVFX clip={id}/><span>{buscarVFX(id)?.nombre}</span>
+  </button>)}</div>:<label>Efectos subidos<select defaultValue="" onChange={e=>elegir(e.target.value)}><option value="" disabled>Elegir un efecto</option>{ids.map(id=><option key={id} value={id}>{buscarVFX(id)?.nombre} · {buscarVFX(id)?.duracion} ms</option>)}</select></label>:<p>Tu biblioteca está vacía.</p>}
   <fieldset disabled={ocupado}><legend>Subir un efecto</legend>
    <label>Archivo PNG, APNG o WebP · máximo 500 KB<input type="file" accept=".png,.apng,.webp" onChange={e=>{
     const f=e.target.files?.[0];setArchivo(f);setNombre(f?.name.replace(/\.[^.]+$/,'').slice(0,18)||'');setError('');

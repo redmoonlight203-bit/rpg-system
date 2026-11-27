@@ -1,6 +1,5 @@
 'use client';
 // Editor del nodo «Cuándo» (cabecera de una regla): los 15 eventos como fichas con icono, costes y límites como ruedas.
-import {SelectorAnimacionRegla} from '../../SelectorVFX';
 import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
 import {describirRegla} from '../../../lib/descripciones';
 import {EVENTOS,type EventoRegla,type Regla} from '../../../lib/reglas';
@@ -18,7 +17,7 @@ const LIMITES:{clave:'coste_ph'|'coste_fatiga'|'enfriamiento'|'usos'|'limite_por
  {clave:'prioridad',nombre:'Prioridad',ayuda:'Los números mayores se resuelven antes',min:-1000,max:1000},
 ];
 
-export default function EditorCuando({b,nodo,operar}:EditorNodoProps){
+export default function EditorCuando({b,nodo,operar,onAnimacion}:EditorNodoProps&{onAnimacion:()=>void}){
  const r=b.reglas[nodo.ruta[1] as number];
  if(!r)return null;
  const patch=(p:Partial<Regla>)=>operar({op:'fijar',ruta:nodo.ruta,valor:Object.fromEntries(Object.entries({...r,...p}).filter(([,v])=>v!==undefined))});
@@ -31,7 +30,7 @@ export default function EditorCuando({b,nodo,operar}:EditorNodoProps){
    <p>{EVENTOS[r.evento]}: {ayuda.resumen}</p>
    <ul>{ayuda.detalles.map((d,i)=><li key={i}>{d}</li>)}</ul>
   </section>
-  <SelectorAnimacionRegla valor={r.animacion} onChange={animacion=>patch({animacion})}/>
+  <button type="button" className="yq-boton" onClick={onAnimacion}>Editar animación de la regla</button>
   <fieldset className="yq-limites"><legend>Costes y límites</legend>
    {LIMITES.map(l=><label key={l.clave} title={l.ayuda}><span>{l.nombre}</span><Rueda nombre={l.clave} etiqueta={l.ayuda} valor={r[l.clave]??0} min={l.min} max={l.max} onChange={v=>patch({[l.clave]:Math.round(v)})} compacta/></label>)}
   </fieldset>

@@ -3,9 +3,7 @@
 // sustituye su ataque desarmado o su guardia por uno propio. Mordisco 2d6 con sangrado, caparazón +4 ARM inmóvil…
 import {Fichas,Rueda,Texto,Interruptor,type Opcion} from '../Controles';
 import EditorEstados from './EditorEstados';
-import {VistaGesto} from './EditorEsqueleto';
 import {DESARMADO_BASE,GUARDIA_BASE,describirConcepto,validarConcepto,type ConceptoBasico,type ConceptoDesarmado,type ConceptoGuardia} from '../../../lib/conceptos-basicos';
-import {ESQUELETOS_BASE,esqueletoBase} from '../../../lib/esqueletos';
 import {estadoVacio} from '../../../lib/estados';
 import './defensas.css';
 
@@ -36,8 +34,6 @@ function Desarmado({c,onChange}:{c:ConceptoDesarmado;onChange:(c:ConceptoBasico)
   <Fichas etiqueta="Naturaleza" opciones={[{valor:'fisica',nombre:'Física',ayuda:'Sin coste.'},{valor:'natural',nombre:'Natural',ayuda:'Genera Fatiga.'}]} valor={d.naturaleza||'fisica'} onChange={naturaleza=>{onChange({...c,dano:{...d,naturaleza:naturaleza==='fisica'?undefined:naturaleza},coste:{...c.coste,fatiga:naturaleza==='natural'?Math.max(1,c.coste.fatiga):0}});}}/>
   {d.naturaleza==='natural'&&<label className="yq-campo"><span>Fatiga</span><Rueda nombre="fatiga" etiqueta="Fatiga que genera" valor={c.coste.fatiga} min={1} max={99} onChange={fatiga=>set({coste:{...c.coste,fatiga}})} compacta/></label>}
   <Interruptor etiqueta="Necesita una mano libre" valor={c.requiere_mano!==false} onChange={v=>set({requiere_mano:v?undefined:false})}/>
-  <Fichas etiqueta="Animación (esqueleto)" opciones={ESQUELETOS_BASE.map(e=>({valor:e.id,nombre:e.nombre}))} valor={c.animacion} onChange={animacion=>set({animacion})} columnas={3}/>
-  {esqueletoBase(c.animacion)&&<VistaGesto esqueleto={esqueletoBase(c.animacion)!}/>}
   <Interruptor etiqueta="Aplica un estado al impactar" valor={!!c.estado_impacto} onChange={v=>set({estado_impacto:v?{...estadoVacio('sangrado'),nombre:'Sangrado',categoria:'fisico',efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'fisico',momento:'inicio'}]}:undefined})}/>
   {c.estado_impacto&&<EditorEstados valor={c.estado_impacto} onChange={estado_impacto=>set({estado_impacto})}/>}
  </>;

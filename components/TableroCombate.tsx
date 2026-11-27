@@ -5,7 +5,7 @@ import IconoYugen from './IconoYugen';
 import {Footprints, Crosshair, Shield, Swords, Sparkles, Backpack, ChevronRight, FlaskConical, X} from 'lucide-react';
 import {AuraTransformacion} from './EfectosCombate';
 import AnimacionesDelTablero from './AnimacionesDelTablero';
-import type {AnimacionEtapa} from '../lib/vfx';
+import {tieneClipsVFX,type AnimacionEtapa} from '../lib/vfx';
 import {precargarVFX} from '../lib/precarga-vfx';
 import FichaAnimada from './FichaAnimada';
 import {direccionVistaPatron} from '../lib/patron-area';
@@ -80,7 +80,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const area=useMemo(()=>t&&origen&&punto?areaDesdeFicha(origen,origen.posicion,punto,t,{columnas,filas},mapa,reflejado):[],[t,origen?.posicion.x,origen?.posicion.y,origen?.huella?.ancho,origen?.huella?.alto,punto?.x,punto?.y,columnas,filas,mapa,reflejado]);
  const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
  const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&casillasHuella(f,f.posicion).some(p=>afectadas.has(`${p.x},${p.y}`))&&objetivoDelArea(origen,f,habilidad!)&&(!patron||alcanzaCapa(habilidad,capaDe(f.estados)).ok)):[],[fichas,origen,t,afectadas,habilidad,patron]);
- const pixelArt=!!(evento?.vfx?.secuencia||evento?.vfx?.lanzamiento||evento?.vfx?.recorrido||evento?.vfx?.impacto);
+ const pixelArt=tieneClipsVFX(evento?.vfx);
  const fichaObjetivo=fichas.find(f=>f.id===objetivo);
  const porCasilla=useMemo(()=>new Map(fichas.flatMap(f=>casillasHuella(f,f.posicion).map(p=>[claveCasilla(p),f] as const))),[fichas]);
  const casillas=useMemo(()=>Array.from({length:columnas*filas},(_,i)=>({x:i%columnas,y:Math.floor(i/columnas)})),[columnas,filas]);

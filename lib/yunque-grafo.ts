@@ -20,6 +20,8 @@ export type SelloPlantilla={id:string;nombre:string;version:number;huerfana:bool
 export type Nodo={id:string;tipo:TipoNodo;ruta:Ruta;titulo:string;frase:string;error:string|null;puertos:Puerto[];
  /** Línea corta siempre visible bajo la frase (coste y usos de una reacción). */
  insignia?:string;
+ /** Un editor contextual conserva su nodo mientras exista el dueño de los datos. */
+ animacionContexto?:'etapas'|'regla'|'reaccion';
  /** Solo en acciones, reglas y pasivas desplegadas desde una plantilla. */
  plantilla?:SelloPlantilla};
 export type Cable={id:string;desde:{nodo:string;puerto:string};hasta:{nodo:string;puerto:string}};
@@ -50,6 +52,14 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   n.plantilla={id:o.plantilla,nombre:p?p.nombre:o.plantilla,version:o.version,huerfana:!p};
  };
  const cable=(d:string,pd:string,h:string,ph='entrada')=>{cables.push({id:`${d}:${pd}>${h}:${ph}`,desde:{nodo:d,puerto:pd},hasta:{nodo:h,puerto:ph}});};
+ const animacionContextual=(padre:string,tipo:TipoNodo,ruta:Ruta,titulo:string,frase:string,contexto:NonNullable<Nodo['animacionContexto']>)=>{
+  const puerto=salida('animacion',['vfx'],'Animación');
+  nodos.find(n=>n.id===padre)?.puertos.push(puerto);
+  const id=`vfx:${padre}`;
+  nodo(id,'vfx',ruta,titulo,frase,null,[entrada([tipo])]);
+  nodos[nodos.length-1].animacionContexto=contexto;
+  cable(padre,puerto.id,id);
+ };
  const ofertaRequisitos=b.tipo!=='personaje'||Object.keys(b.requisitos_uso||{}).length>0;
  // Núcleo
  nodo('nucleo','nucleo',[],String(b.nombre??'').trim()||'Sin nombre',`${b.tipo}${b.clasificacion?' · '+b.clasificacion:''}`,null,[
@@ -79,6 +89,8 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',texto(()=>describirReaccion(reaccion,e.coste_ph||0),'Reacción.'),fallo(()=>validarReaccion(reaccion)));
   if(reaccion){const n=nodos.find(x=>x.id===`reaccion:${e.id}`);if(n)n.insignia=texto(()=>lineaCosteReaccion(reaccion,e.coste_ph||0),'Sin coste');}
   if(e.transformacion||e.efecto==='transformacion')modulo('transformacion','transformacion','Transformación',e.transformacion?.nombre||'Transformación sin configurar.');
+  if(e.transformacion)animacionContextual(`transformacion:${e.id}`,'transformacion',[...ruta,'transformacion'],'Animaciones de transformación','Entrada y aura por etapa.','etapas');
+  if(reaccion?.principal&&!reaccion.esquiva_opuesta)animacionContextual(`reaccion:${e.id}`,'reaccion',ruta,'Animación de reacción','Efecto al activar la reacción.','reaccion');
   if(e.recurso)modulo('recurso','recurso','Recurso',`${e.recurso.nombre}: inicia en ${e.recurso.inicial}, cambia ${e.recurso.cambio}.`);
   if(e.vfx)modulo('vfx','vfx','Animación','Animación configurada.');
   if(e.tabla_armas)modulo('tabla_armas','tabla_armas','Tabla de armas',`d${e.tabla_armas.caras}: un arma por cara.`);
@@ -95,6 +107,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   nodo(cuando,'cuando',ruta,r.nombre||'Regla',`${EVENTOS[r.evento]||r.evento} → ${texto(()=>describirRegla(r).resumen,'…')}`,cabecera,[entrada(['nucleo']),salida('si',['si'],'Si')]);
   sellar(cuando,r);
   cable('nucleo','reglas',cuando);
+  animacionContextual(cuando,'cuando',ruta,'Animación de regla','Efecto al activarse la regla.','regla');
   const condicion=(c:CondicionRegla,id:string,rutaC:Ruta,padre:string,puertoPadre:string)=>{
    if(!c||typeof c!=='object')c=SIEMPRE;
    const compuesta=c.tipo==='todas'||c.tipo==='alguna'||c.tipo==='no';
@@ -154,7 +167,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
 export const leerRuta=(b:unknown,ruta:Ruta):unknown=>ruta.reduce<unknown>((x,k)=>x!==null&&typeof x==='object'?(x as Record<string|number,unknown>)[k]:undefined,b);
 const mismoNodo=(a:Nodo,b:Nodo)=>a.id===b.id&&a.tipo===b.tipo&&a.titulo===b.titulo&&a.frase===b.frase&&a.error===b.error
  &&a.ruta.length===b.ruta.length&&a.ruta.every((k,i)=>k===b.ruta[i])&&JSON.stringify(a.puertos)===JSON.stringify(b.puertos)
- &&JSON.stringify(a.plantilla)===JSON.stringify(b.plantilla);
+ &&a.animacionContexto===b.animacionContexto&&JSON.stringify(a.plantilla)===JSON.stringify(b.plantilla);
 /**
  * Reutiliza los nodos y cables de `previo` que no cambiaron (mismos datos) y, si nada cambió, devuelve `previo` tal cual.
  * Así la interfaz puede memorizar por identidad: al escribir en un nodo, los demás conservan su objeto y no se repintan.

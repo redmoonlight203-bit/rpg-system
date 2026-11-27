@@ -24,7 +24,12 @@ import EditorSi from './editores/EditorSi';
 import EditorEntonces from './editores/EditorEntonces';
 import EditorPasivaNodo from './editores/EditorPasivaNodo';
 import EditorModulo from './editores/EditorModulo';
-import EditorAnimacion from './editores/EditorAnimacion';
+import EditorAnimacion,{EditorAnimacionEtapas,EditorAnimacionPulso} from './editores/EditorAnimacion';
+import type {EtapaTransformacion} from '../../lib/transformaciones';
+import {ID_REALIDAD} from '../../lib/transformaciones-grafo';
+import {grafoADefinicion,migrarTransformacion} from '../../lib/transformaciones-migracion';
+import {reaccionDe} from '../../lib/combate';
+import {normalizarReaccion} from '../../lib/reacciones';
 import {activas,enlazables,esMonstruoB,faltantesDe,type ContextoTaller,type Creable} from './contexto';
 import {imagenDeRaza} from '../../lib/estadisticas';
 import {TIPOS,type Efecto} from '../../lib/creacion';
@@ -116,7 +121,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  const posiciones=useMemo(()=>disponer(grafo,guardadas.p,tamanos),[grafo,guardadas.p,tamanos]);
  const historial=useHistorial(b,setB,onNuevaSesion);
  const [eleccion,setSeleccion]=useState<string|null>('nucleo');
- const [animacion,setAnimacion]=useState<{documento:string;accion:string|null}|null>(null);
+ const [animacion,setAnimacion]=useState<{documento:string;accion:string|null;contexto?:string;etapa?:string}|null>(null);
  // Las piezas sin conectar se conservan al navegar dentro de la misma página.
  const [sueltosDe,setSueltosDe]=useState<{clave:string;lista:Suelto[]}>(()=>({clave,lista:hijo?[]:mesa.get(b.id||documento)||[]}));
  const sueltos=useMemo(()=>mismaSesion(sueltosDe.clave,clave)?sueltosDe.lista:[],[sueltosDe,clave]);
@@ -190,7 +195,11 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   despues(700,()=>setNuevos(s=>s===conjunto?new Set():s));
   return true;
  }
- const operar=(o:Operacion,punto?:Punto)=>ejecutar([o],punto,undefined,o.op==='convertir_invocacion'?'invocacion':undefined);
+ const operar=(o:Operacion,punto?:Punto)=>{
+  const contexto=o.op==='agregar'&&o.tipo==='vfx'?contextoDeNodo(o.padre):undefined;
+  if(contexto){abrirContexto(contexto.id);return true;}
+  return ejecutar([o],punto,undefined,o.op==='convertir_invocacion'?'invocacion':undefined);
+ };
  /** Empieza un borrador nuevo como un único paso del historial (Ctrl+Z vuelve al anterior, con su `id`). */
  function reemplazar(nuevo:Borrador,info?:string){
   // Con un guardado en curso no se cambia de borrador: su `id` podría acabar en el nuevo.
@@ -210,6 +219,13 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   setSeleccion(`vfx:${accion}`);
   setAnimacion({documento,accion});
  }
+ function contextoDeNodo(id?:string|null){
+  return grafo.nodos.find(n=>n.animacionContexto&&(n.id===id||n.id===`vfx:${id}`));
+ }
+ function abrirContexto(id:string,etapa?:string){
+  setSeleccion(id);
+  setAnimacion({documento,accion:null,contexto:id,etapa});
+ }
  function accionDeNodo(id:string|null){
   const nodo=grafo.nodos.find(n=>n.id===id);
   return nodo?.ruta[0]==='efectos'?bRef.current.efectos[nodo.ruta[1] as number]?.id:undefined;
@@ -220,6 +236,8 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   const item=enlazableDe(pieza);
   if(item){enlazar(item,destino);return;}
   if(pieza.clave==='modulo:vfx'){
+   const contexto=contextoDeNodo(destino?.nodo??seleccion);
+   if(contexto){abrirContexto(contexto.id);return;}
    const accion=accionDeNodo(destino?.nodo??seleccion)??(!destino&&bRef.current.efectos.length===1?bRef.current.efectos[0].id:undefined);
    if(accion){abrirAnimacion(accion,destino?undefined:punto??undefined);return;}
    if(!destino){setAnimacion({documento,accion:null});return;}
@@ -273,7 +291,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
    const sel=seleccion&&!seleccion.startsWith('suelto:')?{nodo:seleccion}:null;
    // Sin posición: los nodos conectados van a su sitio automático; una pieza suelta aparece en el centro de la vista.
    const c=api.centro();
-   soltarPieza(pieza,sel&&!enlazableDe(pieza)&&probarSoltar(bRef.current,pieza,sel)?sel:null,null,{x:Math.round(c.x-130),y:Math.round(c.y-60)});
+   soltarPieza(pieza,sel&&!enlazableDe(pieza)&&(pieza.clave==='modulo:vfx'?(!!contextoDeNodo(sel.nodo)||!!accionDeNodo(sel.nodo)):probarSoltar(bRef.current,pieza,sel))?sel:null,null,{x:Math.round(c.x-130),y:Math.round(c.y-60)});
    return;
   }
   if(!api.dentro(pantalla.x,pantalla.y))return;
@@ -285,7 +303,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   const api=apiActual();
   if(!pieza||!pantalla||!api){setArrastre(null);return;}
   setArrastre(a=>{
-   const compatibles=a?.pieza===pieza?a.compatibles:enlazableDe(pieza)?new Set(['nucleo']):new Set(grafo.nodos.filter(n=>probarSoltar(bRef.current,pieza,{nodo:n.id})).map(n=>n.id));
+   const compatibles=a?.pieza===pieza?a.compatibles:enlazableDe(pieza)?new Set(['nucleo']):new Set(grafo.nodos.filter(n=>pieza.clave==='modulo:vfx'?(!!contextoDeNodo(n.id)||!!accionDeNodo(n.id)):probarSoltar(bRef.current,pieza,{nodo:n.id})).map(n=>n.id));
    const dentro=api.dentro(pantalla.x,pantalla.y);
    return {pieza,compatibles,dentro,sobre:dentro?api.destinoEn(pantalla.x,pantalla.y):null,punto:dentro?api.aMundo(pantalla.x,pantalla.y):null};
   });
@@ -455,6 +473,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   if(pieza.clave==='modulo:vfx'){
    if(!sobre)return {texto:'Abre el editor de animaciones',tono:'bien'};
    const nodo=grafo.nodos.find(n=>n.id===sobre.nodo);
+   if(nodo&&(nodo.animacionContexto||grafo.nodos.some(n=>n.id===`vfx:${nodo.id}`)))return {texto:`Abre Animación de «${nodo.titulo}»`,tono:'bien'};
    if(nodo?.ruta[0]==='efectos')return {texto:'Edita la animación de esta acción',tono:'bien'};
   }
   if(sobre){
@@ -488,15 +507,16 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
   switch(n.tipo){
    case 'accion':{const e=b.efectos[n.ruta[1] as number];return {icono:e?ICONO_EFECTO[e.efecto]:undefined,editor:!conEditor||!e?undefined:<EditorAccion {...props} onAnimacion={()=>abrirAnimacion(e.id)}/>};}
    case 'vfx':{
+    if(n.animacionContexto)return {icono:'rayo',editor:!conEditor?undefined:<div className="yq-editor"><button type="button" className="yq-boton" onClick={()=>abrirContexto(n.id)}>Abrir editor de animaciones</button></div>};
     const e=b.efectos[n.ruta[1] as number];
     return {icono:'rayo',editor:!conEditor||!e?undefined:<div className="yq-editor"><button type="button" className="yq-boton" onClick={()=>abrirAnimacion(e.id)}>Abrir editor de animaciones</button></div>};
    }
-   case 'cuando':{const r=b.reglas[n.ruta[1] as number];return {icono:r?ICONO_EVENTO[r.evento]:undefined,editor:!conEditor?undefined:<EditorCuando {...props}/>};}
+   case 'cuando':{const r=b.reglas[n.ruta[1] as number];return {icono:r?ICONO_EVENTO[r.evento]:undefined,editor:!conEditor?undefined:<EditorCuando {...props} onAnimacion={()=>abrirContexto(`vfx:${n.id}`)}/>};}
    case 'si':{const c=leer(b,n.ruta) as CondicionRegla|undefined;return {icono:c?ICONO_SI[c.tipo]:undefined,editor:!conEditor?undefined:<EditorSi {...props}/>};}
    case 'entonces':{const e=leer(b,n.ruta) as EfectoRegla|undefined;return {icono:e?ICONO_EFECTO_REGLA[e.tipo]:undefined,editor:!conEditor?undefined:<EditorEntonces {...props} avisar={t=>avisar(t)}/>};}
    case 'pasiva':return {editor:!conEditor?undefined:<EditorPasivaNodo {...props}/>};
    case 'vinculo':{const p=porId.get(idDeVinculo(n.id));return {icono:iconoEnlazable(p),editor:!conEditor?undefined:<EditorVinculo onEditar={guardando||hijo?undefined:onEditarVinculo} b={b} nodo={n} ctx={ctx} ejecutar={ops=>ejecutar(ops)} avisar={t=>avisar(t)} faltantes={faltantes} onCrear={crear}/>};}
-   default:return {editor:!conEditor?undefined:<EditorModulo {...props} ctx={ctx} avisar={avisoInfo}/>};
+   default:return {editor:!conEditor?undefined:<EditorModulo {...props} ctx={ctx} avisar={avisoInfo} onAnimacion={contextoDeNodo(n.id)?etapa=>abrirContexto(`vfx:${n.id}`,etapa):undefined}/>};
   }
  };
  /** Los nodos que vienen de una plantilla añaden «Convertir en nodo propio» (deshacible con Ctrl+Z). */
@@ -509,7 +529,22 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
  const guiaLista=arrastre&&vista==='lista'?{compatibles:arrastre.compatibles,sobre:arrastre.sobre?.nodo??null}:null;
  const indiceAnimacion=animacion?.documento===documento&&animacion.accion!==null?b.efectos.findIndex(e=>e.id===animacion.accion):-1;
  const efectoAnimacion=b.efectos[indiceAnimacion];
- const editorAbierto=animacion?.documento===documento&&(animacion.accion===null||!!efectoAnimacion?.vfx);
+ const contextoAnimacion=animacion?.documento===documento?contextoDeNodo(animacion.contexto):undefined;
+ const efectoContexto=contextoAnimacion?.ruta[0]==='efectos'?b.efectos[contextoAnimacion.ruta[1] as number]:undefined;
+ const reglaContexto=contextoAnimacion?.ruta[0]==='reglas'?b.reglas[contextoAnimacion.ruta[1] as number]:undefined;
+ const transformacion=efectoContexto?.transformacion;
+ const etapasContexto=transformacion?grafoADefinicion(migrarTransformacion(transformacion),transformacion).etapas:[];
+ function editarEtapaContextual(id:string,patch:(e:EtapaTransformacion)=>EtapaTransformacion){
+  const indice=bRef.current.efectos.findIndex(e=>e.id===efectoContexto?.id);
+  const d=bRef.current.efectos[indice]?.transformacion;
+  if(!d)return;
+  const normal=d.etapas.some((e,i)=>!e.id||e.id===ID_REALIDAD||d.etapas.findIndex(x=>x.id===e.id)!==i)
+   ?grafoADefinicion(migrarTransformacion(d),d):d;
+  operar({op:'fijar',ruta:['efectos',indice,'transformacion'],valor:{...normal,etapas:normal.etapas.map(e=>e.id===id?patch(e):e)}});
+ }
+ const reaccionContexto=efectoContexto&&contextoAnimacion?.animacionContexto==='reaccion'?reaccionDe(normalizarReaccion(efectoContexto)):undefined;
+ const cerrarAnimacion=()=>setAnimacion(null);
+ const editorAbierto=animacion?.documento===documento&&!animacion.contexto&&(animacion.accion===null||!!efectoAnimacion?.vfx);
  return <CatalogoReglas atributos={ctx.atributos} fuentes={fuentesColeccion}><CatalogoReglas fuentes={fuentesBorrador}><div className={`yq-taller is-${vista}`} data-creacion={b.id||'nueva'}>
   <header className="yq-barra">
    <span className="yq-barra-runa"><Runa seccion="forja" size={30}/></span>
@@ -530,6 +565,20 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
    <button type="button" className="yq-barra-ficha" disabled={guardando} onClick={()=>void forjar()}>{guardando?'Guardando…':'Guardar'}</button>
    <button type="button" className="yq-forjar" disabled={guardando||hijo} onClick={onNuevo} title="Abrir un lienzo vacío"><Hammer size={16} aria-hidden="true"/>Forjar</button>
   </header>
+  {contextoAnimacion?.animacionContexto==='etapas'&&transformacion&&<EditorAnimacionEtapas key={contextoAnimacion.id}
+   titulo={transformacion.nombre||'Animaciones de transformación'} etapas={etapasContexto} inicial={animacion?.etapa} onCerrar={cerrarAnimacion}
+   onChange={(id,vfx)=>editarEtapaContextual(id,e=>({...e,vfx}))}
+   onRegla={(id,regla,valor)=>editarEtapaContextual(id,e=>({...e,reglas:e.reglas?.map(r=>r.id===regla?{...r,animacion:valor}:r)}))}/>}
+  {contextoAnimacion?.animacionContexto==='regla'&&reglaContexto&&<EditorAnimacionPulso key={contextoAnimacion.id}
+   titulo={reglaContexto.nombre||'Animación de regla'} valor={reglaContexto.animacion} onCerrar={cerrarAnimacion}
+   onChange={valor=>{const indice=bRef.current.reglas.findIndex(r=>r.id===reglaContexto.id);if(indice>=0)operar({op:'fijar',ruta:['reglas',indice,'animacion'],valor});}}/>}
+  {contextoAnimacion?.animacionContexto==='reaccion'&&reaccionContexto?.principal&&<EditorAnimacionPulso key={contextoAnimacion.id}
+   titulo="Animación de reacción" esReaccion valor={reaccionContexto.principal.animacion?{id:reaccionContexto.principal.animacion}:undefined}
+   onCerrar={cerrarAnimacion} onChange={valor=>{
+    const indice=bRef.current.efectos.findIndex(e=>e.id===efectoContexto?.id),e=bRef.current.efectos[indice];
+    const r=e?reaccionDe(normalizarReaccion(e)):undefined;
+    if(r?.principal)operar({op:'fijar',ruta:['efectos',indice],valor:{...e,reaccion:{...r,principal:{...r.principal,animacion:valor?.id}},defensa:undefined}});
+   }}/>}
   {editorAbierto&&<EditorAnimacion key={efectoAnimacion?.id??'elegir'} efecto={efectoAnimacion} acciones={b.efectos}
    onElegir={abrirAnimacion} onCerrar={()=>setAnimacion(null)} onChange={cambio=>{
     const indice=bRef.current.efectos.findIndex(e=>e.id===efectoAnimacion?.id);

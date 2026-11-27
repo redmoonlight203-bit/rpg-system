@@ -16,13 +16,14 @@ type Seccion={clave:string;titulo:string;icono:string;de:(n:Nodo)=>boolean;vacia
 const SECCIONES:Seccion[]=[
  {clave:'nucleo',titulo:'Núcleo',icono:'yugen',de:n=>n.tipo==='nucleo'},
  {clave:'acciones',titulo:'Acciones',icono:'espada',de:n=>n.ruta[0]==='efectos'||n.tipo==='invocacion'},
- {clave:'reglas',titulo:'Reglas',icono:'libro',de:n=>n.tipo==='cuando'||n.tipo==='si'||n.tipo==='entonces'},
+ {clave:'reglas',titulo:'Reglas',icono:'libro',de:n=>n.ruta[0]==='reglas'},
  {clave:'pasivas',titulo:'Pasivas',icono:'vida',de:n=>n.tipo==='pasiva'},
  {clave:'vinculos',titulo:'Vínculos',icono:'anillo',de:n=>n.tipo==='vinculo'},
  {clave:'requisitos',titulo:'Requisitos',icono:'corona',de:n=>n.tipo==='requisitos'},
 ];
 /** Sangría del bloque: módulos bajo su acción; condiciones y efectos según su anidamiento en la regla. */
 function nivel(n:Nodo):number{
+ if(n.animacionContexto)return n.animacionContexto==='regla'?1:2;
  if(n.tipo==='si')return n.ruta.filter(k=>k==='condicion'||k==='condiciones').length;
  if(n.tipo==='entonces')return 2+n.ruta.filter(k=>k==='exito'||k==='fallo').length;
  if(n.ruta[0]==='efectos'&&n.tipo!=='accion')return 1;
@@ -67,7 +68,7 @@ type PropsBloque={n:Nodo;abierto:boolean;encendido:boolean;nuevo:boolean;guia?:s
 const Bloque=memo(function Bloque({n,abierto,encendido,nuevo,guia,icono,pie,editor,onAlternar,operar}:PropsBloque){
  const familia=familiaDe(n.tipo);
  const editable=n.tipo!=='nucleo';
- const añadir=n.tipo==='nucleo'?[]:n.puertos.filter(p=>p.lado==='salida').flatMap(p=>p.acepta.filter(t=>AGREGABLES.includes(t)).map(t=>({t,puerto:p})));
+ const añadir=n.tipo==='nucleo'?[]:n.puertos.filter(p=>p.lado==='salida').flatMap(p=>p.acepta.filter(t=>p.id!=='animacion'&&AGREGABLES.includes(t)).map(t=>({t,puerto:p})));
  const panel=`yq-bloque-${n.id.replace(/[^a-zA-Z0-9_-]/g,'_')}`;
  return <li className={['yq-bloque',abierto&&'is-abierto',n.error&&'is-error',encendido&&'is-encendido',nuevo&&'is-nuevo'].filter(Boolean).join(' ')}
   data-bloque={n.id} data-guia={guia} data-familia={familia} data-tipo={n.tipo} data-encendido={encendido||undefined} data-nivel={Math.min(4,nivel(n))} style={{['--yq-nivel' as string]:Math.min(4,nivel(n))}}>
@@ -81,7 +82,7 @@ const Bloque=memo(function Bloque({n,abierto,encendido,nuevo,guia,icono,pie,edit
    </button>
    {abierto&&editable&&<span className="yq-nodo-herramientas">
     {duplicable(n)&&<button type="button" title="Duplicar" aria-label={`Duplicar ${n.titulo}`} onClick={()=>operar({op:'duplicar',nodo:n.id})}><Copy size={14}/></button>}
-    <button type="button" title="Quitar" aria-label={`Quitar ${n.titulo}`} className="is-peligro" onClick={()=>operar({op:'quitar',nodo:n.id})}><Trash2 size={14}/></button>
+    {!n.animacionContexto&&<button type="button" title="Quitar" aria-label={`Quitar ${n.titulo}`} className="is-peligro" onClick={()=>operar({op:'quitar',nodo:n.id})}><Trash2 size={14}/></button>}
    </span>}
   </div>
   {n.error&&<p className="yq-nodo-error">{n.error}</p>}

@@ -4,6 +4,7 @@ import type {EventoVisual} from '../lib/combate';
 import EfectosCombate from './EfectosCombate';
 import AnimacionesArmas from './AnimacionesArmas';
 
+import {tieneClipsVFX} from '../lib/vfx';
 import {anclarAlLanzador} from '../lib/ancla-visual';
 
 const SIN_EVENTOS:readonly EventoVisual[]=[];
@@ -29,6 +30,6 @@ export default function AnimacionesDelTablero({evento,eventos=SIN_EVENTOS,tabler
  return <>
   <EfectosCombate eventos={anclados} columnas={columnas} filas={filas}/>
   <AnimacionesArmas evento={visual} columnas={columnas} filas={filas}/>
-  {visual?.desde&&visual.hasta&&!visual.vfx?.lanzamiento&&!visual.vfx?.recorrido&&!visual.vfx?.impacto&&!visual.vfx?.secuencia&&!visual.arma_visual&&['proyectil','trayectoria','desplazamiento'].includes(visual.animacion||'')&&<svg key={visual.id} className="tactical-projectile" viewBox={`0 0 ${columnas*100} ${filas*100}`} preserveAspectRatio="none" aria-hidden="true"><line x1={visual.desde.x*100+50} y1={visual.desde.y*100+50} x2={visual.hasta.x*100+50} y2={visual.hasta.y*100+50}/></svg>}
+  {visual?.desde&&visual.hasta&&!tieneClipsVFX(visual.vfx)&&!visual.arma_visual&&['proyectil','trayectoria','desplazamiento'].includes(visual.animacion||'')&&<svg key={visual.id} className="tactical-projectile" viewBox={`0 0 ${columnas*100} ${filas*100}`} preserveAspectRatio="none" aria-hidden="true"><line x1={visual.desde.x*100+50} y1={visual.desde.y*100+50} x2={visual.hasta.x*100+50} y2={visual.hasta.y*100+50}/></svg>}
  </>;
 }

@@ -9,6 +9,9 @@ export type ConfiguracionVFX = {
  impacto?:string;
  escala?:number;
 };
+export function tieneClipsVFX(v?:ConfiguracionVFX){
+ return !!(v?.secuencia?v.secuencia.clips?.length:v?.lanzamiento||v?.recorrido||v?.impacto);
+}
 export type AnimacionRegla = {id:string;escala?:number};
 export type AnimacionEtapa = {entrada?:string;aura?:string;escala?:number};
 export const CATALOGO_VFX = catalogo;

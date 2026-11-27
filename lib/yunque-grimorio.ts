@@ -132,6 +132,7 @@ export const PIEZAS:Pieza[]=[...ACCIONES,...MODULOS_PIEZAS,...EVENTOS_PIEZAS,...
 
 /** Tipos de nodo que el núcleo puede llevar → si la creación admite el tipo `t`. */
 export function tipoPermitido(t:TipoNodo,lleva:readonly TipoNodo[]):boolean{
+ if(t==='vfx')return lleva.includes('accion')||lleva.includes('cuando');
  if(MODULOS.includes(t))return lleva.includes('accion');
  if(t==='si'||t==='entonces')return lleva.includes('cuando');
  return lleva.includes(t);
@@ -238,6 +239,7 @@ export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacio
  if(f.tipo==='si')return planCondicion(b,n,f.datos as CondicionRegla);
  if(f.tipo==='entonces')return planEfecto(b,n,f,destino.puerto);
  if(MODULOS.includes(f.tipo)){
+  if(f.tipo==='vfx'&&(n.animacionContexto||['transformacion','reaccion','cuando'].includes(n.tipo)))return falla('Edita esta animación desde su Editor de animaciones.');
   if(n.tipo==='accion')return [pegar(f,n.id)];
   if(MODULOS.includes(n.tipo)&&n.ruta[0]==='efectos')return [pegar(f,'accion:'+b.efectos[n.ruta[1] as number].id)];
   return falla('Los módulos se enganchan a una acción.');

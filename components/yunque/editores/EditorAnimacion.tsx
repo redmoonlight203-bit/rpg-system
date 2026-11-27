@@ -1,15 +1,18 @@
 'use client';
 
-import {useEffect,useId,useRef,useState,type DragEvent} from 'react';
+import {useEffect,useId,useRef,useState,type DragEvent,type ReactNode,type CSSProperties} from 'react';
 import {Play,X} from 'lucide-react';
 import AnimacionesDelTablero from '../../AnimacionesDelTablero';
 import IconoYugen from '../../IconoYugen';
 import BibliotecaVFX from '../../BibliotecaVFX';
-import EditorEsqueleto from './EditorEsqueleto';
+import MiniaturaVFX from '../../MiniaturaVFX';
+import EditorEsqueleto,{VistaGesto} from './EditorEsqueleto';
+import {Fichas} from '../Controles';
+import {ESQUELETOS_BASE,esqueletoBase} from '../../../lib/esqueletos';
 import {areaDesdeFicha,esqueletoVisual,type EventoVisual,type Posicion} from '../../../lib/combate';
 import {EFECTOS_NOMBRE,type Efecto} from '../../../lib/creacion';
 import {DIRECCIONES_PATRON,MAX_RADIO_PATRON} from '../../../lib/patron-area';
-import {buscarVFX,CATALOGO_VFX,clipsDeConfiguracion,planificarVFX,separarVFX,transformacionClipVFX,type ClipVFX} from '../../../lib/vfx';
+import {buscarVFX,CATALOGO_VFX,clipsDeConfiguracion,separarVFX,orientarVFX,transformacionVFX,type AnimacionEtapa,type AnimacionRegla} from '../../../lib/vfx';
 import {casillaDeClip,casillaRelativaVFX,DISPARADORES_VFX,MAX_CLIPS_VFX,MAX_DURACION_VFX,MAX_INICIO_VFX,rutasVFX,type DisparadorVFX,type GeometriaVFX,type PasoVFX} from '../../../lib/secuencia-vfx';
 import './editor-animacion.css';
 
@@ -30,6 +33,15 @@ type Props={
 };
 
 export default function EditorAnimacion({efecto,acciones,onElegir,onCerrar,onChange}:Props){
+ return <MarcoAnimacion titulo={efecto?nombre(efecto):'Elige una acción'} onCerrar={onCerrar}>
+  {efecto?<Compositor efecto={efecto} onChange={onChange}/>:<div className="yq-animacion-elegir">
+   {acciones.length?acciones.map(e=><button key={e.id} type="button" className="yq-boton" onClick={()=>onElegir(e.id)}>{nombre(e)}</button>)
+    :<p>Crea una acción en el Yunque y vuelve a colocar el nodo Animación.</p>}
+  </div>}
+ </MarcoAnimacion>;
+}
+
+function MarcoAnimacion({titulo:etiqueta,onCerrar,children}:{titulo:string;onCerrar:()=>void;children:ReactNode}){
  const modal=useRef<HTMLDialogElement>(null);
  const titulo=useId();
  useEffect(()=>{
@@ -42,13 +54,10 @@ export default function EditorAnimacion({efecto,acciones,onElegir,onCerrar,onCha
   onCancel={e=>{e.preventDefault();onCerrar();}}>
   <header className="yq-cajon-cab">
    <IconoYugen id="rayo" size={24}/>
-   <div><small>Editor de animaciones</small><h2 id={titulo}>{efecto?nombre(efecto):'Elige una acción'}</h2></div>
+   <div><small>Editor de animaciones</small><h2 id={titulo}>{etiqueta}</h2></div>
    <button type="button" aria-label="Cerrar el editor de animaciones" onClick={onCerrar}><X size={18} aria-hidden="true"/></button>
   </header>
-  {efecto?<Compositor efecto={efecto} onChange={onChange}/>:<div className="yq-animacion-elegir">
-   {acciones.length?acciones.map(e=><button key={e.id} type="button" className="yq-boton" onClick={()=>onElegir(e.id)}>{nombre(e)}</button>)
-    :<p>Crea una acción en el Yunque y vuelve a colocar el nodo Animación.</p>}
-  </div>}
+  {children}
  </dialog>;
 }
 
@@ -71,14 +80,10 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
  const [eventos,setEventos]=useState<EventoVisual[]>([]);
  const evento=eventos.at(-1);
  const [pruebas,setPruebas]=useState<Posicion[]>([]);
- const [busqueda,setBusqueda]=useState('');
- const [pagina,setPagina]=useState(0);
  const [recurso,setRecurso]=useState<string>();
  const [seleccion,setSeleccion]=useState<string>();
  const [modo,setModo]=useState<'clips'|'objetivos'>('clips');
  const [aviso,setAviso]=useState('');
- const [personales,setPersonales]=useState(false);
- const [arrastre,setArrastre]=useState<PasoVFX>();
  const [donde,setDonde]=useState<DestinoArrastre>();
  const vfx=efecto.vfx;
  const clips=clipsDeConfiguracion(vfx);
@@ -95,9 +100,9 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
   girar:patron&&alcance?.patron?.orientacion==='apuntar',impactos:pruebas.filter(p=>!alcance||area.has(clave(p))).map(p=>[p]),tablero:dimensiones,
  };
  const ramas=rutasVFX(geometria);
- const biblioteca=CATALOGO_VFX.filter(a=>NORMAL(a.nombre+' '+a.categoria+' '+a.paquete).includes(NORMAL(busqueda.trim())));
- const paginas=Math.max(1,Math.ceil(biblioteca.length/LIMITE_GALERIA));
  const esqueleto=esqueletoVisual(efecto);
+ const desarmado=efecto.concepto?.id==='desarmado'?efecto.concepto:undefined;
+ const gestoDesarmado=esqueletoBase(desarmado?.animacion);
  const arma=esqueleto?.id??efecto.esqueleto;
  const divino=clips.find(c=>separarVFX(c.recurso).base==='foundry-divine-beam'&&c.disparador==='lanzador');
  const fin=Math.max(3000,Math.ceil(Math.max(0,...clips.map(c=>c.inicio+c.duracion))/1000)*1000);
@@ -128,7 +133,7 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
   }
  }
  function finArrastre(){
-  setArrastre(undefined);setDonde(undefined);
+  setDonde(undefined);
  }
  function soltar(e:DragEvent,accion:(id:string,esClip:boolean)=>void){
   const existente=e.dataTransfer.getData(DATO_CLIP),nuevo=e.dataTransfer.getData(DATO_RECURSO);
@@ -154,12 +159,6 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
   const caja=e.currentTarget.getBoundingClientRect();
   return Math.max(0,Math.min(fin,MAX_INICIO_VFX,Math.round(fin*(e.clientX-caja.left)/Math.max(1,caja.width)/25)*25));
  }
- const muestra=arrastre&&donde?{...arrastre,...(donde.tipo==='casilla'?moverAlTablero(arrastre,donde.p):{inicio:donde.inicio})}:undefined;
- const geometriaMuestra=geometria.impactos.length||!geometria.objetivo?geometria:{...geometria,impactos:[[geometria.objetivo]]};
- const clipsMuestra=muestra?planificarVFX({
-  id:'arrastre',nombre:nombre(efecto),dados:[],desde:origen,hasta:blanco,geometria_vfx:geometriaMuestra,
-  vfx:{secuencia:{version:1,clips:[muestra]}},
- }):[];
  function perfilarHaz(clip:PasoVFX){
   const impactar=buscarVFX('foundry-hit-spark')!;
   const impacto:PasoVFX={id:crypto.randomUUID(),recurso:impactar.id,disparador:'impacto',inicio:0,duracion:impactar.duracion,escala:1,giro:0};
@@ -182,28 +181,9 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
   }]);
  }
  return <div className="yq-compositor">
-  <section className="yq-compositor-galeria" aria-label="Galería de efectos">
-   <h3>Galería</h3>
-   <label className="yq-animacion-campo">Buscar efectos<input type="search" value={busqueda} onChange={e=>{setBusqueda(e.target.value);setPagina(0);}}/></label>
-   <div className="yq-animacion-recursos">
-    {biblioteca.slice(pagina*LIMITE_GALERIA,(pagina+1)*LIMITE_GALERIA).map(a=><button key={a.id} type="button" draggable
-     aria-pressed={recurso===a.id} data-recurso={a.id} onClick={()=>{setRecurso(a.id);setModo('clips');}}
-     onDragStart={e=>{e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData(DATO_RECURSO,a.id);setArrastre(clipNuevo(a.id,'arrastre'));}} onDragEnd={finArrastre}>
-     {/* eslint-disable-next-line @next/next/no-img-element */}
-     <img src={a.poster||a.bucle} draggable={false} loading="lazy" alt=""/><span>{a.nombre}</span>
-    </button>)}
-   </div>
-   {!biblioteca.length&&<p className="yq-nota">Sin efectos para esa búsqueda.</p>}
-   {paginas>1&&<div className="yq-animacion-paginas">
-    <button type="button" className="yq-boton" onClick={()=>setPagina(pagina-1)} disabled={pagina===0}>Anterior</button>
-    <span>{pagina+1} / {paginas}</span>
-    <button type="button" className="yq-boton" onClick={()=>setPagina(pagina+1)} disabled={pagina+1===paginas}>Siguiente</button>
-   </div>}
-   {recurso&&<button type="button" className="yq-boton" onClick={()=>agregar(recurso)}>Añadir {buscarVFX(recurso)?.nombre}</button>}
-   <details onToggle={e=>setPersonales(e.currentTarget.open)}><summary>Mis efectos y subidas</summary>
-    {personales&&<BibliotecaVFX elegir={id=>{setRecurso(id);agregar(id);}}/>}
-   </details>
-  </section>
+  <GaleriaAnimaciones seleccion={recurso} onElegir={id=>{setRecurso(id);setModo('clips');}}
+   onAgregar={agregar} onPersonal={id=>{setRecurso(id);agregar(id);}}
+   onArrastrar={(e,id)=>{e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData(DATO_RECURSO,id);}} onFinArrastre={finArrastre}/>
 
   <section className="yq-animacion-ensayo" aria-label="Vista previa de la acción">
    <div className="yq-animacion-controles">
@@ -247,7 +227,6 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
       {!!unidos.length&&<b className="yq-animacion-marca" title={unidos.map(c=>buscarVFX(c.recurso)?.nombre).join(', ')}>{unidos.length}</b>}
      </button>;
     })}
-    <PreviaArrastre clips={clipsMuestra}/>
     <AnimacionesDelTablero evento={evento} eventos={eventos} tablero={tablero} {...dimensiones}/>
    </div>
    {modo==='objetivos'&&<p className="yq-nota">Toca las casillas para colocar o quitar objetivos de prueba.</p>}
@@ -292,6 +271,15 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
     </div>
    </>}
    {aviso&&<p role="status" className="yq-nota">{aviso}</p>}
+   {desarmado&&<details className="yq-legado">
+    <summary>Gesto del ataque desarmado</summary>
+    <Fichas etiqueta="Esqueleto del ataque desarmado" opciones={ESQUELETOS_BASE.map(e=>({valor:e.id,nombre:e.nombre}))}
+     valor={desarmado.animacion} onChange={animacion=>onChange({concepto:{...desarmado,animacion}})} columnas={3}/>
+    {gestoDesarmado&&<VistaGesto esqueleto={gestoDesarmado}/>}
+   </details>}
+   <label className="yq-animacion-campo">Animación básica<select value={efecto.animacion??'impacto'} onChange={e=>onChange({animacion:e.target.value as Efecto['animacion']})}>
+    {['proyectil','destello','aura','impacto','trayectoria','desplazamiento','ninguna'].map(a=><option key={a}>{a}</option>)}
+   </select></label>
    <label><input type="checkbox" checked={!!vfx?.pantalla} onChange={e=>onChange({vfx:{...vfx,pantalla:e.target.checked}})}/> Paradoja a pantalla completa</label>
    {(efecto.efecto==='dano'||efecto.efecto==='crear_arma'||efecto.esqueleto||efecto.esqueleto_def)&&<details className="yq-legado">
     <summary>Gesto y esqueleto</summary>
@@ -308,12 +296,10 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
      const inicio=instante(e);
      soltar(e,(id,esClip)=>{if(esClip){ajustar(id,{inicio});setSeleccion(id);}else agregar(id,'lanzador',inicio);});
     }}>
-    {muestra&&donde?.tipo==='tiempo'&&<div className="yq-animacion-previa-tiempo" aria-hidden="true"
-     style={{left:`${Math.min(99,muestra.inicio/fin*100)}%`,width:`${Math.min(muestra.duracion,Math.max(fin*.01,fin-muestra.inicio))/fin*100}%`}}>
-     <MiniaturaArrastre clip={muestra.recurso}/><span>{muestra.inicio} ms</span>
-    </div>}
+    {donde?.tipo==='tiempo'&&<div className="yq-animacion-previa-tiempo" aria-hidden="true"
+     style={{left:`${Math.min(99,donde.inicio/fin*100)}%`}}><span>{donde.inicio} ms</span></div>}
     {clips.map(c=><div className="yq-animacion-pista" key={c.id}><button type="button" draggable
-     onDragStart={e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData(DATO_CLIP,c.id);setArrastre(c);}} onDragEnd={finArrastre}
+     onDragStart={e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData(DATO_CLIP,c.id);}} onDragEnd={finArrastre}
      data-clip-editor={c.id} aria-pressed={actual?.id===c.id} onClick={()=>{setSeleccion(c.id);setRecurso(undefined);}}
      style={{left:`${c.inicio/fin*100}%`,width:`${c.duracion/fin*100}%`}}>
      {buscarVFX(c.recurso)?.nombre||c.recurso} · {DISPARADORES_VFX[c.disparador]}
@@ -324,26 +310,126 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
  </div>;
 }
 
-function MiniaturaArrastre({clip,giro}:{clip:string;giro?:string}){
- const a=buscarVFX(clip);
- if(!a)return null;
- return <picture>
-  {a.poster&&<source media="(prefers-reduced-motion: reduce)" srcSet={a.poster}/>}
-  <img src={a.bucle||a.url} alt="" draggable={false} style={giro?{transform:giro}:undefined}/>
- </picture>;
+function GaleriaAnimaciones({seleccion,onElegir,onAgregar,onPersonal,onArrastrar,onFinArrastre}:{
+ seleccion?:string;onElegir:(id:string)=>void;onAgregar?:(id:string)=>void;onPersonal?:(id:string)=>void;
+ onArrastrar?:(e:DragEvent,id:string)=>void;onFinArrastre?:()=>void;
+}){
+ const [busqueda,setBusqueda]=useState('');
+ const [pagina,setPagina]=useState(0);
+ const [personales,setPersonales]=useState(false);
+ const biblioteca=CATALOGO_VFX.filter(a=>NORMAL(a.nombre+' '+a.categoria+' '+a.paquete).includes(NORMAL(busqueda.trim())));
+ const paginas=Math.max(1,Math.ceil(biblioteca.length/LIMITE_GALERIA));
+ return <section className="yq-compositor-galeria" aria-label="Galería de efectos">
+  <h3>Galería</h3>
+  <label className="yq-animacion-campo">Buscar efectos<input type="search" value={busqueda} onChange={e=>{setBusqueda(e.target.value);setPagina(0);}}/></label>
+  <div className="yq-animacion-recursos">
+   {biblioteca.slice(pagina*LIMITE_GALERIA,(pagina+1)*LIMITE_GALERIA).map(a=><button key={a.id} type="button"
+    draggable={!!onArrastrar} aria-pressed={seleccion===a.id} data-recurso={a.id} onClick={()=>onElegir(a.id)}
+    onDragStart={e=>onArrastrar?.(e,a.id)} onDragEnd={onFinArrastre}>
+    <MiniaturaVFX clip={a.id}/><span>{a.nombre}</span>
+   </button>)}
+  </div>
+  {!biblioteca.length&&<p className="yq-nota">Sin efectos para esa búsqueda.</p>}
+  {paginas>1&&<div className="yq-animacion-paginas">
+   <button type="button" className="yq-boton" onClick={()=>setPagina(pagina-1)} disabled={pagina===0}>Anterior</button>
+   <span>{pagina+1} / {paginas}</span>
+   <button type="button" className="yq-boton" onClick={()=>setPagina(pagina+1)} disabled={pagina+1===paginas}>Siguiente</button>
+  </div>}
+  {seleccion&&onAgregar&&<button type="button" className="yq-boton" onClick={()=>onAgregar(seleccion)}>Añadir {buscarVFX(seleccion)?.nombre}</button>}
+  <details onToggle={e=>setPersonales(e.currentTarget.open)}><summary>Mis efectos y subidas</summary>
+   {personales&&<BibliotecaVFX elegir={onPersonal??onElegir} previsualizar/>}
+  </details>
+  <details><summary>Créditos de los efectos</summary><p>Kitsuwick: NogitsuneGurl. Foundry: pvfx.foundry (CC0). Warlock: Frostwindz. Magic VFX: Thundersnow Pixel. Smoke N Dust: material aportado por el GM.</p>
+   <p><a href="https://heyheythere.itch.io/combat-fx-free" target="_blank" rel="noreferrer">Combat FX Free by heyheythere</a> · CC BY 4.0. Adaptado a animaciones PNG para YUGEN.</p>
+  </details>
+ </section>;
 }
 
-function PreviaArrastre({clips}:{clips:ClipVFX[]}){
- if(!clips.length)return null;
- return <div className="yq-animacion-previa-casilla" aria-hidden="true">
-  <svg viewBox={`0 0 ${lado} ${lado}`} preserveAspectRatio="none">
-   {clips.filter(c=>clave(c.desde)!==clave(c.hasta)).map(c=><line key={c.id}
-    x1={c.desde.x+.5} y1={c.desde.y+.5} x2={c.hasta.x+.5} y2={c.hasta.y+.5}/>)}
-  </svg>
-  {clips.map(c=><span key={c.id} data-casilla-previa={clave(c.hasta)}
-   style={{left:`${(c.hasta.x+.5)/lado*100}%`,top:`${(c.hasta.y+.5)/lado*100}%`,width:`${c.escala/lado*100}%`,height:`${c.escala/lado*100}%`}}>
-   <MiniaturaArrastre clip={c.animacion} giro={transformacionClipVFX(c)}/>
-  </span>)}
+export type EtapaAnimable={id:string;nombre:string;vfx?:AnimacionEtapa;reglas?:{id:string;nombre:string;animacion?:AnimacionRegla}[]};
+
+export function EditorAnimacionEtapas({titulo,etapas,inicial,onChange,onRegla,onCerrar}:{
+ titulo:string;etapas:EtapaAnimable[];inicial?:string;onChange:(id:string,v:AnimacionEtapa|undefined)=>void;
+ onRegla?:(etapa:string,regla:string,v:AnimacionRegla|undefined)=>void;onCerrar:()=>void;
+}){
+ const [id,setId]=useState(inicial??etapas[0]?.id);
+ const [campo,setCampo]=useState<'entrada'|'aura'>('entrada');
+ const [idRegla,setIdRegla]=useState('');
+ const etapa=etapas.find(e=>e.id===id)??etapas[0];
+ const regla=onRegla?etapa?.reglas?.find(r=>r.id===idRegla):undefined;
+ const valor=regla?regla.animacion?.id:etapa?.vfx?.[campo];
+ const escala=regla?regla.animacion?.escala:etapa?.vfx?.escala;
+ return <MarcoAnimacion titulo={titulo} onCerrar={onCerrar}>
+  {etapa?<EditorVisualSimple
+   nombre={regla?regla.nombre:campo==='entrada'?'Entrada de la etapa':'Aura de la etapa'}
+   valor={valor} escala={escala??1.5}
+   controles={<>
+    <label className="yq-animacion-campo">Etapa<select aria-label="Etapa" value={etapa.id} onChange={e=>{setId(e.target.value);setIdRegla('');}}>
+     {etapas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+    </select></label>
+    <div className="yq-animacion-acciones" role="group" aria-label="Tipo de animación">
+     <button type="button" aria-pressed={!regla&&campo==='entrada'} className="yq-boton" onClick={()=>{setCampo('entrada');setIdRegla('');}}>Entrada</button>
+     <button type="button" aria-pressed={!regla&&campo==='aura'} className="yq-boton" onClick={()=>{setCampo('aura');setIdRegla('');}}>Aura</button>
+    </div>
+    {onRegla&&!!etapa.reglas?.length&&<label className="yq-animacion-campo">Reglas de la etapa
+     <select value={regla?.id??''} onChange={e=>setIdRegla(e.target.value)}>
+      <option value="">Entrada o aura</option>
+      {etapa.reglas.map(r=><option key={r.id} value={r.id}>{r.nombre}</option>)}
+     </select>
+    </label>}
+   </>}
+   onElegir={recurso=>{
+    if(regla){onRegla?.(etapa.id,regla.id,recurso?{id:recurso,escala}:undefined);return;}
+    const siguiente={...etapa.vfx,[campo]:recurso};
+    onChange(etapa.id,siguiente.entrada||siguiente.aura?siguiente:undefined);
+   }}
+   onEscala={n=>{
+    if(regla){if(valor)onRegla?.(etapa.id,regla.id,{id:valor,escala:n});return;}
+    onChange(etapa.id,{...etapa.vfx,escala:n});
+   }}
+   onAutomatica={regla&&valor&&escala!==undefined?()=>onRegla?.(etapa.id,regla.id,{id:valor}):undefined}
+  />:<p className="yq-animacion-elegir">Agrega una etapa para configurar sus animaciones.</p>}
+ </MarcoAnimacion>;
+}
+
+export function EditorAnimacionPulso({titulo,valor,onChange,onCerrar,esReaccion=false}:{
+ titulo:string;valor?:AnimacionRegla;onChange:(v:AnimacionRegla|undefined)=>void;onCerrar:()=>void;esReaccion?:boolean;
+}){
+ return <MarcoAnimacion titulo={titulo} onCerrar={onCerrar}>
+  <EditorVisualSimple nombre={esReaccion?'Al activar la reacción':'Al activarse la regla'} valor={valor?.id}
+   escala={valor?.escala??(esReaccion?2.8:1.5)}
+   onElegir={id=>onChange(id?{id,escala:valor?.escala}:undefined)}
+   onEscala={esReaccion?undefined:escala=>{if(valor)onChange({...valor,escala});}}
+   onAutomatica={esReaccion||valor?.escala===undefined?undefined:()=>onChange({id:valor.id})}/>
+ </MarcoAnimacion>;
+}
+
+function EditorVisualSimple({nombre,valor,escala,controles,onElegir,onEscala,onAutomatica}:{
+ nombre:string;valor?:string;escala:number;controles?:ReactNode;onElegir:(id?:string)=>void;
+ onEscala?:(escala:number)=>void;onAutomatica?:()=>void;
+}){
+ const orientacion=separarVFX(valor||'');
+ const ajustar=(cambio:Partial<typeof orientacion>)=>{if(valor)onElegir(orientarVFX(valor,{...orientacion,...cambio}));};
+ return <div className="yq-compositor yq-animacion-contexto">
+  <GaleriaAnimaciones seleccion={valor?orientacion.base:undefined} onElegir={id=>onElegir(id)}/>
+  <section className="yq-compositor-inspector" aria-label="Configuración de la animación">
+   {controles}
+   <h3>{nombre}</h3>
+   {valor&&<>
+    <div className="yq-animacion-muestra" style={{'--escala-previa':Math.min(1.25,escala/2)} as CSSProperties}>
+     <MiniaturaVFX clip={valor} giro={transformacionVFX(valor)}/>
+    </div>
+    <p>{buscarVFX(valor)?.nombre??valor}</p>
+    <div className="yq-animacion-acciones">
+     <button type="button" className="yq-boton" onClick={()=>ajustar({cuartos:(orientacion.cuartos+1)%4})}>Girar · {orientacion.cuartos*90}°</button>
+     <button type="button" className="yq-boton" aria-pressed={orientacion.horizontal} onClick={()=>ajustar({horizontal:!orientacion.horizontal})}>Reflejo horizontal</button>
+     <button type="button" className="yq-boton" aria-pressed={orientacion.vertical} onClick={()=>ajustar({vertical:!orientacion.vertical})}>Reflejo vertical</button>
+     <button type="button" className="yq-boton" onClick={()=>onElegir(undefined)}>Quitar efecto</button>
+    </div>
+    {onEscala&&<label className="yq-animacion-campo">Tamaño visual · {escala} casillas<input type="range" min={.5} max={4} step={.5} value={escala} onChange={e=>onEscala(Number(e.target.value))}/></label>}
+    {onAutomatica&&<button type="button" className="yq-boton" onClick={onAutomatica}>Ajustar a la ficha automáticamente</button>}
+   </>}
+   {!valor&&<p className="yq-nota">Elige un efecto de la Galería.</p>}
+  </section>
  </div>;
 }
 

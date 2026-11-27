@@ -8,7 +8,7 @@ import {EditorTransformacion} from './EditorTransformacion';
 import {dadoSeguro,elementoDe} from '../lib/combate';
 import {describirEfecto} from '../lib/descripciones';
 import {type Efecto,type FuenteCreacion,ELEMENTOS,formula,nuevoEfecto,validarEfectos} from '../lib/creacion';
-import SelectorVFX from './SelectorVFX';
+import {BotonAnimacionAccion} from './yunque/editores/BotonesAnimacion';
 import EditorAlcance from './EditorAlcance';
 import {TablaArmas} from './TablaArmas';
 import {PLANTILLAS_ACCION,desplegar,plantillaPorId} from '../lib/yunque-plantillas';
@@ -88,7 +88,7 @@ export function EditorDados({value,onChange,disabled=false,armas=[],onPlantilla,
        {e.recurso&&<div><label>Nombre compartido<input value={e.recurso.nombre} onChange={ev=>patch({recurso:{...e.recurso!,nombre:ev.target.value}})}/></label>{(['inicial','cambio'] as const).map(k=><label key={k}>{k==='inicial'?'Saldo inicial del encuentro':'Cambio por uso (+/−)'}<input type="number" value={e.recurso![k]} onChange={ev=>patch({recurso:{...e.recurso!,[k]:Number(ev.target.value)}})}/></label>)}</div>}
      </details>
      <EditorReaccion valor={e.reaccion} costeAccion={e.coste_ph||0} onPlantilla={onPlantilla} onChange={reaccion=>patch({reaccion})}/>
-     {mostrarAnimacion&&<SelectorVFX valor={e.vfx} onChange={vfx=>patch({vfx})}/>}
+     {mostrarAnimacion&&<BotonAnimacionAccion efecto={e} onChange={patch}/>}
      {e.efecto!=='crear_arma'&&e.efecto!=='transformacion'&&<EditorAlcance efecto={e} onChange={patch}/>}
      <PasoYunque numero="3" titulo="Qué cuesta usarla" ayuda="PH son puntos de habilidad que se gastan. La Fatiga aumenta al usar habilidades naturales.">
       <div className="grid gap-3 sm:grid-cols-3"><label>Tipo de habilidad<select className={campo} value={e.naturaleza||'automatica'} onChange={v=>patch({naturaleza:v.target.value as Efecto['naturaleza'],...(v.target.value==='magica'?{coste_ph:Math.max(1,e.coste_ph)}:v.target.value==='natural'?{coste_ph:0,coste_fatiga:Math.max(1,e.coste_fatiga||0)}:v.target.value==='fisica'?{coste_ph:0,coste_fatiga:0}:{})})}><option value="automatica">Según sus costes</option><option value="fisica">Física</option><option value="magica">Mágica: gasta PH</option><option value="natural">Natural: genera Fatiga</option></select></label><Numero nombre="PH que gasta" min={0} value={e.coste_ph} onChange={coste_ph=>patch({coste_ph})}/><Numero nombre="Fatiga que genera" min={0} value={e.coste_fatiga||0} onChange={coste_fatiga=>patch({coste_fatiga})}/></div>

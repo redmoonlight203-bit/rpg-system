@@ -353,7 +353,7 @@ export function validarReaccion(r: unknown): string | null {
     if (p.reducir && !['todo','mitad', 'fijo'].includes(p.reducir.modo)) return 'Elige cómo reduce el daño: a la mitad o una cantidad fija.';
     if (p.reducir?.modo === 'fijo' && !entero(p.reducir.valor, 1, 1000)) return 'Reducción fija de 1 a 1000.';
     if (p.salvacion && (!entero(p.salvacion.cd, 1, 100) || !/^[a-z_][a-z0-9_]{0,63}$/.test(p.salvacion.atributo || ''))) return 'Salvación de la reacción inválida.';
-    if (p.animacion !== undefined && (typeof p.animacion !== 'string' || p.animacion.length > 60)) return 'Animación de la reacción inválida.';
+    if (p.animacion !== undefined && (typeof p.animacion !== 'string' || p.animacion.length > 100)) return 'Animación de la reacción inválida.';
     if (p.permite_seguimiento !== undefined && typeof p.permite_seguimiento !== 'boolean') return 'Seguimiento inválido.';
     const f = resultado(p); if (f) return f;
   }
