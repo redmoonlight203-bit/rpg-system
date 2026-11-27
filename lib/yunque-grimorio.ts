@@ -36,7 +36,9 @@ const una=(clave:string,familia:FamiliaGrimorio,tipo:TipoNodo,nombre:string,ayud
 
 // ---- Acciones ----
 const accion=(p:Partial<Efecto>):Efecto=>({...nuevoEfecto(),...p});
+const formaInicial:NonNullable<Efecto['transformacion']>={id:'forma',nombre:'Transformación',tipo:'forma',etapas:[{id:'etapa',nombre:'Primera forma',stats:{vida:10}}]};
 const ACCIONES:Pieza[]=[
+ una('accion:transformacion','acciones','accion','Transformarse','Adopta una forma con sus propios poderes','alma',accion({nombre:'Transformarse',efecto:'transformacion',cantidad:0,transformacion:formaInicial})),
  una('accion:dash','acciones','accion','Dash','Desplazarse hasta una casilla libre sin gastar movimiento','ojo',accion({nombre:'Dash',efecto:'desplazamiento',animacion:'desplazamiento',tablero:{alcance:3,forma:'individual',tamano:0,afecta:'todos'}})),
  una('accion:reaccion','acciones','accion','Reacción defensiva','Ofrece una defensa al recibir daño','escudo',accion({nombre:'Defensa',reaccion:{principal:{reducir:{modo:'mitad'}}}})),
  una('accion:ataque','acciones','accion','Ataque','Un golpe que causa daño','espada',accion({nombre:'Ataque',cantidad:1,caras:8})),
@@ -245,6 +247,10 @@ export function planSoltar(b:Borrador,pieza:Pieza,destino:Destino|null):Operacio
    if(!n)return [pegar(f,'nucleo')];
    if(n.tipo==='accion')return [pegar(f,n.id)];
    return falla('La invocación va en el núcleo o en una acción.');
+ }
+ if(!n&&f.tipo==='transformacion'){
+  const transformacion=f.datos as NonNullable<Efecto['transformacion']>;
+  return [pegar({tipo:'accion',datos:accion({nombre:transformacion.nombre,efecto:'transformacion',cantidad:0,transformacion})},'nucleo')];
  }
  if(!destino)return null;
  if(!n)return falla(`«${pieza.nombre}» no cuelga del núcleo: suéltala sobre ${f.tipo==='si'?'una regla':f.tipo==='entonces'?'una regla':'una acción'}.`);
