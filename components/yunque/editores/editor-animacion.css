@@ -178,3 +178,14 @@
 @media(max-width:640px) {
   .yq-compositor {grid-template-columns:minmax(0,1fr);padding:8px;gap:8px}
 }
+
+@media(min-width:1001px) {
+  .yq-compositor-galeria,.yq-compositor-inspector {
+    max-height: 56dvh;
+    overflow-y: auto;
+  }
+  .yq-compositor .yq-animacion-tablero {
+    width: min(100%, 40dvh);
+    margin-inline: auto;
+  }
+}
