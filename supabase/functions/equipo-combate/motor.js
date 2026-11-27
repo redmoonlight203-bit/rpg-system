@@ -5433,6 +5433,24 @@ function ejecutarRegla(c, yo, clave, r, actor, objetivo, rng, efecto, cantidad =
     }
     efectosMotor(r.efectos, ctx, clave);
 }
+/** «Aplicar estado» de una regla con un estado de verdad: inmunidades, duración y primitivas como en una acción. */
+function aplicarEstadoRegla(ctx, t, e, clave) {
+    const def = e.estado_def && e.estado_def.id === clave ? e.estado_def : definicionBase(clave);
+    if (!def)
+        return false;
+    const nombre = e.nombre?.trim() || def.nombre.split(':')[0];
+    const permiso = puedeAplicar(ctx.c, t, def.id, def);
+    if (permiso === 'no')
+        return true;
+    let turnos = turnosIniciales(def, e.duracion || 0);
+    if (permiso === 'resiste' && turnos > 1) {
+        turnos = Math.max(1, Math.floor(turnos / 2));
+        log(ctx.c, `${t.nombre} resiste el estado: dura ${turnos} turno(s).`);
+    }
+    estado(t, def.id, nombre, turnos, bonosDefinicion(def), { ...(e.estado_def ? { def: e.estado_def } : {}), cd: 12, atributo: 'salvacion', fuente: ctx.yo.id, ...(def.duracion.tipo === 'hasta_su_turno' ? { inicio: true } : {}) });
+    log(ctx.c, `${t.nombre} sufre ${nombre}.`);
+    return true;
+}
 function efectosMotor(efectos, ctx, origen) {
     if (ctx.profundidad > 8)
         throw Error('Demasiadas ramas de efectos.');
@@ -5511,6 +5529,9 @@ function efectosMotor(efectos, ctx, origen) {
                 case 'estado':
                 case 'transformar':
                 case 'atributo': {
+                    // Un estado real (catálogo o copia del grimorio) se aplica con sus primitivas; una clave propia sigue siendo un modificador.
+                    if (e.tipo === 'estado' && aplicarEstadoRegla(ctx, t, e, clave))
+                        break;
                     const cambios = e.tipo === 'atributo' ? [{ atributo: e.atributo || 'vida', operacion: e.operacion || 'sumar', valor: v() }] : e.tipo === 'transformar' ? (e.cambios || []).map(x => ({ ...x, valor: valorMotor(x.valor, ctx) })) : [];
                     if (e.permanente) {
                         for (const cambio of cambios) {

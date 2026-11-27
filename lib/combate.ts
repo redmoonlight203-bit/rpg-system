@@ -2489,6 +2489,19 @@ function ejecutarRegla(c:Combate,yo:Combatiente,clave:string,r:Regla,actor:Comba
  }
  efectosMotor(r.efectos,ctx,clave);
 }
+/** «Aplicar estado» de una regla con un estado de verdad: inmunidades, duración y primitivas como en una acción. */
+function aplicarEstadoRegla(ctx:ContextoMotor,t:Combatiente,e:EfectoRegla,clave:string):boolean{
+ const def=e.estado_def&&e.estado_def.id===clave?e.estado_def:definicionBase(clave);
+ if(!def)return false;
+ const nombre=e.nombre?.trim()||def.nombre.split(':')[0];
+ const permiso=puedeAplicar(ctx.c,t,def.id,def);
+ if(permiso==='no')return true;
+ let turnos=turnosIniciales(def,e.duracion||0);
+ if(permiso==='resiste'&&turnos>1){turnos=Math.max(1,Math.floor(turnos/2));log(ctx.c,`${t.nombre} resiste el estado: dura ${turnos} turno(s).`);}
+ estado(t,def.id,nombre,turnos,bonosDefinicion(def),{...(e.estado_def?{def:e.estado_def}:{}),cd:12,atributo:'salvacion',fuente:ctx.yo.id,...(def.duracion.tipo==='hasta_su_turno'?{inicio:true}:{})});
+ log(ctx.c,`${t.nombre} sufre ${nombre}.`);
+ return true;
+}
 function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
  if(ctx.profundidad>8)throw Error('Demasiadas ramas de efectos.');
  for(const [indice,e] of efectos.entries()){
@@ -2520,6 +2533,8 @@ function efectosMotor(efectos:EfectoRegla[],ctx:ContextoMotor,origen:string){
     }
     case 'habilidad':if(e.accion){m.habilidades=m.habilidades.filter(x=>x.id!==`${origen}:${indice}`);m.habilidades.push({origen:ctx.fuente,id:`${origen}:${indice}`,clave,accion:copia(e.accion),duracion:e.duracion||0,creado:t.turnos});}break;
     case 'estado':case 'transformar':case 'atributo':{
+     // Un estado real (catálogo o copia del grimorio) se aplica con sus primitivas; una clave propia sigue siendo un modificador.
+     if(e.tipo==='estado'&&aplicarEstadoRegla(ctx,t,e,clave))break;
      const cambios=e.tipo==='atributo'?[{atributo:e.atributo||'vida',operacion:e.operacion||'sumar' as const,valor:v()}]:e.tipo==='transformar'?(e.cambios||[]).map(x=>({...x,valor:valorMotor(x.valor,ctx)})):[];
      if(e.permanente){for(const cambio of cambios){let delta=cambio.valor;
       if(e.limite){const ganado=m.progreso.filter(x=>x.regla===clave&&x.atributo===cambio.atributo).reduce((a,x)=>a+x.delta,0);delta=Math.max(0,Math.min(delta,e.limite-ganado));}

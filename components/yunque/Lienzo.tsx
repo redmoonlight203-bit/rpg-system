@@ -4,7 +4,7 @@
 import {memo,useCallback,useEffect,useImperativeHandle,useMemo,useRef,useState,type PointerEvent as PE,type KeyboardEvent,type FocusEvent,type ReactNode,type Ref} from 'react';
 import {Maximize,Minus,Plus,X} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
-import NodoYunque,{familiaDe,puertoLocal,ICONO_TIPO,NOMBRE_TIPO,type Familia} from './NodoYunque';
+import NodoYunque,{familiaDe,familiaNodo,puertoLocal,ICONO_TIPO,NOMBRE_TIPO,type Familia} from './NodoYunque';
 import {NODO,encuadre,type Punto} from '../../lib/yunque-disposicion';
 import {conexionValida,type Operacion} from '../../lib/yunque-operaciones';
 import type {Grafo,Nodo,Puerto,TipoNodo} from '../../lib/yunque-grafo';
@@ -322,7 +322,7 @@ export default function Lienzo({grafo,posiciones,seleccion,encendidos,nuevos,onM
       const vivo=!!(encendidos?.has(c.desde.nodo)||encendidos?.has(c.hasta.nodo));
       const elegido=!!seleccion&&(seleccion===c.desde.nodo||seleccion===c.hasta.nodo);
       return <CableLienzo key={c.id} id={c.id} desde={{x:pa.x+la.x,y:pa.y+la.y}} hasta={{x:pb.x+lb.x,y:pb.y+lb.y}} y2={pb.y+20}
-       color1={COLOR[familiaDe(a.tipo)]} color2={COLOR[familiaDe(b.tipo)]} vivo={vivo} elegido={elegido} tenue={!!seleccion&&!elegido}/>;
+       color1={COLOR[familiaNodo(a)]} color2={COLOR[familiaNodo(b)]} vivo={vivo} elegido={elegido} tenue={!!seleccion&&!elegido}/>;
      })}
      {cable&&<path className="yq-cable-nuevo" d={curva(cable.desde,cable.hasta)}/>}
      {guiaCable&&<path className="yq-cable-nuevo is-guia" d={curva(guiaCable.desde,guiaCable.hasta)}/>}

@@ -1,8 +1,8 @@
 'use client';
 // Catálogo único de claves del Yunque. Todo lo que antes se escribía a mano (atributos, estados, formas de
 // transformación, recursos) se elige aquí de una lista; crear uno nuevo genera su clave a partir del nombre.
-import {createContext,useContext,useEffect,useMemo,useState,type ReactNode} from 'react';
-import {CATALOGO_ESTADOS} from '../lib/estados';
+import {createContext,useCallback,useContext,useEffect,useMemo,useState,type ReactNode} from 'react';
+import {CATALOGO_ESTADOS,validarDefinicionEstado,type DefinicionEstado} from '../lib/estados';
 import {ATRIBUTOS_COMBATE} from '../lib/catalogos';
 import {CLAVE_VALIDA,claveLibre} from '../lib/claves';
 import type {CondicionRegla,EfectoRegla,Regla} from '../lib/reglas';
@@ -21,14 +21,15 @@ const base:Catalogo={
  grupo:new Map(),
 };
 const Contexto=createContext(base);
+const ContextoGrimorio=createContext<DefinicionEstado[]>([]);
 const legible=(v:string)=>v.replaceAll('_',' ').replace(/^./,c=>c.toLocaleUpperCase('es'));
 
 /** Estados del grimorio del GM. Una lectura compartida por todos los selectores (se renueva cada minuto). */
-let cacheGrimorio:{t:number;p:Promise<[string,string][]>}|null=null;
-function leerGrimorio():Promise<[string,string][]>{
+let cacheGrimorio:{t:number;p:Promise<DefinicionEstado[]>}|null=null;
+function leerGrimorio():Promise<DefinicionEstado[]>{
  if(!cacheGrimorio||Date.now()-cacheGrimorio.t>60_000){
   // Carga diferida: el cliente de Supabase solo se importa en el navegador, al leer el grimorio.
-  cacheGrimorio={t:Date.now(),p:import('../lib/supabase').then(({supabase})=>supabase.from('estados_personalizados').select('id,definicion')).then(r=>r.error?[]:(r.data||[]).map(f=>[f.id as string,String((f.definicion as {nombre?:string}|null)?.nombre||f.id)] as [string,string])).catch(()=>[])};
+  cacheGrimorio={t:Date.now(),p:import('../lib/supabase').then(({supabase})=>supabase.from('estados_personalizados').select('id,definicion')).then(r=>r.error?[]:(r.data||[]).map(f=>f.definicion as DefinicionEstado).filter(d=>d&&typeof d==='object'&&!validarDefinicionEstado(d))).catch(()=>[])};
  }
  return cacheGrimorio.p;
 }
@@ -85,11 +86,13 @@ export function CatalogoReglas({atributos,fuentes,children}:{atributos?:Stat[];f
  const anterior=useContext(Contexto);
  // Solo el proveedor más externo lee el grimorio; los anidados heredan sus estados.
  const raiz=anterior===base;
- const [grimorio,setGrimorio]=useState<[string,string][]>([]);
+ const grimorioAnterior=useContext(ContextoGrimorio);
+ const [propio,setGrimorio]=useState<DefinicionEstado[]>([]);
+ const grimorio=raiz?propio:grimorioAnterior;
  useEffect(()=>{if(!raiz)return;let vivo=true;void leerGrimorio().then(l=>{if(vivo)setGrimorio(l);});return()=>{vivo=false;};},[raiz]);
  const catalogo=useMemo(()=>{
   const c:Catalogo={atributo:new Map(anterior.atributo),estado:new Map(anterior.estado),forma:new Map(anterior.forma),recurso:new Map(anterior.recurso),grupo:new Map(anterior.grupo)};
-  for(const [id,nombre] of grimorio)agregar(c.estado,id,nombre);
+  for(const d of grimorio)agregar(c.estado,d.id,d.nombre.split(':')[0]);
   for(const a of atributos||[])agregar(c.atributo,a.clave,a.etiqueta);
   for(const fuente of fuentes){
    for(const k of Object.keys(fuente.stats||{}))agregar(c.atributo,k);
@@ -98,7 +101,12 @@ export function CatalogoReglas({atributos,fuentes,children}:{atributos?:Stat[];f
   }
   return c;
  },[anterior,atributos,fuentes,grimorio]);
- return <Contexto.Provider value={catalogo}>{children}</Contexto.Provider>;
+ return <ContextoGrimorio.Provider value={grimorio}><Contexto.Provider value={catalogo}>{children}</Contexto.Provider></ContextoGrimorio.Provider>;
+}
+/** Definición de un estado del grimorio por su id (para guardar su copia al elegirlo en una regla). */
+export function useDefinicionGrimorio(){
+ const grimorio=useContext(ContextoGrimorio);
+ return useCallback((id:string)=>grimorio.find(d=>d.id===id),[grimorio]);
 }
 /** Opciones de un tipo de clave (para selectores propios, p. ej. fichas). */
 export const useCatalogo=(tipo:TipoClave)=>useContext(Contexto)[tipo];
