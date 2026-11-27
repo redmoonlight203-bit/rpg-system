@@ -169,8 +169,8 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
  }
  if(b.tipo==='objeto'){
   nodos.find(n=>n.id==='nucleo')!.puertos.push(salida('artefacto',['artefacto'],'Artefacto'));
-  nodo('artefacto','artefacto',['artefacto'],'Artefacto',b.artefacto?`${b.artefacto.niveles?.length??0} niveles · Inventario de prueba`:'Configurar niveles, formas y absorción.',null,[entrada(['nucleo'])]);
-  cable('nucleo','artefacto','artefacto');
+  if(b.artefacto){nodo('artefacto','artefacto',['artefacto'],'Artefacto',b.artefacto?`${b.artefacto.niveles?.length??0} niveles · Inventario de prueba`:'Configurar niveles, formas y absorción.',null,[entrada(['nucleo'])]);
+  cable('nucleo','artefacto','artefacto');}
  }
  return {nodos,cables};
 }
