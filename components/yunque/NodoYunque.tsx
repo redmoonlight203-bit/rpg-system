@@ -8,14 +8,14 @@ import type {Nodo,TipoNodo} from '../../lib/yunque-grafo';
 import type {Operacion} from '../../lib/yunque-operaciones';
 
 export type Familia='nucleo'|'accion'|'modulo'|'regla'|'pasiva'|'vinculo';
-const FAMILIA:Record<TipoNodo,Familia>={nucleo:'nucleo',accion:'accion',alcance:'modulo',salvacion:'modulo',estado:'modulo',reaccion:'modulo',transformacion:'modulo',recurso:'modulo',vfx:'modulo',tabla_armas:'modulo',vision:'modulo',invocacion:'accion',cuando:'regla',si:'regla',entonces:'regla',pasiva:'pasiva',vinculo:'vinculo',requisitos:'vinculo'};
+const FAMILIA:Record<TipoNodo,Familia>={artefacto:'modulo',nucleo:'nucleo',accion:'accion',alcance:'modulo',salvacion:'modulo',estado:'modulo',reaccion:'modulo',transformacion:'modulo',recurso:'modulo',vfx:'modulo',tabla_armas:'modulo',vision:'modulo',invocacion:'accion',cuando:'regla',si:'regla',entonces:'regla',pasiva:'pasiva',vinculo:'vinculo',requisitos:'vinculo'};
 export const familiaDe=(t:TipoNodo):Familia=>FAMILIA[t]??'modulo';
 /** Familia con la que se pinta un nodo: una acción siempre activa se ve como pasiva. */
 export const familiaNodo=(n:Pick<Nodo,'tipo'|'pasivo'>):Familia=>n.pasivo?'pasiva':familiaDe(n.tipo);
 /** Etiqueta pequeña de la cabecera del nodo. */
 export const etiquetaNodo=(n:Pick<Nodo,'tipo'|'pasivo'>):string=>n.pasivo?'Pasiva':NOMBRE_TIPO[n.tipo];
-export const NOMBRE_TIPO:Record<TipoNodo,string>={nucleo:'Núcleo',accion:'Acción',alcance:'Alcance',salvacion:'Salvación',estado:'Estado',reaccion:'Reacción',transformacion:'Transformación',recurso:'Recurso',vfx:'Animación',tabla_armas:'Tabla de armas',vision:'Visión',cuando:'Cuándo',si:'Si',entonces:'Entonces',pasiva:'Pasiva',vinculo:'Vínculo',invocacion:'Invocación',requisitos:'Requisitos'};
-export const ICONO_TIPO:Record<TipoNodo,string>={nucleo:'yugen',accion:'espada',alcance:'ojo',salvacion:'escudo',estado:'fuego',reaccion:'escudo',transformacion:'alma',recurso:'pocion',vfx:'rayo',tabla_armas:'espada',vision:'ojo',cuando:'libro',si:'ojo',entonces:'rayo',pasiva:'vida',vinculo:'anillo',invocacion:'espectro',requisitos:'corona'};
+export const NOMBRE_TIPO:Record<TipoNodo,string>={artefacto:'Artefacto',nucleo:'Núcleo',accion:'Acción',alcance:'Alcance',salvacion:'Salvación',estado:'Estado',reaccion:'Reacción',transformacion:'Transformación',recurso:'Recurso',vfx:'Animación',tabla_armas:'Tabla de armas',vision:'Visión',cuando:'Cuándo',si:'Si',entonces:'Entonces',pasiva:'Pasiva',vinculo:'Vínculo',invocacion:'Invocación',requisitos:'Requisitos'};
+export const ICONO_TIPO:Record<TipoNodo,string>={artefacto:'alma',nucleo:'yugen',accion:'espada',alcance:'ojo',salvacion:'escudo',estado:'fuego',reaccion:'escudo',transformacion:'alma',recurso:'pocion',vfx:'rayo',tabla_armas:'espada',vision:'ojo',cuando:'libro',si:'ojo',entonces:'rayo',pasiva:'vida',vinculo:'anillo',invocacion:'espectro',requisitos:'corona'};
 
 /** Geometría fija: la cabecera mide `cab`; la entrada está a media cabecera; las salidas, en filas de `fila` px. */
 export const GEO={cab:40,entradaY:20,salidaY0:50,fila:24};
