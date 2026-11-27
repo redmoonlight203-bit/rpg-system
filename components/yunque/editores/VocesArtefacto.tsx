@@ -1,6 +1,7 @@
 'use client';
 // Voces de demonio: salvación al tomar el arma, duración y la lista de voces que el GM puede asignar.
 import {Plus,Trash2} from 'lucide-react';
+import {SelectorRegla} from '../../SelectorRegla';
 import {NOMBRE_VOZ,validarVoces,vocesBase,type ConfigVoces,type VozDemonio} from '../../../lib/artefactos-voces';
 import type {ConfiguracionArtefacto} from '../../../lib/artefactos';
 
@@ -14,7 +15,7 @@ export default function VocesArtefacto({a,set}:{a:ConfiguracionArtefacto;set:(p:
  return <div className="ya-voces">
   <div className="ya-rango">
    <label>CD<input type="number" min={1} max={40} value={v.cd} onChange={e=>setV({cd:num(e.target.value,1,40)})}/></label>
-   <label>Salvación de<input value={v.atributo} onChange={e=>setV({atributo:e.target.value.trim()})}/></label>
+   <SelectorRegla tipo="atributo" etiqueta="Salvación de" valor={v.atributo} onChange={atributo=>setV({atributo})}/>
    <label>Duración (turnos)<input type="number" min={1} max={20} value={v.duracion} onChange={e=>setV({duracion:num(e.target.value,1,20)})}/></label>
   </div>
   <ol className="ya-lista-voces">{v.voces.map((z,i)=><li key={z.id} className={`is-${z.tipo}`}>

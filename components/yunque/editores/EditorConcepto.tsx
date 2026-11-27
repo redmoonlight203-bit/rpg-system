@@ -7,10 +7,12 @@ import {VistaGesto} from './EditorEsqueleto';
 import {DESARMADO_BASE,GUARDIA_BASE,describirConcepto,validarConcepto,type ConceptoBasico,type ConceptoDesarmado,type ConceptoGuardia} from '../../../lib/conceptos-basicos';
 import {ESQUELETOS_BASE,esqueletoBase} from '../../../lib/esqueletos';
 import {estadoVacio} from '../../../lib/estados';
+import {OPCIONES_ELEMENTO_O_NINGUNO,cortoAtributo,opcionesTipoDano,tipoDanoCanonico} from '../../../lib/catalogos';
+import {claveNueva} from '../../../lib/claves';
 import './defensas.css';
 
-const BONOS:{clave:string;nombre:string}[]=[{clave:'armadura',nombre:'ARM'},{clave:'salvacion',nombre:'Salvación'},{clave:'bloqueo',nombre:'Bloqueo'},{clave:'bono_impacto',nombre:'Impacto'}];
-const ELEMENTOS:Opcion<NonNullable<ConceptoDesarmado['dano']['elemento']>>[]=[{valor:'ninguno',nombre:'Sin elemento',icono:'yugen'},{valor:'fuego',nombre:'Fuego',icono:'fuego'},{valor:'hielo',nombre:'Hielo',icono:'hielo'},{valor:'electricidad',nombre:'Rayo',icono:'rayo'},{valor:'agua',nombre:'Agua',icono:'agua'}];
+const BONOS:{clave:string;nombre:string}[]=[{clave:'armadura',nombre:cortoAtributo('armadura')},{clave:'salvacion',nombre:cortoAtributo('salvacion')},{clave:'bloqueo',nombre:'Bloqueo'},{clave:'bono_impacto',nombre:cortoAtributo('bono_impacto')}];
+const ELEMENTOS=OPCIONES_ELEMENTO_O_NINGUNO as Opcion<NonNullable<ConceptoDesarmado['dano']['elemento']>>[];
 
 export default function EditorConcepto({valor,onChange}:{valor:ConceptoBasico;onChange:(c:ConceptoBasico)=>void}){
  const error=validarConcepto(valor);
@@ -31,14 +33,14 @@ function Desarmado({c,onChange}:{c:ConceptoDesarmado;onChange:(c:ConceptoBasico)
    <label>Suma<Rueda nombre="modificador" etiqueta="Modificador" valor={d.modificador} min={-100} max={100} onChange={modificador=>setD({modificador})} compacta/></label>
    <label>Alcance<Rueda nombre="alcance" etiqueta="Alcance en casillas" valor={c.alcance} min={1} max={6} onChange={alcance=>set({alcance})} compacta/></label>
   </div>
-  <Texto etiqueta="Tipo de daño" valor={d.tipo_dano} onChange={tipo_dano=>setD({tipo_dano})} max={40}/>
+  <Fichas etiqueta="Tipo de daño" opciones={opcionesTipoDano(d.tipo_dano)} valor={tipoDanoCanonico(d.tipo_dano)} onChange={tipo_dano=>setD({tipo_dano})} columnas={3}/>
   <Fichas etiqueta="Elemento" opciones={ELEMENTOS} valor={d.elemento||'ninguno'} onChange={elemento=>setD({elemento:elemento==='ninguno'?undefined:elemento})} tono="arcano"/>
   <Fichas etiqueta="Naturaleza" opciones={[{valor:'fisica',nombre:'Física',ayuda:'Sin coste.'},{valor:'natural',nombre:'Natural',ayuda:'Genera Fatiga.'}]} valor={d.naturaleza||'fisica'} onChange={naturaleza=>{onChange({...c,dano:{...d,naturaleza:naturaleza==='fisica'?undefined:naturaleza},coste:{...c.coste,fatiga:naturaleza==='natural'?Math.max(1,c.coste.fatiga):0}});}}/>
   {d.naturaleza==='natural'&&<label className="yq-campo"><span>Fatiga</span><Rueda nombre="fatiga" etiqueta="Fatiga que genera" valor={c.coste.fatiga} min={1} max={99} onChange={fatiga=>set({coste:{...c.coste,fatiga}})} compacta/></label>}
   <Interruptor etiqueta="Necesita una mano libre" valor={c.requiere_mano!==false} onChange={v=>set({requiere_mano:v?undefined:false})}/>
   <Fichas etiqueta="Animación (esqueleto)" opciones={ESQUELETOS_BASE.map(e=>({valor:e.id,nombre:e.nombre}))} valor={c.animacion} onChange={animacion=>set({animacion})} columnas={3}/>
   {esqueletoBase(c.animacion)&&<VistaGesto esqueleto={esqueletoBase(c.animacion)!}/>}
-  <Interruptor etiqueta="Aplica un estado al impactar" valor={!!c.estado_impacto} onChange={v=>set({estado_impacto:v?{...estadoVacio('sangrado'),nombre:'Sangrado',categoria:'fisico',efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'fisico',momento:'inicio'}]}:undefined})}/>
+  <Interruptor etiqueta="Aplica un estado al impactar" valor={!!c.estado_impacto} onChange={v=>set({estado_impacto:v?{...estadoVacio(claveNueva('sangrado')),nombre:'Sangrado',categoria:'fisico',efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'fisico',momento:'inicio'}]}:undefined})}/>
   {c.estado_impacto&&<EditorEstados valor={c.estado_impacto} onChange={estado_impacto=>set({estado_impacto})}/>}
  </>;
 }

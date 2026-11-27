@@ -3,6 +3,7 @@
 // tabla de armas) y de los nodos únicos de la creación (invocación y requisitos). Los editores clásicos de la Forja
 // se reutilizan dentro de `.yq-legado`, que los viste con la paleta del lienzo.
 import EditorAlcance from '../../EditorAlcance';
+import {cortoAtributo} from '../../../lib/catalogos';
 import EditorReaccion from '../../EditorReaccion';
 import EditorInvocacion from '../../EditorInvocacion';
 import RequisitosYunque from '../../RequisitosYunque';
@@ -28,7 +29,7 @@ const ESTADOS:Opcion<NonNullable<Efecto['estado_tipo']>>[]=[
  {valor:'veneno',nombre:'Veneno',icono:'pocion'},{valor:'quemadura',nombre:'Quemadura',icono:'fuego'},
  {valor:'regeneracion',nombre:'Regeneración',icono:'vida'},{valor:'aturdido',nombre:'Aturdir',icono:'hielo'},
 ];
-const BONOS_ESTADO:[string,string][]=[['armadura','Armadura'],['dano','Daño'],['bono_impacto','Ataque'],['salvacion','Salvación'],['movimiento','Movim.'],['iniciativa','Iniciativa']];
+const BONOS_ESTADO:[string,string][]=['armadura','dano','bono_impacto','salvacion','movimiento','iniciativa'].map(k=>[k,cortoAtributo(k)]);
 const CARAS=[2,3,4,6,8,10,12,20,100];
 const limpio=(e:Efecto):Efecto=>Object.fromEntries(Object.entries(e).filter(([,v])=>v!==undefined)) as Efecto;
 type Props=EditorNodoProps&{ctx:ContextoTaller;avisar:(texto:string)=>void};
@@ -92,7 +93,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
    const r=e.recurso;if(!r)return null;
    return <div className="yq-editor">
     {e.efecto==='dano'&&<label><input type="checkbox" checked={!!r.descargar} onChange={v=>patch({recurso:{...r,descargar:v.target.checked}})}/> Vaciar la reserva y sumar su saldo al daño de cada impacto</label>}
-    <Texto etiqueta="Nombre compartido" valor={r.nombre} max={60} placeholder="Energía, Furia…" ayuda="Las acciones con el mismo nombre comparten la reserva." onChange={nombre=>patch({recurso:{...r,nombre}})}/>
+    <SelectorRegla tipo="recurso" crear etiqueta="Reserva" ayuda="Las acciones, reacciones y rasgos con la misma reserva comparten el saldo." valor={r.nombre} onChange={nombre=>patch({recurso:{...r,nombre}})}/>
     <div className="yq-costes">
      <label><span>Saldo inicial</span><Rueda nombre="inicial" etiqueta="Saldo inicial del encuentro" valor={r.inicial} min={-9999} max={9999} onChange={inicial=>patch({recurso:{...r,inicial}})} compacta/></label>
      <label><span>Cambio por uso</span><Rueda nombre="cambio" etiqueta="Cambio por uso (positivo suma, negativo resta)" valor={r.cambio} min={-9999} max={9999} onChange={cambio=>patch({recurso:{...r,cambio}})} compacta/></label>

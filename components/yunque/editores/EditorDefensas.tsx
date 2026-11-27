@@ -2,6 +2,7 @@
 // «Defensas e inmunidades» (plan maestro 4.6): tres columnas —Daño, Estado y Categoría— sin JSON ni SQL.
 // Cada columna elige un valor y un modo; la vista previa usa la frase del motor («Inmune al fuego; no a Quemadura»).
 import {useState} from 'react';
+import {TIPOS_DANO_INMUNIDAD} from '../../../lib/catalogos';
 import {X} from 'lucide-react';
 import IconoYugen from '../../IconoYugen';
 import {Fichas,Rueda,type Opcion} from '../Controles';
@@ -9,11 +10,7 @@ import {describirInmunidades,SUBCATEGORIAS_MENTALES,type Inmunidad,type ModoInmu
 import {CATALOGO_ESTADOS} from '../../../lib/estados';
 import './defensas.css';
 
-const DANOS:Opcion<string>[]=[
- {valor:'fuego',nombre:'Fuego',icono:'fuego'},{valor:'agua',nombre:'Agua',icono:'agua'},{valor:'electricidad',nombre:'Rayo',icono:'rayo'},
- {valor:'hielo',nombre:'Hielo',icono:'hielo'},{valor:'luz_sagrada',nombre:'Luz sagrada',icono:'corona'},{valor:'veneno',nombre:'Veneno',icono:'pocion'},
- {valor:'fisico',nombre:'Físico',icono:'espada'},{valor:'magico',nombre:'Mágico',icono:'libro'},
-];
+const DANOS:Opcion<string>[]=TIPOS_DANO_INMUNIDAD;
 const NOMBRE_SUB:Record<string,string>={control:'Control',miedo:'Miedo',ilusion:'Ilusión',confusion:'Confusión',memoria:'Memoria',posesion:'Posesión'};
 const CATEGORIAS:Opcion<string>[]=[{valor:'mental',nombre:'Toda la mente',icono:'alma'},...SUBCATEGORIAS_MENTALES.map(s=>({valor:'mental:'+s,nombre:NOMBRE_SUB[s],icono:'ojo'}))];
 const MODOS:Record<TipoInmunidad,Opcion<ModoInmunidad>[]>={

@@ -1,6 +1,7 @@
 'use client';
 // Editor de una acción dentro de su nodo: fichas para efecto, elemento y naturaleza; dados y costes como ruedas.
 import {useState} from 'react';
+import {OPCIONES_ELEMENTO_O_NINGUNO} from '../../../lib/catalogos';
 import {EditorDados} from '../../EditorDados';
 import {Fichas,Rueda,type Opcion} from '../Controles';
 import {elementoDe,tipoPresupuesto,type TipoPresupuesto} from '../../../lib/combate';
@@ -9,6 +10,7 @@ import {CATALOGO_ESTADOS,estadoVacio,definicionBase} from '../../../lib/estados'
 import {Interruptor} from '../Controles';
 import EditorDefensas from './EditorDefensas';
 import EditorEstados from './EditorEstados';
+import {claveNueva} from '../../../lib/claves';
 import FichasGrimorio from '../../grimorio/FichasGrimorio';
 import FichasGrimorioElementos from '../../grimorio/FichasGrimorioElementos';
 import EditorRasgo,{rasgoVacio} from './EditorRasgo';
@@ -32,10 +34,7 @@ const EFECTOS:Opcion<Efecto['efecto']>[]=[
  {valor:'recuperar_ph',nombre:'Recuperar PH',icono:'agua',ayuda:'Devuelve puntos de habilidad.'},
  {valor:'reducir_fatiga',nombre:'Aliviar fatiga',icono:'vida',ayuda:'Reduce el cansancio del objetivo.'},
 ];
-const ELEMENTOS:Opcion<NonNullable<Efecto['elemento']>>[]=[
- {valor:'ninguno',nombre:'Sin elemento',icono:'yugen'},{valor:'fuego',nombre:'Fuego',icono:'fuego'},{valor:'agua',nombre:'Agua',icono:'agua'},
- {valor:'electricidad',nombre:'Rayo',icono:'rayo'},{valor:'hielo',nombre:'Hielo',icono:'hielo'},{valor:'luz_sagrada',nombre:'Luz sagrada',icono:'corona'},
-];
+const ELEMENTOS=OPCIONES_ELEMENTO_O_NINGUNO as Opcion<NonNullable<Efecto['elemento']>>[];
 const NATURALEZAS:Opcion<NonNullable<Efecto['naturaleza']>>[]=[
  {valor:'automatica',nombre:'Según costes',ayuda:'La naturaleza se deduce de lo que cuesta.'},{valor:'fisica',nombre:'Física',ayuda:'Sin PH ni fatiga.'},
  {valor:'magica',nombre:'Mágica',ayuda:'Gasta PH.'},{valor:'natural',nombre:'Natural',ayuda:'Genera fatiga.'},
@@ -110,7 +109,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
    {e.rafaga&&<p className="yq-nota">{e.cantidad} disparos de 1d{e.caras}{e.modificador?` ${e.modificador>0?'+':'−'} ${Math.abs(e.modificador)}`:''}: cada uno tira para impactar por separado y puede ir al mismo enemigo o a otro. El coste se paga una vez. Tras el primer disparo solo se puede seguir disparando o moverse; los que queden se pierden al terminar el turno.</p>}
   </>}
   {e.efecto==='estado'&&<>
-   <Fichas etiqueta="Comportamiento" opciones={ESTADOS} valor={e.estado_def?'propio':e.estado_tipo||'narrativo'} onChange={tipo=>tipo==='propio'?patch({estado_tipo:'narrativo',estado_def:e.estado_def||estadoVacio(),estado:''}):patch({estado_tipo:tipo,estado_def:undefined,estado:definicionBase(tipo)?.nombre.split(':')[0]||e.estado,categoria:definicionBase(tipo)?.categoria==='mental'?'mental':e.categoria,subcategoria:definicionBase(tipo)?.subcategoria})} tono="arcano" columnas={3}/>
+   <Fichas etiqueta="Comportamiento" opciones={ESTADOS} valor={e.estado_def?'propio':e.estado_tipo||'narrativo'} onChange={tipo=>tipo==='propio'?patch({estado_tipo:'narrativo',estado_def:e.estado_def||estadoVacio(claveNueva('estado')),estado:''}):patch({estado_tipo:tipo,estado_def:undefined,estado:definicionBase(tipo)?.nombre.split(':')[0]||e.estado,categoria:definicionBase(tipo)?.categoria==='mental'?'mental':e.categoria,subcategoria:definicionBase(tipo)?.subcategoria})} tono="arcano" columnas={3}/>
    <FichasGrimorio actual={e.estado_def} onElegir={estado_def=>patch({estado_tipo:'narrativo',estado_def,estado:estado_def.nombre,categoria:estado_def.categoria==='mental'?'mental':e.categoria,subcategoria:estado_def.categoria==='mental'?estado_def.subcategoria:e.subcategoria})}/>
    {e.estado_def?<EditorEstados valor={e.estado_def} onChange={estado_def=>patch({estado_def,estado:estado_def.nombre})}/>
     :<label className="yq-campo"><span>Nombre del estado</span><input maxLength={200} value={e.estado} onChange={v=>patch({estado:v.target.value})}/></label>}

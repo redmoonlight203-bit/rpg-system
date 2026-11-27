@@ -5,6 +5,7 @@
 // sobre `lib/yunque-arena.ts` y `lib/combate.ts`; nunca guarda nada. Cada paso enciende en el lienzo los nodos
 // que actuaron (`activados`).
 import {memo,useEffect,useMemo,useRef,useState} from 'react';
+import {OPCIONES_ELEMENTO} from '../../lib/catalogos';
 import {createPortal} from 'react-dom';
 import {Maximize2,Minimize2,Move,Plus,RotateCcw,Swords,Trash2,Undo2} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
@@ -38,7 +39,7 @@ type Estado=Entrada&{combate:Combate|null;error:string};
 
 const DOLL='doll',SACO='saco';
 const IMAGEN_DOLL='/arte/dolls/portador.webp',IMAGEN_SACO='/arte/dolls/saco.webp';
-const ELEMENTOS_GOLPE=[{valor:'',nombre:'Sin elemento'},{valor:'fuego',nombre:'Fuego'},{valor:'agua',nombre:'Agua'},{valor:'electricidad',nombre:'Rayo'},{valor:'hielo',nombre:'Hielo'},{valor:'luz_sagrada',nombre:'Luz sagrada'}];
+const ELEMENTOS_GOLPE=[{valor:'',nombre:'Sin elemento'},...OPCIONES_ELEMENTO];
 const CARAS=[4,6,8,10,12,20,100];
 const AJUSTES:{clave:keyof AjustesDoll;nombre:string;saco:boolean}[]=[{clave:'vida',nombre:'Vida',saco:true},{clave:'ph',nombre:'PH',saco:false},{clave:'armadura',nombre:'Armadura',saco:true},{clave:'salvacion',nombre:'Salvación',saco:true}];
 const REGISTRO=12;

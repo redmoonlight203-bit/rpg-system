@@ -4,6 +4,7 @@
 import {ArrowLeftRight,Crosshair,HeartCrack,Hourglass,RotateCcw,Shield,ShieldAlert,Swords,Users} from 'lucide-react';
 import type {Reaccion,ResultadoReaccion} from '../lib/creacion';
 import {describirReaccion} from '../lib/descripciones';
+import {SelectorRegla} from './SelectorRegla';
 import './editor-yunque.css';
 import {DISPARADORES,NOMBRE_DISPARADOR,RESULTADOS_POR_DISPARADOR,CON_ALCANCE,PLANTILLAS_REACCION,disparadorDe,lineaCosteReaccion,type ClaveResultado,type DisparadorReaccion} from '../lib/reacciones';
 
@@ -46,7 +47,8 @@ export default function EditorReaccion({valor,onChange,costeAccion=0,onPlantilla
    </fieldset>
    {CON_ALCANCE.includes(disparador)&&<label>Alcance (casillas)<input type="number" min={1} max={30} value={r.alcance??1} onChange={ev=>set({alcance:numero(ev.target.value,1,30)})}/></label>}
    {!['tras_fallar_ataque','tras_fallar_prueba'].includes(disparador)&&<label>Naturaleza<select value={r.naturaleza||''} onChange={ev=>set({naturaleza:(ev.target.value||undefined) as Reaccion['naturaleza']})}><option value="">Cualquier golpe</option><option value="fisica">Solo físicos</option><option value="magica">Solo mágicos</option></select></label>}
-   <label>Solo en la forma (clave de transformación, opcional)<input value={r.forma||''} onChange={ev=>set({forma:ev.target.value.trim()||undefined})}/></label>
+   <SelectorRegla tipo="forma" opcional textoOpcional="En cualquier forma" etiqueta="Solo en la forma" valor={r.forma||''} onChange={forma=>set({forma:forma||undefined})}/>
+   {r.sin_forma&&<SelectorRegla tipo="forma" opcional textoOpcional="Sin excepción" etiqueta="Nunca en la forma" valor={r.sin_forma} onChange={sin_forma=>set({sin_forma:sin_forma||undefined})}/>}
    {permite('seguimiento')&&<label>Cuándo actúa<select value={principal?'principal':'seguimiento'} onChange={ev=>onChange(ev.target.value==='principal'?{...r,seguimiento:undefined,principal:{reducir:{modo:'fijo',valor:3}}}:{...r,principal:undefined,esquiva_opuesta:undefined,seguimiento:{devolver:{}}})}><option value="principal">Intercepta el golpe</option><option value="seguimiento">Actúa tras otra reacción que lo detuvo</option></select></label>}
    {principal&&permite('esquiva_opuesta')&&<label><input type="checkbox" checked={!!r.esquiva_opuesta} onChange={ev=>set({esquiva_opuesta:ev.target.checked?{caras:20,contra_caras:6}:undefined})}/> Esquiva enfrentada al ataque</label>}
    {r.esquiva_opuesta&&<fieldset><legend>Al igualar o superar el ataque, esquiva y contraataca. Por debajo, recibe la mitad.</legend>
@@ -62,7 +64,7 @@ export default function EditorReaccion({valor,onChange,costeAccion=0,onPlantilla
      {disparador==='despues_ser_atacado'&&<label>Prioridad (las mayores se prueban antes)<input type="number" min={-100} max={100} value={r.prioridad??0} onChange={ev=>set({prioridad:Number(ev.target.value)||0})}/></label>}
     </>}
     {permite('salvacion')&&<><label><input type="checkbox" checked={!!r.principal!.salvacion} onChange={ev=>setP({salvacion:ev.target.checked?{cd:14,atributo:'salvacion'}:undefined})}/> Requiere superar una salvación</label>
-    {r.principal!.salvacion&&<div className="flex flex-wrap gap-3"><label>CD<input type="number" min={1} max={100} value={r.principal!.salvacion.cd} onChange={ev=>setP({salvacion:{...r.principal!.salvacion!,cd:numero(ev.target.value,1,100)}})}/></label><label>Atributo<input value={r.principal!.salvacion.atributo} onChange={ev=>setP({salvacion:{...r.principal!.salvacion!,atributo:ev.target.value.trim()}})}/></label></div>}</>}
+    {r.principal!.salvacion&&<div className="flex flex-wrap gap-3"><label>CD<input type="number" min={1} max={100} value={r.principal!.salvacion.cd} onChange={ev=>setP({salvacion:{...r.principal!.salvacion!,cd:numero(ev.target.value,1,100)}})}/></label><SelectorRegla tipo="atributo" etiqueta="Atributo" valor={r.principal!.salvacion.atributo} onChange={atributo=>setP({salvacion:{...r.principal!.salvacion!,atributo}})}/></div>}</>}
     {permite('seguimiento')&&<label><input type="checkbox" checked={!!r.principal!.permite_seguimiento} onChange={ev=>setP({permite_seguimiento:ev.target.checked||undefined})}/> Si tiene éxito, permite una reacción de seguimiento</label>}
    </>}
    {!r.esquiva_opuesta&&<>
@@ -71,7 +73,7 @@ export default function EditorReaccion({valor,onChange,costeAccion=0,onPlantilla
     {permite('devolver')&&<><label><input type="checkbox" checked={!!actual.devolver} onChange={ev=>setRes({devolver:ev.target.checked?{}:undefined})}/> Devolver lo detenido al atacante</label>
     {actual.devolver&&<label>Máximo devuelto (vacío: todo)<input type="number" min={1} max={1000} value={actual.devolver.maximo??''} onChange={ev=>setRes({devolver:{maximo:ev.target.value?Number(ev.target.value):undefined}})}/></label>}</>}
     {permite('reservar')&&<><label><input type="checkbox" checked={!!actual.reservar} onChange={ev=>setRes({reservar:ev.target.checked?{recurso:'Energía',proporcion:0.5,maximo:10}:undefined})}/> Guardar parte de lo detenido en una reserva</label>
-    {actual.reservar&&<div className="flex flex-wrap gap-3"><label>Recurso<input value={actual.reservar.recurso} onChange={ev=>setRes({reservar:{...actual.reservar!,recurso:ev.target.value}})}/></label><label>Proporción (0,5 = mitad)<input type="number" step="0.1" min={0.1} max={10} value={actual.reservar.proporcion} onChange={ev=>setRes({reservar:{...actual.reservar!,proporcion:Number(ev.target.value)||0.5}})}/></label><label>Máximo<input type="number" min={1} value={actual.reservar.maximo} onChange={ev=>setRes({reservar:{...actual.reservar!,maximo:Number(ev.target.value)||1}})}/></label></div>}</>}
+    {actual.reservar&&<div className="flex flex-wrap gap-3"><SelectorRegla tipo="recurso" crear etiqueta="Recurso" ayuda="Comparte el saldo con las acciones y rasgos que usan el mismo recurso." valor={actual.reservar.recurso} onChange={recurso=>setRes({reservar:{...actual.reservar!,recurso}})}/><label>Proporción (0,5 = mitad)<input type="number" step="0.1" min={0.1} max={10} value={actual.reservar.proporcion} onChange={ev=>setRes({reservar:{...actual.reservar!,proporcion:Number(ev.target.value)||0.5}})}/></label><label>Máximo<input type="number" min={1} value={actual.reservar.maximo} onChange={ev=>setRes({reservar:{...actual.reservar!,maximo:Number(ev.target.value)||1}})}/></label></div>}</>}
    </>}
    <p className="y-cita yq-reaccion-vista" aria-live="polite">{describirReaccion(r,costeAccion)}</p>
   </div>}
