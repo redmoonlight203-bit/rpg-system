@@ -20,14 +20,26 @@ test('objeto: núcleo + 2 acciones + módulos presentes y nada más',()=>{
  const g=aGrafo(F.objeto,ctx);
  assert.equal(por(g,'nucleo').frase,`objeto · ${F.objeto.clasificacion}`);
  assert.equal(por(aGrafo({...F.objeto,clasificacion:''},ctx),'nucleo').frase,'objeto');
- const esperado={nucleo:1,accion:2,alcance:1,salvacion:1,reaccion:1,estado:0,transformacion:0,recurso:0,vfx:0,tabla_armas:0,cuando:0,si:0,entonces:0,pasiva:0,vinculo:0,invocacion:0};
+ const esperado={nucleo:1,accion:2,alcance:1,salvacion:1,reaccion:1,estado:0,transformacion:0,recurso:0,vfx:1,tabla_armas:0,cuando:0,si:0,entonces:0,pasiva:0,vinculo:0,invocacion:0};
  for(const [t,n] of Object.entries(esperado))assert.equal(cuenta(g,t),n,t);
  assert.equal(cuenta(g,'requisitos'),1);
- assert.equal(g.nodos.length,1+2+3+1);
+ assert.equal(g.nodos.length,1+2+4+1);
  assert.ok(conectado(g,'nucleo','accion:e-lanzada'));
  assert.ok(conectado(g,'accion:e-lanzada','alcance:e-lanzada'));
  assert.ok(conectado(g,'accion:e-lanzada','reaccion:e-lanzada'));
  assert.equal(por(g,'alcance:e-estocada'),undefined);
+});
+test('los editores contextuales cuelgan de su dueño y no sustituyen la animación de la acción',()=>{
+ const b=clon(F.habilidad);
+ const e=b.efectos[0];
+ e.vfx={lanzamiento:'foundry-divine-beam'};
+ e.transformacion={id:'forma',nombre:'Forma',tipo:'forma',etapas:[{id:'uno',nombre:'Uno',stats:{vida:20}}]};
+ const g=aGrafo(b,ctx);
+ assert.ok(conectado(g,'accion:'+e.id,'vfx:'+e.id));
+ assert.ok(conectado(g,'transformacion:'+e.id,'vfx:transformacion:'+e.id));
+ assert.equal(por(g,'vfx:transformacion:'+e.id).animacionContexto,'etapas');
+ assert.ok(conectado(g,'cuando:r-herida','vfx:cuando:r-herida'));
+ assert.equal(por(aGrafo(F.objeto,ctx),'vfx:reaccion:e-lanzada').animacionContexto,'reaccion');
 });
 test('cada acción lleva la frase de describirEfecto',()=>{
  const g=aGrafo(F.objeto,ctx);

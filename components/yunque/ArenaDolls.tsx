@@ -93,6 +93,9 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const disposicion=useRef<Posicion[]>([]);
  const firma=useMemo(()=>firmaCreaciones(b,ctx.creaciones),[b,ctx.creaciones]);
  const [estado,setEstado]=useState<Estado>(()=>construir({b,creaciones:ctx.creaciones,firma,doll:SIN_AJUSTES,saco:SIN_AJUSTES},ctx,[]));
+ const combateActual=useRef(estado.combate);
+ const [revisionVisual,setRevisionVisual]=useState(0);
+ const [eventosVisuales,setEventosVisuales]=useState<NonNullable<Combate['evento_visual']>[]>([]);
  const [golpe,setGolpe]=useState<Golpe>({cantidad:1,caras:6,naturaleza:'fisica'});
  const [voz,setVoz]=useState('');
  // Invocación en pruebas: la habilidad cuya ventana está abierta (la misma ventana que en el combate).
@@ -121,7 +124,8 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   if(estado.b===b&&estado.firma===firma&&estado.doll===doll&&estado.saco===saco)return;
   const borrador=estado.b!==b;
   const t=window.setTimeout(()=>{
-   setEstado(construir({b,creaciones:ctx.creaciones,firma,doll,saco},ctxRef.current,disposicion.current));
+   const nuevo=construir({b,creaciones:ctx.creaciones,firma,doll,saco},ctxRef.current,disposicion.current);
+   combateActual.current=nuevo.combate;setEventosVisuales([]);setRevisionVisual(v=>v+1);setEstado(nuevo);
    setCentro(null);setObjetivo('');setMoviendo(false);setVoz('');
    const n=++contador.current;
    setReinicio({n,texto:borrador?'La prueba se reinició con los cambios':'Los dolls se ajustaron: la prueba empieza de nuevo'});
@@ -192,17 +196,34 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
  const equipada=c?seguro(()=>piezaEquipada(c),null):null;
  const reaccionSinEfecto=b.tipo!=='habilidad'&&b.tipo!=='personaje'&&b.efectos.some(e=>e.reaccion||e.defensa);
 
+ const esperandoReaccion=useRef(false);
+ function actualizarCombate(combate:Combate){
+  const visual=combate.evento_visual;
+  if(visual&&visual.id!==combateActual.current?.evento_visual?.id)
+   setEventosVisuales(previos=>[...previos.slice(-249),visual]);
+  combateActual.current=combate;
+  setEstado(s=>({...s,combate}));
+ }
+
  /** Un paso de la prueba: aplica, recoge los dados para la barra y enciende los nodos que actuaron. */
  function paso(f:(c:Combate,rng:RNG)=>Combate,respaldo:string,despues?:(n:Combate)=>void,previa?:PausaArena,respuesta?:boolean){
-  if(!c)return;
+  const c=combateActual.current;
+  if(!c||esperandoReaccion.current)return;
   let r:ReturnType<typeof pasoConReacciones>;
   try{r=pasoConReacciones(f,c,dadoSeguro,previa,respuesta);}catch(e){setVoz(kuroi(e,respaldo));return;}
   // Una reacción ofrecida espera la decisión en pantalla; el golpe se repite con las mismas tiradas.
-  if('pausa' in r){const pausa=r.pausa;void decidirReaccion(pausa.oferta).then(si=>paso(f,respaldo,despues,pausa,si));return;}
+  if('pausa' in r){
+   const pausa=r.pausa;esperandoReaccion.current=true;
+   void decidirReaccion(pausa.oferta).then(si=>{
+    esperandoReaccion.current=false;
+    if(combateActual.current===c)paso(f,respaldo,despues,pausa,si);
+   });
+   return;
+  }
   const dados:TiradaVisual[]=r.tiradas.slice(0,8);
   let n=r.combate;
   if(n.evento_visual&&!n.evento_visual.dados?.length&&dados.length)n={...n,evento_visual:{...n.evento_visual,dados}};
-  setEstado(s=>({...s,combate:n}));setVoz('');
+  actualizarCombate(n);setVoz('');
   let ids:string[]=[];try{ids=activados(c,n,grafo);}catch{/* encender es solo visual */}
   if(ids.length)onEncender(ids);
   despues?.(n);
@@ -221,12 +242,14 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   paso((x,rng)=>usar(x,id,propio?DOLL:(sel.objetivo??destino),rng,forzar,sel.centro||centro||undefined,potenciadores),'Esa acción no se pudo usar.',()=>{setCentro(null);setObjetivo('');setMoviendo(false);});
  }
  function atras(){
+  const c=combateActual.current;
   if(!c)return;
-  try{const n=deshacer(c);setEstado(s=>({...s,combate:n}));recordar(n);limpiarJugada();}
+  try{const n=deshacer(c);actualizarCombate(n);recordar(n);limpiarJugada();}
   catch(e){setVoz(kuroi(e,'No hay nada que deshacer.'));}
  }
  function reiniciar(){
-  setEstado(construir({b,creaciones:ctx.creaciones,firma,doll,saco},ctx,disposicion.current));
+  const nuevo=construir({b,creaciones:ctx.creaciones,firma,doll,saco},ctx,disposicion.current);
+  combateActual.current=nuevo.combate;setEventosVisuales([]);setRevisionVisual(v=>v+1);setEstado(nuevo);
   limpiarJugada();
  }
  function alApuntar(p:Posicion,id?:string){
@@ -275,9 +298,9 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   <div className="yq-arena-tablero">
    {/* El aviso de reinicio flota sobre el tablero: no empuja la barra ni los botones mientras se juega. */}
    {reinicio&&<p key={reinicio.n} role="status" className="yq-arena-reinicio">{reinicio.texto}</p>}
-   <TableroCombate ocular={colocando?null:vistaOcular(c,DOLL)} turnoPropio={enCurso&&c.actual===DOLL} mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?elegido:DOLL}
+   <TableroCombate key={`arena:${revisionVisual}`} ocular={colocando?null:vistaOcular(c,DOLL)} turnoPropio={enCurso&&c.actual===DOLL} mapa={mapa} habilidad={colocando?{...COLOCAR,nombre:`Colocar ${nombreElegido}`}:enCurso?efecto:undefined} lanzador={colocando?elegido:DOLL}
     centro={colocando?null:centro} puedeApuntar={enCurso&&(colocando||!portador||accionUsableAhora(lista.find(a=>a.id===elegida)?.presupuesto,portador,presupuestoRestante(c,portador)))} onApuntar={alApuntar}
-    evento={c.evento_visual} fichas={fichas} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino}
+    evento={c.evento_visual} eventosVisuales={eventosVisuales} fichas={fichas} {...dimensionesTablero(c)} actual={c.actual} objetivo={destino}
     moviendo={moviendo&&enCurso&&!colocando} alcanzables={alcanzables} ocupado={!enCurso}
     onObjetivo={id=>{if(colocando&&esSaco(id))setSacoElegido(id);else setObjetivo(id);}}
     onMover={p=>paso(x=>mover(x,p),'El doll no puede moverse ahí.')}
@@ -307,7 +330,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
    {invocando&&c&&(invocando.configuracion_invocacion as InvocacionEditor|undefined)&&<VentanaInvocacion key={invocando.id} titulo={invocando.nombre} config={invocando.configuracion_invocacion as InvocacionEditor} nivel={estadisticas(portador).nivel||1} disenar={disenaEnCombate((invocando.configuracion_invocacion as InvocacionEditor).modo)}
     nota="Prueba en la arena: la criatura aparece junto al doll y pasa sus turnos sola, como los sacos. Deshacer la retira."
     onCerrar={()=>setInvocando(null)}
-    onConfirmar={async p=>{const n=await materializarInvocacion({combate:c,actorId:portador.id,habilidad:invocando,propuesta:p,datos:await cargarCatalogoInvocacion()});setEstado(s=>({...s,combate:pasoInvocacion(c,n)}));setVoz('');setInvocando(null);}}/>}
+    onConfirmar={async p=>{const n=await materializarInvocacion({combate:c,actorId:portador.id,habilidad:invocando,propuesta:p,datos:await cargarCatalogoInvocacion()});if(combateActual.current===c)actualizarCombate(pasoInvocacion(c,n));setVoz('');setInvocando(null);}}/>}
    <div className="yq-arena-golpe" role="group" aria-label="Golpe del saco">
     <span>Golpe del saco</span>
     {botonGolpe}

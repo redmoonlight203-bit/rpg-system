@@ -9,7 +9,7 @@ import {SelectorRegla} from './SelectorRegla';
 import {EditorReglas} from "./EditorReglas";
 import type {Efecto} from "../lib/creacion";
 import EditorHuella from './EditorHuella';
-import SelectorVFX from './SelectorVFX';
+import {BotonAnimacionEtapa} from './yunque/editores/BotonesAnimacion';
 import EditorVision from './yunque/editores/EditorVision';
 import {nuevaVision} from '../lib/vision';
 import {ID_REALIDAD,quitarForma} from "../lib/transformaciones-grafo";
@@ -39,9 +39,10 @@ type PropEtapa = {
   total: number;
   onChange: (etapa:EtapaTransformacion)=>void;
   onEliminar: ()=>void;
+  onAnimacion?:(id:string)=>void;
 };
 
-function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:PropEtapa) {
+function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar,onAnimacion}:PropEtapa) {
   const [nuevoAtributo,setNuevoAtributo]=useState("");
   const [error,setError]=useState("");
   const [procesandoImagen,setProcesandoImagen]=useState(false);
@@ -131,7 +132,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
           {errorEmpuje&&<p role="alert" className="text-xs text-red-300">{errorEmpuje}</p>}
         </>}
       </fieldset>
-      <SelectorVFX transformacion valor={etapa.vfx} onChange={vfx=>onChange({...etapa,vfx})}/>
+      {onAnimacion?<button type="button" className={boton} onClick={()=>onAnimacion(etapa.id)}>Editar animaciones de la etapa</button>:<BotonAnimacionEtapa etapa={etapa} titulo={etapa.nombre} onChange={vfx=>onChange({...etapa,vfx})} onRegla={(id,animacion)=>onChange({...etapa,reglas:etapa.reglas?.map(r=>r.id===id?{...r,animacion}:r)})}/>}
       <div className="space-y-2">
         <h4 className="font-semibold">Estadísticas de esta etapa</h4>
         <p className="text-xs text-neutral-400">
@@ -229,7 +230,7 @@ function plantillaForma(d:DefinicionTransformacion,elegida?:EtapaTransformacion)
   return stats;
 }
 
-export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;acciones:Efecto[];onChange:(d:DefinicionTransformacion)=>void}) {
+export function EditorTransformacion({efecto,acciones,onChange,onAnimacion}:{efecto:Efecto;acciones:Efecto[];onAnimacion?:(id:string)=>void;onChange:(d:DefinicionTransformacion)=>void}) {
   const d=efecto.transformacion!;
   const tipo=(nuevo:TipoTransformacion)=>{
     onChange({...d,tipo:nuevo,etapas:d.etapas.map(et=>{
@@ -260,7 +261,7 @@ export function EditorTransformacion({efecto,acciones,onChange}:{efecto:Efecto;a
       </div>
       <EditorFormas grafo={grafo} seleccionada={seleccion} onSeleccionar={setSeleccion}
         plantilla={plantillaForma(d,elegida)} onCambiar={g=>onChange(grafoADefinicion(g,d))}/>
-      {elegida?<EditorEtapa key={elegida.id} etapa={elegida} numero={indice+1} tipo={d.tipo} acciones={acciones} total={normal.etapas.length}
+      {elegida?<EditorEtapa key={elegida.id} etapa={elegida} numero={indice+1} tipo={d.tipo} acciones={acciones} total={normal.etapas.length} onAnimacion={onAnimacion}
           onChange={siguiente=>actualizar(elegida.id,siguiente)}
           onEliminar={()=>{const r=quitarForma(grafo,elegida.id);if(r.ok){onChange(grafoADefinicion(r.grafo,d));setSeleccion(ID_REALIDAD);}}}/>
         :<p className="text-sm text-neutral-400">La forma base es el cuerpo original del personaje, con sus propias estadísticas y poderes. Selecciona otra forma para editarla, o crea una nueva.</p>}

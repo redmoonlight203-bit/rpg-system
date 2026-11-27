@@ -7,7 +7,7 @@ import {publicarArchivoImagen} from '../lib/imagenes-storage';
 import {mensajeError} from '../lib/errores';
 import {EditorReglas} from './EditorReglas';
 import EditorHuella from './EditorHuella';
-import SelectorVFX from './SelectorVFX';
+import {BotonAnimacionEtapa} from './yunque/editores/BotonesAnimacion';
 import SelectorCreacionVisual from './SelectorCreacionVisual';
 import EditorDefensas from './yunque/editores/EditorDefensas';
 import {SLOTS} from '../lib/creacion';
@@ -259,7 +259,7 @@ function EditorEtapa({etapa,linea,catalogo,atributos,vivida,onChange,onEliminar,
    {SLOTS.filter(s=>s.clave!=='titulo').map(s=>{const pieza=equipo.find(x=>x.slot===s.clave);const opciones=catalogo.filter(c=>c.tipo_creacion==='objeto'&&s.tipos.includes(c.slot_tipo||''));
     return <label key={s.clave} className="evo-campo"><span>{s.nombre}</span><select value={pieza?.forja_id||''} onChange={e=>{const c=opciones.find(o=>o.id===e.target.value);const resto=equipo.filter(x=>x.slot!==s.clave);onChange({...etapa,equipamiento:c?[...resto,{slot:s.clave,nombre:c.nombre,forja_id:c.id}]:resto});}}><option value="">Sin registro</option>{opciones.map(o=><option key={o.id} value={o.id}>{o.nombre}</option>)}</select></label>;})}
   </details>
-  <SelectorVFX transformacion valor={etapa.vfx} onChange={vfx=>onChange({...etapa,vfx})}/>
+  <BotonAnimacionEtapa etapa={etapa} titulo={etapa.nombre} onChange={vfx=>onChange({...etapa,vfx})}/>
   <div className="evo-acciones">
    <label className="evo-check"><input type="checkbox" checked={!!etapa.secreta} onChange={e=>onChange({...etapa,secreta:e.target.checked||undefined})}/>Secreta para los jugadores hasta desbloquearla</label>
    <label className="evo-check"><input type="checkbox" checked={!!etapa.final} disabled={linea.transiciones.some(t=>t.desde===etapa.id)} onChange={e=>onChange({...etapa,final:e.target.checked||undefined})}/>Etapa final</label>

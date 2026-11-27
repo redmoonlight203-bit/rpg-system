@@ -12,3 +12,7 @@
 .vfx-personal{padding:.7rem 0}.vfx-personal label{display:grid;gap:.25rem}.vfx-personal input,.vfx-personal select{background:var(--color-neutral-800);padding:.4rem;max-width:100%}
 .vfx-muestra{width:90px;height:90px;object-fit:contain;image-rendering:pixelated}
 @media(prefers-reduced-motion:reduce){.vfx-sin-poster,.vfx-muestra{display:none}}
+
+.vfx-haz {position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.vfx-haz image {image-rendering:pixelated}
+@keyframes vfx-aparecer-haz {0%,94%{opacity:1}100%{opacity:0}}

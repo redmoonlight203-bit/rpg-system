@@ -1,6 +1,7 @@
 import {patronDesde,validarPatron} from './patron-area';
 import {huellaDe,casillasHuella,claveHuella,cabeHuella,distanciaHuellas,validarHuella,type Huella,type FuenteHuella} from "./huellas-combate";
 import type {ConfiguracionVFX} from "./vfx";
+import type {GeometriaVFX} from "./secuencia-vfx";
 import {activarTransformacion,cambiarEtapaTransformacion,terminarTransformacion,avanzarTurnoTransformacion,danarTransformado,forzarPosesion,type TransformacionActiva,type DefinicionTransformacion} from "./transformaciones";
 import {ID_REALIDAD,formasAlcanzables,transicionEntre} from "./transformaciones-grafo";
 import {migrarTransformacion} from "./transformaciones-migracion";
@@ -199,7 +200,7 @@ export type Combatiente = {
 export type CambioVida = {id:string;delta:number};
 export type MovimientoVisual = {id:string;desde:Posicion;hasta:Posicion;tipo?:"dash"|"salto"|"teletransporte"|"carrera"|"forzado"};
 export type AparicionVisual = {id:string;animacion:string;posicion:Posicion;escala?:number};
-export type EventoVisual = {emisor?:string;action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];activaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;esqueleto?:import('./esqueletos').Esqueleto;desde?:Posicion;hasta?:Posicion};
+export type EventoVisual = {emisor?:string;action_id?:string;secuencia?:number;recibido_en?:number;creado_en?:number;vfx?:ConfiguracionVFX;geometria_vfx?:GeometriaVFX;movimientos?:MovimientoVisual[];transformaciones?:AparicionVisual[];activaciones?:AparicionVisual[];area?:Posicion[];id:string;nombre:string;dados:{caras:number;valor:number}[];resultado?:string;cambios_vida?:CambioVida[];animacion?:Efecto["animacion"];arma_visual?:import('./animaciones-armas').TipoAnimacionArma;esqueleto?:import('./esqueletos').Esqueleto;desde?:Posicion;hasta?:Posicion};
 export type Combate = {
   reaccion_pendiente?:SolicitudReaccion;
   /** Invocación pedida por un jugador: la valida y la materializa la pantalla del GM (sin clics). No se paga hasta entonces. */
@@ -1066,11 +1067,13 @@ function iniciarInterno(c: Combate, rng: RNG) {
 }
 // En cola solo durante la resolución. Nunca copiamos una animación del turno anterior.
 const activacionesPendientes=new WeakMap<Combate,AparicionVisual[]>();
+const geometriaPendiente=new WeakMap<Combate,GeometriaVFX>();
 function siguienteInterno(c: Combate, rng: RNG) {
   if (c.fase !== "en_curso") throw Error("Inicia el combate.");
   const n = copia(c),
     a = n.miembros.find((m) => m.id === n.actual);
   const pendientes=activacionesPendientes.get(c);if(pendientes)activacionesPendientes.set(n,pendientes);
+  const geometria=geometriaPendiente.get(c);if(geometria)geometriaPendiente.set(n,geometria);
   delete n.resultado;
   if (a && combatienteActivo(a))
     dispararReacciones(n, n.miembros.filter(w=>w.id!==a.id&&w.bando!==a.bando), "fin_de_turno", rng, {cerca:a, victima:a, hasta:()=>a.vida<=0});
@@ -1755,6 +1758,11 @@ function actuarBase(
   const plan=requiereAreaMovil&&tactica?.movimiento_lanzador&&apuntado?planearAtaqueDeArea(n,a,apuntado,tactica.movimiento_lanzador):undefined;
   const punto=patron?origen:tactica?.origen_area==='aterrizaje'&&plan?plan.destino:apuntado;
   let objetivos=t?[t]:[];
+  const geometria:GeometriaVFX|undefined=e.vfx?.secuencia&&origen?{
+    origen,objetivo:apuntado??(t&&posiciones[t.id]),patron:patron||tactica?.forma==='linea',
+    girar:apuntaPatron,tablero:dimensiones,impactos:[],
+  }:undefined;
+  if(geometria)geometriaPendiente.set(n,geometria);
   if(e.portal && tactica && apuntado){
     if(!alcanceVisibleEntreFichas(a,origen,{},apuntado,tactica.alcance,n.mapa)||!cabeFichaEn(n,a,apuntado,posiciones))throw Error('El umbral necesita una casilla libre visible dentro del alcance.');
     if(phDisponibles(a)<coste)throw Error('PH insuficientes.');
@@ -1775,6 +1783,7 @@ function actuarBase(
     const area=tactica.origen_area==='recorrido'&&plan
       ?[...areaDeRecorrido(plan.trayecto.flatMap(p=>casillasHuella(a,p)),tactica.movimiento_lanzador?.ancho||0,dimensiones),...(distanciaCasillas(plan.trayecto[plan.trayecto.length-1],apuntado)<=(tactica.movimiento_lanzador?.alcance_golpe||0)?[apuntado]:[])]
       :areaDesdeFicha(a,origen,patron?apuntado:punto,tactica,dimensiones,n.mapa);
+    if(geometria)geometria.area=area;
     const celdas=new Set(area.map(claveHuella));
     objetivos=n.miembros.filter(m=>{
       const p=m.id===a.id&&plan?plan.destino:posiciones[m.id];
@@ -2122,6 +2131,11 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
       mitadPorEsquiva=true;break;
     }
   }
+  const geometria=geometriaPendiente.get(n);
+  if(geometria&&geometria.impactos.length<576){
+    const blanco=t.posicion??posicionesTablero(n)[t.id];
+    if(blanco)geometria.impactos.push(casillasHuella(t,blanco));
+  }
   emitirMotor(n, 'impactar', a, a, t, rng, e);
   const permiteEstados = !(supera && e.salvacion?.exito === "solo_estado");
   let total = 0, combo = false, tipoVulnerable = "";
@@ -2368,6 +2382,8 @@ function animarAccion(c:Combate,n:Combate,actorId:string,efecto:Efecto|undefined
   const area=efecto?.tablero&&hasta?(patron
     ?areaDesdeFicha(c.miembros.find(m=>m.id===actorId)||{},desde,orientacion,efecto.tablero,dimensionesTablero(c),c.mapa)
     :areaDesde(desde,hasta,efecto.tablero,dimensionesTablero(c))):undefined;
+  const geometria=n.evento_visual?.geometria_vfx;
+  if(geometria&&!geometria.patron&&final&&pos[final])geometria.objetivo=pos[final];
   n.evento_visual={...n.evento_visual,id:n.evento_visual?.id||crypto.randomUUID(),nombre:efecto?.nombre||accionId,dados:n.evento_visual?.dados||[],animacion:efecto?.animacion||'impacto',vfx:efecto?.vfx,emisor:actorId,desde:pos[actorId],hasta,area,
     movimientos:n.evento_visual?.movimientos?.map(m=>({...m,tipo:m.id===actorId?efecto?.tablero?.movimiento_lanzador?.tipo||m.tipo:m.tipo}))};
   return n;
@@ -3144,9 +3160,9 @@ export function registrarCambiosVida(antes:Combate,despues:Combate):Combate{
   if(m.ultima_defensa && m.ultima_defensa.id!==antes.miembros.find(p=>p.id===m.id)?.ultima_defensa?.id)
     transformaciones.push({id:m.id,animacion:m.ultima_defensa.animacion,posicion:actuales[m.id],escala:2.8});
  }
- const activaciones=activacionesPendientes.get(despues);
- activacionesPendientes.delete(despues);
- return {...despues,evento_visual:{...(activaciones?.length?{activaciones}:{}),id:crypto.randomUUID(),creado_en:Date.now(),nombre:despues.miembros.find(m=>m.id===despues.actual)?.nombre||'Combate',dados:[],resultado:despues.resultado,cambios_vida:cambiosVida(antes,despues),movimientos,transformaciones}};
+ const activaciones=activacionesPendientes.get(despues),geometria_vfx=geometriaPendiente.get(despues);
+ activacionesPendientes.delete(despues);geometriaPendiente.delete(despues);
+ return {...despues,evento_visual:{...(activaciones?.length?{activaciones}:{}),...(geometria_vfx?{geometria_vfx}:{}),id:crypto.randomUUID(),creado_en:Date.now(),nombre:despues.miembros.find(m=>m.id===despues.actual)?.nombre||'Combate',dados:[],resultado:despues.resultado,cambios_vida:cambiosVida(antes,despues),movimientos,transformaciones}};
 }
 
 /** Obstáculos y terrenos del encuentro; los identificadores no representan navegación mundial. */

@@ -10,7 +10,6 @@ import EditorDefensas from './EditorDefensas';
 import FichasGrimorioElementos from '../../grimorio/FichasGrimorioElementos';
 import EditorRasgo,{rasgoVacio} from './EditorRasgo';
 import EditorConcepto from './EditorConcepto';
-import EditorEsqueleto from './EditorEsqueleto';
 import ImagenAccion from './ImagenAccion';
 import {DESARMADO_BASE} from '../../../lib/conceptos-basicos';
 import {ETIQUETAS,NOMBRE_ETIQUETA,etiquetasDe} from '../../../lib/rasgos';
@@ -44,7 +43,7 @@ const CARAS=[2,3,4,6,8,10,12,20,100];
 /** Quita las claves con `undefined` para que el borrador no arrastre campos vacíos. */
 const limpio=(e:Efecto):Efecto=>Object.fromEntries(Object.entries(e).filter(([,v])=>v!==undefined)) as Efecto;
 
-export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
+export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps&{onAnimacion:()=>void}){
  const i=nodo.ruta[1] as number,e=b.efectos[i];
  if(!e)return null;
  const patch=(p:Partial<Efecto>)=>operar({op:'fijar',ruta:nodo.ruta,valor:limpio({...e,...p})});
@@ -77,6 +76,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
    {e.rasgo&&<EditorRasgo valor={e.rasgo} onChange={rasgo=>patch({rasgo})}/>}
    <Interruptor etiqueta="Sustituye un concepto básico (desarmado o guardia)" valor={!!e.concepto} onChange={v=>patch({concepto:v?e.concepto||structuredClone({...DESARMADO_BASE,nombre:'Mordisco',dano:{...DESARMADO_BASE.dano,cantidad:2,caras:6,tipo_dano:'perforante'},requiere_mano:false}):undefined})}/>
    {e.concepto&&<EditorConcepto valor={e.concepto} onChange={concepto=>patch({concepto})}/>}
+   {e.concepto?.id==='desarmado'&&<button type="button" className="yq-boton" onClick={onAnimacion}>Editar animación</button>}
   </>}
   {!pasivo&&<>
   <Fichas etiqueta="Qué hace" opciones={b.tipo==='habilidad'?[...EFECTOS,{valor:'invocar',nombre:'Invocar',icono:'espectro',ayuda:'Convertir en una acción de invocación.'}]:EFECTOS} valor={e.efecto} onChange={v=>v==='invocar'?operar({op:'convertir_invocacion',id:e.id}):cambiarEfecto(v)}/>
@@ -110,7 +110,7 @@ export default function EditorAccion({b,nodo,operar}:EditorNodoProps){
    <label><span>Fatiga</span><Rueda nombre="coste_fatiga" etiqueta="Fatiga que genera" valor={e.coste_fatiga||0} min={0} max={999} onChange={coste_fatiga=>patch({coste_fatiga})} compacta/></label>
    {dura&&<label><span>Turnos</span><Rueda nombre="duracion" etiqueta="Cuántos turnos dura" valor={e.duracion} min={e.efecto==='crear_arma'?1:0} max={999} onChange={duracion=>patch({duracion})} compacta/></label>}
   </div>
-  {(e.efecto==='dano'||e.efecto==='crear_arma')&&<EditorEsqueleto valor={e.esqueleto} definicion={e.esqueleto_def} ajustes={e.esqueleto_ajustes} onChange={v=>patch(v)}/>}
+  <button type="button" className="yq-boton" onClick={onAnimacion}>Editar animación</button>
   {e.efecto==='dano'&&<fieldset className="yq-fichas yq-etiquetas"><legend>Etiquetas de técnica (potenciadores compatibles)</legend><div>{ETIQUETAS.map(t=>{const derivada=etiquetasDe({...e,etiquetas:[]}).includes(t),on=derivada||!!e.etiquetas?.includes(t);return <button key={t} type="button" aria-pressed={on} disabled={derivada} title={derivada?'Se deduce de la acción':undefined} onClick={()=>{const l=on?(e.etiquetas||[]).filter(x=>x!==t):[...(e.etiquetas||[]),t];patch({etiquetas:l.length?l:undefined});}}><span>{NOMBRE_ETIQUETA[t]}</span></button>;})}</div></fieldset>}
   {(e.efecto==='dano'||e.efecto==='estado')&&<details className="yq-mente">
    <summary>Mente e inmunidades{e.categoria==='mental'?' · mental':''}{e.ignora?.length?` · atraviesa ${e.ignora.length}`:''}</summary>

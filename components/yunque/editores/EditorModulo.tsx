@@ -8,7 +8,6 @@ import EditorInvocacion from '../../EditorInvocacion';
 import RequisitosYunque from '../../RequisitosYunque';
 import {EditorTransformacion} from '../../EditorTransformacion';
 import {TablaArmas} from '../../TablaArmas';
-import SelectorVFX from '../../SelectorVFX';
 import EditorVision from './EditorVision';
 import {Fichas,Rueda,type Opcion} from '../Controles';
 import {SelectorRegla} from '../../SelectorRegla';
@@ -26,9 +25,9 @@ const EXITOS:Opcion<NonNullable<Efecto['salvacion']>['exito']>[]=[
  {valor:'solo_estado',nombre:'Evita el estado',icono:'fuego',ayuda:'Si la supera, recibe el daño pero no el estado'},
 ];
 const limpio=(e:Efecto):Efecto=>Object.fromEntries(Object.entries(e).filter(([,v])=>v!==undefined)) as Efecto;
-type Props=EditorNodoProps&{ctx:ContextoTaller;avisar:(texto:string)=>void};
+type Props=EditorNodoProps&{ctx:ContextoTaller;avisar:(texto:string)=>void;onAnimacion?:(etapa?:string)=>void};
 
-export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
+export default function EditorModulo({b,nodo,operar,ctx,avisar,onAnimacion}:Props){
  if(nodo.tipo==='invocacion'){
   const atributos=[...new Map(ctx.atributos.map(a=>[a.clave,{clave:a.clave,etiqueta:a.etiqueta,valor_defecto:a.valor_defecto}])).values()];
   return <div className="yq-editor yq-legado">
@@ -64,10 +63,11 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
    const r=reaccionDe(normalizarReaccion(e));
    return <div className="yq-editor yq-legado">
     {e.defensa&&!e.reaccion&&<p className="yq-nota">Defensa clásica «{e.defensa}». Al editarla se guarda como reacción.</p>}
+    {onAnimacion&&<button type="button" className="yq-boton" onClick={()=>onAnimacion()}>Editar animación de la reacción</button>}
     <EditorReaccion valor={r??undefined} costeAccion={e.coste_ph||0} onPlantilla={k=>operar({op:'desplegar',plantilla:k})} onChange={v=>{if(v)patch({reaccion:v,defensa:undefined});else operar({op:'quitar',nodo:nodo.id});}}/>
    </div>;
   }
-  case 'transformacion':return e.transformacion?<div className="yq-editor yq-legado"><EditorTransformacion key={e.transformacion.id} efecto={e} acciones={b.efectos} onChange={transformacion=>patch({transformacion})}/></div>
+  case 'transformacion':return e.transformacion?<div className="yq-editor yq-legado"><EditorTransformacion key={e.transformacion.id} efecto={e} acciones={b.efectos} onAnimacion={onAnimacion} onChange={transformacion=>patch({transformacion})}/></div>
    :<p className="yq-nota">Esta transformación aún no tiene etapas.</p>;
   case 'recurso':{
    const r=e.recurso;if(!r)return null;
@@ -80,7 +80,6 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
     </div>
    </div>;
   }
-  case 'vfx':return <div className="yq-editor yq-legado"><SelectorVFX valor={e.vfx} onChange={vfx=>patch({vfx})}/></div>;
   case 'vision':return e.vision?<EditorVision vision={e.vision} efecto={e} onChange={vision=>patch({vision})}/>:null;
   case 'tabla_armas':{
    const armas=ctx.creaciones.filter(c=>(c.tipo_creacion??tipoDe(c,ctx.categorias))==='objeto'&&['mano','dos_manos'].includes(c.slot_tipo));

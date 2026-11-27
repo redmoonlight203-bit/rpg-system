@@ -2,7 +2,7 @@
 import {CatalogoReglas,SelectorRegla,useDefinicionGrimorio} from './SelectorRegla';
 import {mensajeError} from '../lib/errores';
 import {useMemo,useState} from 'react';
-import {SelectorAnimacionRegla} from './SelectorVFX';
+import {BotonAnimacionRegla} from './yunque/editores/BotonesAnimacion';
 import ListaArrastrable from './ListaArrastrable';
 import {condicionClara} from '../lib/descripciones';
 import {PasoYunque,ResumenYunque} from './AyudaYunque';
@@ -63,7 +63,7 @@ export function EditorReglas({value,onChange,atributos}:{atributos?:{clave:strin
  <div className="yunque-flujo" aria-label="Recorrido de la regla"><div><span>CUANDO</span><strong>{EVENTOS[r.evento]}</strong></div><b aria-hidden="true">→</b><div><span>SI</span><strong>{condicionClara(r.condicion)}</strong></div><b aria-hidden="true">→</b><div><span>ENTONCES</span><strong>{r.efectos.length} efectos en orden</strong></div></div><label>Nombre de la regla<input className={campo} value={r.nombre} onChange={v=>patch(i,{nombre:v.target.value})}/></label>
  <PasoYunque numero="1" titulo="Cuándo se activa" ayuda="Usar significa que el jugador la elige. Los demás eventos se activan automáticamente."><label>Cuando…<select className={campo} value={r.evento} onChange={e=>patch(i,{evento:e.target.value as Regla['evento']})}><Opciones items={EVENTOS}/></select></label></PasoYunque>
  <PasoYunque numero="2" titulo="Qué debe cumplirse" ayuda="Deja «Siempre» si no hay requisitos adicionales."><Condicion value={r.condicion} onChange={condicion=>patch(i,{condicion})}/><p className="yunque-ayuda">«Quien tiene esta habilidad» es su portador. «Quien provocó el evento» puede ser el atacante. «Quien recibe el evento» puede ser su víctima.</p></PasoYunque>
- <PasoYunque numero="3" titulo="Qué sucede después" ayuda="Los efectos se aplican de arriba abajo. Puedes añadir varios y cambiar su orden."><Efectos value={r.efectos} onChange={efectos=>patch(i,{efectos})}/><SelectorAnimacionRegla valor={r.animacion} onChange={animacion=>patch(i,{animacion})}/></PasoYunque>
+ <PasoYunque numero="3" titulo="Qué sucede después" ayuda="Los efectos se aplican de arriba abajo. Puedes añadir varios y cambiar su orden."><Efectos value={r.efectos} onChange={efectos=>patch(i,{efectos})}/><BotonAnimacionRegla titulo={r.nombre} valor={r.animacion} onChange={animacion=>patch(i,{animacion})}/></PasoYunque>
  <details className="yunque-avanzado" open={r.coste_ph>0||r.coste_fatiga>0||r.enfriamiento>0||r.usos>0||(r.limite_por_turno||0)>0||r.prioridad!==0}><summary>Costes y límites · opcional</summary><div className="grid gap-3 sm:grid-cols-3">{(['coste_ph','coste_fatiga','enfriamiento','usos','limite_por_turno','prioridad'] as const).map(k=><Numero key={k} nombre={{coste_ph:'PH que gasta',coste_fatiga:'Fatiga que genera',enfriamiento:'Turnos de espera entre usos',usos:'Usos por combate (0 = ilimitados)',limite_por_turno:'Máximo de activaciones por turno (0 = ilimitadas)',prioridad:'Orden: los números mayores van primero'}[k]} value={r[k]||0} onChange={v=>patch(i,{[k]:v})}/>)}</div></details>
  <details className="yunque-avanzado" open={!!r.descripcion}><summary>Descripción para el jugador · opcional</summary><textarea aria-label="Descripción de la regla" className={campo} rows={2} maxLength={2000} value={r.descripcion||''} onChange={e=>patch(i,{descripcion:e.target.value})} placeholder="Explica la regla con tus palabras. Su funcionamiento real se resume abajo."/></details>
  <ResumenYunque resumen={ayuda.resumen} detalles={[`Se activa: ${EVENTOS[r.evento].toLowerCase()}.`,...ayuda.detalles]}/>

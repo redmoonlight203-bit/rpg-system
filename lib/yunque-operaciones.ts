@@ -179,6 +179,7 @@ const RAICES_SI=(n:Nodo)=>n.tipo==='si'&&n.ruta.length===3&&n.ruta[2]==='condici
 /** Lo que representa un nodo, listo para copiar (sin ids regenerados). */
 export function copiar(b:Borrador,nodo:string):Fragmento{
  const n=buscar(b,nodo);
+ if(n.animacionContexto)falla('Copia el nodo que contiene esta animación.');
  const v=leer(b,n.ruta);
  switch(n.tipo){
   case 'nucleo':return falla('El núcleo no se puede copiar.');
@@ -248,6 +249,7 @@ function aplicarSinMarcar(b:Borrador,o:Operacion):Borrador{
    if(o.nodo==='nucleo')falla('El núcleo no se puede quitar.');
    const n=buscar(r,o.nodo);
    const e=n.ruta.length>=2&&n.ruta[0]==='efectos'?leer(r,n.ruta.slice(0,2)) as Efecto:null;
+   if(n.animacionContexto)falla('Quita el efecto desde el Editor de animaciones.');
    switch(n.tipo){
     case 'accion':case 'cuando':case 'pasiva':case 'entonces':{
      const l=enLista(n)??falla('No se puede quitar ese nodo.');
