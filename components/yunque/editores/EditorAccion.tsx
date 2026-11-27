@@ -49,7 +49,7 @@ export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps
  const patch=(p:Partial<Efecto>)=>operar({op:'fijar',ruta:nodo.ruta,valor:limpio({...e,...p})});
  function cambiarEfecto(v:Efecto['efecto']){
   if(v===e.efecto)return;
-  const p:Partial<Efecto>={efecto:v,tabla_armas:undefined,aprendizaje:undefined,aterrizar:undefined};
+  const p:Partial<Efecto>={efecto:v,vuelo:undefined,tabla_armas:undefined,aprendizaje:undefined,aterrizar:undefined};
   if(v==='crear_arma')Object.assign(p,{tablero:undefined,arma_nombre:e.arma_nombre||'Nueva arma',arma_slot:e.arma_slot||'mano_der',duracion:Math.max(1,e.duracion||3)});
   if(v==='desplazamiento')p.tablero={alcance:e.tablero?.alcance||3,forma:'individual',tamano:0,afecta:'todos'};
   if(v==='estado')Object.assign(p,{estado_tipo:'aturdido',estado:e.estado||'Aturdido',duracion:Math.max(1,e.duracion)});
@@ -68,7 +68,7 @@ export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps
  return <div className="yq-editor">
   <label className="yq-campo"><span>{e.solo_pasivo?'Nombre de la pasiva':'Nombre de la acción'}</span><input maxLength={120} value={e.nombre} placeholder="Tajo, Bola de fuego…" onChange={v=>patch({nombre:v.target.value})}/></label>
   {!e.solo_pasivo&&<ImagenAccion valor={e.imagen||''} onChange={url=>patch({imagen:url||undefined})}/>}
-  <Fichas etiqueta="Uso" opciones={[{valor:'accion',nombre:'Acción en combate',icono:'espada'},{valor:'pasivo',nombre:'Rasgo siempre activo',icono:'escudo',ayuda:'No ocupa el turno: concede defensas, rasgos o conceptos básicos.'}]} valor={pasivo?'pasivo':'accion'} onChange={v=>patch(v==='pasivo'?{solo_pasivo:true,efecto:'estado',estado:e.estado||e.nombre,estado_tipo:'narrativo',cantidad:0,coste_ph:0,coste_fatiga:0,naturaleza:undefined,tablero:undefined,estado_def:undefined}:{solo_pasivo:undefined,inmunidades:undefined})} grandes/>
+
   {pasivo&&<>
    <h4 className="yq-ficha-titulo">Defensas e inmunidades</h4>
    <EditorDefensas valor={e.inmunidades||[]} onChange={inmunidades=>patch({inmunidades:inmunidades.length?inmunidades:undefined})} objeto={b.tipo==='objeto'} porTurnos={false}/>
@@ -79,6 +79,16 @@ export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps
    {e.concepto?.id==='desarmado'&&<button type="button" className="yq-boton" onClick={onAnimacion}>Editar animación</button>}
   </>}
   {!pasivo&&<>
+  {['curacion','recuperar_ph','reducir_fatiga'].includes(e.efecto)&&<Fichas etiqueta="Recuperaciones" opciones={EFECTOS.filter(o=>['curacion','recuperar_ph','reducir_fatiga'].includes(o.valor))} valor={e.efecto} onChange={cambiarEfecto}/>}
+  {(e.efecto==='desplazamiento'||e.vuelo||e.estado_def?.id.startsWith('movimiento_'))&&<Fichas etiqueta="Movimiento" opciones={[
+   {valor:'suelo',nombre:'Desplazarse',icono:'ojo'},{valor:'aire',nombre:'Volar',icono:'ala'},{valor:'agua',nombre:'Nadar',icono:'agua'},{valor:'subsuelo',nombre:'Excavar',icono:'subsuelo'}
+  ]} valor={e.vuelo?'aire':e.estado_def?.efectos.find(p=>p.tipo==='capa')?.capa??'suelo'} onChange={modo=>{
+   if(modo==='suelo'){patch({efecto:'desplazamiento',estado_def:undefined,vuelo:undefined,estado:'',estado_tipo:undefined,aterrizar:undefined,tablero:{alcance:3,forma:'individual',tamano:0,afecta:'todos'}});return;}
+   const capa=modo==='agua'?'agua':modo==='subsuelo'?'subsuelo':'aire';
+   const nombre=capa==='agua'?'Nadar':capa==='subsuelo'?'Excavar':'Volar';
+   const turnos=Math.max(1,e.duracion||1);
+   patch({efecto:'estado',estado:nombre,estado_tipo:'narrativo',duracion:turnos,aterrizar:undefined,vuelo:capa==='aire'||undefined,tablero:{alcance:0,forma:'individual',tamano:0,afecta:'yo'},estado_def:capa==='aire'?undefined:{id:'movimiento_'+capa,nombre,categoria:'fisico',duracion:{tipo:'turnos',turnos},efectos:[{tipo:'capa',capa}]}});
+  }}/>}
   <Fichas etiqueta="Qué hace" opciones={b.tipo==='habilidad'?[...EFECTOS,{valor:'invocar',nombre:'Invocar',icono:'espectro',ayuda:'Convertir en una acción de invocación.'}]:EFECTOS} valor={e.efecto} onChange={v=>v==='invocar'?operar({op:'convertir_invocacion',id:e.id}):cambiarEfecto(v)}/>
   {e.efecto==='desplazamiento'&&<label className="yq-campo"><span>Casillas de dash</span><Rueda nombre="dash" etiqueta="Alcance del desplazamiento" valor={e.tablero?.alcance||1} min={1} max={30} onChange={alcance=>patch({tablero:{alcance,forma:'individual',tamano:0,afecta:'todos'}})}/></label>}
   {dados&&<div className="yq-dados" aria-label={`Dados: ${formula(e)}`}>
