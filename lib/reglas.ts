@@ -1,6 +1,7 @@
 import type { Efecto } from './creacion';
 import type {OrigenPlantilla} from './yunque-origen';
 import {buscarVFX,type AnimacionRegla} from './vfx';
+import {validarDefinicionEstado,type DefinicionEstado} from './estados';
 export const EVENTOS = {
  equipar: 'Al equipar', desequipar: 'Al desequipar', fin_efecto: 'Al terminar un estado o forma', usar: 'Al activar / usar', inicio_combate: 'Al iniciar combate', inicio_turno: 'Al iniciar mi turno', fin_turno: 'Al terminar mi turno',
  atacar: 'Antes de mi ataque', impactar: 'Al impactar', fallar: 'Al fallar', recibir_dano: 'Al recibir daño', causar_dano: 'Al causar daño', matar: 'Al matar a un enemigo', morir: 'Al caer a 0 de vida', fin_combate: 'Al terminar combate',
@@ -37,6 +38,8 @@ export type EfectoRegla = {
  condicion?: CondicionRegla;
  exito?: EfectoRegla[];
  fallo?: EfectoRegla[];
+ /** «Aplicar estado» con un estado del grimorio: copia de su definición (como en las habilidades). */
+ estado_def?: DefinicionEstado;
 };
 export type Regla = {
  id: string; nombre: string; descripcion?: string; evento: EventoRegla; condicion: CondicionRegla; efectos: EfectoRegla[];
@@ -81,6 +84,7 @@ export function validarReglas(input: unknown): string | null {
    if(e.permanente&&(e.tipo!=='atributo'||e.operacion!=='sumar'))fallo('Los cambios permanentes deben sumar un atributo.');
    if(e.tipo==='atributo'&&(!clave(e.atributo)||!['sumar','multiplicar','fijar'].includes(String(e.operacion))||e.valor===undefined))fallo('Configura atributo, operación y valor.');
    if(['estado','quitar_estado','transformar'].includes(String(e.tipo))&&!e.clave)fallo('Selecciona el estado o la forma.');
+   if(e.estado_def!==undefined&&e.tipo==='estado'){const d=e.estado_def as DefinicionEstado;const f=validarDefinicionEstado(d);if(f)fallo(f);if(d.id!==e.clave)fallo('La copia del estado no coincide con el estado elegido.');}
    if(e.tipo==='transformar'){if(!Array.isArray(e.cambios)||!e.cambios.length||e.cambios.length>30)fallo('Configura entre 1 y 30 cambios de forma.');for(const cambio of e.cambios as unknown[]){const c=objeto(cambio);if(!clave(c.atributo)||!['sumar','multiplicar','fijar'].includes(String(c.operacion)))fallo('Cambio de forma inválido.');valor(c.valor);}}
    if(e.tipo==='salvacion'){if(!entero(e.cd,1,1000)||!clave(e.atributo))fallo('Salvación inválida.');efectos(e.exito||[],d+1);efectos(e.fallo||[],d+1);}
    if(e.tipo==='condicional'){condicion(e.condicion,d+1);efectos(e.exito||[],d+1);efectos(e.fallo||[],d+1);}

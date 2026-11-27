@@ -1,7 +1,7 @@
 'use client';
 // Editor de un efecto de regla («Entonces»): los 13 tipos y los 6 destinos como fichas, y el valor como
 // «2d6 + atributo × escala» con ruedas. Las ramas de éxito y fallo son las salidas del propio nodo.
-import {SelectorRegla} from '../../SelectorRegla';
+import {SelectorRegla,useDefinicionGrimorio} from '../../SelectorRegla';
 import {Fichas,Interruptor,Rueda,Texto,type Opcion} from '../Controles';
 import {FormCondicion,SUJETOS} from './EditorSi';
 import {DESTINOS,EFECTOS_REGLA,type CambioRegla,type DestinoRegla,type EfectoRegla,type Sujeto,type ValorRegla} from '../../../lib/reglas';
@@ -65,6 +65,7 @@ export function EditorValor({valor,onChange,etiqueta='Cantidad'}:{valor:ValorReg
 }
 
 export default function EditorEntonces({b,nodo,operar,avisar}:EditorNodoProps&{avisar?:(texto:string)=>void}){
+ const grimorioDe=useDefinicionGrimorio();
  const e=leer(b,nodo.ruta) as EfectoRegla|undefined;
  if(!e)return null;
  const fijar=(v:EfectoRegla)=>operar({op:'fijar',ruta:nodo.ruta,valor:limpio(v)});
@@ -84,7 +85,7 @@ export default function EditorEntonces({b,nodo,operar,avisar}:EditorNodoProps&{a
   </>}
   {CON_VALOR.includes(e.tipo)&&<EditorValor valor={e.valor} onChange={valor=>patch({valor})} etiqueta={({dano:'Daño',curar:'Vida que recupera',ph:'PH (negativo quita)',fatiga:'Fatiga (negativo alivia)'} as Record<string,string>)[e.tipo]??'Cantidad'}/>}
   {['estado','quitar_estado','transformar'].includes(e.tipo)&&<div className="yq-dos">
-   <SelectorRegla tipo="estado" etiqueta="Estado o forma" crear={e.tipo!=='quitar_estado'} valor={e.clave||''} onChange={(clave,nombre)=>patch({clave,nombre})}/>
+   <SelectorRegla tipo="estado" etiqueta="Estado o forma" crear={e.tipo!=='quitar_estado'} valor={e.clave||''} onChange={(clave,nombre)=>{const d=e.tipo==='estado'?grimorioDe(clave):undefined;patch({clave,nombre,estado_def:d?structuredClone(d):undefined});}}/>
    <Texto etiqueta="Nombre visible" valor={e.nombre||''} max={120} placeholder="Furia" onChange={nombre=>patch({nombre:nombre||undefined})}/>
   </div>}
   {e.tipo==='transformar'&&<section className="yq-lista" aria-label="Cambios de la forma">
