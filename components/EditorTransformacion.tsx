@@ -74,10 +74,44 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
   ];
   const empuje=etapa.empuje_huella;
   const errorEmpuje=validarEmpujeHuella(empuje);
+  const [panel,setPanel]=useState<'forma'|'animacion'|'acciones'|'vision'|'reglas'>('forma');
   const poderes = acciones.filter(a=>a.efecto!=="transformacion");
   return (
     <fieldset className="min-w-0 space-y-4 rounded-xl border border-neutral-700 bg-black/20 p-3 sm:p-4">
       <legend className="px-2 font-semibold text-violet-200">Forma {numero}</legend>
+      <nav aria-label={`Conexiones de ${etapa.nombre}`} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {([
+          ['forma','Forma',etapa.nombre],
+          ['animacion','Animaciones',[etapa.vfx?.entrada&&'Entrada',etapa.vfx?.aura&&'Aura'].filter(Boolean).join(' · ')||'Vincular entrada o aura'],
+          ['acciones','Acciones',poderes.filter(a=>etapa.habilidades?.includes(a.id)).map(a=>a.nombre).join(' · ')||'Vincular poderes'],
+          ['vision','Visión',etapa.vision?.nombre||'Vincular ojo'],
+          ['reglas','Reglas y pasivas',`${etapa.reglas?.length||0} reglas durante la forma`]
+        ] as const).map(([id,titulo,resumen])=><button key={id} type="button" aria-pressed={panel===id}
+          className={`rounded-xl border p-3 text-left transition-colors focus-visible:outline-violet-400 ${panel===id?'border-violet-400 bg-violet-950/60':'border-neutral-700 bg-black/30 hover:border-violet-500'}`}
+          onClick={()=>setPanel(id)}><strong className="block text-sm text-violet-200">{titulo}</strong><span className="block break-words text-xs text-neutral-300">{resumen}</span></button>)}
+      </nav>
+      {panel==='animacion'&&<SelectorVFX transformacion valor={etapa.vfx} onChange={vfx=>onChange({...etapa,vfx})}/>}
+      {panel==='vision'&&<details className="rounded-lg border border-violet-900/50 p-3" open={!!etapa.vision}>
+       <summary className="cursor-pointer font-semibold">Ojo de esta fase {etapa.vision?`· ${etapa.vision.nombre}`:'(sin ojo)'}</summary>
+       <p className="my-2 text-xs text-neutral-400">Cada fase puede tener su propio ojo: otra apariencia, otro alcance, otros puntos débiles y más revelación. Está abierto mientras dure la etapa.</p>
+       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!etapa.vision} onChange={e=>onChange({...etapa,vision:e.target.checked?{...nuevaVision(),nombre:`Ojo · ${etapa.nombre}`,modo:'permanente',duracion:0}:undefined})}/>Esta fase tiene un ojo</label>
+       {etapa.vision&&<div className="yq-taller yq-taller-anidado mt-3"><EditorVision fase vision={etapa.vision} onChange={vision=>onChange({...etapa,vision})}/></div>}
+      </details>}
+      {panel==='reglas'&&<details className="rounded-lg border border-violet-900/50 p-3">
+       <summary className="cursor-pointer font-semibold">Pasivas exclusivas de esta etapa ({etapa.reglas?.length||0})</summary>
+       <p className="my-2 text-xs text-neutral-400">Estas reglas solo se ejecutan mientras esta etapa esté activa. Se editan visualmente y no requieren JSON.</p>
+       <EditorReglas value={etapa.reglas||[]} onChange={reglas=>onChange({...etapa,reglas})}/>
+      </details>}
+      {panel==='acciones'&&<fieldset className="space-y-2 rounded-lg border border-neutral-700 p-3">
+        <legend className="px-2 font-semibold">Poderes exclusivos de esta etapa</legend>
+        {poderes.length? poderes.map(accion=>
+          <label key={accion.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-neutral-900">
+            <input type="checkbox" checked={etapa.habilidades?.includes(accion.id)||false} onChange={e=>onChange({...etapa,habilidades:e.target.checked?[...new Set([...(etapa.habilidades||[]),accion.id])]:(etapa.habilidades||[]).filter(id=>id!==accion.id)})}/>
+            {accion.nombre}
+          </label>
+        ):<p className="text-sm text-neutral-400">Añade otras acciones a esta habilidad para seleccionarlas aquí. Las que marques solo estarán disponibles en las etapas elegidas.</p>}
+      </fieldset>}
+      {panel==='forma'&&<>
       <label className="block text-sm">Nombre de la forma
         <input className={campo} value={etapa.nombre} maxLength={120} onChange={e=>onChange({...etapa,nombre:e.target.value})} placeholder="Ej.: Manifestación parcial"/>
       </label>
@@ -131,7 +165,7 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
           {errorEmpuje&&<p role="alert" className="text-xs text-red-300">{errorEmpuje}</p>}
         </>}
       </fieldset>
-      <SelectorVFX transformacion valor={etapa.vfx} onChange={vfx=>onChange({...etapa,vfx})}/>
+
       <div className="space-y-2">
         <h4 className="font-semibold">Estadísticas de esta etapa</h4>
         <p className="text-xs text-neutral-400">
@@ -194,29 +228,10 @@ function EditorEtapa({etapa,numero,tipo,acciones,total,onChange,onEliminar}:Prop
           </div>
         </>}
       </div>
-      <details className="rounded-lg border border-violet-900/50 p-3" open={!!etapa.vision}>
-       <summary className="cursor-pointer font-semibold">Ojo de esta fase {etapa.vision?`· ${etapa.vision.nombre}`:'(sin ojo)'}</summary>
-       <p className="my-2 text-xs text-neutral-400">Cada fase puede tener su propio ojo: otra apariencia, otro alcance, otros puntos débiles y más revelación. Está abierto mientras dure la etapa.</p>
-       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!etapa.vision} onChange={e=>onChange({...etapa,vision:e.target.checked?{...nuevaVision(),nombre:`Ojo · ${etapa.nombre}`,modo:'permanente',duracion:0}:undefined})}/>Esta fase tiene un ojo</label>
-       {etapa.vision&&<div className="yq-taller yq-taller-anidado mt-3"><EditorVision fase vision={etapa.vision} onChange={vision=>onChange({...etapa,vision})}/></div>}
-      </details>
-      <details className="rounded-lg border border-violet-900/50 p-3">
-       <summary className="cursor-pointer font-semibold">Pasivas exclusivas de esta etapa ({etapa.reglas?.length||0})</summary>
-       <p className="my-2 text-xs text-neutral-400">Estas reglas solo se ejecutan mientras esta etapa esté activa. Se editan visualmente y no requieren JSON.</p>
-       <EditorReglas value={etapa.reglas||[]} onChange={reglas=>onChange({...etapa,reglas})}/>
-      </details>
-      <fieldset className="space-y-2 rounded-lg border border-neutral-700 p-3">
-        <legend className="px-2 font-semibold">Poderes exclusivos de esta etapa</legend>
-        {poderes.length? poderes.map(accion=>
-          <label key={accion.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-neutral-900">
-            <input type="checkbox" checked={etapa.habilidades?.includes(accion.id)||false} onChange={e=>onChange({...etapa,habilidades:e.target.checked?[...new Set([...(etapa.habilidades||[]),accion.id])]:(etapa.habilidades||[]).filter(id=>id!==accion.id)})}/>
-            {accion.nombre}
-          </label>
-        ):<p className="text-sm text-neutral-400">Añade otras acciones a esta habilidad para seleccionarlas aquí. Las que marques solo estarán disponibles en las etapas elegidas.</p>}
-      </fieldset>
       <div className="flex justify-end">
         <button type="button" className={boton+" text-red-200"} disabled={total===1} onClick={onEliminar}>Eliminar forma</button>
       </div>
+      </>}
     </fieldset>
   );
 }
