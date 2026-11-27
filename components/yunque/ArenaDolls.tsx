@@ -5,6 +5,7 @@
 // sobre `lib/yunque-arena.ts` y `lib/combate.ts`; nunca guarda nada. Cada paso enciende en el lienzo los nodos
 // que actuaron (`activados`).
 import {memo,useEffect,useMemo,useRef,useState} from 'react';
+import {OPCIONES_ELEMENTO} from '../../lib/catalogos';
 import {createPortal} from 'react-dom';
 import {Maximize2,Minimize2,Move,Plus,RotateCcw,Swords,Trash2,Undo2} from 'lucide-react';
 import IconoYugen from '../IconoYugen';
@@ -13,7 +14,7 @@ import {TableroCombate,BarraCombate,type FichaTablero} from '../TableroCombate';
 import type {TiradaVisual} from '../AnimacionDados';
 import {crearArena,usar,golpeame,turno,mover,levantar,agregarSaco,quitarSaco,alternarPieza,piezaEquipada,nombrePieza,colocar,sacosDe,activados,esSaco,SACOS,DOLL_BASE,SACO_BASE,pasoConReacciones,pasoInvocacion,
  type PausaArena,type AjustesDoll,type ContextoArena,type Golpe} from '../../lib/yunque-arena';
-import {estadosVisibles,recursosVisibles,vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
+import {capaCombatiente,estadosVisibles,recursosVisibles,vistaOcular,acciones,deshacer,reaccionesDe,estadisticas,maxVida,dadoSeguro,posicionesTablero,dimensionesTablero,casillasAlcanzables,movimientoRestante,phDisponibles,
  accionUsableAhora,presupuestoRestante,huellaReserva,accionesEnCombate,type Fuente,type Accion,type Combate,type OfertaReaccion,type Posicion,type RNG} from '../../lib/combate';
 import {huellaDe} from '../../lib/huellas-combate';
 import MenuReaccion,{ListaReacciones} from '../MenuReaccion';
@@ -38,7 +39,7 @@ type Estado=Entrada&{combate:Combate|null;error:string};
 
 const DOLL='doll',SACO='saco';
 const IMAGEN_DOLL='/arte/dolls/portador.webp',IMAGEN_SACO='/arte/dolls/saco.webp';
-const ELEMENTOS_GOLPE=[{valor:'',nombre:'Sin elemento'},{valor:'fuego',nombre:'Fuego'},{valor:'agua',nombre:'Agua'},{valor:'electricidad',nombre:'Rayo'},{valor:'hielo',nombre:'Hielo'},{valor:'luz_sagrada',nombre:'Luz sagrada'}];
+const ELEMENTOS_GOLPE=[{valor:'',nombre:'Sin elemento'},...OPCIONES_ELEMENTO];
 const CARAS=[4,6,8,10,12,20,100];
 const AJUSTES:{clave:keyof AjustesDoll;nombre:string;saco:boolean}[]=[{clave:'vida',nombre:'Vida',saco:true},{clave:'ph',nombre:'PH',saco:false},{clave:'armadura',nombre:'Armadura',saco:true},{clave:'salvacion',nombre:'Salvación',saco:true}];
 const REGISTRO=12;
@@ -177,7 +178,7 @@ function ArenaDolls({b,ctx,grafo,onEncender}:Props){
   if(!c)return [];
   const p=seguro(()=>posicionesTablero(c),{} as Record<string,Posicion>);
   return c.miembros.filter(m=>p[m.id]).map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:seguro(()=>maxVida(m),m.vida),
-   imagen_url:m.transformacion?.imagen_etapa||(m.id===DOLL?imagenDoll:m.invocacion?m.configuracion.imagen_url||IMAGEN_SACO:IMAGEN_SACO),estados:m.estados.map(e=>e.nombre),posicion:p[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
+   imagen_url:m.transformacion?.imagen_etapa||(m.id===DOLL?imagenDoll:m.invocacion?m.configuracion.imagen_url||IMAGEN_SACO:IMAGEN_SACO),estados:m.estados.map(e=>e.nombre),capa:capaCombatiente(m),estados_detalle:estadosVisibles(m),posicion:p[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
  },[c,imagenDoll]);
  const columnas=c?.mapa?.columnas,filas=c?.mapa?.filas;
  const mapa=useMemo(()=>columnas&&filas?{id:'arena-yunque',version:1 as const,nombre:'Arena del Yunque',columnas,filas,celdas:{},procedural:sueloArena(columnas,filas)}:undefined,[columnas,filas]);

@@ -10,8 +10,9 @@ import {EditorTransformacion} from '../../EditorTransformacion';
 import {TablaArmas} from '../../TablaArmas';
 import SelectorVFX from '../../SelectorVFX';
 import EditorVision from './EditorVision';
-import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
+import {Fichas,Rueda,type Opcion} from '../Controles';
 import {SelectorRegla} from '../../SelectorRegla';
+import EditorEstadoAccion from './EditorEstadoAccion';
 import {reaccionDe} from '../../../lib/combate';
 import {tipoDe,type Efecto} from '../../../lib/creacion';
 import {linaje} from '../../../lib/estadisticas';
@@ -24,12 +25,6 @@ const EXITOS:Opcion<NonNullable<Efecto['salvacion']>['exito']>[]=[
  {valor:'anula',nombre:'Lo evita',icono:'ojo',ayuda:'Si la supera, no le afecta'},
  {valor:'solo_estado',nombre:'Evita el estado',icono:'fuego',ayuda:'Si la supera, recibe el daño pero no el estado'},
 ];
-const ESTADOS:Opcion<NonNullable<Efecto['estado_tipo']>>[]=[
- {valor:'veneno',nombre:'Veneno',icono:'pocion'},{valor:'quemadura',nombre:'Quemadura',icono:'fuego'},
- {valor:'regeneracion',nombre:'Regeneración',icono:'vida'},{valor:'aturdido',nombre:'Aturdir',icono:'hielo'},
-];
-const BONOS_ESTADO:[string,string][]=[['armadura','Armadura'],['dano','Daño'],['bono_impacto','Ataque'],['salvacion','Salvación'],['movimiento','Movim.'],['iniciativa','Iniciativa']];
-const CARAS=[2,3,4,6,8,10,12,20,100];
 const limpio=(e:Efecto):Efecto=>Object.fromEntries(Object.entries(e).filter(([,v])=>v!==undefined)) as Efecto;
 type Props=EditorNodoProps&{ctx:ContextoTaller;avisar:(texto:string)=>void};
 
@@ -64,21 +59,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
     <Fichas etiqueta="Si la supera" opciones={EXITOS} valor={s.exito} onChange={exito=>set({exito})} tono="arcano"/>
    </div>;
   }
-  case 'estado':return <div className="yq-editor">
-   <Fichas etiqueta="Comportamiento" opciones={ESTADOS} valor={e.estado_tipo||'narrativo'} onChange={estado_tipo=>patch({estado_tipo})} tono="arcano"/>
-   <Texto etiqueta="Nombre del estado" valor={e.estado} max={200} placeholder="Quemadura, Sangrado…" onChange={estado=>patch({estado})}/>
-   {['veneno','quemadura','regeneracion'].includes(e.estado_tipo||'')&&<div className="yq-dados" aria-label="Dados por turno">
-    <span className="yq-dados-etiqueta">{e.estado_tipo==='regeneracion'?'Cura por turno':'Daño por turno'}</span>
-    <div className="yq-dados-linea">
-     <Rueda nombre="cantidad" etiqueta="Dados por turno" valor={e.cantidad} min={0} max={100} onChange={cantidad=>patch({cantidad:Math.round(cantidad)})}/><b aria-hidden="true">d</b>
-     <Rueda nombre="caras" etiqueta="Caras por turno" valor={e.caras} valores={CARAS} onChange={caras=>patch({caras})}/>
-    </div>
-   </div>}
-   <div className="yq-costes"><label><span>Turnos</span><Rueda nombre="duracion" etiqueta="Turnos que dura el estado" valor={e.duracion} min={0} max={999} onChange={duracion=>patch({duracion:Math.round(duracion)})} compacta/></label></div>
-   <fieldset className="yq-bonos"><legend>Mientras dura</legend>
-    {BONOS_ESTADO.map(([k,n])=><label key={k} className={e.bonos_estado?.[k]?'is-activo':undefined}><span>{n}</span><Rueda nombre={'estado_'+k} etiqueta={`${n} mientras dura el estado`} valor={e.bonos_estado?.[k]||0} min={-999} max={999} onChange={v=>{const bonos={...e.bonos_estado};if(v)bonos[k]=v;else delete bonos[k];patch({bonos_estado:Object.keys(bonos).length?bonos:undefined});}} compacta/></label>)}
-   </fieldset>
-  </div>;
+  case 'estado':return <EditorEstadoAccion e={e} patch={patch}/>;
   case 'reaccion':{
    const r=reaccionDe(normalizarReaccion(e));
    return <div className="yq-editor yq-legado">
@@ -92,7 +73,7 @@ export default function EditorModulo({b,nodo,operar,ctx,avisar}:Props){
    const r=e.recurso;if(!r)return null;
    return <div className="yq-editor">
     {e.efecto==='dano'&&<label><input type="checkbox" checked={!!r.descargar} onChange={v=>patch({recurso:{...r,descargar:v.target.checked}})}/> Vaciar la reserva y sumar su saldo al daño de cada impacto</label>}
-    <Texto etiqueta="Nombre compartido" valor={r.nombre} max={60} placeholder="Energía, Furia…" ayuda="Las acciones con el mismo nombre comparten la reserva." onChange={nombre=>patch({recurso:{...r,nombre}})}/>
+    <SelectorRegla tipo="recurso" crear etiqueta="Reserva" ayuda="Las acciones, reacciones y rasgos con la misma reserva comparten el saldo." valor={r.nombre} onChange={nombre=>patch({recurso:{...r,nombre}})}/>
     <div className="yq-costes">
      <label><span>Saldo inicial</span><Rueda nombre="inicial" etiqueta="Saldo inicial del encuentro" valor={r.inicial} min={-9999} max={9999} onChange={inicial=>patch({recurso:{...r,inicial}})} compacta/></label>
      <label><span>Cambio por uso</span><Rueda nombre="cambio" etiqueta="Cambio por uso (positivo suma, negativo resta)" valor={r.cambio} min={-9999} max={9999} onChange={cambio=>patch({recurso:{...r,cambio}})} compacta/></label>

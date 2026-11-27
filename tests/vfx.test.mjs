@@ -126,3 +126,24 @@ test('el aro de Aliento sagrado permanece en la salida con cualquier giro o refl
   assert.equal(exports.transformacionClipVFX({...clip,id:'impacto'}),exports.transformacionVFX(animacion));
  }
 });
+
+test('«Gratis en la forma» funciona con cualquier forma, no solo con la de Kion',()=>{
+ const tec={id:'tec',nombre:'Danza lunar',efecto:'dano',cantidad:1,caras:6,modificador:0,coste_ph:3,gratis_en_forma:'forma_luna'};
+ const pj={id:'p',nombre:'p',stats:{vida:30,ph:50,armadura:0,salvacion:0},posicion:{x:1,y:1},configuracion:{tipo_creacion:'personaje',habilidades:[{id:'h',nombre:'Técnicas',stats:{},efectos:[tec,{...tec,id:'otra',gratis_en_forma:undefined}]}]}};
+ const c=motor.iniciar(motor.agregar(motor.nuevoCombate(),pj,'jugador',()=>10));
+ const m=c.miembros.find(x=>x.id==='p');
+ assert.equal(motor.acciones(m).find(a=>a.efecto.id==='tec').efecto.coste_ph,3);
+ m.transformacion={definicion_id:'forma_luna'};
+ assert.equal(motor.acciones(m).find(a=>a.efecto.id==='tec').efecto.coste_ph,0);
+ assert.equal(motor.acciones(m).find(a=>a.efecto.id==='otra').efecto.coste_ph,3);
+ m.transformacion={definicion_id:'limitless'};
+ assert.equal(motor.acciones(m).find(a=>a.efecto.id==='tec').efecto.coste_ph,3);
+});
+
+test('grupos de la barra: el antiguo «axioma» es el grupo Axioma',()=>{
+ assert.equal(motor.grupoBarra({axioma:true}),'Axioma');
+ assert.equal(motor.grupoBarra({grupo_barra:' Danzas '}),'Danzas');
+ assert.equal(motor.grupoBarra({}),undefined);
+ assert.equal(motor.formaGratis({ley_limitless:true}),'limitless');
+ assert.equal(motor.formaGratis({gratis_en_forma:'luna',ley_limitless:true}),'luna');
+});

@@ -13,7 +13,7 @@ import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type Disp
 import { type ReglaPasiva } from "./pasivas";
 import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./inmunidades";
 import {definicionElemento,type EfectoImpacto} from "./elementos";
-import {describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
+import {TIPOS_ESTADO_LEGADO,iconoEstado,capaDeEstados,type CapaEstado,describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
 import {potenciar,potenciadoresPara,etiquetasDe,describirPotenciado,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
 import {DESARMADO_BASE,GUARDIA_BASE,describirConcepto,type ConceptoDesarmado,type ConceptoGuardia} from "./conceptos-basicos";
@@ -679,9 +679,14 @@ export function reaccionDe(e:Efecto):Reaccion|undefined{return e.reaccion;}
 function efectosConReaccion(m:Combatiente):Efecto[]{return habilidadesDe(m).flatMap(h=>h.efectos||[]).map(normalizarReaccion);}
 type ReaccionDisponible={p:Efecto;r:Reaccion;coste:number;restantes:number|null};
 /** Coste, usos y enfriamiento: null si ahora no se puede ofrecer. */
+/** Forma en la que la acción no cuesta PH (los datos antiguos de Kion usaban `ley_limitless`). */
+export const formaGratis=(e:Pick<Efecto,'gratis_en_forma'|'ley_limitless'>):string|undefined=>e.gratis_en_forma||(e.ley_limitless?'limitless':undefined);
+const enFormaGratis=(m:Pick<Combatiente,'transformacion'>,e:Efecto)=>{const f=formaGratis(e);return !!f&&m.transformacion?.definicion_id===f;};
+/** Grupo de la barra de combate en que aparece la acción (los datos antiguos de Kion usaban `axioma`). */
+export const grupoBarra=(e:Pick<Efecto,'grupo_barra'|'axioma'>):string|undefined=>e.grupo_barra?.trim()||(e.axioma?'Axioma':undefined);
 function disponibilidad(c:Combate,t:Combatiente,p:Efecto,r:Reaccion):ReaccionDisponible|null{
   if(!permiteReacciones(t.estados.map(definicionDe)))return null;
-  const coste=t.transformacion?.definicion_id==='limitless'&&p.ley_limitless?0:(r.coste??p.coste_ph??0);
+  const coste=enFormaGratis(t,p)?0:(r.coste??p.coste_ph??0);
   if(phDisponibles(t)<coste||(r.una_por_ronda&&t.rondas_reacciones?.[p.id]===c.ronda))return null;
   const u=t.usos_reaccion?.[p.id];
   if(r.enfriamiento&&u&&c.ronda<=u.ultima+r.enfriamiento)return null;
@@ -801,7 +806,7 @@ export function reaccionesDe(c:Combate,m:Combatiente):{id:string;nombre:string;d
   return efectosConReaccion(m).filter((p):p is Efecto&{reaccion:Reaccion}=>!!p.reaccion).map(p=>{
     const r=p.reaccion,u=m.usos_reaccion?.[p.id];
     const restantes=r.usos&&r.usos.tipo!=='ilimitado'?Math.max(0,(r.usos.maximo||1)-(r.usos.tipo==='encuentro'?(u?.encuentro||0):(u&&u.ronda===c.ronda?u.en_ronda:0))):null;
-    const coste=m.transformacion?.definicion_id==='limitless'&&p.ley_limitless?0:(r.coste??p.coste_ph??0);
+    const coste=enFormaGratis(m,p)?0:(r.coste??p.coste_ph??0);
     return {id:p.id,nombre:p.nombre,disparador:disparadorDe(r),linea:lineaCosteReaccion({...r,coste},0,restantes),lista:!!disponibilidad(c,m,p,r)};
   });
 }
@@ -1345,8 +1350,7 @@ export function acciones(m: Combatiente) {
    if(d?.transiciones?.length)return opcionesDeForma(m,a,d);
    if(d&&m.transformacion?.definicion_id===d.id){const i=d.etapas.findIndex(e=>e.id===m.transformacion?.etapa_id);return {...a,nombre:i<d.etapas.length-1?'Avanzar a '+d.etapas[i+1].nombre:a.nombre,efecto:{...a.efecto,coste_ph:0,coste_fatiga:0},bloqueada:i===d.etapas.length-1?'Ya está en la última etapa.':d.etapas[i+1]?.descontrolada?'Esta fase requiere fallar la salvación de posesión.':undefined};}
    if(d&&(m.transformacion||m.transformaciones_usadas?.includes(d.id)))return {...a,bloqueada:m.transformacion?'Otra transformación está activa.':'Ya utilizada en este encuentro.'};
-   const efecto=m.transformacion?.definicion_id==='limitless' && a.efecto.ley_limitless
-     ? {...a.efecto,coste_ph:0} : a.efecto;
+   const efecto=enFormaGratis(m,a.efecto) ? {...a.efecto,coste_ph:0} : a.efecto;
    if(vozNiega(m.voz_artefacto,a))return {...a,efecto:conAlcance(efecto,a.nombre),bloqueada:'La voz del artefacto te lo niega.'};
    const conTablero=conAlcance(efecto,a.nombre),pots=rasgos.length&&efecto.efecto==='dano'?potenciadoresDisponibles(m,conTablero,rasgos):[];
    return {...a,efecto:conTablero,...(pots.length?{potenciadores:pots}:{})};
@@ -1949,7 +1953,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
         return n;
       }
       const tipo = e.estado_tipo || "narrativo";
-      const legado = !e.estado_def && ["narrativo", "veneno", "regeneracion", "aturdido", "quemadura"].includes(tipo);
+      const legado = !e.estado_def && TIPOS_ESTADO_LEGADO.includes(tipo);
       let turnos = legado || !defEstado ? Math.max(1, e.duracion) : turnosIniciales(defEstado, e.duracion);
       if (permiso === 'resiste' && turnos > 1) { turnos = Math.max(1, Math.floor(turnos / 2)); log(n, `${t.nombre} resiste el estado: dura ${turnos} turno(s).`); }
       estado(
@@ -2277,8 +2281,10 @@ export function recursosDe(m: Combatiente): DefinicionRecurso[] {
 }
 export const saldoRecurso = (m: Combatiente, d: DefinicionRecurso) => m.recursos_especiales?.[d.id] ?? d.inicial;
 /** Estados para la tarjeta del combatiente: icono, duración y la misma frase que el editor del Yunque. */
+/** Capa del tablero en la que está: la marca la primitiva «Capa» de sus estados (o el vuelo del motor). */
+export const capaCombatiente = (m: Pick<Combatiente, 'estados'>): CapaEstado | 'suelo' => capaDeEstados(m.estados);
 export function estadosVisibles(m: Pick<Combatiente, 'estados'>) {
-  return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d?.icono || 'yugen', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
+  return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d ? iconoEstado(d) : (e.tipo || e.id) === 'vuelo' ? 'ala' : 'libro', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
 }
 /** Barra de recursos para la tarjeta y la ficha, con su nombre configurado. */
 export function recursosVisibles(m: Combatiente, gm = false) {
@@ -3175,8 +3181,7 @@ export type VistaOcular = {
   objetivos: Record<string, ObjetivoOcular>;
   amenaza?: string[];
 };
-const BAJO_TIERRA = /\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i;
-const bajoTierra = (m: Combatiente) => m.estados.some(e => BAJO_TIERRA.test(e.nombre || '') || BAJO_TIERRA.test(e.tipo || ''));
+const bajoTierra = (m: Combatiente) => capaCombatiente(m) === 'subsuelo';
 /** Ojos abiertos de un combatiente: los activados (estados) y los permanentes de sus habilidades y equipo. */
 export function visionesActivas(m: Combatiente): VisionActiva[] {
   if (m.vida <= 0) return [];

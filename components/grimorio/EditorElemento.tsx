@@ -3,12 +3,13 @@
 import {Plus,Trash2} from 'lucide-react';
 import {Fichas,Rueda,Texto,Interruptor,type Opcion} from '../yunque/Controles';
 import {CATALOGO_ESTADOS} from '../../lib/estados';
+import IconoYugen from '../IconoYugen';
+import SelectorIconoYugen from '../SelectorIconoYugen';
 import {CATALOGO_ELEMENTOS,BASES_ELEMENTO,elementoBase,describirElemento,validarDefinicionElemento,type DefinicionElemento,type ElementoBase,type EfectoImpacto} from '../../lib/elementos';
 import {useGrimorioEstados} from '../../lib/useGrimorioEstados';
 import {useGrimorioElementos} from '../../lib/useGrimorioElementos';
 import '../yunque/editores/defensas.css';
 
-const ICONOS=['fuego','hielo','rayo','agua','corona','pocion','alma','ojo','escudo','vida','libro','espada'].map(i=>({valor:i,nombre:'',icono:i}));
 const BASES:Opcion<ElementoBase>[]=BASES_ELEMENTO.map(b=>({valor:b,nombre:elementoBase(b)!.nombre,icono:elementoBase(b)!.icono,ayuda:'Las inmunidades, resistencias y reacciones (Mojado) lo tratan como '+elementoBase(b)!.nombre.toLowerCase()+'.'}));
 export const idDe=(nombre:string)=>nombre.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').replace(/^(\d)/,'e_$1').slice(0,60)||'elemento';
 
@@ -26,7 +27,9 @@ export default function EditorElemento({valor,onChange}:{valor:DefinicionElement
    {elementos.length>0&&<optgroup label="Tu grimorio">{elementos.map(x=><option key={x.id} value={'g:'+x.id}>{x.def.nombre}</option>)}</optgroup>}
   </select></label>
   <Texto etiqueta="Nombre del elemento" valor={d.nombre} onChange={nombre=>set({nombre,id:idDe(nombre)})} placeholder="Fuego infernal, Escarcha negra…"/>
-  <Fichas etiqueta="Icono" opciones={ICONOS} valor={d.icono||'fuego'} onChange={icono=>set({icono})}/>
+  <details className="yq-estado-icono"><summary><IconoYugen id={d.icono||elementoBase(d.base)?.icono||'fuego'} size={22}/>Icono</summary>
+   <SelectorIconoYugen value={d.icono||''} automatico={elementoBase(d.base)?.icono||'fuego'} onChange={icono=>set({icono:icono||undefined})}/>
+  </details>
   <Fichas etiqueta="Se comporta como (base)" opciones={BASES} valor={d.base} onChange={base=>set({base})} tono="arcano" columnas={3}/>
   <Interruptor etiqueta="Dados de daño extra" valor={!!d.dados_extra} onChange={v=>set({dados_extra:v?{cantidad:1,caras:4}:null})}/>
   {d.dados_extra&&<div className="yq-fila">

@@ -41,7 +41,13 @@ export type Primitiva=
    /** El estado desaparece al reaccionar (Mojado). */
    consume?:boolean;reacciones:ReaccionElemental[]}
  |{tipo:'bonos';bonos:Record<string,number>}
- |{tipo:'inmunidad';inmunidades:Inmunidad[]};
+ |{tipo:'inmunidad';inmunidades:Inmunidad[]}
+ /** Mueve a otra capa del tablero (vuela, se entierra, se sumerge, cambia de plano). */
+ |{tipo:'capa';capa:CapaEstado};
+export type CapaEstado='aire'|'subsuelo'|'agua'|'plano';
+export const CAPAS_ESTADO:CapaEstado[]=['aire','subsuelo','agua','plano'];
+export const NOMBRE_CAPA:Record<CapaEstado,string>={aire:'En el aire',subsuelo:'Bajo tierra',agua:'Bajo el agua',plano:'En otro plano'};
+export const ICONO_CAPA:Record<CapaEstado,string>={aire:'ala',subsuelo:'subsuelo',agua:'agua',plano:'portal'};
 export type TipoPrimitiva=Primitiva['tipo'];
 export type DuracionEstado={tipo:'turnos';turnos:number}|{tipo:'combate'}|{tipo:'salvacion';salvacion:TiradaSalvacion}|{tipo:'hasta_su_turno'};
 export type DefinicionEstado={id:string;nombre:string;icono?:string;categoria:CategoriaEstado;subcategoria?:string;
@@ -51,31 +57,31 @@ export type DefinicionEstado={id:string;nombre:string;icono?:string;categoria:Ca
  /** Fin anticipado: al recibir daño y/o con una salvación al inicio de su turno. */
  despertar?:{recibir_dano?:boolean;salvacion?:TiradaSalvacion};
  descripcion?:string};
-export const NOMBRE_PRIMITIVA:Record<TipoPrimitiva,string>={perder_turno:'Perder turno',movimiento_forzado:'Movimiento forzado',cesion_control:'Cesión de control',percepcion_alterada:'Percepción alterada',dano_periodico:'Daño periódico',curacion_periodica:'Curación periódica',modificador_movimiento:'Modificador de movimiento',vulnerabilidad_elemental:'Vulnerabilidad elemental',bonos:'Bonos y penalizaciones',inmunidad:'Inmunidad temporal'};
-export const ICONO_PRIMITIVA:Record<TipoPrimitiva,string>={perder_turno:'alma',movimiento_forzado:'ojo',cesion_control:'alma',percepcion_alterada:'ojo',dano_periodico:'fuego',curacion_periodica:'vida',modificador_movimiento:'escudo',vulnerabilidad_elemental:'agua',bonos:'escudo',inmunidad:'escudo'};
+export const NOMBRE_PRIMITIVA:Record<TipoPrimitiva,string>={perder_turno:'Perder turno',movimiento_forzado:'Movimiento forzado',cesion_control:'Cesión de control',percepcion_alterada:'Percepción alterada',dano_periodico:'Daño periódico',curacion_periodica:'Curación periódica',modificador_movimiento:'Modificador de movimiento',vulnerabilidad_elemental:'Vulnerabilidad elemental',bonos:'Bonos y penalizaciones',inmunidad:'Inmunidad temporal',capa:'Capa del tablero'};
+export const ICONO_PRIMITIVA:Record<TipoPrimitiva,string>={perder_turno:'alma',movimiento_forzado:'ojo',cesion_control:'alma',percepcion_alterada:'ojo',dano_periodico:'fuego',curacion_periodica:'vida',modificador_movimiento:'escudo',vulnerabilidad_elemental:'agua',bonos:'escudo',inmunidad:'escudo',capa:'ala'};
 export const CATEGORIAS_ESTADO:CategoriaEstado[]=['mental','fisico','elemental','narrativo'];
 const SALV:TiradaSalvacion={cd:12,atributo:'salvacion'};
 /** Catálogo base. Los estados del motor antiguo son ahora definiciones; sus resultados no cambian. */
 export const CATALOGO_ESTADOS:DefinicionEstado[]=[
  {id:'congelado',nombre:'Congelado',icono:'hielo',categoria:'elemental',origen:'hielo',duracion:{tipo:'combate'},efectos:[{tipo:'perder_turno',consumir:true}],descripcion:'Pierde su siguiente turno.'},
- {id:'aturdido',nombre:'Aturdido',icono:'rayo',categoria:'fisico',duracion:{tipo:'turnos',turnos:1},efectos:[{tipo:'perder_turno',consumir:true}],descripcion:'Pierde su siguiente turno.'},
+ {id:'aturdido',nombre:'Aturdido',icono:'estrellas',categoria:'fisico',duracion:{tipo:'turnos',turnos:1},efectos:[{tipo:'perder_turno',consumir:true}],descripcion:'Pierde su siguiente turno.'},
  {id:'mojado',nombre:'Mojado',icono:'agua',categoria:'elemental',origen:'agua',duracion:{tipo:'combate'},efectos:[{tipo:'vulnerabilidad_elemental',consume:true,reacciones:[
   {elemento:'electricidad',nombre:'Superconducción',multiplicador:2,mensaje:'Superconducción: daño principal × 2.'},
   {elemento:'luz_sagrada',nombre:'Agua bendita',dados:{cantidad:1,caras:6},multiplicador:2,solo_corruptos:true,mensaje:'Agua bendita contra oscuridad/corrupción: daño sagrado × 2.'},
   {elemento:'hielo',nombre:'Congelación',aplica_estado:'congelado'},
   {elemento:'fuego',nombre:'Onda de vapor',dados:{cantidad:1,caras:4},aplica_estado:'ciego'}]}],descripcion:'El agua amplifica el siguiente elemento que lo toque.'},
  {id:'quemadura',nombre:'Quemadura',icono:'fuego',categoria:'elemental',origen:'fuego',duracion:{tipo:'combate'},efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'fuego',momento:'inicio',salvacion_termina:SALV}]},
- {id:'veneno',nombre:'Envenenado',icono:'pocion',categoria:'fisico',origen:'veneno',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'veneno',momento:'inicio'}]},
+ {id:'veneno',nombre:'Envenenado',icono:'calavera',categoria:'fisico',origen:'veneno',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'veneno',momento:'inicio'}]},
  {id:'regeneracion',nombre:'Regeneración',icono:'vida',categoria:'fisico',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'curacion_periodica',cantidad:1,caras:4,momento:'inicio'}]},
- {id:'dominado',nombre:'Dominado',icono:'alma',categoria:'mental',subcategoria:'control',duracion:{tipo:'combate'},efectos:[{tipo:'cesion_control',controlador:'gm'}],descripcion:'El GM decide sus actos.'},
+ {id:'dominado',nombre:'Dominado',icono:'cadenas',categoria:'mental',subcategoria:'control',duracion:{tipo:'combate'},efectos:[{tipo:'cesion_control',controlador:'gm'}],descripcion:'El GM decide sus actos.'},
  {id:'control_mental',nombre:'Control mental',icono:'alma',categoria:'mental',subcategoria:'control',duracion:{tipo:'turnos',turnos:2},efectos:[{tipo:'cesion_control',controlador:'fuente'}],descripcion:'Quien lo controla decide sus actos; el GM puede cortarlo.'},
- {id:'asustado',nombre:'Asustado',icono:'ojo',categoria:'mental',subcategoria:'miedo',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'movimiento_forzado',sentido:'alejar',min:1,max:2,no_ataca_fuente:true}]},
- {id:'hipnotizado',nombre:'Hipnotizado',icono:'ojo',categoria:'mental',subcategoria:'ilusion',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'percepcion_alterada',probabilidad:50}]},
- {id:'dormido',nombre:'Dormido',icono:'alma',categoria:'mental',subcategoria:'control',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'perder_turno',permite_reacciones:false},{tipo:'modificador_movimiento',modo:'cero'}],despertar:{recibir_dano:true}},
- {id:'paralizado',nombre:'Paralizado',icono:'rayo',categoria:'fisico',duracion:{tipo:'salvacion',salvacion:SALV},efectos:[{tipo:'perder_turno',primer_turno:true,permite_reacciones:true},{tipo:'modificador_movimiento',modo:'cero'}],despertar:{salvacion:SALV}},
- {id:'en_trance',nombre:'En trance',icono:'alma',categoria:'mental',subcategoria:'confusion',duracion:{tipo:'turnos',turnos:2},efectos:[{tipo:'perder_turno',permite_reacciones:false},{tipo:'modificador_movimiento',modo:'cero'}]},
+ {id:'asustado',nombre:'Asustado',icono:'miedo',categoria:'mental',subcategoria:'miedo',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'movimiento_forzado',sentido:'alejar',min:1,max:2,no_ataca_fuente:true}]},
+ {id:'hipnotizado',nombre:'Hipnotizado',icono:'espiral',categoria:'mental',subcategoria:'ilusion',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'percepcion_alterada',probabilidad:50}]},
+ {id:'dormido',nombre:'Dormido',icono:'sueno',categoria:'mental',subcategoria:'control',duracion:{tipo:'turnos',turnos:3},efectos:[{tipo:'perder_turno',permite_reacciones:false},{tipo:'modificador_movimiento',modo:'cero'}],despertar:{recibir_dano:true}},
+ {id:'paralizado',nombre:'Paralizado',icono:'cadenas',categoria:'fisico',duracion:{tipo:'salvacion',salvacion:SALV},efectos:[{tipo:'perder_turno',primer_turno:true,permite_reacciones:true},{tipo:'modificador_movimiento',modo:'cero'}],despertar:{salvacion:SALV}},
+ {id:'en_trance',nombre:'En trance',icono:'espiral',categoria:'mental',subcategoria:'confusion',duracion:{tipo:'turnos',turnos:2},efectos:[{tipo:'perder_turno',permite_reacciones:false},{tipo:'modificador_movimiento',modo:'cero'}]},
  {id:'guardia',nombre:'Guardia',icono:'escudo',categoria:'fisico',duracion:{tipo:'hasta_su_turno'},efectos:[{tipo:'bonos',bonos:{armadura:2}}]},
- {id:'ciego',nombre:'Ceguera: -4 al próximo ataque',icono:'ojo',categoria:'elemental',duracion:{tipo:'combate'},efectos:[{tipo:'bonos',bonos:{bono_impacto:-4}}],descripcion:'Se consume en su próximo ataque.'},
+ {id:'ciego',nombre:'Ceguera: -4 al próximo ataque',icono:'ojo_cerrado',categoria:'elemental',duracion:{tipo:'combate'},efectos:[{tipo:'bonos',bonos:{bono_impacto:-4}}],descripcion:'Se consume en su próximo ataque.'},
  {id:'escarcha',nombre:'Escarcha: ARM a la mitad hasta el próximo ataque',icono:'hielo',categoria:'elemental',origen:'hielo',duracion:{tipo:'combate'},efectos:[],descripcion:'ARM a la mitad contra el próximo ataque.'},
  {id:'marca_luz',nombre:'Marcado por la Luz',icono:'corona',categoria:'elemental',origen:'luz_sagrada',duracion:{tipo:'combate'},efectos:[],descripcion:'El próximo golpe estalla con 1d6.'},
 ];
@@ -110,6 +116,7 @@ export function validarDefinicionEstado(d:DefinicionEstado|undefined):string|nul
   if(p.tipo==='modificador_movimiento'&&(!['cero','mitad','restar'].includes(p.modo)||(p.modo==='restar'&&!entero(p.valor,1,30))))return 'Modificador de movimiento inválido.';
   if(p.tipo==='vulnerabilidad_elemental'&&(!Array.isArray(p.reacciones)||!p.reacciones.length||p.reacciones.some(r=>!r||!r.elemento||!r.nombre||(r.dados&&(!entero(r.dados.cantidad,1,20)||!entero(r.dados.caras,2,100)))||(r.multiplicador!==undefined&&!(r.multiplicador>0&&r.multiplicador<=5)))))return 'Cada reacción elemental necesita elemento, nombre y valores válidos.';
   if(p.tipo==='bonos'&&(!p.bonos||Object.entries(p.bonos).some(([k,v])=>!/^[a-z_][a-z0-9_]*$/.test(k)||!Number.isFinite(v)||Math.abs(v)>1000)))return 'Bonos inválidos.';
+  if(p.tipo==='capa'&&!CAPAS_ESTADO.includes(p.capa))return 'Elige la capa del tablero.';
   if(p.tipo==='inmunidad'){const e=validarInmunidades(p.inmunidades);if(e)return e;if(!p.inmunidades?.length)return 'Añade al menos una inmunidad.';}
  }
  return null;
@@ -144,6 +151,7 @@ export function describirEstado(d:DefinicionEstado):string{
   if(p.tipo==='modificador_movimiento')partes.push(p.modo==='cero'?'no puede moverse':p.modo==='mitad'?'se mueve a la mitad':`pierde ${p.valor} casillas de movimiento`);
   if(p.tipo==='vulnerabilidad_elemental')partes.push(`reacciona con ${p.reacciones.map(r=>`${SUJETO_TIPO[r.elemento]||r.elemento} (${r.nombre})`).join(', ')}${p.consume?' y se consume':''}`);
   if(p.tipo==='bonos')partes.push(Object.entries(p.bonos).map(([k,v])=>`${v>0?'+':''}${v} ${k.replace(/_/g,' ')}`).join(', '));
+  if(p.tipo==='capa')partes.push(NOMBRE_CAPA[p.capa].toLowerCase().replace(/^en /,'pasa a estar en ').replace(/^bajo /,'pasa a estar bajo '));
   if(p.tipo==='inmunidad')partes.push(`inmune a ${p.inmunidades.map(i=>i.valor.replace(/_/g,' ')).join(', ')}`);
  }
  if(d.despertar?.recibir_dano)partes.push('despierta al recibir daño');
@@ -153,4 +161,45 @@ export function describirEstado(d:DefinicionEstado):string{
  return `${d.nombre}: ${[...partes,dura].filter(Boolean).join('; ')}.`;
 }
 /** Nueva definición vacía para el editor. */
-export const estadoVacio=(id='estado_nuevo'):DefinicionEstado=>({id,nombre:'Nuevo estado',icono:'fuego',categoria:'narrativo',duracion:{tipo:'turnos',turnos:2},efectos:[]});
+export const estadoVacio=(id='estado_nuevo'):DefinicionEstado=>({id,nombre:'Nuevo estado',categoria:'narrativo',duracion:{tipo:'turnos',turnos:2},efectos:[]});
+
+/** Estados antiguos sin primitiva «Capa»: la capa se deducía del nombre. Solo se usa como respaldo. */
+const CAPA_POR_NOMBRE:[CapaEstado,RegExp][]=[
+ ['aire',/\b(en vuelo|vuelo|volando|levitando|levita)\b/i],
+ ['subsuelo',/\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i],
+ ['agua',/\b(sumergid[oa]|bajo el agua|nadando)\b/i],
+ ['plano',/\b(otro plano|et[eé]re[oa]|plano astral|desplazad[oa] de plano)\b/i],
+];
+export const capaPorNombre=(texto:string):CapaEstado|undefined=>CAPA_POR_NOMBRE.find(([,p])=>p.test(texto))?.[0];
+/**
+ * Capa del tablero de quien lleva estos estados. Manda la primitiva «Capa»; luego el vuelo del motor; y solo los
+ * estados antiguos sin definición se deducen por su nombre.
+ */
+export function capaDeEstados(estados:readonly {tipo?:string;id?:string;nombre?:string;def?:DefinicionEstado}[]):CapaEstado|'suelo'{
+ for(const e of estados){const p=primitivas(definicionDe(e),'capa')[0];if(p)return p.capa;}
+ if(estados.some(e=>(e.tipo||e.id)==='vuelo'))return 'aire';
+ for(const e of estados){if(definicionDe(e))continue;const c=capaPorNombre(`${e.nombre||''} ${e.tipo||''}`);if(c)return c;}
+ return 'suelo';
+}
+
+export const ICONO_CATEGORIA:Record<CategoriaEstado,string>={mental:'alma',fisico:'espada',elemental:'fuego',narrativo:'libro'};
+/** Icono automático (sin elegir uno): el de su primera primitiva o, si no tiene, el de su categoría. */
+export function iconoAutomatico(d:DefinicionEstado|undefined):string{
+ const p=d?.efectos?.[0];
+ if(p)return p.tipo==='capa'?ICONO_CAPA[p.capa]||'ala':ICONO_PRIMITIVA[p.tipo]||'yugen';
+ return d?ICONO_CATEGORIA[d.categoria]||'yugen':'yugen';
+}
+/** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
+export const iconoEstado=(d:DefinicionEstado|undefined):string=>d?.icono||iconoAutomatico(d);
+
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+export const TIPOS_ESTADO_LEGADO=['narrativo','veneno','regeneracion','aturdido','quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+export function definicionAplicada(d:DefinicionEstado,pedidos:number,legado=false):DefinicionEstado{
+ if(legado)return {...d,duracion:{tipo:'turnos',turnos:Math.max(1,pedidos||1)}};
+ if(pedidos>0&&(d.duracion.tipo==='turnos'||d.duracion.tipo==='combate'))return {...d,duracion:{tipo:'turnos',turnos:pedidos}};
+ return d;
+}
