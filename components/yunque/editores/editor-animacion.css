@@ -189,3 +189,29 @@
     margin-inline: auto;
   }
 }
+
+.yq-compositor .yq-animacion-casilla[data-previa] {
+  box-shadow: inset 0 0 0 2px var(--color-arcane);
+  background: color-mix(in srgb, var(--color-arcane) 28%, var(--color-well));
+}
+.yq-animacion-previa-casilla {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+.yq-animacion-previa-casilla svg {position:absolute;inset:0;width:100%;height:100%}
+.yq-animacion-previa-casilla line {stroke:var(--color-arcane);stroke-width:.055;stroke-dasharray:.18 .14}
+.yq-animacion-previa-casilla > span {position:absolute;transform:translate(-50%,-50%);opacity:.86}
+.yq-animacion-previa-casilla picture,.yq-animacion-previa-casilla img {
+  display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;
+}
+.yq-animacion-pistas {position:relative}
+.yq-animacion-previa-tiempo {
+  position:absolute;top:4px;z-index:2;min-width:3px;height:34px;
+  display:flex;align-items:center;gap:4px;pointer-events:none;
+  color:var(--color-gold-bright);border:1px dashed var(--color-arcane);
+  background:color-mix(in srgb,var(--color-arcane) 35%,var(--color-well));
+  white-space:nowrap;font-size:11px;
+}
+.yq-animacion-previa-tiempo img {width:26px;height:26px;display:block;object-fit:contain;image-rendering:pixelated}

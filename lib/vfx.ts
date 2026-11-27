@@ -58,7 +58,7 @@ export function validarVFX(config:ConfiguracionVFX|AnimacionEtapa|undefined):str
 }
 
 import type {EventoVisual,Posicion} from './combate';
-export type ClipVFX={id:string;animacion:string;desde:Posicion;hasta:Posicion;inicio:number;duracion:number;escala:number;giro?:number;salto?:boolean;oculto?:boolean;haz?:boolean;horizontal?:boolean;vertical?:boolean};
+export type ClipVFX={id:string;animacion:string;desde:Posicion;hasta:Posicion;inicio:number;duracion:number;escala:number;giro?:number;salto?:boolean;oculto?:boolean;haz?:boolean;contacto?:boolean;horizontal?:boolean;vertical?:boolean};
 export function esLanzamientoRayoDivino(clip:ClipVFX){
  return (clip.id==='salida'||clip.id==='lanzamiento-origen')&&separarVFX(clip.animacion).base==='foundry-divine-beam';
 }
@@ -117,7 +117,7 @@ function planificarSecuencia(evento:EventoVisual):ClipVFX[]{
    });
    case 'impacto':return g.impactos.flatMap((huella,i)=>{
     const golpe=contacto(huella);
-    return golpe?[clip(String(i),golpe.punto,golpe.punto,{inicio:paso.inicio+Math.round(golpe.tiempo)})]:[];
+    return golpe?[clip(String(i),golpe.punto,golpe.punto,{inicio:paso.inicio+Math.round(golpe.tiempo),contacto:true})]:[];
    });
   }
  });

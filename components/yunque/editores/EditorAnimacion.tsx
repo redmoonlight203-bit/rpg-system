@@ -9,7 +9,7 @@ import EditorEsqueleto from './EditorEsqueleto';
 import {areaDesdeFicha,esqueletoVisual,type EventoVisual,type Posicion} from '../../../lib/combate';
 import {EFECTOS_NOMBRE,type Efecto} from '../../../lib/creacion';
 import {DIRECCIONES_PATRON,MAX_RADIO_PATRON} from '../../../lib/patron-area';
-import {buscarVFX,CATALOGO_VFX,clipsDeConfiguracion,separarVFX} from '../../../lib/vfx';
+import {buscarVFX,CATALOGO_VFX,clipsDeConfiguracion,planificarVFX,separarVFX,transformacionClipVFX,type ClipVFX} from '../../../lib/vfx';
 import {casillaDeClip,casillaRelativaVFX,DISPARADORES_VFX,MAX_CLIPS_VFX,MAX_DURACION_VFX,MAX_INICIO_VFX,rutasVFX,type DisparadorVFX,type GeometriaVFX,type PasoVFX} from '../../../lib/secuencia-vfx';
 import './editor-animacion.css';
 
@@ -58,12 +58,18 @@ const NORMAL=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLow
 const MARCAS=Array.from({length:7},(_,i)=>i);
 const CASILLA_CERO={x:0,y:0};
 const LIMITE_GALERIA=15;
+type DestinoArrastre={tipo:'casilla';p:Posicion}|{tipo:'tiempo';inicio:number};
+
+function clipNuevo(recurso:string,id:string):PasoVFX{
+ return {id,recurso,disparador:'lanzador',inicio:0,duracion:buscarVFX(recurso)?.duracion??600,escala:1.5,giro:0};
+}
 
 function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}){
  const tablero=useRef<HTMLDivElement>(null);
  const [direccion,setDireccion]=useState(0);
  const [distancia,setDistancia]=useState(3);
- const [evento,setEvento]=useState<EventoVisual>();
+ const [eventos,setEventos]=useState<EventoVisual[]>([]);
+ const evento=eventos.at(-1);
  const [pruebas,setPruebas]=useState<Posicion[]>([]);
  const [busqueda,setBusqueda]=useState('');
  const [pagina,setPagina]=useState(0);
@@ -72,6 +78,8 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
  const [modo,setModo]=useState<'clips'|'objetivos'>('clips');
  const [aviso,setAviso]=useState('');
  const [personales,setPersonales]=useState(false);
+ const [arrastre,setArrastre]=useState<PasoVFX>();
+ const [donde,setDonde]=useState<DestinoArrastre>();
  const vfx=efecto.vfx;
  const clips=clipsDeConfiguracion(vfx);
  const actual=clips.find(c=>c.id===seleccion);
@@ -101,33 +109,57 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
  };
  const ajustar=(id:string,cambio:Partial<PasoVFX>)=>guardar(clips.map(c=>c.id===id?{...c,...cambio}:c));
  function agregar(id:string,disparador:DisparadorVFX='lanzador',inicio=0,casilla?:Posicion){
-  const asset=buscarVFX(id);
-  if(!asset)return;
-  const clip:PasoVFX={id:crypto.randomUUID(),recurso:id,disparador,inicio,duracion:asset.duracion,escala:1.5,giro:0,casilla};
+  if(!buscarVFX(id))return;
+  const clip={...clipNuevo(id,crypto.randomUUID()),disparador,inicio,casilla};
   if(guardar([...clips,clip]))setSeleccion(clip.id);
  }
+ function moverAlTablero(clip:PasoVFX,p:Posicion):Partial<PasoVFX>{
+  const direccionRama=ramas.find(rama=>rama.some(q=>clave(q)===clave(p)))?.[0];
+  if(direccionRama&&patron&&['trayecto','haz','final'].includes(clip.disparador))
+   return {rama:casillaRelativaVFX(geometria,direccionRama)};
+  return {disparador:'casilla',casilla:casillaRelativaVFX(geometria,p),rama:undefined};
+ }
  function apuntarClip(p:Posicion,id?:string,clipId?:string){
-  const casilla=casillaRelativaVFX(geometria,p);
-  if(id)agregar(id,'casilla',0,casilla);
+  if(id)agregar(id,'casilla',0,casillaRelativaVFX(geometria,p));
   else if(clipId){
    const clip=clips.find(c=>c.id===clipId);
    if(!clip)return;
-   const direccionRama=ramas.find(rama=>rama.some(q=>clave(q)===clave(p)))?.[0];
-   if(direccionRama&&patron&&['trayecto','haz','final'].includes(clip.disparador))
-    ajustar(clipId,{rama:casillaRelativaVFX(geometria,direccionRama)});
-   else ajustar(clipId,{disparador:'casilla',casilla,rama:undefined});
-   setSeleccion(clipId);
+   ajustar(clipId,moverAlTablero(clip,p));setSeleccion(clipId);
   }
+ }
+ function finArrastre(){
+  setArrastre(undefined);setDonde(undefined);
  }
  function soltar(e:DragEvent,accion:(id:string,esClip:boolean)=>void){
   const existente=e.dataTransfer.getData(DATO_CLIP),nuevo=e.dataTransfer.getData(DATO_RECURSO);
   if(!existente&&!nuevo)return;
   e.preventDefault();
+  finArrastre();
   accion(existente||nuevo,!!existente);
  }
- function permitir(e:DragEvent){
-  if(e.dataTransfer.types.includes(DATO_RECURSO)||e.dataTransfer.types.includes(DATO_CLIP))e.preventDefault();
+ function indicar(e:DragEvent,destino:DestinoArrastre){
+  if(!e.dataTransfer.types.includes(DATO_RECURSO)&&!e.dataTransfer.types.includes(DATO_CLIP))return;
+  e.preventDefault();
+  setDonde(actual=>(
+   actual?.tipo==='casilla'&&destino.tipo==='casilla'&&clave(actual.p)===clave(destino.p)||
+   actual?.tipo==='tiempo'&&destino.tipo==='tiempo'&&actual.inicio===destino.inicio
+  )?actual:destino);
  }
+ function salir(e:DragEvent,tipo:DestinoArrastre['tipo']){
+  const siguiente=e.relatedTarget;
+  if(siguiente instanceof Node&&e.currentTarget.contains(siguiente))return;
+  setDonde(actual=>actual?.tipo===tipo?undefined:actual);
+ }
+ function instante(e:DragEvent){
+  const caja=e.currentTarget.getBoundingClientRect();
+  return Math.max(0,Math.min(fin,MAX_INICIO_VFX,Math.round(fin*(e.clientX-caja.left)/Math.max(1,caja.width)/25)*25));
+ }
+ const muestra=arrastre&&donde?{...arrastre,...(donde.tipo==='casilla'?moverAlTablero(arrastre,donde.p):{inicio:donde.inicio})}:undefined;
+ const geometriaMuestra=geometria.impactos.length||!geometria.objetivo?geometria:{...geometria,impactos:[[geometria.objetivo]]};
+ const clipsMuestra=muestra?planificarVFX({
+  id:'arrastre',nombre:nombre(efecto),dados:[],desde:origen,hasta:blanco,geometria_vfx:geometriaMuestra,
+  vfx:{secuencia:{version:1,clips:[muestra]}},
+ }):[];
  function perfilarHaz(clip:PasoVFX){
   const impactar=buscarVFX('foundry-hit-spark')!;
   const impacto:PasoVFX={id:crypto.randomUUID(),recurso:impactar.id,disparador:'impacto',inicio:0,duracion:impactar.duracion,escala:1,giro:0};
@@ -144,10 +176,10 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
   guardar(siguientes);
  }
  function reproducir(creado_en:number,id:string){
-  setEvento({
+  setEventos(previos=>[...previos.slice(-249),{
    id,creado_en,nombre:nombre(efecto),dados:[],emisor:'ensayo',
    desde:origen,hasta:propio||patron?origen:blanco,vfx,arma_visual:arma,esqueleto,geometria_vfx:geometria,
-  });
+  }]);
  }
  return <div className="yq-compositor">
   <section className="yq-compositor-galeria" aria-label="Galería de efectos">
@@ -156,7 +188,7 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
    <div className="yq-animacion-recursos">
     {biblioteca.slice(pagina*LIMITE_GALERIA,(pagina+1)*LIMITE_GALERIA).map(a=><button key={a.id} type="button" draggable
      aria-pressed={recurso===a.id} data-recurso={a.id} onClick={()=>{setRecurso(a.id);setModo('clips');}}
-     onDragStart={e=>{e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData(DATO_RECURSO,a.id);}}>
+     onDragStart={e=>{e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData(DATO_RECURSO,a.id);setArrastre(clipNuevo(a.id,'arrastre'));}} onDragEnd={finArrastre}>
      {/* eslint-disable-next-line @next/next/no-img-element */}
      <img src={a.poster||a.bucle} draggable={false} loading="lazy" alt=""/><span>{a.nombre}</span>
     </button>)}
@@ -190,11 +222,11 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
      setPruebas(rama.slice(0,3));setModo('objetivos');
     }}>Probar con objetivos en fila</button>}
    </div>
-   <div ref={tablero} className="yq-animacion-tablero" style={{gridTemplateColumns:`repeat(${lado}, minmax(0, 1fr))`}}>
+   <div ref={tablero} className="yq-animacion-tablero" onDragLeave={e=>salir(e,'casilla')} style={{gridTemplateColumns:`repeat(${lado}, minmax(0, 1fr))`}}>
     {casillas.map(p=>{
      const id=clave(p),enOrigen=id===clave(origen),objetivo=pruebas.some(q=>clave(q)===id);
      const unidos=clips.filter(c=>c.disparador==='casilla'&&c.casilla&&clave(casillaDeClip(geometria,c.casilla))===id);
-     return <button type="button" key={id} data-casilla={id} data-alcance={area.has(id)||undefined}
+     return <button type="button" key={id} data-casilla={id} data-alcance={area.has(id)||undefined} data-previa={donde?.tipo==='casilla'&&clave(donde.p)===id||undefined}
       tabIndex={enOrigen?0:-1} className="yq-animacion-casilla" aria-label={`Casilla ${p.x+1}, ${p.y+1}${enOrigen?' · Lanzador':''}${objetivo?' · Objetivo':''}`}
       onKeyDown={e=>{
        const desplazamiento={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
@@ -202,7 +234,7 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
        e.preventDefault();
        tablero.current?.querySelector<HTMLButtonElement>(`[data-casilla="${p.x+desplazamiento[0]},${p.y+desplazamiento[1]}"]`)?.focus();
       }}
-      onDragOver={permitir} onDrop={e=>soltar(e,(dato,esClip)=>apuntarClip(p,esClip?undefined:dato,esClip?dato:undefined))}
+      onDragEnter={e=>indicar(e,{tipo:'casilla',p})} onDragOver={e=>indicar(e,{tipo:'casilla',p})} onDrop={e=>soltar(e,(dato,esClip)=>apuntarClip(p,esClip?undefined:dato,esClip?dato:undefined))}
       onClick={()=>{
        if(modo==='objetivos'){if(!enOrigen)setPruebas(objetivo?pruebas.filter(q=>clave(q)!==id):[...pruebas,p]);}
        else if(recurso)apuntarClip(p,recurso);
@@ -215,7 +247,8 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
       {!!unidos.length&&<b className="yq-animacion-marca" title={unidos.map(c=>buscarVFX(c.recurso)?.nombre).join(', ')}>{unidos.length}</b>}
      </button>;
     })}
-    <AnimacionesDelTablero key={evento?.id??'sin-reproduccion'} evento={evento} tablero={tablero} {...dimensiones}/>
+    <PreviaArrastre clips={clipsMuestra}/>
+    <AnimacionesDelTablero evento={evento} eventos={eventos} tablero={tablero} {...dimensiones}/>
    </div>
    {modo==='objetivos'&&<p className="yq-nota">Toca las casillas para colocar o quitar objetivos de prueba.</p>}
   </section>
@@ -270,11 +303,17 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
    <h3>Línea de tiempo</h3>
    <p className="yq-nota">Arrastra un efecto a la línea de tiempo o al tablero. Los clips pueden coincidir.</p>
    <div className="yq-animacion-regla" aria-hidden="true">{MARCAS.map(t=><span key={t}>{(t*fin/6000).toFixed(1)} s</span>)}</div>
-   <div className="yq-animacion-pistas" role="group" aria-label="Pistas de animación" onDragOver={permitir} onDrop={e=>{
-    const inicio=Math.max(0,Math.min(MAX_INICIO_VFX,Math.round(fin*(e.clientX-e.currentTarget.getBoundingClientRect().left)/e.currentTarget.clientWidth/25)*25));
-    soltar(e,(id,esClip)=>{if(esClip){ajustar(id,{inicio});setSeleccion(id);}else agregar(id,'lanzador',inicio);});
-   }}>
-    {clips.map(c=><div className="yq-animacion-pista" key={c.id}><button type="button" draggable onDragStart={e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData(DATO_CLIP,c.id);}}
+   <div className="yq-animacion-pistas" role="group" aria-label="Pistas de animación"
+    onDragEnter={e=>indicar(e,{tipo:'tiempo',inicio:instante(e)})} onDragOver={e=>indicar(e,{tipo:'tiempo',inicio:instante(e)})} onDragLeave={e=>salir(e,'tiempo')} onDrop={e=>{
+     const inicio=instante(e);
+     soltar(e,(id,esClip)=>{if(esClip){ajustar(id,{inicio});setSeleccion(id);}else agregar(id,'lanzador',inicio);});
+    }}>
+    {muestra&&donde?.tipo==='tiempo'&&<div className="yq-animacion-previa-tiempo" aria-hidden="true"
+     style={{left:`${Math.min(99,muestra.inicio/fin*100)}%`,width:`${Math.min(muestra.duracion,Math.max(fin*.01,fin-muestra.inicio))/fin*100}%`}}>
+     <MiniaturaArrastre clip={muestra.recurso}/><span>{muestra.inicio} ms</span>
+    </div>}
+    {clips.map(c=><div className="yq-animacion-pista" key={c.id}><button type="button" draggable
+     onDragStart={e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData(DATO_CLIP,c.id);setArrastre(c);}} onDragEnd={finArrastre}
      data-clip-editor={c.id} aria-pressed={actual?.id===c.id} onClick={()=>{setSeleccion(c.id);setRecurso(undefined);}}
      style={{left:`${c.inicio/fin*100}%`,width:`${c.duracion/fin*100}%`}}>
      {buscarVFX(c.recurso)?.nombre||c.recurso} · {DISPARADORES_VFX[c.disparador]}
@@ -282,6 +321,29 @@ function Compositor({efecto,onChange}:{efecto:Efecto;onChange:Props['onChange']}
     {!clips.length&&<p className="yq-nota">Suelta un efecto aquí para crear el primer clip.</p>}
    </div>
   </section>
+ </div>;
+}
+
+function MiniaturaArrastre({clip,giro}:{clip:string;giro?:string}){
+ const a=buscarVFX(clip);
+ if(!a)return null;
+ return <picture>
+  {a.poster&&<source media="(prefers-reduced-motion: reduce)" srcSet={a.poster}/>}
+  <img src={a.bucle||a.url} alt="" draggable={false} style={giro?{transform:giro}:undefined}/>
+ </picture>;
+}
+
+function PreviaArrastre({clips}:{clips:ClipVFX[]}){
+ if(!clips.length)return null;
+ return <div className="yq-animacion-previa-casilla" aria-hidden="true">
+  <svg viewBox={`0 0 ${lado} ${lado}`} preserveAspectRatio="none">
+   {clips.filter(c=>clave(c.desde)!==clave(c.hasta)).map(c=><line key={c.id}
+    x1={c.desde.x+.5} y1={c.desde.y+.5} x2={c.hasta.x+.5} y2={c.hasta.y+.5}/>)}
+  </svg>
+  {clips.map(c=><span key={c.id} data-casilla-previa={clave(c.hasta)}
+   style={{left:`${(c.hasta.x+.5)/lado*100}%`,top:`${(c.hasta.y+.5)/lado*100}%`,width:`${c.escala/lado*100}%`,height:`${c.escala/lado*100}%`}}>
+   <MiniaturaArrastre clip={c.animacion} giro={transformacionClipVFX(c)}/>
+  </span>)}
  </div>;
 }
 

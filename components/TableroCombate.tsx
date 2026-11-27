@@ -44,7 +44,7 @@ function useSegundoClic():[boolean,(v:boolean)=>void]{
 }
 const editable=(t:EventTarget|null)=>typeof HTMLElement!=='undefined'&&t instanceof HTMLElement&&(t.isContentEditable||!!t.closest('input,select,textarea'));
 export type FichaTablero={vfx?:AnimacionEtapa;id:string;nombre:string;bando:string;vida?:number;max_vida?:number;imagen_url?:string;estados?:string[];posicion:Posicion;huella?:Huella;huella_reserva?:Huella};
-export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,mapa,perspectiva,onEjecutar,puedeEjecutar=false,ocular,turnoPropio=false,reflejado=false}:{reflejado?:boolean;ocular?:VistaOcular|null;turnoPropio?:boolean;fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;mapa?:MapaCombate;perspectiva?:string;
+export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,moviendo,alcanzables={},ocupado,onObjetivo,onMover,habilidad,lanzador,centro,onApuntar,puedeApuntar=false,evento,eventosVisuales,mapa,perspectiva,onEjecutar,puedeEjecutar=false,ocular,turnoPropio=false,reflejado=false}:{reflejado?:boolean;ocular?:VistaOcular|null;turnoPropio?:boolean;fichas:FichaTablero[];columnas?:number;filas?:number;actual?:string|null;objetivo:string;moviendo:boolean;alcanzables?:Record<string,number>;ocupado:boolean;onObjetivo:(id:string)=>void;onMover:(p:Posicion)=>void;habilidad?:Efecto;lanzador?:string;centro?:Posicion|null;onApuntar?:(p:Posicion,id?:string)=>void;puedeApuntar?:boolean;evento?:EventoVisual;eventosVisuales?:readonly EventoVisual[];mapa?:MapaCombate;perspectiva?:string;
   /** Si existe, un clic sobre un objetivo válido ejecuta la acción (con «segundo clic» activo, el primero solo previsualiza). */
   onEjecutar?:(sel:{objetivo?:string;centro?:Posicion})=>void;puedeEjecutar?:boolean}){
  const [vistaCompleta,setVistaCompleta]=useState(false);
@@ -80,7 +80,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
  const area=useMemo(()=>t&&origen&&punto?areaDesdeFicha(origen,origen.posicion,punto,t,{columnas,filas},mapa,reflejado):[],[t,origen?.posicion.x,origen?.posicion.y,origen?.huella?.ancho,origen?.huella?.alto,punto?.x,punto?.y,columnas,filas,mapa,reflejado]);
  const afectadas=useMemo(()=>new Set(area.map(p=>`${p.x},${p.y}`)),[area]);
  const victimas=useMemo(()=>origen&&t?fichas.filter(f=>f.vida!==0&&casillasHuella(f,f.posicion).some(p=>afectadas.has(`${p.x},${p.y}`))&&objetivoDelArea(origen,f,habilidad!)&&(!patron||alcanzaCapa(habilidad,capaDe(f.estados)).ok)):[],[fichas,origen,t,afectadas,habilidad,patron]);
- const pixelArt=!!(evento?.vfx?.lanzamiento||evento?.vfx?.recorrido||evento?.vfx?.impacto);
+ const pixelArt=!!(evento?.vfx?.secuencia||evento?.vfx?.lanzamiento||evento?.vfx?.recorrido||evento?.vfx?.impacto);
  const fichaObjetivo=fichas.find(f=>f.id===objetivo);
  const porCasilla=useMemo(()=>new Map(fichas.flatMap(f=>casillasHuella(f,f.posicion).map(p=>[claveCasilla(p),f] as const))),[fichas]);
  const casillas=useMemo(()=>Array.from({length:columnas*filas},(_,i)=>({x:i%columnas,y:Math.floor(i/columnas)})),[columnas,filas]);
@@ -211,7 +211,7 @@ export function TableroCombate({fichas,columnas=12,filas=8,actual,objetivo,movie
    })}
   {ruta.length>1&&<svg className="campo-ruta" viewBox={`0 0 ${columnas*100} ${filas*100}`} preserveAspectRatio="none" aria-hidden="true"><polyline points={ruta.map(p=>`${p.x*100+50},${p.y*100+50}`).join(' ')}/>{(()=>{const a=ruta[ruta.length-2],b=ruta[ruta.length-1],g=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;return <polygon points="-4,-26 34,0 -4,26" transform={`translate(${b.x*100+50} ${b.y*100+50}) rotate(${g})`}/>;})()}</svg>}
   {turno&&<div key={actual} className={`campo-turno ${turno.bando==='jugador'?'ally':'enemy'}`} aria-hidden="true"><span>Turno de</span><strong>{turno.nombre}</strong></div>}
-  <AnimacionesDelTablero evento={evento} tablero={tableroRef} columnas={columnas} filas={filas}/>
+  <AnimacionesDelTablero evento={evento} eventos={eventosVisuales} tablero={tableroRef} columnas={columnas} filas={filas}/>
   </div></div>
   {vista&&<div className={`campo-preview ${vista.bloqueo?'is-bloqueada':''}`} role="status" aria-live="polite"><strong>{vista.titulo}</strong>{vista.lineas.map((l,i)=><span key={i}>{l}</span>)}{vista.bloqueo&&<em>{vista.bloqueo}</em>}<small>{vista.pista}</small></div>}
   {moviendo&&!vista&&<div className="tactical-move-hint" role="status">Verde: puedes llegar. Rojo: quedaría a tu alcance cuerpo a cuerpo.</div>}
