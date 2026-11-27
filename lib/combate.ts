@@ -13,7 +13,7 @@ import {normalizarReaccion,disparadorDe,lineaCosteReaccion,CON_ALCANCE,type Disp
 import { type ReglaPasiva } from "./pasivas";
 import {comprobarInmunidad,norm,type Inmunidad,type CandidatoInmunidad} from "./inmunidades";
 import {definicionElemento,type EfectoImpacto} from "./elementos";
-import {iconoEstado,capaDeEstados,type CapaEstado,describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
+import {TIPOS_ESTADO_LEGADO,iconoEstado,capaDeEstados,type CapaEstado,describirEstado,definicionDe,definicionBase,primitivas,bonosDefinicion,turnosIniciales,movimientoPermitido,permiteReacciones,type DefinicionEstado,type Primitiva} from "./estados";
 import {potenciar,potenciadoresPara,etiquetasDe,describirPotenciado,type Rasgo,type EleccionPotenciador} from "./rasgos";
 import {generarRecurso,gastarRecurso,topeRecurso,type DefinicionRecurso,type EventoRecurso} from "./recursos";
 import {DESARMADO_BASE,GUARDIA_BASE,describirConcepto,type ConceptoDesarmado,type ConceptoGuardia} from "./conceptos-basicos";
@@ -1949,7 +1949,7 @@ function resolverEfecto(n:Combate,a:Combatiente,t:Combatiente,e:Efecto,act:Accio
         return n;
       }
       const tipo = e.estado_tipo || "narrativo";
-      const legado = !e.estado_def && ["narrativo", "veneno", "regeneracion", "aturdido", "quemadura"].includes(tipo);
+      const legado = !e.estado_def && TIPOS_ESTADO_LEGADO.includes(tipo);
       let turnos = legado || !defEstado ? Math.max(1, e.duracion) : turnosIniciales(defEstado, e.duracion);
       if (permiso === 'resiste' && turnos > 1) { turnos = Math.max(1, Math.floor(turnos / 2)); log(n, `${t.nombre} resiste el estado: dura ${turnos} turno(s).`); }
       estado(

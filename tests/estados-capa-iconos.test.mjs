@@ -35,3 +35,15 @@ test('los iconos del catálogo base ya no se repiten tanto',()=>{
  const usos=new Map();for(const d of e.CATALOGO_ESTADOS)usos.set(e.iconoEstado(d),(usos.get(e.iconoEstado(d))||0)+1);
  assert.ok(Math.max(...usos.values())<=2,JSON.stringify([...usos]));
 });
+
+test('la frase del nodo Estado dice la duración que aplica el motor',()=>{
+ const dormido=e.definicionBase('dormido');
+ assert.match(e.describirEstado(e.definicionAplicada(dormido,0)),/dura 3 turnos/);
+ assert.match(e.describirEstado(e.definicionAplicada(dormido,1)),/dura 1 turno\b/);
+ assert.equal(e.turnosIniciales(dormido,1),1);
+ // Paralizado termina con salvación: los turnos de la acción no lo cambian (igual que turnosIniciales).
+ const par=e.definicionBase('paralizado');
+ assert.equal(e.definicionAplicada(par,4).duracion.tipo,'salvacion');
+ // Tipos antiguos: siempre los turnos de la acción (mínimo 1).
+ assert.match(e.describirEstado(e.definicionAplicada(e.definicionBase('veneno'),0,true)),/dura 1 turno\b/);
+});

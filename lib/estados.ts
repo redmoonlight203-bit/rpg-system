@@ -191,3 +191,15 @@ export function iconoAutomatico(d:DefinicionEstado|undefined):string{
 }
 /** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
 export const iconoEstado=(d:DefinicionEstado|undefined):string=>d?.icono||iconoAutomatico(d);
+
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+export const TIPOS_ESTADO_LEGADO=['narrativo','veneno','regeneracion','aturdido','quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+export function definicionAplicada(d:DefinicionEstado,pedidos:number,legado=false):DefinicionEstado{
+ if(legado)return {...d,duracion:{tipo:'turnos',turnos:Math.max(1,pedidos||1)}};
+ if(pedidos>0&&(d.duracion.tipo==='turnos'||d.duracion.tipo==='combate'))return {...d,duracion:{tipo:'turnos',turnos:pedidos}};
+ return d;
+}

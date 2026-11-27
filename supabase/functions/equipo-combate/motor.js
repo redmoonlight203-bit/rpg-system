@@ -1336,6 +1336,19 @@ function iconoAutomatico(d) {
 }
 /** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
 const iconoEstado = (d) => d?.icono || iconoAutomatico(d);
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+const TIPOS_ESTADO_LEGADO = ['narrativo', 'veneno', 'regeneracion', 'aturdido', 'quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+function definicionAplicada(d, pedidos, legado = false) {
+    if (legado)
+        return { ...d, duracion: { tipo: 'turnos', turnos: Math.max(1, pedidos || 1) } };
+    if (pedidos > 0 && (d.duracion.tipo === 'turnos' || d.duracion.tipo === 'combate'))
+        return { ...d, duracion: { tipo: 'turnos', turnos: pedidos } };
+    return d;
+}
 
 return { validarDefinicionEstado, definicionBase };
 })();
@@ -1417,7 +1430,7 @@ const elementoVacio = (id = 'elemento_nuevo', base = 'fuego') => { const b = ele
 
 return { definicionElemento };
 })();
-const { iconoEstado, capaDeEstados, describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
+const { TIPOS_ESTADO_LEGADO, iconoEstado, capaDeEstados, describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
 const { validarInmunidades } = (() => {
 const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
 const MODOS_INMUNIDAD = ['bloquear_dano', 'bloquear_aplicacion', 'bloquear_todo', 'resistir'];
@@ -1720,8 +1733,21 @@ function iconoAutomatico(d) {
 }
 /** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
 const iconoEstado = (d) => d?.icono || iconoAutomatico(d);
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+const TIPOS_ESTADO_LEGADO = ['narrativo', 'veneno', 'regeneracion', 'aturdido', 'quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+function definicionAplicada(d, pedidos, legado = false) {
+    if (legado)
+        return { ...d, duracion: { tipo: 'turnos', turnos: Math.max(1, pedidos || 1) } };
+    if (pedidos > 0 && (d.duracion.tipo === 'turnos' || d.duracion.tipo === 'combate'))
+        return { ...d, duracion: { tipo: 'turnos', turnos: pedidos } };
+    return d;
+}
 
-return { iconoEstado, capaDeEstados, describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
+return { TIPOS_ESTADO_LEGADO, iconoEstado, capaDeEstados, describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
 })();
 const { potenciar, potenciadoresPara, etiquetasDe, describirPotenciado } = (() => {
 const { validarRecurso } = (() => {
@@ -2313,6 +2339,19 @@ function iconoAutomatico(d) {
 }
 /** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
 const iconoEstado = (d) => d?.icono || iconoAutomatico(d);
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+const TIPOS_ESTADO_LEGADO = ['narrativo', 'veneno', 'regeneracion', 'aturdido', 'quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+function definicionAplicada(d, pedidos, legado = false) {
+    if (legado)
+        return { ...d, duracion: { tipo: 'turnos', turnos: Math.max(1, pedidos || 1) } };
+    if (pedidos > 0 && (d.duracion.tipo === 'turnos' || d.duracion.tipo === 'combate'))
+        return { ...d, duracion: { tipo: 'turnos', turnos: pedidos } };
+    return d;
+}
 
 return { validarDefinicionEstado };
 })();
@@ -4755,7 +4794,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
                 return n;
             }
             const tipo = e.estado_tipo || "narrativo";
-            const legado = !e.estado_def && ["narrativo", "veneno", "regeneracion", "aturdido", "quemadura"].includes(tipo);
+            const legado = !e.estado_def && TIPOS_ESTADO_LEGADO.includes(tipo);
             let turnos = legado || !defEstado ? Math.max(1, e.duracion) : turnosIniciales(defEstado, e.duracion);
             if (permiso === 'resiste' && turnos > 1) {
                 turnos = Math.max(1, Math.floor(turnos / 2));
