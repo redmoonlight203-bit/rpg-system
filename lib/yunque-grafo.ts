@@ -22,7 +22,9 @@ export type Nodo={id:string;tipo:TipoNodo;ruta:Ruta;titulo:string;frase:string;e
  /** Línea corta siempre visible bajo la frase (coste y usos de una reacción). */
  insignia?:string;
  /** Solo en acciones, reglas y pasivas desplegadas desde una plantilla. */
- plantilla?:SelloPlantilla};
+ plantilla?:SelloPlantilla;
+ /** Acción «siempre activa» (defensas, rasgos, conceptos): se muestra y se agrupa como pasiva. */
+ pasivo?:boolean};
 export type Cable={id:string;desde:{nodo:string;puerto:string};hasta:{nodo:string;puerto:string}};
 export type Grafo={nodos:Nodo[];cables:Cable[]};
 /** `estado`: solo las creaciones aprobadas (o sin estado, p. ej. en pruebas) cuentan como presentes en La Creación. */
@@ -68,9 +70,9 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   const error=fallo(()=>validarEfectos([e])||validarTactica(e));
   // La acción dice qué hace; el detalle de cada módulo (p. ej. qué hace el estado) solo aparece en su propio nodo.
   const resumen=e.efecto==='estado'&&!e.solo_pasivo?`Aplica ${e.estado_def?.nombre||e.estado||'un estado'}.`:texto(()=>describirEfecto(e).resumen,'Acción sin describir.');
-  nodo(id,'accion',ruta,String(e.nombre??'').trim()||EFECTOS_NOMBRE[e.efecto]||'Acción',resumen,error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos')]);
+  nodo(id,'accion',ruta,String(e.nombre??'').trim()||(e.solo_pasivo?'Rasgo siempre activo':EFECTOS_NOMBRE[e.efecto])||'Acción',resumen,error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos')]);
   sellar(id,e);
-  cable('nucleo','acciones',id);
+  if(e.solo_pasivo){nodos[nodos.length-1].pasivo=true;cable('nucleo','pasivas',id);}else cable('nucleo','acciones',id);
   const modulo=(tipo:TipoNodo,sub:string|null,titulo:string,frase:string,err:string|null=null)=>{
    const mid=`${tipo}:${e.id}`;
    nodo(mid,tipo,sub?[...ruta,sub]:ruta,titulo,frase,err,[entrada(['accion'])]);cable(id,'modulos',mid);
@@ -157,7 +159,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
 export const leerRuta=(b:unknown,ruta:Ruta):unknown=>ruta.reduce<unknown>((x,k)=>x!==null&&typeof x==='object'?(x as Record<string|number,unknown>)[k]:undefined,b);
 const mismoNodo=(a:Nodo,b:Nodo)=>a.id===b.id&&a.tipo===b.tipo&&a.titulo===b.titulo&&a.frase===b.frase&&a.error===b.error
  &&a.ruta.length===b.ruta.length&&a.ruta.every((k,i)=>k===b.ruta[i])&&JSON.stringify(a.puertos)===JSON.stringify(b.puertos)
- &&JSON.stringify(a.plantilla)===JSON.stringify(b.plantilla);
+ &&JSON.stringify(a.plantilla)===JSON.stringify(b.plantilla)&&a.pasivo===b.pasivo;
 /**
  * Reutiliza los nodos y cables de `previo` que no cambiaron (mismos datos) y, si nada cambió, devuelve `previo` tal cual.
  * Así la interfaz puede memorizar por identidad: al escribir en un nodo, los demás conservan su objeto y no se repintan.

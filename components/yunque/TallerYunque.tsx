@@ -16,7 +16,7 @@ import CajonFicha from './CajonFicha';
 import {useBalanceBorrador} from './PruebaBalance';
 import {claveDe as claveHistorial,useHistorial} from './useHistorial';
 import EditorVinculo,{FiguraEquipo,iconoEnlazable,idDeVinculo,type EnlazableVista} from './editores/EditorVinculo';
-import {NOMBRE_TIPO,familiaDe} from './NodoYunque';
+import {NOMBRE_TIPO,familiaDe,familiaNodo} from './NodoYunque';
 import EditorNucleo,{ICONO_CREACION} from './editores/EditorNucleo';
 import EditorAccion from './editores/EditorAccion';
 import EditorCuando from './editores/EditorCuando';
@@ -526,7 +526,7 @@ export default function TallerYunque({b,setB,ctx,documento,mesa,navegacion,onNue
 
 /** Entrada del índice del Grimorio. Memorizada: al escribir en un nodo solo se repinta su propia entrada. */
 const EntradaIndice=memo(function EntradaIndice({nodo:n,actual,onElegir}:{nodo:Nodo;actual:boolean;onElegir:(id:string)=>void}){
- return <li><button type="button" data-indice={n.id} aria-current={actual||undefined} data-familia={familiaDe(n.tipo)} onClick={()=>onElegir(n.id)} style={{paddingLeft:8+Math.min(3,n.ruta.length>2?2:n.tipo==='nucleo'?0:1)*12}}>
+ return <li><button type="button" data-indice={n.id} aria-current={actual||undefined} data-familia={familiaNodo(n)} onClick={()=>onElegir(n.id)} style={{paddingLeft:8+Math.min(3,n.ruta.length>2?2:n.tipo==='nucleo'?0:1)*12}}>
   <span className="yq-indice-punto" aria-hidden="true"/><span>{n.titulo}</span>{n.error&&<b aria-label="con error">!</b>}
  </button></li>;
 });

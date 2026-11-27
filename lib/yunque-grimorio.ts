@@ -1,6 +1,7 @@
 import type {Borrador,Creacion} from "./yunque-borrador";
 import {agruparPorAmbito} from './creaciones-personales';
 import {nuevoEfecto,type Efecto} from "./creacion";
+import {DESARMADO_BASE,GUARDIA_BASE} from "./conceptos-basicos";
 import {nuevaVision} from "./vision";
 import {EVENTOS,EFECTOS_REGLA,nuevaRegla,type Regla,type EfectoRegla,type CondicionRegla,type EventoRegla} from "./reglas";
 import type {ReglaPasiva} from "./pasivas";
@@ -125,6 +126,17 @@ const PASIVAS_PIEZAS:Pieza[]=[
  una('pasiva:escamas','pasivas','pasiva','Escamas de dragón','Resiste la magia','dragon',pasiva({nombre:'Escamas de dragón',condicion:'ataque_magico',evento:'recibir_ataque',bonos:{armadura:5},reduccion_pct:50})),
  una('pasiva:aliento','pasivas','pasiva','Último aliento','Más daño con poca vida','fuego',pasiva({nombre:'Último aliento',condicion:'vida_mitad',bonos:{dano:2}})),
 ];
+/**
+ * Pasivas «siempre activas» que antes solo se creaban con el interruptor «Uso» de una acción: ahora están en la misma
+ * familia «Pasivas». Por dentro siguen siendo acciones con `solo_pasivo` (el motor no cambia).
+ */
+const siempreActiva=(p:Partial<Efecto>&{nombre:string}):Efecto=>accion({solo_pasivo:true,efecto:'estado',estado:p.nombre,estado_tipo:'narrativo',cantidad:0,coste_ph:0,coste_fatiga:0,...p});
+PASIVAS_PIEZAS.push(
+ una('pasiva:defensas','pasivas','accion','Defensas e inmunidades','Inmune o resistente a daños, estados o la mente','escudo',siempreActiva({nombre:'Defensas',inmunidades:[{tipo:'dano',valor:'fuego',modo:'bloquear_dano'}]})),
+ una('pasiva:desarmado','pasivas','accion','Ataque desarmado propio','Mordisco, garras… en lugar del puñetazo','bestia',siempreActiva({nombre:'Mordisco',concepto:{...structuredClone(DESARMADO_BASE),nombre:'Mordisco',dano:{...DESARMADO_BASE.dano,cantidad:2,caras:6,tipo_dano:'perforante'},requiere_mano:false}})),
+ una('pasiva:guardia','pasivas','accion','Guardia propia','Caparazón, mente serena… en lugar de la guardia','armadura',siempreActiva({nombre:'Caparazón',concepto:{...structuredClone(GUARDIA_BASE),nombre:'Caparazón'}})),
+ una('pasiva:regla','pasivas','cuando','Regla automática','Para lo que no cubren las anteriores: Cuando → Si → Entonces','libro',{...nuevaRegla(),id:'regla',nombre:'Pasiva',evento:'inicio_combate',efectos:[{tipo:'atributo',destino:'yo',atributo:'armadura',operacion:'sumar',valor:1,duracion:0}]}),
+);
 // ---- Plantillas: subgrafos listos para usar (lib/yunque-plantillas.ts) ----
 const PLANTILLAS_PIEZAS:Pieza[]=PLANTILLAS.map(p=>({clave:'plantilla:'+p.id,familia:'plantillas',tipo:p.fragmentos[0].tipo,nombre:p.nombre,ayuda:p.descripcion,icono:p.icono,plantilla:p.id,fragmentos:desplegar(p)}));
 
