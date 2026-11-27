@@ -3,24 +3,28 @@
 // primitivas. La vista previa usa la misma frase que el tooltip de combate (describirEstado). Sin JSON ni SQL.
 import {Trash2} from 'lucide-react';
 import IconoYugen from '../../IconoYugen';
+import SelectorIconoYugen from '../../SelectorIconoYugen';
 import {Fichas,Rueda,Texto,Interruptor,type Opcion} from '../Controles';
 import EditorDefensas from './EditorDefensas';
-import {CATALOGO_ESTADOS,NOMBRE_PRIMITIVA,ICONO_PRIMITIVA,describirEstado,validarDefinicionEstado,type DefinicionEstado,type Primitiva,type TipoPrimitiva,type CategoriaEstado,type DuracionEstado} from '../../../lib/estados';
+import {CAPAS_ESTADO,NOMBRE_CAPA,ICONO_CAPA,iconoEstado,iconoAutomatico,CATALOGO_ESTADOS,NOMBRE_PRIMITIVA,ICONO_PRIMITIVA,describirEstado,validarDefinicionEstado,type DefinicionEstado,type Primitiva,type TipoPrimitiva,type CategoriaEstado,type DuracionEstado} from '../../../lib/estados';
 import {useGrimorioEstados} from '../../../lib/useGrimorioEstados';
+import {OPCIONES_ELEMENTO,TIPOS_DANO,cortoAtributo} from '../../../lib/catalogos';
+import {claveNueva} from '../../../lib/claves';
 import './defensas.css';
 
 const CATEGORIAS:Opcion<CategoriaEstado>[]=[{valor:'mental',nombre:'Mental',icono:'alma'},{valor:'fisico',nombre:'Físico',icono:'espada'},{valor:'elemental',nombre:'Elemental',icono:'fuego'},{valor:'narrativo',nombre:'Narrativo',icono:'libro'}];
-const ICONOS=['fuego','hielo','rayo','agua','pocion','alma','ojo','escudo','vida','corona','libro','espada'].map(i=>({valor:i,nombre:'',icono:i}));
 const DURACIONES:Opcion<DuracionEstado['tipo']>[]=[{valor:'turnos',nombre:'Turnos'},{valor:'combate',nombre:'Hasta que se consuma'},{valor:'salvacion',nombre:'Hasta superar salvación'},{valor:'hasta_su_turno',nombre:'Hasta su turno'}];
-const ELEMENTOS=[['fuego','Fuego'],['agua','Agua'],['electricidad','Rayo'],['hielo','Hielo'],['luz_sagrada','Luz sagrada'],['veneno','Veneno']] as const;
+/** Origen de un estado: elementos base y veneno (lo que reconocen las inmunidades). */
+const ELEMENTOS:[string,string][]=[...OPCIONES_ELEMENTO.map(o=>[o.valor,o.nombre] as [string,string]),['veneno','Veneno']];
+const DANOS:[string,string][]=TIPOS_DANO.map(o=>[o.valor,o.nombre]);
 const NUEVA:Record<TipoPrimitiva,Primitiva>={
  perder_turno:{tipo:'perder_turno'},movimiento_forzado:{tipo:'movimiento_forzado',sentido:'alejar',min:1,max:2,no_ataca_fuente:true},
  cesion_control:{tipo:'cesion_control',controlador:'fuente'},percepcion_alterada:{tipo:'percepcion_alterada',probabilidad:50},
  dano_periodico:{tipo:'dano_periodico',cantidad:1,caras:4,tipo_dano:'veneno',momento:'inicio'},curacion_periodica:{tipo:'curacion_periodica',cantidad:1,caras:4,momento:'inicio'},
  modificador_movimiento:{tipo:'modificador_movimiento',modo:'cero'},vulnerabilidad_elemental:{tipo:'vulnerabilidad_elemental',consume:true,reacciones:[{elemento:'electricidad',nombre:'Descarga',multiplicador:2}]},
  bonos:{tipo:'bonos',bonos:{armadura:2}},inmunidad:{tipo:'inmunidad',inmunidades:[{tipo:'dano',valor:'fuego',modo:'bloquear_dano'}]},
+ capa:{tipo:'capa',capa:'aire'},
 };
-const idDe=(nombre:string)=>nombre.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').replace(/^(\d)/,'e_$1').slice(0,60)||'estado';
 const CD=({etiqueta,valor,onChange}:{etiqueta:string;valor:{cd:number;atributo:string};onChange:(v:{cd:number;atributo:string})=>void})=>
  <label className="yq-campo"><span>{etiqueta}</span><Rueda nombre="cd" etiqueta={etiqueta} valor={valor.cd} min={1} max={100} onChange={cd=>onChange({...valor,cd})} compacta/></label>;
 
@@ -29,10 +33,12 @@ export default function EditorEstados({valor,onChange}:{valor:DefinicionEstado;o
  const set=(p:Partial<DefinicionEstado>)=>onChange({...d,...p});
  const prim=(i:number,p:Partial<Primitiva>)=>set({efectos:d.efectos.map((x,j)=>j===i?{...x,...p} as Primitiva:x)});
  return <section className="yq-estado-editor" aria-label="Editor de estado">
-  <label className="yq-campo"><span>Partir del catálogo</span><select value="" onChange={e=>{const propio=grimorio.find(x=>'g:'+x.id===e.target.value);if(propio){onChange(structuredClone(propio.def));return;}const base=CATALOGO_ESTADOS.find(x=>x.id===e.target.value);if(base)onChange({...structuredClone(base),id:base.id+'_propio',nombre:base.nombre.split(':')[0]+' (variante)'});}}>
+  <label className="yq-campo"><span>Partir del catálogo</span><select value="" onChange={e=>{const propio=grimorio.find(x=>'g:'+x.id===e.target.value);if(propio){onChange(structuredClone(propio.def));return;}const base=CATALOGO_ESTADOS.find(x=>x.id===e.target.value);if(base)onChange({...structuredClone(base),id:claveNueva(base.id),nombre:base.nombre.split(':')[0]+' (variante)'});}}>
    <option value="">Elegir un estado base…</option>{grimorio.length>0&&<optgroup label="Tu grimorio">{grimorio.map(x=><option key={x.id} value={'g:'+x.id}>{x.def.nombre}</option>)}</optgroup>}<optgroup label="Catálogo base">{CATALOGO_ESTADOS.map(x=><option key={x.id} value={x.id}>{x.nombre.split(':')[0]}</option>)}</optgroup></select></label>
-  <Texto etiqueta="Nombre del estado" valor={d.nombre} onChange={nombre=>set({nombre,id:idDe(nombre)})} placeholder="Sopor tóxico, Pánico…"/>
-  <Fichas etiqueta="Icono" opciones={ICONOS} valor={d.icono||'fuego'} onChange={icono=>set({icono})}/>
+  <Texto etiqueta="Nombre del estado" valor={d.nombre} onChange={nombre=>set({nombre})} placeholder="Sopor tóxico, Pánico…"/>
+  <details className="yq-estado-icono"><summary><IconoYugen id={iconoEstado(d)} size={22}/>Icono{d.icono?'':' (automático)'}</summary>
+   <SelectorIconoYugen value={d.icono||''} automatico={iconoAutomatico(d)} onChange={icono=>set({icono:icono||undefined})}/>
+  </details>
   <Fichas etiqueta="Categoría" opciones={CATEGORIAS} valor={d.categoria} onChange={categoria=>set({categoria,subcategoria:categoria==='mental'?d.subcategoria||'control':undefined})} tono="arcano"/>
   {d.categoria==='mental'&&<Fichas etiqueta="Tipo de efecto mental" opciones={['control','miedo','ilusion','confusion','memoria','posesion'].map(s=>({valor:s,nombre:s.replace('ilusion','ilusión').replace('confusion','confusión').replace('posesion','posesión')}))} valor={d.subcategoria} onChange={subcategoria=>set({subcategoria})}/>}
   <label className="yq-campo"><span>Origen (inmunidades)</span><select value={d.origen||''} onChange={e=>set({origen:e.target.value||undefined})}><option value="">Sin origen elemental</option>{ELEMENTOS.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label>
@@ -71,7 +77,7 @@ function ParametrosPrimitiva({p,onChange}:{p:Primitiva;onChange:(p:Partial<Primi
   case 'cesion_control':return <Fichas etiqueta="Quién decide" opciones={[{valor:'fuente',nombre:'Quien lo lanzó'},{valor:'gm',nombre:'El GM'}]} valor={p.controlador} onChange={controlador=>onChange({controlador})}/>;
   case 'percepcion_alterada':return <label className="yq-campo"><span>Probabilidad de ver los bandos invertidos (%)</span><Rueda nombre="probabilidad" etiqueta="Probabilidad" valor={p.probabilidad} min={0} max={100} paso={5} onChange={probabilidad=>onChange({probabilidad})} compacta/></label>;
   case 'dano_periodico':return <>{dados(p.cantidad,p.caras)}
-   <label className="yq-campo"><span>Tipo de daño</span><select value={p.tipo_dano} onChange={e=>onChange({tipo_dano:e.target.value})}>{[...ELEMENTOS,['necrotico','Necrótico'],['fisico','Físico']].map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label>
+   <label className="yq-campo"><span>Tipo de daño</span><select value={p.tipo_dano} onChange={e=>onChange({tipo_dano:e.target.value})}>{DANOS.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label>
    {momento(p.momento)}
    <Interruptor etiqueta="Salvación tras el daño para apagarlo" valor={!!p.salvacion_termina} onChange={v=>onChange({salvacion_termina:v?{cd:12,atributo:'salvacion'}:undefined})}/></>;
   case 'curacion_periodica':return <>{dados(p.cantidad,p.caras)}{momento(p.momento)}</>;
@@ -85,7 +91,8 @@ function ParametrosPrimitiva({p,onChange}:{p:Primitiva;onChange:(p:Partial<Primi
    </div>)}
    <button type="button" className="yq-boton-suave" onClick={()=>onChange({reacciones:[...p.reacciones,{elemento:'fuego',nombre:'Reacción',multiplicador:2}]})}>Otra reacción elemental</button>
    <Interruptor etiqueta="Se consume al reaccionar" valor={!!p.consume} onChange={v=>onChange({consume:v||undefined})}/></>;
-  case 'bonos':return <div className="yq-fila">{(['armadura','bono_impacto','salvacion','dano'] as const).map(k=><label key={k}>{k.replace('_',' ')}<Rueda nombre={k} etiqueta={k} valor={p.bonos[k]||0} min={-20} max={20} onChange={v=>{const bonos={...p.bonos};if(v)bonos[k]=v;else delete bonos[k];onChange({bonos});}} compacta/></label>)}</div>;
+  case 'bonos':return <div className="yq-fila">{(['armadura','bono_impacto','salvacion','dano'] as const).map(k=><label key={k}>{cortoAtributo(k)}<Rueda nombre={k} etiqueta={k} valor={p.bonos[k]||0} min={-20} max={20} onChange={v=>{const bonos={...p.bonos};if(v)bonos[k]=v;else delete bonos[k];onChange({bonos});}} compacta/></label>)}</div>;
+  case 'capa':return <Fichas etiqueta="Pasa a" opciones={CAPAS_ESTADO.map(c=>({valor:c,nombre:NOMBRE_CAPA[c],icono:ICONO_CAPA[c]}))} valor={p.capa} onChange={capa=>onChange({capa})} columnas={2}/>;
   case 'inmunidad':return <EditorDefensas valor={p.inmunidades} onChange={inmunidades=>onChange({inmunidades})} sinDuracion/>;
  }
 }

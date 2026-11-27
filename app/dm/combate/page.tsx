@@ -46,7 +46,7 @@ import {
   retirar,
   iniciar,
   siguiente,
-  actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,estadosVisibles,recursosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto,
+  actuarConReacciones,responderReaccion,turnoConReacciones,reaccionLaDecideGM,estadosVisibles,capaCombatiente,recursosVisibles,esqueletoDeAccion,esqueletoVisual,conceptosDe,describirConcepto,
   acciones,presupuestoRestante,situacionCombatiente,accionesEnCombate,fuentesInvocacion,cancelarInvocacion,PREFIJO_INVOCAR,type SolicitudInvocacion,
   estadisticas,
   maxVida,
@@ -78,7 +78,7 @@ import { formula } from "../../../lib/creacion";
 import AnimacionDados, {
   type TiradaVisual,
 } from "../../../components/AnimacionDados";
-import {TableroCombate,BarraCombate} from "../../../components/TableroCombate";
+import {TableroCombate,BarraCombate,ChipsEstado} from "../../../components/TableroCombate";
 import VentanaInventario from "../../../components/VentanaInventario";
 import {consumiblesBarra,guardarFijados,leerFijados} from "../../../lib/combate-interfaz";
 import {Hanko} from "../../../components/ui/Signature";
@@ -689,7 +689,7 @@ export default function CampoCombate() {
   }
   const fichasTablero=useMemo(()=>{
     const posiciones=posicionesTablero(c);
-    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:fotoDe(m),estados:m.estados.map(e=>e.nombre),posicion:posiciones[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
+    return c.miembros.map(m=>({vfx:m.transformacion?.vfx,id:m.id,nombre:m.nombre,bando:m.bando,vida:m.vida,max_vida:maxVida(m),imagen_url:fotoDe(m),estados:m.estados.map(e=>e.nombre),capa:capaCombatiente(m),estados_detalle:estadosVisibles(m),posicion:posiciones[m.id],huella:huellaDe(m),huella_reserva:huellaDe(huellaReserva(m))}));
   },[c,fotoDe]);
   const alcanzablesTablero=useMemo(()=>actor&&c.fase==='en_curso'?casillasAlcanzables(c,actor.id):{},[c,actor]);
   useEffect(()=>{setModoMovimiento(false);setCentro(null);setLegendaria(null);setLegendariaObjetivo('');},[c.actual]);
@@ -919,14 +919,7 @@ export default function CampoCombate() {
                 .join(", ")}
             </p>
           ))}
-          {m.estados.map((e) => (
-            <p key={e.id}>
-              {e.nombre} ·{" "}
-              {e.restantes > 0
-                ? `${e.restantes} turnos`
-                : "hasta resolver su condición"}
-            </p>
-          ))}
+          {m.estados.length>0&&<ChipsEstado estados={estadosVisibles(m)}/>}
         </details>
         <ControlArtefactoGM c={c} m={m} artefactos={artefactosGM} ocupado={bloqueado} aplicar={f=>void ejecutar(()=>guardar(f(c)))}/>
       </article>

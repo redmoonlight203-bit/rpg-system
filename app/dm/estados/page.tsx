@@ -15,6 +15,7 @@ import SelectorGrimorio from '../../../components/grimorio/SelectorGrimorio';
 import {CATALOGO_ESTADOS,CATEGORIAS_ESTADO,estadoVacio,type CategoriaEstado,type DefinicionEstado} from '../../../lib/estados';
 import {AURA_CATEGORIA,NOMBRE_CATEGORIA,auraDe,idLibre,validarEstadoGuardado} from '../../../lib/estados-biblioteca';
 import {useGrimorioEstados} from '../../../lib/useGrimorioEstados';
+import {claveDesdeNombre} from '../../../lib/claves';
 import '../../../components/yunque/yunque.css';
 import './grimorio.css';
 
@@ -34,7 +35,7 @@ export default function GrimorioEstados(){
  const nuevo=()=>{const d=estadoVacio(idLibre('estado_nuevo',ids));abrir(d,AURA_CATEGORIA[d.categoria],null);};
  const variante=(d:DefinicionEstado,color?:string)=>abrir({...structuredClone(d),id:idLibre(d.id+'_variante',ids),nombre:d.nombre.split(':')[0]+' (variante)'},auraDe(d,color),null);
  // Al editar uno guardado, su id queda fijo (es la clave). Al crear, se deriva del nombre sin pisar a nadie.
- const cambiarDef=(def:DefinicionEstado)=>setBorrador(b=>b&&{...b,def:{...def,id:b.original??idLibre(def.id,ids)},color:b.color===AURA_CATEGORIA[b.def.categoria]&&def.categoria!==b.def.categoria?AURA_CATEGORIA[def.categoria]:b.color});
+ const cambiarDef=(def:DefinicionEstado)=>setBorrador(b=>b&&{...b,def:{...def,id:b.original??idLibre(claveDesdeNombre(def.nombre,'estado'),ids)},color:b.color===AURA_CATEGORIA[b.def.categoria]&&def.categoria!==b.def.categoria?AURA_CATEGORIA[def.categoria]:b.color});
  const otros=ids.filter(i=>i!==borrador?.original);
  const fallo=borrador?validarEstadoGuardado(borrador.def,borrador.color,otros):null;
 

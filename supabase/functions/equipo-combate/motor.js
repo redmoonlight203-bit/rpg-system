@@ -1150,14 +1150,17 @@ function describirInmunidades(lista) {
 
 return { validarInmunidades };
 })();
-const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal' };
-const ICONO_PRIMITIVA = { perder_turno: 'alma', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'escudo', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo' };
+const CAPAS_ESTADO = ['aire', 'subsuelo', 'agua', 'plano'];
+const NOMBRE_CAPA = { aire: 'En el aire', subsuelo: 'Bajo tierra', agua: 'Bajo el agua', plano: 'En otro plano' };
+const ICONO_CAPA = { aire: 'ala', subsuelo: 'subsuelo', agua: 'agua', plano: 'portal' };
+const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal', capa: 'Capa del tablero' };
+const ICONO_PRIMITIVA = { perder_turno: 'alma', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'escudo', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo', capa: 'ala' };
 const CATEGORIAS_ESTADO = ['mental', 'fisico', 'elemental', 'narrativo'];
 const SALV = { cd: 12, atributo: 'salvacion' };
 /** Catálogo base. Los estados del motor antiguo son ahora definiciones; sus resultados no cambian. */
 const CATALOGO_ESTADOS = [
     { id: 'congelado', nombre: 'Congelado', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
-    { id: 'aturdido', nombre: 'Aturdido', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
+    { id: 'aturdido', nombre: 'Aturdido', icono: 'estrellas', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
     { id: 'mojado', nombre: 'Mojado', icono: 'agua', categoria: 'elemental', origen: 'agua', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'vulnerabilidad_elemental', consume: true, reacciones: [
                     { elemento: 'electricidad', nombre: 'Superconducción', multiplicador: 2, mensaje: 'Superconducción: daño principal × 2.' },
                     { elemento: 'luz_sagrada', nombre: 'Agua bendita', dados: { cantidad: 1, caras: 6 }, multiplicador: 2, solo_corruptos: true, mensaje: 'Agua bendita contra oscuridad/corrupción: daño sagrado × 2.' },
@@ -1165,17 +1168,17 @@ const CATALOGO_ESTADOS = [
                     { elemento: 'fuego', nombre: 'Onda de vapor', dados: { cantidad: 1, caras: 4 }, aplica_estado: 'ciego' }
                 ] }], descripcion: 'El agua amplifica el siguiente elemento que lo toque.' },
     { id: 'quemadura', nombre: 'Quemadura', icono: 'fuego', categoria: 'elemental', origen: 'fuego', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'fuego', momento: 'inicio', salvacion_termina: SALV }] },
-    { id: 'veneno', nombre: 'Envenenado', icono: 'pocion', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
+    { id: 'veneno', nombre: 'Envenenado', icono: 'calavera', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
     { id: 'regeneracion', nombre: 'Regeneración', icono: 'vida', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'curacion_periodica', cantidad: 1, caras: 4, momento: 'inicio' }] },
-    { id: 'dominado', nombre: 'Dominado', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
+    { id: 'dominado', nombre: 'Dominado', icono: 'cadenas', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
     { id: 'control_mental', nombre: 'Control mental', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'cesion_control', controlador: 'fuente' }], descripcion: 'Quien lo controla decide sus actos; el GM puede cortarlo.' },
-    { id: 'asustado', nombre: 'Asustado', icono: 'ojo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
-    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'ojo', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
-    { id: 'dormido', nombre: 'Dormido', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
-    { id: 'paralizado', nombre: 'Paralizado', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
-    { id: 'en_trance', nombre: 'En trance', icono: 'alma', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
+    { id: 'asustado', nombre: 'Asustado', icono: 'miedo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
+    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'espiral', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
+    { id: 'dormido', nombre: 'Dormido', icono: 'sueno', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
+    { id: 'paralizado', nombre: 'Paralizado', icono: 'cadenas', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
+    { id: 'en_trance', nombre: 'En trance', icono: 'espiral', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
     { id: 'guardia', nombre: 'Guardia', icono: 'escudo', categoria: 'fisico', duracion: { tipo: 'hasta_su_turno' }, efectos: [{ tipo: 'bonos', bonos: { armadura: 2 } }] },
-    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
+    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo_cerrado', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
     { id: 'escarcha', nombre: 'Escarcha: ARM a la mitad hasta el próximo ataque', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'ARM a la mitad contra el próximo ataque.' },
     { id: 'marca_luz', nombre: 'Marcado por la Luz', icono: 'corona', categoria: 'elemental', origen: 'luz_sagrada', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'El próximo golpe estalla con 1d6.' },
 ];
@@ -1229,6 +1232,8 @@ function validarDefinicionEstado(d) {
             return 'Cada reacción elemental necesita elemento, nombre y valores válidos.';
         if (p.tipo === 'bonos' && (!p.bonos || Object.entries(p.bonos).some(([k, v]) => !/^[a-z_][a-z0-9_]*$/.test(k) || !Number.isFinite(v) || Math.abs(v) > 1000)))
             return 'Bonos inválidos.';
+        if (p.tipo === 'capa' && !CAPAS_ESTADO.includes(p.capa))
+            return 'Elige la capa del tablero.';
         if (p.tipo === 'inmunidad') {
             const e = validarInmunidades(p.inmunidades);
             if (e)
@@ -1286,6 +1291,8 @@ function describirEstado(d) {
             partes.push(`reacciona con ${p.reacciones.map(r => `${SUJETO_TIPO[r.elemento] || r.elemento} (${r.nombre})`).join(', ')}${p.consume ? ' y se consume' : ''}`);
         if (p.tipo === 'bonos')
             partes.push(Object.entries(p.bonos).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.replace(/_/g, ' ')}`).join(', '));
+        if (p.tipo === 'capa')
+            partes.push(NOMBRE_CAPA[p.capa].toLowerCase().replace(/^en /, 'pasa a estar en ').replace(/^bajo /, 'pasa a estar bajo '));
         if (p.tipo === 'inmunidad')
             partes.push(`inmune a ${p.inmunidades.map(i => i.valor.replace(/_/g, ' ')).join(', ')}`);
     }
@@ -1298,7 +1305,59 @@ function describirEstado(d) {
     return `${d.nombre}: ${[...partes, dura].filter(Boolean).join('; ')}.`;
 }
 /** Nueva definición vacía para el editor. */
-const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', icono: 'fuego', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+/** Estados antiguos sin primitiva «Capa»: la capa se deducía del nombre. Solo se usa como respaldo. */
+const CAPA_POR_NOMBRE = [
+    ['aire', /\b(en vuelo|vuelo|volando|levitando|levita)\b/i],
+    ['subsuelo', /\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i],
+    ['agua', /\b(sumergid[oa]|bajo el agua|nadando)\b/i],
+    ['plano', /\b(otro plano|et[eé]re[oa]|plano astral|desplazad[oa] de plano)\b/i],
+];
+const capaPorNombre = (texto) => CAPA_POR_NOMBRE.find(([, p]) => p.test(texto))?.[0];
+/**
+ * Capa del tablero de quien lleva estos estados. Manda la primitiva «Capa»; luego el vuelo del motor; y solo los
+ * estados antiguos sin definición se deducen por su nombre.
+ */
+function capaDeEstados(estados) {
+    for (const e of estados) {
+        const p = primitivas(definicionDe(e), 'capa')[0];
+        if (p)
+            return p.capa;
+    }
+    if (estados.some(e => (e.tipo || e.id) === 'vuelo'))
+        return 'aire';
+    for (const e of estados) {
+        if (definicionDe(e))
+            continue;
+        const c = capaPorNombre(`${e.nombre || ''} ${e.tipo || ''}`);
+        if (c)
+            return c;
+    }
+    return 'suelo';
+}
+const ICONO_CATEGORIA = { mental: 'alma', fisico: 'espada', elemental: 'fuego', narrativo: 'libro' };
+/** Icono automático (sin elegir uno): el de su primera primitiva o, si no tiene, el de su categoría. */
+function iconoAutomatico(d) {
+    const p = d?.efectos?.[0];
+    if (p)
+        return p.tipo === 'capa' ? ICONO_CAPA[p.capa] || 'ala' : ICONO_PRIMITIVA[p.tipo] || 'yugen';
+    return d ? ICONO_CATEGORIA[d.categoria] || 'yugen' : 'yugen';
+}
+/** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
+const iconoEstado = (d) => d?.icono || iconoAutomatico(d);
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+const TIPOS_ESTADO_LEGADO = ['narrativo', 'veneno', 'regeneracion', 'aturdido', 'quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+function definicionAplicada(d, pedidos, legado = false) {
+    if (legado)
+        return { ...d, duracion: { tipo: 'turnos', turnos: Math.max(1, pedidos || 1) } };
+    if (pedidos > 0 && (d.duracion.tipo === 'turnos' || d.duracion.tipo === 'combate'))
+        return { ...d, duracion: { tipo: 'turnos', turnos: pedidos } };
+    return d;
+}
 
 return { validarDefinicionEstado, definicionBase };
 })();
@@ -1380,7 +1439,7 @@ const elementoVacio = (id = 'elemento_nuevo', base = 'fuego') => { const b = ele
 
 return { definicionElemento };
 })();
-const { describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
+const { TIPOS_ESTADO_LEGADO, iconoEstado, capaDeEstados, describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones } = (() => {
 const { validarInmunidades } = (() => {
 const TIPOS_INMUNIDAD = ['dano', 'estado', 'categoria'];
 const MODOS_INMUNIDAD = ['bloquear_dano', 'bloquear_aplicacion', 'bloquear_todo', 'resistir'];
@@ -1488,14 +1547,17 @@ function describirInmunidades(lista) {
 
 return { validarInmunidades };
 })();
-const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal' };
-const ICONO_PRIMITIVA = { perder_turno: 'alma', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'escudo', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo' };
+const CAPAS_ESTADO = ['aire', 'subsuelo', 'agua', 'plano'];
+const NOMBRE_CAPA = { aire: 'En el aire', subsuelo: 'Bajo tierra', agua: 'Bajo el agua', plano: 'En otro plano' };
+const ICONO_CAPA = { aire: 'ala', subsuelo: 'subsuelo', agua: 'agua', plano: 'portal' };
+const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal', capa: 'Capa del tablero' };
+const ICONO_PRIMITIVA = { perder_turno: 'alma', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'escudo', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo', capa: 'ala' };
 const CATEGORIAS_ESTADO = ['mental', 'fisico', 'elemental', 'narrativo'];
 const SALV = { cd: 12, atributo: 'salvacion' };
 /** Catálogo base. Los estados del motor antiguo son ahora definiciones; sus resultados no cambian. */
 const CATALOGO_ESTADOS = [
     { id: 'congelado', nombre: 'Congelado', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
-    { id: 'aturdido', nombre: 'Aturdido', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
+    { id: 'aturdido', nombre: 'Aturdido', icono: 'estrellas', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
     { id: 'mojado', nombre: 'Mojado', icono: 'agua', categoria: 'elemental', origen: 'agua', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'vulnerabilidad_elemental', consume: true, reacciones: [
                     { elemento: 'electricidad', nombre: 'Superconducción', multiplicador: 2, mensaje: 'Superconducción: daño principal × 2.' },
                     { elemento: 'luz_sagrada', nombre: 'Agua bendita', dados: { cantidad: 1, caras: 6 }, multiplicador: 2, solo_corruptos: true, mensaje: 'Agua bendita contra oscuridad/corrupción: daño sagrado × 2.' },
@@ -1503,17 +1565,17 @@ const CATALOGO_ESTADOS = [
                     { elemento: 'fuego', nombre: 'Onda de vapor', dados: { cantidad: 1, caras: 4 }, aplica_estado: 'ciego' }
                 ] }], descripcion: 'El agua amplifica el siguiente elemento que lo toque.' },
     { id: 'quemadura', nombre: 'Quemadura', icono: 'fuego', categoria: 'elemental', origen: 'fuego', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'fuego', momento: 'inicio', salvacion_termina: SALV }] },
-    { id: 'veneno', nombre: 'Envenenado', icono: 'pocion', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
+    { id: 'veneno', nombre: 'Envenenado', icono: 'calavera', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
     { id: 'regeneracion', nombre: 'Regeneración', icono: 'vida', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'curacion_periodica', cantidad: 1, caras: 4, momento: 'inicio' }] },
-    { id: 'dominado', nombre: 'Dominado', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
+    { id: 'dominado', nombre: 'Dominado', icono: 'cadenas', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
     { id: 'control_mental', nombre: 'Control mental', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'cesion_control', controlador: 'fuente' }], descripcion: 'Quien lo controla decide sus actos; el GM puede cortarlo.' },
-    { id: 'asustado', nombre: 'Asustado', icono: 'ojo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
-    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'ojo', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
-    { id: 'dormido', nombre: 'Dormido', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
-    { id: 'paralizado', nombre: 'Paralizado', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
-    { id: 'en_trance', nombre: 'En trance', icono: 'alma', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
+    { id: 'asustado', nombre: 'Asustado', icono: 'miedo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
+    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'espiral', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
+    { id: 'dormido', nombre: 'Dormido', icono: 'sueno', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
+    { id: 'paralizado', nombre: 'Paralizado', icono: 'cadenas', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
+    { id: 'en_trance', nombre: 'En trance', icono: 'espiral', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
     { id: 'guardia', nombre: 'Guardia', icono: 'escudo', categoria: 'fisico', duracion: { tipo: 'hasta_su_turno' }, efectos: [{ tipo: 'bonos', bonos: { armadura: 2 } }] },
-    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
+    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo_cerrado', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
     { id: 'escarcha', nombre: 'Escarcha: ARM a la mitad hasta el próximo ataque', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'ARM a la mitad contra el próximo ataque.' },
     { id: 'marca_luz', nombre: 'Marcado por la Luz', icono: 'corona', categoria: 'elemental', origen: 'luz_sagrada', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'El próximo golpe estalla con 1d6.' },
 ];
@@ -1567,6 +1629,8 @@ function validarDefinicionEstado(d) {
             return 'Cada reacción elemental necesita elemento, nombre y valores válidos.';
         if (p.tipo === 'bonos' && (!p.bonos || Object.entries(p.bonos).some(([k, v]) => !/^[a-z_][a-z0-9_]*$/.test(k) || !Number.isFinite(v) || Math.abs(v) > 1000)))
             return 'Bonos inválidos.';
+        if (p.tipo === 'capa' && !CAPAS_ESTADO.includes(p.capa))
+            return 'Elige la capa del tablero.';
         if (p.tipo === 'inmunidad') {
             const e = validarInmunidades(p.inmunidades);
             if (e)
@@ -1624,6 +1688,8 @@ function describirEstado(d) {
             partes.push(`reacciona con ${p.reacciones.map(r => `${SUJETO_TIPO[r.elemento] || r.elemento} (${r.nombre})`).join(', ')}${p.consume ? ' y se consume' : ''}`);
         if (p.tipo === 'bonos')
             partes.push(Object.entries(p.bonos).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.replace(/_/g, ' ')}`).join(', '));
+        if (p.tipo === 'capa')
+            partes.push(NOMBRE_CAPA[p.capa].toLowerCase().replace(/^en /, 'pasa a estar en ').replace(/^bajo /, 'pasa a estar bajo '));
         if (p.tipo === 'inmunidad')
             partes.push(`inmune a ${p.inmunidades.map(i => i.valor.replace(/_/g, ' ')).join(', ')}`);
     }
@@ -1636,9 +1702,61 @@ function describirEstado(d) {
     return `${d.nombre}: ${[...partes, dura].filter(Boolean).join('; ')}.`;
 }
 /** Nueva definición vacía para el editor. */
-const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', icono: 'fuego', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+/** Estados antiguos sin primitiva «Capa»: la capa se deducía del nombre. Solo se usa como respaldo. */
+const CAPA_POR_NOMBRE = [
+    ['aire', /\b(en vuelo|vuelo|volando|levitando|levita)\b/i],
+    ['subsuelo', /\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i],
+    ['agua', /\b(sumergid[oa]|bajo el agua|nadando)\b/i],
+    ['plano', /\b(otro plano|et[eé]re[oa]|plano astral|desplazad[oa] de plano)\b/i],
+];
+const capaPorNombre = (texto) => CAPA_POR_NOMBRE.find(([, p]) => p.test(texto))?.[0];
+/**
+ * Capa del tablero de quien lleva estos estados. Manda la primitiva «Capa»; luego el vuelo del motor; y solo los
+ * estados antiguos sin definición se deducen por su nombre.
+ */
+function capaDeEstados(estados) {
+    for (const e of estados) {
+        const p = primitivas(definicionDe(e), 'capa')[0];
+        if (p)
+            return p.capa;
+    }
+    if (estados.some(e => (e.tipo || e.id) === 'vuelo'))
+        return 'aire';
+    for (const e of estados) {
+        if (definicionDe(e))
+            continue;
+        const c = capaPorNombre(`${e.nombre || ''} ${e.tipo || ''}`);
+        if (c)
+            return c;
+    }
+    return 'suelo';
+}
+const ICONO_CATEGORIA = { mental: 'alma', fisico: 'espada', elemental: 'fuego', narrativo: 'libro' };
+/** Icono automático (sin elegir uno): el de su primera primitiva o, si no tiene, el de su categoría. */
+function iconoAutomatico(d) {
+    const p = d?.efectos?.[0];
+    if (p)
+        return p.tipo === 'capa' ? ICONO_CAPA[p.capa] || 'ala' : ICONO_PRIMITIVA[p.tipo] || 'yugen';
+    return d ? ICONO_CATEGORIA[d.categoria] || 'yugen' : 'yugen';
+}
+/** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
+const iconoEstado = (d) => d?.icono || iconoAutomatico(d);
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+const TIPOS_ESTADO_LEGADO = ['narrativo', 'veneno', 'regeneracion', 'aturdido', 'quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+function definicionAplicada(d, pedidos, legado = false) {
+    if (legado)
+        return { ...d, duracion: { tipo: 'turnos', turnos: Math.max(1, pedidos || 1) } };
+    if (pedidos > 0 && (d.duracion.tipo === 'turnos' || d.duracion.tipo === 'combate'))
+        return { ...d, duracion: { tipo: 'turnos', turnos: pedidos } };
+    return d;
+}
 
-return { describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
+return { TIPOS_ESTADO_LEGADO, iconoEstado, capaDeEstados, describirEstado, definicionDe, definicionBase, primitivas, bonosDefinicion, turnosIniciales, movimientoPermitido, permiteReacciones };
 })();
 const { potenciar, potenciadoresPara, etiquetasDe, describirPotenciado } = (() => {
 const { validarRecurso } = (() => {
@@ -2035,14 +2153,17 @@ function describirInmunidades(lista) {
 
 return { validarInmunidades };
 })();
-const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal' };
-const ICONO_PRIMITIVA = { perder_turno: 'alma', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'escudo', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo' };
+const CAPAS_ESTADO = ['aire', 'subsuelo', 'agua', 'plano'];
+const NOMBRE_CAPA = { aire: 'En el aire', subsuelo: 'Bajo tierra', agua: 'Bajo el agua', plano: 'En otro plano' };
+const ICONO_CAPA = { aire: 'ala', subsuelo: 'subsuelo', agua: 'agua', plano: 'portal' };
+const NOMBRE_PRIMITIVA = { perder_turno: 'Perder turno', movimiento_forzado: 'Movimiento forzado', cesion_control: 'Cesión de control', percepcion_alterada: 'Percepción alterada', dano_periodico: 'Daño periódico', curacion_periodica: 'Curación periódica', modificador_movimiento: 'Modificador de movimiento', vulnerabilidad_elemental: 'Vulnerabilidad elemental', bonos: 'Bonos y penalizaciones', inmunidad: 'Inmunidad temporal', capa: 'Capa del tablero' };
+const ICONO_PRIMITIVA = { perder_turno: 'alma', movimiento_forzado: 'ojo', cesion_control: 'alma', percepcion_alterada: 'ojo', dano_periodico: 'fuego', curacion_periodica: 'vida', modificador_movimiento: 'escudo', vulnerabilidad_elemental: 'agua', bonos: 'escudo', inmunidad: 'escudo', capa: 'ala' };
 const CATEGORIAS_ESTADO = ['mental', 'fisico', 'elemental', 'narrativo'];
 const SALV = { cd: 12, atributo: 'salvacion' };
 /** Catálogo base. Los estados del motor antiguo son ahora definiciones; sus resultados no cambian. */
 const CATALOGO_ESTADOS = [
     { id: 'congelado', nombre: 'Congelado', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
-    { id: 'aturdido', nombre: 'Aturdido', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
+    { id: 'aturdido', nombre: 'Aturdido', icono: 'estrellas', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 1 }, efectos: [{ tipo: 'perder_turno', consumir: true }], descripcion: 'Pierde su siguiente turno.' },
     { id: 'mojado', nombre: 'Mojado', icono: 'agua', categoria: 'elemental', origen: 'agua', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'vulnerabilidad_elemental', consume: true, reacciones: [
                     { elemento: 'electricidad', nombre: 'Superconducción', multiplicador: 2, mensaje: 'Superconducción: daño principal × 2.' },
                     { elemento: 'luz_sagrada', nombre: 'Agua bendita', dados: { cantidad: 1, caras: 6 }, multiplicador: 2, solo_corruptos: true, mensaje: 'Agua bendita contra oscuridad/corrupción: daño sagrado × 2.' },
@@ -2050,17 +2171,17 @@ const CATALOGO_ESTADOS = [
                     { elemento: 'fuego', nombre: 'Onda de vapor', dados: { cantidad: 1, caras: 4 }, aplica_estado: 'ciego' }
                 ] }], descripcion: 'El agua amplifica el siguiente elemento que lo toque.' },
     { id: 'quemadura', nombre: 'Quemadura', icono: 'fuego', categoria: 'elemental', origen: 'fuego', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'fuego', momento: 'inicio', salvacion_termina: SALV }] },
-    { id: 'veneno', nombre: 'Envenenado', icono: 'pocion', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
+    { id: 'veneno', nombre: 'Envenenado', icono: 'calavera', categoria: 'fisico', origen: 'veneno', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'dano_periodico', cantidad: 1, caras: 4, tipo_dano: 'veneno', momento: 'inicio' }] },
     { id: 'regeneracion', nombre: 'Regeneración', icono: 'vida', categoria: 'fisico', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'curacion_periodica', cantidad: 1, caras: 4, momento: 'inicio' }] },
-    { id: 'dominado', nombre: 'Dominado', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
+    { id: 'dominado', nombre: 'Dominado', icono: 'cadenas', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'cesion_control', controlador: 'gm' }], descripcion: 'El GM decide sus actos.' },
     { id: 'control_mental', nombre: 'Control mental', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'cesion_control', controlador: 'fuente' }], descripcion: 'Quien lo controla decide sus actos; el GM puede cortarlo.' },
-    { id: 'asustado', nombre: 'Asustado', icono: 'ojo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
-    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'ojo', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
-    { id: 'dormido', nombre: 'Dormido', icono: 'alma', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
-    { id: 'paralizado', nombre: 'Paralizado', icono: 'rayo', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
-    { id: 'en_trance', nombre: 'En trance', icono: 'alma', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
+    { id: 'asustado', nombre: 'Asustado', icono: 'miedo', categoria: 'mental', subcategoria: 'miedo', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'movimiento_forzado', sentido: 'alejar', min: 1, max: 2, no_ataca_fuente: true }] },
+    { id: 'hipnotizado', nombre: 'Hipnotizado', icono: 'espiral', categoria: 'mental', subcategoria: 'ilusion', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'percepcion_alterada', probabilidad: 50 }] },
+    { id: 'dormido', nombre: 'Dormido', icono: 'sueno', categoria: 'mental', subcategoria: 'control', duracion: { tipo: 'turnos', turnos: 3 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { recibir_dano: true } },
+    { id: 'paralizado', nombre: 'Paralizado', icono: 'cadenas', categoria: 'fisico', duracion: { tipo: 'salvacion', salvacion: SALV }, efectos: [{ tipo: 'perder_turno', primer_turno: true, permite_reacciones: true }, { tipo: 'modificador_movimiento', modo: 'cero' }], despertar: { salvacion: SALV } },
+    { id: 'en_trance', nombre: 'En trance', icono: 'espiral', categoria: 'mental', subcategoria: 'confusion', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [{ tipo: 'perder_turno', permite_reacciones: false }, { tipo: 'modificador_movimiento', modo: 'cero' }] },
     { id: 'guardia', nombre: 'Guardia', icono: 'escudo', categoria: 'fisico', duracion: { tipo: 'hasta_su_turno' }, efectos: [{ tipo: 'bonos', bonos: { armadura: 2 } }] },
-    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
+    { id: 'ciego', nombre: 'Ceguera: -4 al próximo ataque', icono: 'ojo_cerrado', categoria: 'elemental', duracion: { tipo: 'combate' }, efectos: [{ tipo: 'bonos', bonos: { bono_impacto: -4 } }], descripcion: 'Se consume en su próximo ataque.' },
     { id: 'escarcha', nombre: 'Escarcha: ARM a la mitad hasta el próximo ataque', icono: 'hielo', categoria: 'elemental', origen: 'hielo', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'ARM a la mitad contra el próximo ataque.' },
     { id: 'marca_luz', nombre: 'Marcado por la Luz', icono: 'corona', categoria: 'elemental', origen: 'luz_sagrada', duracion: { tipo: 'combate' }, efectos: [], descripcion: 'El próximo golpe estalla con 1d6.' },
 ];
@@ -2114,6 +2235,8 @@ function validarDefinicionEstado(d) {
             return 'Cada reacción elemental necesita elemento, nombre y valores válidos.';
         if (p.tipo === 'bonos' && (!p.bonos || Object.entries(p.bonos).some(([k, v]) => !/^[a-z_][a-z0-9_]*$/.test(k) || !Number.isFinite(v) || Math.abs(v) > 1000)))
             return 'Bonos inválidos.';
+        if (p.tipo === 'capa' && !CAPAS_ESTADO.includes(p.capa))
+            return 'Elige la capa del tablero.';
         if (p.tipo === 'inmunidad') {
             const e = validarInmunidades(p.inmunidades);
             if (e)
@@ -2171,6 +2294,8 @@ function describirEstado(d) {
             partes.push(`reacciona con ${p.reacciones.map(r => `${SUJETO_TIPO[r.elemento] || r.elemento} (${r.nombre})`).join(', ')}${p.consume ? ' y se consume' : ''}`);
         if (p.tipo === 'bonos')
             partes.push(Object.entries(p.bonos).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.replace(/_/g, ' ')}`).join(', '));
+        if (p.tipo === 'capa')
+            partes.push(NOMBRE_CAPA[p.capa].toLowerCase().replace(/^en /, 'pasa a estar en ').replace(/^bajo /, 'pasa a estar bajo '));
         if (p.tipo === 'inmunidad')
             partes.push(`inmune a ${p.inmunidades.map(i => i.valor.replace(/_/g, ' ')).join(', ')}`);
     }
@@ -2183,7 +2308,59 @@ function describirEstado(d) {
     return `${d.nombre}: ${[...partes, dura].filter(Boolean).join('; ')}.`;
 }
 /** Nueva definición vacía para el editor. */
-const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', icono: 'fuego', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+const estadoVacio = (id = 'estado_nuevo') => ({ id, nombre: 'Nuevo estado', categoria: 'narrativo', duracion: { tipo: 'turnos', turnos: 2 }, efectos: [] });
+/** Estados antiguos sin primitiva «Capa»: la capa se deducía del nombre. Solo se usa como respaldo. */
+const CAPA_POR_NOMBRE = [
+    ['aire', /\b(en vuelo|vuelo|volando|levitando|levita)\b/i],
+    ['subsuelo', /\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i],
+    ['agua', /\b(sumergid[oa]|bajo el agua|nadando)\b/i],
+    ['plano', /\b(otro plano|et[eé]re[oa]|plano astral|desplazad[oa] de plano)\b/i],
+];
+const capaPorNombre = (texto) => CAPA_POR_NOMBRE.find(([, p]) => p.test(texto))?.[0];
+/**
+ * Capa del tablero de quien lleva estos estados. Manda la primitiva «Capa»; luego el vuelo del motor; y solo los
+ * estados antiguos sin definición se deducen por su nombre.
+ */
+function capaDeEstados(estados) {
+    for (const e of estados) {
+        const p = primitivas(definicionDe(e), 'capa')[0];
+        if (p)
+            return p.capa;
+    }
+    if (estados.some(e => (e.tipo || e.id) === 'vuelo'))
+        return 'aire';
+    for (const e of estados) {
+        if (definicionDe(e))
+            continue;
+        const c = capaPorNombre(`${e.nombre || ''} ${e.tipo || ''}`);
+        if (c)
+            return c;
+    }
+    return 'suelo';
+}
+const ICONO_CATEGORIA = { mental: 'alma', fisico: 'espada', elemental: 'fuego', narrativo: 'libro' };
+/** Icono automático (sin elegir uno): el de su primera primitiva o, si no tiene, el de su categoría. */
+function iconoAutomatico(d) {
+    const p = d?.efectos?.[0];
+    if (p)
+        return p.tipo === 'capa' ? ICONO_CAPA[p.capa] || 'ala' : ICONO_PRIMITIVA[p.tipo] || 'yugen';
+    return d ? ICONO_CATEGORIA[d.categoria] || 'yugen' : 'yugen';
+}
+/** Icono que se muestra: el elegido por el GM o el automático. Todo estado tiene uno. */
+const iconoEstado = (d) => d?.icono || iconoAutomatico(d);
+/** Tipos antiguos que el motor resuelve con los turnos de la acción, no con su definición. */
+const TIPOS_ESTADO_LEGADO = ['narrativo', 'veneno', 'regeneracion', 'aturdido', 'quemadura'];
+/**
+ * La definición tal como la aplica una acción: los turnos que pide la acción sustituyen a los del estado cuando el
+ * motor los usa (ver `turnosIniciales` y el camino «legado» de resolverEfecto). Así la frase dice la duración real.
+ */
+function definicionAplicada(d, pedidos, legado = false) {
+    if (legado)
+        return { ...d, duracion: { tipo: 'turnos', turnos: Math.max(1, pedidos || 1) } };
+    if (pedidos > 0 && (d.duracion.tipo === 'turnos' || d.duracion.tipo === 'combate'))
+        return { ...d, duracion: { tipo: 'turnos', turnos: pedidos } };
+    return d;
+}
 
 return { validarDefinicionEstado };
 })();
@@ -2984,10 +3161,15 @@ export function reaccionDe(e) { return e.reaccion; }
 /** Efectos del combatiente con las defensas antiguas normalizadas a `reaccion` (sin escribir en el estado). */
 function efectosConReaccion(m) { return habilidadesDe(m).flatMap(h => h.efectos || []).map(normalizarReaccion); }
 /** Coste, usos y enfriamiento: null si ahora no se puede ofrecer. */
+/** Forma en la que la acción no cuesta PH (los datos antiguos de Kion usaban `ley_limitless`). */
+export const formaGratis = (e) => e.gratis_en_forma || (e.ley_limitless ? 'limitless' : undefined);
+const enFormaGratis = (m, e) => { const f = formaGratis(e); return !!f && m.transformacion?.definicion_id === f; };
+/** Grupo de la barra de combate en que aparece la acción (los datos antiguos de Kion usaban `axioma`). */
+export const grupoBarra = (e) => e.grupo_barra?.trim() || (e.axioma ? 'Axioma' : undefined);
 function disponibilidad(c, t, p, r) {
     if (!permiteReacciones(t.estados.map(definicionDe)))
         return null;
-    const coste = t.transformacion?.definicion_id === 'limitless' && p.ley_limitless ? 0 : (r.coste ?? p.coste_ph ?? 0);
+    const coste = enFormaGratis(t, p) ? 0 : (r.coste ?? p.coste_ph ?? 0);
     if (phDisponibles(t) < coste || (r.una_por_ronda && t.rondas_reacciones?.[p.id] === c.ronda))
         return null;
     const u = t.usos_reaccion?.[p.id];
@@ -3137,7 +3319,7 @@ export function reaccionesDe(c, m) {
     return efectosConReaccion(m).filter((p) => !!p.reaccion).map(p => {
         const r = p.reaccion, u = m.usos_reaccion?.[p.id];
         const restantes = r.usos && r.usos.tipo !== 'ilimitado' ? Math.max(0, (r.usos.maximo || 1) - (r.usos.tipo === 'encuentro' ? (u?.encuentro || 0) : (u && u.ronda === c.ronda ? u.en_ronda : 0))) : null;
-        const coste = m.transformacion?.definicion_id === 'limitless' && p.ley_limitless ? 0 : (r.coste ?? p.coste_ph ?? 0);
+        const coste = enFormaGratis(m, p) ? 0 : (r.coste ?? p.coste_ph ?? 0);
         return { id: p.id, nombre: p.nombre, disparador: disparadorDe(r), linea: lineaCosteReaccion({ ...r, coste }, 0, restantes), lista: !!disponibilidad(c, m, p, r) };
     });
 }
@@ -3839,8 +4021,7 @@ export function acciones(m) {
         }
         if (d && (m.transformacion || m.transformaciones_usadas?.includes(d.id)))
             return { ...a, bloqueada: m.transformacion ? 'Otra transformación está activa.' : 'Ya utilizada en este encuentro.' };
-        const efecto = m.transformacion?.definicion_id === 'limitless' && a.efecto.ley_limitless
-            ? { ...a.efecto, coste_ph: 0 } : a.efecto;
+        const efecto = enFormaGratis(m, a.efecto) ? { ...a.efecto, coste_ph: 0 } : a.efecto;
         if (vozNiega(m.voz_artefacto, a))
             return { ...a, efecto: conAlcance(efecto, a.nombre), bloqueada: 'La voz del artefacto te lo niega.' };
         const conTablero = conAlcance(efecto, a.nombre), pots = rasgos.length && efecto.efecto === 'dano' ? potenciadoresDisponibles(m, conTablero, rasgos) : [];
@@ -4638,7 +4819,7 @@ function resolverEfecto(n, a, t, e, act, rng, centro) {
                 return n;
             }
             const tipo = e.estado_tipo || "narrativo";
-            const legado = !e.estado_def && ["narrativo", "veneno", "regeneracion", "aturdido", "quemadura"].includes(tipo);
+            const legado = !e.estado_def && TIPOS_ESTADO_LEGADO.includes(tipo);
             let turnos = legado || !defEstado ? Math.max(1, e.duracion) : turnosIniciales(defEstado, e.duracion);
             if (permiso === 'resiste' && turnos > 1) {
                 turnos = Math.max(1, Math.floor(turnos / 2));
@@ -5035,8 +5216,10 @@ export function recursosDe(m) {
 }
 export const saldoRecurso = (m, d) => m.recursos_especiales?.[d.id] ?? d.inicial;
 /** Estados para la tarjeta del combatiente: icono, duración y la misma frase que el editor del Yunque. */
+/** Capa del tablero en la que está: la marca la primitiva «Capa» de sus estados (o el vuelo del motor). */
+export const capaCombatiente = (m) => capaDeEstados(m.estados);
 export function estadosVisibles(m) {
-    return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d?.icono || 'yugen', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
+    return m.estados.map(e => { const d = definicionDe(e); return { id: e.id, nombre: e.nombre, icono: d ? iconoEstado(d) : (e.tipo || e.id) === 'vuelo' ? 'ala' : 'libro', restantes: e.restantes, categoria: d?.categoria, frase: d ? describirEstado({ ...d, nombre: e.nombre.split(':')[0] }) : e.nombre }; });
 }
 /** Barra de recursos para la tarjeta y la ficha, con su nombre configurado. */
 export function recursosVisibles(m, gm = false) {
@@ -5280,6 +5463,24 @@ function ejecutarRegla(c, yo, clave, r, actor, objetivo, rng, efecto, cantidad =
     }
     efectosMotor(r.efectos, ctx, clave);
 }
+/** «Aplicar estado» de una regla con un estado de verdad: inmunidades, duración y primitivas como en una acción. */
+function aplicarEstadoRegla(ctx, t, e, clave) {
+    const def = e.estado_def && e.estado_def.id === clave ? e.estado_def : definicionBase(clave);
+    if (!def)
+        return false;
+    const nombre = e.nombre?.trim() || def.nombre.split(':')[0];
+    const permiso = puedeAplicar(ctx.c, t, def.id, def);
+    if (permiso === 'no')
+        return true;
+    let turnos = turnosIniciales(def, e.duracion || 0);
+    if (permiso === 'resiste' && turnos > 1) {
+        turnos = Math.max(1, Math.floor(turnos / 2));
+        log(ctx.c, `${t.nombre} resiste el estado: dura ${turnos} turno(s).`);
+    }
+    estado(t, def.id, nombre, turnos, bonosDefinicion(def), { ...(e.estado_def ? { def: e.estado_def } : {}), cd: 12, atributo: 'salvacion', fuente: ctx.yo.id, ...(def.duracion.tipo === 'hasta_su_turno' ? { inicio: true } : {}) });
+    log(ctx.c, `${t.nombre} sufre ${nombre}.`);
+    return true;
+}
 function efectosMotor(efectos, ctx, origen) {
     if (ctx.profundidad > 8)
         throw Error('Demasiadas ramas de efectos.');
@@ -5358,6 +5559,9 @@ function efectosMotor(efectos, ctx, origen) {
                 case 'estado':
                 case 'transformar':
                 case 'atributo': {
+                    // Un estado real (catálogo o copia del grimorio) se aplica con sus primitivas; una clave propia sigue siendo un modificador.
+                    if (e.tipo === 'estado' && aplicarEstadoRegla(ctx, t, e, clave))
+                        break;
                     const cambios = e.tipo === 'atributo' ? [{ atributo: e.atributo || 'vida', operacion: e.operacion || 'sumar', valor: v() }] : e.tipo === 'transformar' ? (e.cambios || []).map(x => ({ ...x, valor: valorMotor(x.valor, ctx) })) : [];
                     if (e.permanente) {
                         for (const cambio of cambios) {
@@ -6247,8 +6451,7 @@ function aplicarTerreno(c, m, rng = dadoSeguro) {
         log(c, `${m.nombre}: terreno peligroso, 2 de daño.`);
     }
 }
-const BAJO_TIERRA = /\b(bajo tierra|enterrad[oa]|excavando|subsuelo)\b/i;
-const bajoTierra = (m) => m.estados.some(e => BAJO_TIERRA.test(e.nombre || '') || BAJO_TIERRA.test(e.tipo || ''));
+const bajoTierra = (m) => capaCombatiente(m) === 'subsuelo';
 /** Ojos abiertos de un combatiente: los activados (estados) y los permanentes de sus habilidades y equipo. */
 export function visionesActivas(m) {
     if (m.vida <= 0)

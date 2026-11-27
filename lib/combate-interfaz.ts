@@ -19,6 +19,8 @@ const PATRONES:[Capa,RegExp][]=[
  ['plano',/\b(otro plano|et[eé]re[oa]|plano astral|desplazad[oa] de plano)\b/i],
 ];
 /** Capa de una ficha a partir de sus estados (nombres o tipos). Sin estado de capa, está en el suelo. */
+/** Capa de una ficha: la que calcula el motor (primitiva «Capa») o, en datos antiguos, la deducida del nombre. */
+export const capaFicha=(f:{capa?:Capa;estados?:readonly string[]|null}):Capa=>f.capa??capaDe(f.estados);
 export function capaDe(estados?:readonly string[]|null):Capa{
  for(const [capa,patron] of PATRONES)if(estados?.some(e=>patron.test(e)))return capa;
  return 'suelo';

@@ -149,3 +149,22 @@ test('convertir el ataque Invocar conserva las otras acciones y la criatura conf
  assert.deepEqual(r.efectos,[previo.efectos[1]]);
  assert.equal(previo.efectos.length,2);
 });
+
+test('la familia Pasivas reúne todas las formas de crear una pasiva',()=>{
+ const pasivas=PIEZAS.filter(p=>p.familia==='pasivas');
+ for(const n of ['Piel de piedra','Defensas e inmunidades','Ataque desarmado propio','Guardia propia','Regla automática'])assert.ok(pasivas.some(p=>p.nombre===n),n);
+ for(const tipo of ['personaje','habilidad','objeto','pasiva']){
+  for(const nombre of ['Defensas e inmunidades','Ataque desarmado propio','Guardia propia']){
+   const p=pieza(nombre);
+   const b=soltar(base(tipo),p,null);
+   const g=aGrafo(b,ctx);
+   const n=g.nodos.find(x=>x.tipo==='accion');
+   assert.ok(n&&n.pasivo,`${tipo}/${nombre}: se ve como pasiva`);
+   assert.equal(n.error,null,`${tipo}/${nombre}: ${n.error}`);
+   assert.ok(g.cables.some(c=>c.desde.nodo==='nucleo'&&c.desde.puerto==='pasivas'&&c.hasta.nodo===n.id),'cuelga del puerto Pasivas');
+  }
+ }
+ // Una acción normal sigue en «Acciones».
+ const g=aGrafo(soltar(base(),PIEZAS.find(p=>p.familia==='acciones'&&p.tipo==='accion'),null),ctx);
+ assert.ok(g.nodos.some(x=>x.tipo==='accion'&&!x.pasivo));
+});

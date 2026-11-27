@@ -149,7 +149,13 @@ export type Efecto = {
   reaccion?: Reaccion;
   /** Primitiva «Visión»: habilidad ocular (puntos débiles, revelar, anticipar…). */
   vision?: Vision;
+  /** Cuesta 0 PH mientras quien la usa está en esta forma (id de la transformación). */
+  gratis_en_forma?:string;
+  /** Grupo propio en la barra de combate («Axioma», «Danzas»…). */
+  grupo_barra?:string;
+  /** @deprecated Datos antiguos de Kion: equivale a `gratis_en_forma: 'limitless'`. */
   ley_limitless?:boolean;
+  /** @deprecated Datos antiguos de Kion: equivale a `grupo_barra: 'Axioma'`. */
   axioma?:boolean;
   suelo?:boolean;
   portal?:boolean;
@@ -440,6 +446,8 @@ export function validarEfectos(efectos: Efecto[]): string | null {
       }
     }
 
+    if (e.gratis_en_forma !== undefined && (typeof e.gratis_en_forma !== 'string' || !e.gratis_en_forma || e.gratis_en_forma.length > 100)) return 'Forma gratuita inválida.';
+    if (e.grupo_barra !== undefined && (typeof e.grupo_barra !== 'string' || !e.grupo_barra.trim() || e.grupo_barra.length > 40)) return 'Grupo de la barra inválido (1 a 40 caracteres).';
     if (e.requisito_forma && (!/^[a-z_][a-z0-9_]*$/.test(e.requisito_forma.atributo) || !Number.isFinite(e.requisito_forma.minimo))) return 'Requisito de forma inválido.';
     if(e.aprendizaje&&(e.efecto!=='estado'||!Number.isInteger(e.aprendizaje.bono)||Math.abs(e.aprendizaje.bono)>100||!Number.isInteger(e.aprendizaje.cd)||e.aprendizaje.cd<1||e.aprendizaje.cd>100))return 'Revisa el bono y la CD de aprendizaje.';
     if(e.recurso?.descargar&&e.efecto!=='dano')return 'Descargar la reserva requiere una acción de daño.';

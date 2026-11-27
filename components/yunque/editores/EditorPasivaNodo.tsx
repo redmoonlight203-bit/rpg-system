@@ -1,6 +1,7 @@
 'use client';
 // Editor de una pasiva dentro de su nodo: momento y condición como fichas; bonos, curas y represalias como ruedas.
 import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
+import {OPCIONES_ELEMENTO,cortoAtributo} from '../../../lib/catalogos';
 import {CONDICIONES_PASIVA,EVENTOS_PASIVA,type ReglaPasiva} from '../../../lib/pasivas';
 import type {EditorNodoProps} from './EditorAccion';
 
@@ -8,8 +9,8 @@ const ICONO_EVENTO:Record<ReglaPasiva['evento'],string>={permanente:'corona',ini
 const EVENTOS:Opcion<ReglaPasiva['evento']>[]=(Object.keys(EVENTOS_PASIVA) as ReglaPasiva['evento'][]).map(k=>({valor:k,nombre:EVENTOS_PASIVA[k],icono:ICONO_EVENTO[k]}));
 const NOMBRE_CONDICION:Record<ReglaPasiva['condicion'],string>={siempre:'Siempre',vida_mitad:'Vida ≤ 50 %',sin_arma:'Sin arma',ataque_magico:'Ataque mágico',ataque_natural:'Ataque natural',ataque_elemental:'Ataque elemental'};
 const CONDICIONES:Opcion<ReglaPasiva['condicion']>[]=(Object.keys(CONDICIONES_PASIVA) as ReglaPasiva['condicion'][]).map(k=>({valor:k,nombre:NOMBRE_CONDICION[k],ayuda:CONDICIONES_PASIVA[k]}));
-const BONOS:[string,string][]=[['vida','Vida'],['armadura','Armadura'],['ph','PH'],['fatiga','Fatiga'],['iniciativa','Iniciativa'],['bono_impacto','Ataque'],['dano','Daño'],['salvacion','Salvación'],['movimiento','Movim.'],['acciones_adicional','Acc. adic.'],['acciones_legendaria','Acc. leg.'],['acciones_principal','Acc. princ.']];
-const ELEMENTOS:Opcion<string>[]=[{valor:'cualquiera',nombre:'Cualquiera',icono:'yugen'},{valor:'fuego',nombre:'Fuego',icono:'fuego'},{valor:'agua',nombre:'Agua',icono:'agua'},{valor:'electricidad',nombre:'Rayo',icono:'rayo'},{valor:'hielo',nombre:'Hielo',icono:'hielo'},{valor:'luz_sagrada',nombre:'Luz',icono:'corona'}];
+const BONOS:[string,string][]=[...['vida','armadura','ph','fatiga','iniciativa','bono_impacto','dano','salvacion','movimiento'].map(k=>[k,cortoAtributo(k)] as [string,string]),['acciones_adicional','Acc. adic.'],['acciones_legendaria','Acc. leg.'],['acciones_principal','Acc. princ.']];
+const ELEMENTOS:Opcion<string>[]=[{valor:'cualquiera',nombre:'Cualquiera',icono:'yugen'},...OPCIONES_ELEMENTO];
 const CARAS=[2,3,4,6,8,10,12,20,100];
 const reactivo=(c:ReglaPasiva['condicion'])=>c.startsWith('ataque_');
 

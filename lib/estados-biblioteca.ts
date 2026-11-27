@@ -4,7 +4,7 @@
  * `estado_def`, que es lo que el motor de combate ya ejecuta: no hay casos nuevos en el motor.
  * Módulo puro (sin Supabase) para poder probarlo en Node.
  */
-import {CATALOGO_ESTADOS,primitivas,validarDefinicionEstado,movimientoPermitido,definicionBase,type DefinicionEstado,type CategoriaEstado} from './estados';
+import {NOMBRE_CAPA,CATALOGO_ESTADOS,primitivas,validarDefinicionEstado,movimientoPermitido,definicionBase,type DefinicionEstado,type CategoriaEstado} from './estados';
 import {CATALOGO_ELEMENTOS,elementoBase,validarDefinicionElemento,type DefinicionElemento} from './elementos';
 
 export type FilaEstado={id:string;definicion:unknown;color?:string|null;updated_at?:string|null};
@@ -76,6 +76,7 @@ const tirarDados=(cantidad:number,caras:number,tirar:(caras:number)=>number)=>{l
 export function simularEstado(d:DefinicionEstado,{vida=30,movimiento=6,maxTurnos=5,tirar=(c:number)=>1+Math.floor(Math.random()*c)}:{vida?:number;movimiento?:number;maxTurnos?:number;tirar?:(caras:number)=>number}={}):ResultadoPrueba{
  const turnos:TurnoPrueba[]=[],pasivos:string[]=[];
  for(const p of primitivas(d,'bonos'))pasivos.push(Object.entries(p.bonos).map(([k,v])=>`${v>0?'+':''}${v} ${k.replace(/_/g,' ')}`).join(', '));
+ for(const p of primitivas(d,'capa'))pasivos.push(NOMBRE_CAPA[p.capa]);
  for(const p of primitivas(d,'inmunidad'))pasivos.push(`Inmune a ${p.inmunidades.map(i=>i.valor.replace(/_/g,' ')).join(', ')}`);
  for(const p of primitivas(d,'vulnerabilidad_elemental'))for(const r of p.reacciones)pasivos.push(`Si le alcanza ${r.elemento.replace(/_/g,' ')}: ${r.nombre}${r.multiplicador?` (daño ×${r.multiplicador})`:''}${r.aplica_estado?` → ${r.aplica_estado.replace(/_/g,' ')}`:''}`);
  const du=d.duracion;

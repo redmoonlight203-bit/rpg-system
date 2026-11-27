@@ -1,15 +1,12 @@
 'use client';
 // Editor de una acción dentro de su nodo: fichas para efecto, elemento y naturaleza; dados y costes como ruedas.
-import {useState} from 'react';
-import {EditorDados} from '../../EditorDados';
-import {Fichas,Rueda,type Opcion} from '../Controles';
-import {elementoDe,tipoPresupuesto,type TipoPresupuesto} from '../../../lib/combate';
+import {OPCIONES_ELEMENTO_O_NINGUNO} from '../../../lib/catalogos';
+import {SelectorRegla} from '../../SelectorRegla';
+import {Fichas,Rueda,Texto,type Opcion} from '../Controles';
+import {elementoDe,formaGratis,grupoBarra,tipoPresupuesto,type TipoPresupuesto} from '../../../lib/combate';
 import {formula,type Efecto} from '../../../lib/creacion';
-import {CATALOGO_ESTADOS,estadoVacio,definicionBase} from '../../../lib/estados';
 import {Interruptor} from '../Controles';
 import EditorDefensas from './EditorDefensas';
-import EditorEstados from './EditorEstados';
-import FichasGrimorio from '../../grimorio/FichasGrimorio';
 import FichasGrimorioElementos from '../../grimorio/FichasGrimorioElementos';
 import EditorRasgo,{rasgoVacio} from './EditorRasgo';
 import EditorConcepto from './EditorConcepto';
@@ -31,18 +28,10 @@ const EFECTOS:Opcion<Efecto['efecto']>[]=[
  {valor:'recuperar_ph',nombre:'Recuperar PH',icono:'agua',ayuda:'Devuelve puntos de habilidad.'},
  {valor:'reducir_fatiga',nombre:'Aliviar fatiga',icono:'vida',ayuda:'Reduce el cansancio del objetivo.'},
 ];
-const ELEMENTOS:Opcion<NonNullable<Efecto['elemento']>>[]=[
- {valor:'ninguno',nombre:'Sin elemento',icono:'yugen'},{valor:'fuego',nombre:'Fuego',icono:'fuego'},{valor:'agua',nombre:'Agua',icono:'agua'},
- {valor:'electricidad',nombre:'Rayo',icono:'rayo'},{valor:'hielo',nombre:'Hielo',icono:'hielo'},{valor:'luz_sagrada',nombre:'Luz sagrada',icono:'corona'},
-];
+const ELEMENTOS=OPCIONES_ELEMENTO_O_NINGUNO as Opcion<NonNullable<Efecto['elemento']>>[];
 const NATURALEZAS:Opcion<NonNullable<Efecto['naturaleza']>>[]=[
  {valor:'automatica',nombre:'Según costes',ayuda:'La naturaleza se deduce de lo que cuesta.'},{valor:'fisica',nombre:'Física',ayuda:'Sin PH ni fatiga.'},
  {valor:'magica',nombre:'Mágica',ayuda:'Gasta PH.'},{valor:'natural',nombre:'Natural',ayuda:'Genera fatiga.'},
-];
-/** Estados del catálogo (lib/estados.ts) y «propio»: uno nuevo hecho de primitivas. */
-const ESTADOS:Opcion<string>[]=[
- ...CATALOGO_ESTADOS.filter(d=>!['guardia','ciego','escarcha','marca_luz'].includes(d.id)).map(d=>({valor:d.id,nombre:d.nombre.split(':')[0],icono:d.icono,ayuda:d.descripcion})),
- {valor:'propio',nombre:'Estado propio',icono:'libro',ayuda:'Combina primitivas en un estado nuevo.'},
 ];
 const SUBMENTE:Opcion<string>[]=['control','miedo','ilusion','confusion','memoria','posesion'].map(v=>({valor:v,nombre:v.replace('ilusion','ilusión').replace('confusion','confusión').replace('posesion','posesión')}));
 const IGNORA:Opcion<string>[]=[{valor:'categoria:mental',nombre:'Inmunidad mental'},{valor:'dano:fuego',nombre:'Inmune al fuego'},{valor:'dano:hielo',nombre:'Inmune al hielo'},{valor:'dano:electricidad',nombre:'Inmune al rayo'},{valor:'dano:veneno',nombre:'Inmune al veneno'},{valor:'dano:magico',nombre:'Inmune a la magia'}];
@@ -55,7 +44,6 @@ const CARAS=[2,3,4,6,8,10,12,20,100];
 const limpio=(e:Efecto):Efecto=>Object.fromEntries(Object.entries(e).filter(([,v])=>v!==undefined)) as Efecto;
 
 export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps&{onAnimacion:()=>void}){
- const [todos,setTodos]=useState(false);
  const i=nodo.ruta[1] as number,e=b.efectos[i];
  if(!e)return null;
  const patch=(p:Partial<Efecto>)=>operar({op:'fijar',ruta:nodo.ruta,valor:limpio({...e,...p})});
@@ -75,10 +63,10 @@ export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps
  }
  const dados=e.efecto!=='desplazamiento'&&e.efecto!=='estado'&&e.efecto!=='transformacion'&&!e.tabla_armas;
  const elemental=['dano','crear_arma'].includes(e.efecto)&&!e.tabla_armas;
- const dura=e.efecto==='estado'||e.efecto==='crear_arma'||e.efecto==='transformacion';
+ const dura=e.efecto==='crear_arma'||e.efecto==='transformacion';
  const pasivo=!!e.solo_pasivo;
  return <div className="yq-editor">
-  <label className="yq-campo"><span>Nombre de la acción</span><input maxLength={120} value={e.nombre} placeholder="Tajo, Bola de fuego…" onChange={v=>patch({nombre:v.target.value})}/></label>
+  <label className="yq-campo"><span>{e.solo_pasivo?'Nombre de la pasiva':'Nombre de la acción'}</span><input maxLength={120} value={e.nombre} placeholder="Tajo, Bola de fuego…" onChange={v=>patch({nombre:v.target.value})}/></label>
   {!e.solo_pasivo&&<ImagenAccion valor={e.imagen||''} onChange={url=>patch({imagen:url||undefined})}/>}
   <Fichas etiqueta="Uso" opciones={[{valor:'accion',nombre:'Acción en combate',icono:'espada'},{valor:'pasivo',nombre:'Rasgo siempre activo',icono:'escudo',ayuda:'No ocupa el turno: concede defensas, rasgos o conceptos básicos.'}]} valor={pasivo?'pasivo':'accion'} onChange={v=>patch(v==='pasivo'?{solo_pasivo:true,efecto:'estado',estado:e.estado||e.nombre,estado_tipo:'narrativo',cantidad:0,coste_ph:0,coste_fatiga:0,naturaleza:undefined,tablero:undefined,estado_def:undefined}:{solo_pasivo:undefined,inmunidades:undefined})} grandes/>
   {pasivo&&<>
@@ -88,6 +76,7 @@ export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps
    {e.rasgo&&<EditorRasgo valor={e.rasgo} onChange={rasgo=>patch({rasgo})}/>}
    <Interruptor etiqueta="Sustituye un concepto básico (desarmado o guardia)" valor={!!e.concepto} onChange={v=>patch({concepto:v?e.concepto||structuredClone({...DESARMADO_BASE,nombre:'Mordisco',dano:{...DESARMADO_BASE.dano,cantidad:2,caras:6,tipo_dano:'perforante'},requiere_mano:false}):undefined})}/>
    {e.concepto&&<EditorConcepto valor={e.concepto} onChange={concepto=>patch({concepto})}/>}
+   {e.concepto?.id==='desarmado'&&<button type="button" className="yq-boton" onClick={onAnimacion}>Editar animación</button>}
   </>}
   {!pasivo&&<>
   <Fichas etiqueta="Qué hace" opciones={b.tipo==='habilidad'?[...EFECTOS,{valor:'invocar',nombre:'Invocar',icono:'espectro',ayuda:'Convertir en una acción de invocación.'}]:EFECTOS} valor={e.efecto} onChange={v=>v==='invocar'?operar({op:'convertir_invocacion',id:e.id}):cambiarEfecto(v)}/>
@@ -108,14 +97,7 @@ export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps
     :{rafaga:undefined})}/>
    {e.rafaga&&<p className="yq-nota">{e.cantidad} disparos de 1d{e.caras}{e.modificador?` ${e.modificador>0?'+':'−'} ${Math.abs(e.modificador)}`:''}: cada uno tira para impactar por separado y puede ir al mismo enemigo o a otro. El coste se paga una vez. Tras el primer disparo solo se puede seguir disparando o moverse; los que queden se pierden al terminar el turno.</p>}
   </>}
-  {e.efecto==='estado'&&<>
-   <Fichas etiqueta="Comportamiento" opciones={ESTADOS} valor={e.estado_def?'propio':e.estado_tipo||'narrativo'} onChange={tipo=>tipo==='propio'?patch({estado_tipo:'narrativo',estado_def:e.estado_def||estadoVacio(),estado:''}):patch({estado_tipo:tipo,estado_def:undefined,estado:definicionBase(tipo)?.nombre.split(':')[0]||e.estado,categoria:definicionBase(tipo)?.categoria==='mental'?'mental':e.categoria,subcategoria:definicionBase(tipo)?.subcategoria})} tono="arcano" columnas={3}/>
-   <FichasGrimorio actual={e.estado_def} onElegir={estado_def=>patch({estado_tipo:'narrativo',estado_def,estado:estado_def.nombre,categoria:estado_def.categoria==='mental'?'mental':e.categoria,subcategoria:estado_def.categoria==='mental'?estado_def.subcategoria:e.subcategoria})}/>
-   {e.estado_def?<EditorEstados valor={e.estado_def} onChange={estado_def=>patch({estado_def,estado:estado_def.nombre})}/>
-    :<label className="yq-campo"><span>Nombre del estado</span><input maxLength={200} value={e.estado} onChange={v=>patch({estado:v.target.value})}/></label>}
-  </>}
-  {e.efecto==='estado'&&<><label className="yq-conmutador"><input type="checkbox" checked={!!e.aterrizar} onChange={v=>patch({aterrizar:v.target.checked||undefined,vuelo:undefined,aprendizaje:undefined})}/> Aterrizar desde la capa de vuelo</label><label className="yq-conmutador"><input type="checkbox" checked={!!e.aprendizaje} onChange={v=>patch({aterrizar:undefined,vuelo:undefined,aprendizaje:v.target.checked?{bono:0,cd:15}:undefined})}/>Aprender el último hechizo observado del objetivo</label>
-   {e.aprendizaje&&<div className="yq-costes">{(['bono','cd'] as const).map(k=><label key={k}>{k==='cd'?'CD del GM':'Bono al d20'}<Rueda nombre={k} etiqueta={k==='cd'?'CD de aprendizaje':'Bono de aprendizaje'} valor={e.aprendizaje![k]} min={k==='cd'?1:-100} max={100} onChange={v=>patch({aprendizaje:{...e.aprendizaje!,[k]:v}})}/></label>)}</div>}</>}
+  {e.efecto==='estado'&&<p className="yq-nota">Qué estado aplica, cuánto dura y sus bonos se eligen en su nodo «Estado».</p>}
   {elemental&&<Fichas etiqueta="Elemento" opciones={ELEMENTOS} valor={e.elemento_def?undefined:elementoDe(e)} onChange={elemento=>patch({elemento,elemento_def:undefined})} tono="arcano"/>}
   {elemental&&<FichasGrimorioElementos actual={e.elemento_def} onElegir={elemento_def=>patch({elemento:elemento_def.base,elemento_def})}/>}
   {!e.rafaga&&<>
@@ -137,9 +119,18 @@ export default function EditorAccion({b,nodo,operar,onAnimacion}:EditorNodoProps
    <fieldset className="yq-fichas"><legend>Atraviesa inmunidades</legend><div>{IGNORA.map(o=>{const on=!!e.ignora?.includes(o.valor);return <button key={o.valor} type="button" aria-pressed={on} onClick={()=>{const l=on?(e.ignora||[]).filter(x=>x!==o.valor):[...(e.ignora||[]),o.valor];patch({ignora:l.length?l:undefined});}}><span>{o.nombre}</span></button>;})}</div></fieldset>
   </details>}
   </>}
-  <label className="yq-conmutador"><input type="checkbox" role="switch" checked={todos} onChange={v=>setTodos(v.target.checked)}/><span aria-hidden="true"/>Todos los campos</label>
-  {todos&&<div className="yq-todos yq-desplazable">
-   <EditorDados mostrarAnimacion={false} value={[e]} onChange={lista=>{const efectos=[...b.efectos];efectos.splice(i,1,...lista);operar({op:'fijar',ruta:['efectos'],valor:efectos});}} onPlantilla={id=>operar({op:'desplegar',plantilla:id})}/>
-  </div>}
+  <details className="yq-mente"><summary>Avanzado{e.requisito_forma?' · requisito de forma':''}{e.companero_magico?' · compañero':''}{formaGratis(e)?' · gratis en forma':''}{grupoBarra(e)?` · grupo ${grupoBarra(e)}`:''}</summary>
+   <SelectorRegla tipo="forma" opcional textoOpcional="Siempre cuesta lo indicado" etiqueta="Gratis (0 PH) mientras esté en la forma" valor={formaGratis(e)||''} onChange={f=>patch({gratis_en_forma:f||undefined,ley_limitless:undefined})}/>
+   <SelectorRegla tipo="grupo" crear opcional textoOpcional="En la barra normal" etiqueta="Grupo en la barra de combate" ayuda="Las acciones del mismo grupo se abren juntas desde un botón (p. ej. «Axioma»)." valor={grupoBarra(e)||''} onChange={g=>patch({grupo_barra:g||undefined,axioma:undefined})}/>
+   <Interruptor etiqueta="Solo se puede usar al alcanzar un atributo o etapa" valor={!!e.requisito_forma} onChange={v=>patch({requisito_forma:v?{atributo:'etapa',minimo:1}:undefined})}/>
+   {e.requisito_forma&&<div className="yq-fila">
+    <SelectorRegla tipo="atributo" etiqueta="Atributo o etapa" valor={e.requisito_forma.atributo} onChange={atributo=>patch({requisito_forma:{...e.requisito_forma!,atributo}})}/>
+    <label>Mínimo<Rueda nombre="minimo" etiqueta="Valor mínimo requerido" valor={e.requisito_forma.minimo} min={-999} max={999} onChange={minimo=>patch({requisito_forma:{...e.requisito_forma!,minimo}})} compacta/></label>
+   </div>}
+   {e.naturaleza==='magica'||e.coste_ph>0?<>
+    <Interruptor etiqueta="Un compañero concede ventaja mágica una vez por ronda" valor={!!e.companero_magico} onChange={v=>patch({companero_magico:v?e.companero_magico||'Compañero':undefined})}/>
+    {e.companero_magico!==undefined&&<Texto etiqueta="Nombre del compañero (solo para el registro)" valor={e.companero_magico} max={80} onChange={companero_magico=>patch({companero_magico:companero_magico||'Compañero'})}/>}
+   </>:null}
+  </details>
  </div>;
 }

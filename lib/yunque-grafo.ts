@@ -8,6 +8,7 @@ import {describirVision,validarVision} from "./vision";
 import {normalizarReaccion,lineaCosteReaccion} from "./reacciones";
 import {leerOrigen,MENSAJE_ORIGEN} from "./yunque-origen";
 import {plantillaPorId} from "./yunque-plantillas";
+import {definicionBase,definicionAplicada,describirEstado,TIPOS_ESTADO_LEGADO} from "./estados";
 /**
  * Grafo DERIVADO del Borrador (solo lectura): `aGrafo` nunca modifica `b`.
  * El Borrador es la única fuente de verdad; las ediciones son operaciones puras sobre él.
@@ -23,7 +24,9 @@ export type Nodo={id:string;tipo:TipoNodo;ruta:Ruta;titulo:string;frase:string;e
  /** Un editor contextual conserva su nodo mientras exista el dueño de los datos. */
  animacionContexto?:'etapas'|'regla'|'reaccion';
  /** Solo en acciones, reglas y pasivas desplegadas desde una plantilla. */
- plantilla?:SelloPlantilla};
+ plantilla?:SelloPlantilla;
+ /** Acción «siempre activa» (defensas, rasgos, conceptos): se muestra y se agrupa como pasiva. */
+ pasivo?:boolean};
 export type Cable={id:string;desde:{nodo:string;puerto:string};hasta:{nodo:string;puerto:string}};
 export type Grafo={nodos:Nodo[];cables:Cable[]};
 /** `estado`: solo las creaciones aprobadas (o sin estado, p. ej. en pruebas) cuentan como presentes en La Creación. */
@@ -75,16 +78,19 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
   if(!e||typeof e!=='object')return;
   const id='accion:'+e.id,ruta:Ruta=['efectos',i];
   const error=fallo(()=>validarEfectos([e])||validarTactica(e));
-  nodo(id,'accion',ruta,String(e.nombre??'').trim()||EFECTOS_NOMBRE[e.efecto]||'Acción',texto(()=>describirEfecto(e).resumen,'Acción sin describir.'),error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos')]);
+  // La acción dice qué hace; el detalle de cada módulo (p. ej. qué hace el estado) solo aparece en su propio nodo.
+  const resumen=e.efecto==='estado'&&!e.solo_pasivo?`Aplica ${e.estado_def?.nombre||e.estado||'un estado'}.`:texto(()=>describirEfecto(e).resumen,'Acción sin describir.');
+  nodo(id,'accion',ruta,String(e.nombre??'').trim()||(e.solo_pasivo?'Rasgo siempre activo':EFECTOS_NOMBRE[e.efecto])||'Acción',resumen,error,[entrada(['nucleo']),salida('modulos',MODULOS,'Módulos')]);
   sellar(id,e);
-  cable('nucleo','acciones',id);
+  if(e.solo_pasivo){nodos[nodos.length-1].pasivo=true;cable('nucleo','pasivas',id);}else cable('nucleo','acciones',id);
   const modulo=(tipo:TipoNodo,sub:string|null,titulo:string,frase:string,err:string|null=null)=>{
    const mid=`${tipo}:${e.id}`;
    nodo(mid,tipo,sub?[...ruta,sub]:ruta,titulo,frase,err,[entrada(['accion'])]);cable(id,'modulos',mid);
+   if(tipo==='vfx'&&e.solo_pasivo)nodos[nodos.length-1].pasivo=true;
   };
   if(e.tablero)modulo('alcance','tablero','Alcance',`${e.tablero.forma}${e.tablero.tamano?` de ${e.tablero.tamano}`:''}, alcance ${e.tablero.alcance}, afecta a ${e.tablero.afecta}.`);
   if(e.salvacion)modulo('salvacion','salvacion','Salvación',`CD ${e.salvacion.cd} de ${e.salvacion.atributo}; si la supera: ${e.salvacion.exito}.`);
-  if(e.efecto==='estado'&&!e.solo_pasivo)modulo('estado',null,'Estado',e.estado?`Aplica ${e.estado}.`:'Estado sin nombre.');
+  if(e.efecto==='estado'&&!e.solo_pasivo){const d=e.estado_def||definicionBase(e.estado_tipo);const legado=!e.estado_def&&TIPOS_ESTADO_LEGADO.includes(e.estado_tipo||'narrativo');modulo('estado',null,'Estado',d?texto(()=>describirEstado(definicionAplicada(e.estado_def?d:{...d,nombre:e.estado||d.nombre.split(':')[0]},e.duracion,legado)),`Aplica ${e.estado}.`):e.estado?`${e.estado}: estado narrativo (solo bonos).`:'Estado sin nombre.');}
   const reaccion=(()=>{try{return reaccionDe(normalizarReaccion(e));}catch{return null;}})();
   if(reaccion)modulo('reaccion',e.reaccion?'reaccion':'defensa','Reacción',texto(()=>describirReaccion(reaccion,e.coste_ph||0),'Reacción.'),fallo(()=>validarReaccion(reaccion)));
   if(reaccion){const n=nodos.find(x=>x.id===`reaccion:${e.id}`);if(n)n.insignia=texto(()=>lineaCosteReaccion(reaccion,e.coste_ph||0),'Sin coste');}
@@ -167,7 +173,7 @@ export function aGrafo(b:Borrador,ctx:ContextoGrafo):Grafo{
 export const leerRuta=(b:unknown,ruta:Ruta):unknown=>ruta.reduce<unknown>((x,k)=>x!==null&&typeof x==='object'?(x as Record<string|number,unknown>)[k]:undefined,b);
 const mismoNodo=(a:Nodo,b:Nodo)=>a.id===b.id&&a.tipo===b.tipo&&a.titulo===b.titulo&&a.frase===b.frase&&a.error===b.error
  &&a.ruta.length===b.ruta.length&&a.ruta.every((k,i)=>k===b.ruta[i])&&JSON.stringify(a.puertos)===JSON.stringify(b.puertos)
- &&a.animacionContexto===b.animacionContexto&&JSON.stringify(a.plantilla)===JSON.stringify(b.plantilla);
+ &&a.animacionContexto===b.animacionContexto&&JSON.stringify(a.plantilla)===JSON.stringify(b.plantilla)&&a.pasivo===b.pasivo;
 /**
  * Reutiliza los nodos y cables de `previo` que no cambiaron (mismos datos) y, si nada cambió, devuelve `previo` tal cual.
  * Así la interfaz puede memorizar por identidad: al escribir en un nodo, los demás conservan su objeto y no se repintan.

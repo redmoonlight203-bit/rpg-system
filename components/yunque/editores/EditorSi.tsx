@@ -1,6 +1,7 @@
 'use client';
 // Editor de una condición («Si»): el tipo como fichas; «Todas», «Alguna» y «No» agrupan creando nodos «Si» hijos.
 import {SelectorRegla} from '../../SelectorRegla';
+import {OPCIONES_ELEMENTO_O_NINGUNO} from '../../../lib/catalogos';
 import {Fichas,Interruptor,Rueda,type Opcion} from '../Controles';
 import {condicionClara} from '../../../lib/descripciones';
 import type {CondicionRegla,Sujeto} from '../../../lib/reglas';
@@ -12,10 +13,7 @@ export const SUJETOS:Opcion<Sujeto>[]=[
  {valor:'actor',nombre:'Autor',icono:'espada',ayuda:'Quien provocó el evento (por ejemplo, el atacante)'},
  {valor:'objetivo',nombre:'Objetivo',icono:'ojo',ayuda:'Quien recibe el evento (por ejemplo, la víctima)'},
 ];
-export const ELEMENTOS_REGLA:Opcion<string>[]=[
- {valor:'ninguno',nombre:'Sin elemento',icono:'yugen'},{valor:'fuego',nombre:'Fuego',icono:'fuego'},{valor:'agua',nombre:'Agua',icono:'agua'},
- {valor:'hielo',nombre:'Hielo',icono:'hielo'},{valor:'electricidad',nombre:'Rayo',icono:'rayo'},{valor:'luz_sagrada',nombre:'Luz sagrada',icono:'corona'},
-];
+export const ELEMENTOS_REGLA:Opcion<string>[]=OPCIONES_ELEMENTO_O_NINGUNO;
 type Hoja=Exclude<CondicionRegla['tipo'],'todas'|'alguna'|'no'>;
 const TIPOS:Opcion<Hoja>[]=[
  {valor:'siempre',nombre:'Siempre',icono:'yugen',ayuda:'Sin condición adicional'},

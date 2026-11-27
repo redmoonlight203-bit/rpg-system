@@ -10,6 +10,10 @@ import type {Operacion} from '../../lib/yunque-operaciones';
 export type Familia='nucleo'|'accion'|'modulo'|'regla'|'pasiva'|'vinculo';
 const FAMILIA:Record<TipoNodo,Familia>={nucleo:'nucleo',accion:'accion',alcance:'modulo',salvacion:'modulo',estado:'modulo',reaccion:'modulo',transformacion:'modulo',recurso:'modulo',vfx:'modulo',tabla_armas:'modulo',vision:'modulo',invocacion:'accion',cuando:'regla',si:'regla',entonces:'regla',pasiva:'pasiva',vinculo:'vinculo',requisitos:'vinculo'};
 export const familiaDe=(t:TipoNodo):Familia=>FAMILIA[t]??'modulo';
+/** Familia con la que se pinta un nodo: una acción siempre activa se ve como pasiva. */
+export const familiaNodo=(n:Pick<Nodo,'tipo'|'pasivo'>):Familia=>n.pasivo?'pasiva':familiaDe(n.tipo);
+/** Etiqueta pequeña de la cabecera del nodo. */
+export const etiquetaNodo=(n:Pick<Nodo,'tipo'|'pasivo'>):string=>n.pasivo?'Pasiva':NOMBRE_TIPO[n.tipo];
 export const NOMBRE_TIPO:Record<TipoNodo,string>={nucleo:'Núcleo',accion:'Acción',alcance:'Alcance',salvacion:'Salvación',estado:'Estado',reaccion:'Reacción',transformacion:'Transformación',recurso:'Recurso',vfx:'Animación',tabla_armas:'Tabla de armas',vision:'Visión',cuando:'Cuándo',si:'Si',entonces:'Entonces',pasiva:'Pasiva',vinculo:'Vínculo',invocacion:'Invocación',requisitos:'Requisitos'};
 export const ICONO_TIPO:Record<TipoNodo,string>={nucleo:'yugen',accion:'espada',alcance:'ojo',salvacion:'escudo',estado:'fuego',reaccion:'escudo',transformacion:'alma',recurso:'pocion',vfx:'rayo',tabla_armas:'espada',vision:'ojo',cuando:'libro',si:'ojo',entonces:'rayo',pasiva:'vida',vinculo:'anillo',invocacion:'espectro',requisitos:'corona'};
 
@@ -25,11 +29,11 @@ export function puertoLocal(n:Nodo,puerto:string,ancho:number):{x:number;y:numbe
 
 type Props={nodo:Nodo;seleccionado:boolean;encendido?:boolean;nuevo?:boolean;icono?:string;conectados?:Set<string>;pie?:ReactNode;onOperar?:(o:Operacion)=>void;children?:ReactNode};
 export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=false,icono,conectados,pie,onOperar,children}:Props){
- const familia=familiaDe(nodo.tipo),outs=salidas(nodo),entrada=nodo.puertos.find(p=>p.lado==='entrada');
+ const familia=familiaNodo(nodo),outs=salidas(nodo),entrada=nodo.puertos.find(p=>p.lado==='entrada');
  const suelto=nodo.id.startsWith('suelto:');
  const editable=nodo.tipo!=='nucleo'&&!suelto&&!nodo.animacionContexto;
  const duplicable=['accion','cuando','pasiva','entonces'].includes(nodo.tipo)||(nodo.tipo==='si'&&!(nodo.ruta.length===3&&nodo.ruta[2]==='condicion'));
- return <article data-nodo={nodo.id} data-familia={familia} data-tipo={nodo.tipo} aria-label={`${NOMBRE_TIPO[nodo.tipo]}: ${nodo.titulo}${suelto?' (sin conectar)':''}`} aria-current={seleccionado||undefined} data-encendido={encendido||undefined} tabIndex={0}
+ return <article data-nodo={nodo.id} data-familia={familia} data-tipo={nodo.tipo} aria-label={`${etiquetaNodo(nodo)}: ${nodo.titulo}${suelto?' (sin conectar)':''}`} aria-current={seleccionado||undefined} data-encendido={encendido||undefined} tabIndex={0}
   className={['yq-nodo',`yq-nodo--${familia}`,seleccionado&&'is-seleccionado',encendido&&'is-encendido',nuevo&&'is-nuevo',nodo.error&&'is-error',suelto&&'is-suelto'].filter(Boolean).join(' ')}>
   {/* Esquinas sin transform ni opacity propios (el rombo y la esquina opuesta ya van dibujados): con 150+ nodos, cada
       transform u opacity era una capa más de propiedades que el navegador recomponía en cada fotograma. */}
@@ -37,7 +41,7 @@ export default function NodoYunque({nodo,seleccionado,encendido=false,nuevo=fals
   <svg className="yq-nodo-esquina is-bd" viewBox="0 0 18 18" aria-hidden="true"><path d="M17 1V11Q17 17 11 17H1" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M14.1 11.98 16.22 14.1 14.1 16.22 11.98 14.1Z" fill="currentColor"/></svg>
   <header className="yq-nodo-cab" data-asa="">
    <span className="yq-nodo-icono"><IconoYugen id={icono||ICONO_TIPO[nodo.tipo]} size={22}/></span>
-   <span className="yq-nodo-titulos"><small>{NOMBRE_TIPO[nodo.tipo]}</small><strong>{nodo.titulo}</strong>
+   <span className="yq-nodo-titulos"><small>{etiquetaNodo(nodo)}</small><strong>{nodo.titulo}</strong>
     {nodo.plantilla&&<em className="yq-nodo-plantilla" data-huerfana={nodo.plantilla.huerfana||undefined} title={nodo.plantilla.huerfana?'La plantilla ya no existe en el catálogo.':'Este nodo sigue a su plantilla.'}>{nodo.plantilla.huerfana?`Plantilla perdida: ${nodo.plantilla.nombre}`:`Plantilla · ${nodo.plantilla.nombre} v${nodo.plantilla.version}`}</em>}</span>
    {seleccionado&&editable&&onOperar&&<span className="yq-nodo-herramientas">
     {duplicable&&<button type="button" title="Duplicar" aria-label="Duplicar nodo" onClick={()=>onOperar({op:'duplicar',nodo:nodo.id})}><Copy size={14}/></button>}
