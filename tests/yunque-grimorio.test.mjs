@@ -95,7 +95,7 @@ test('eventos, módulos e invocación',()=>{
  b=soltar(b,pieza('Alcance'),{nodo:'salvacion:'+a});
  assert.ok(b.efectos[0].tablero&&b.efectos[0].salvacion,'un módulo soltado sobre otro va a su acción');
  assert.equal(probarSoltar(b,pieza('Alcance'),{nodo:'accion:'+a}),false,'repetido');
- const cur=soltar(b,pieza('Curación'),null);
+ const cur=soltar(b,pieza('Recuperaciones'),null);
  assert.equal(probarSoltar(cur,pieza('Estado'),{nodo:'accion:'+cur.efectos[1].id}),false,'estado solo sobre daño');
  assert.equal(probarSoltar(b,pieza('Estado'),{nodo:'accion:'+a}),true);
  b=soltar(b,pieza('Invocación'),{nodo:'accion:'+a});
@@ -142,7 +142,7 @@ test('soltar una plantilla produce una operación desplegar',()=>{
  assert.deepEqual(json(planSoltar(base(),p,null)),[{op:'desplegar',plantilla:'furia-temporal'}]);
 });
 test('convertir el ataque Invocar conserva las otras acciones y la criatura configurada',()=>{
- const b=soltar(soltar(base(),pieza('Ataque'),null),pieza('Curación'),null);
+ const b=soltar(soltar(base(),pieza('Ataque'),null),pieza('Recuperaciones'),null);
  const previo=soltar(b,pieza('Invocación'),null);
  const r=aplicar(previo,{op:'convertir_invocacion',id:b.efectos[0].id});
  assert.deepEqual(r.invocacion,previo.invocacion);
